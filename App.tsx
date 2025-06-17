@@ -1,28 +1,36 @@
 /**
- * Sample React Native App
- * https://github.com/facebook/react-native
- *
- * @format
+ * KrushiMandi App
  */
 
-import { NewAppScreen } from '@react-native/new-app-screen';
-import { StatusBar, StyleSheet, useColorScheme, View } from 'react-native';
+import React, { useEffect } from 'react';
+import { StatusBar } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import RNBootSplash from 'react-native-bootsplash';
+import { AppNavigator } from './src/navigation';
+import { Colors } from './src/constants';
+import './global.css';
 
-function App() {
-  const isDarkMode = useColorScheme() === 'dark';
+const App: React.FC = () => {
+    const isDark = false;
 
-  return (
-    <View style={styles.container}>
-      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-      <NewAppScreen templateFileName="App.tsx" />
-    </View>
-  );
-}
+    useEffect(() => {
+        const init = async () => {
+            await new Promise(resolve => setTimeout(resolve, 2000));
+        }; init().finally(async () => {
+            await RNBootSplash.hide({ fade: true });
+        });
+    }, []);
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-});
+    return (
+        <GestureHandlerRootView style={{ flex: 1 }}>
+            <StatusBar
+                barStyle={isDark ? 'light-content' : 'dark-content'}
+                backgroundColor={isDark ? Colors.dark.background : Colors.light.background}
+                translucent
+            />
+            <AppNavigator />
+        </GestureHandlerRootView>
+    );
+};
 
 export default App;
