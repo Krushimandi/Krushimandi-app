@@ -9,14 +9,16 @@ import RNBootSplash from 'react-native-bootsplash';
 import { AppNavigator } from './src/navigation';
 import { Colors } from './src/constants';
 import './global.css';
+import './src/config/firebase';
 
 const App: React.FC = () => {
-    const isDark = false;
+    const isDark = false;    useEffect(() => {
 
-    useEffect(() => {
         const init = async () => {
             await new Promise(resolve => setTimeout(resolve, 2000));
-        }; init().finally(async () => {
+        }; 
+        
+        init().finally(async () => {
             await RNBootSplash.hide({ fade: true });
         });
     }, []);

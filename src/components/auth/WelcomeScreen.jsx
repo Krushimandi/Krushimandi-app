@@ -1,5 +1,5 @@
 // File: src/components/WelcomeScreen.jsx
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,15 +9,50 @@ import {
   StatusBar,
   Dimensions
 } from 'react-native';
+import { isPhoneVerified, isRoleSelected, isProfileCompleted } from '../../utils/authFlow';
 
 
 const { width, height } = Dimensions.get('window');
 
 const WelcomeScreen = ({ navigation }) => {
+  
+  useEffect(() => {  
+    console.log('🔍 WelcomeScreen - useEffect triggered');
+    // Check auth state and navigate to appropriate screen
+    const checkAuthAndNavigate = async () => {
+      try {
+        const phoneVerified = await isPhoneVerified();
+        const roleSelected = await isRoleSelected();
+        const profileCompleted = await isProfileCompleted();
+
+        console.log('🔍 WelcomeScreen - Auth state check:', {
+          phoneVerified,
+          roleSelected,
+          profileCompleted
+        });
+
+        // Navigate to the appropriate screen based on current state
+        if (phoneVerified && !roleSelected) {
+          console.log('📱 Phone verified, navigating to RoleSelection');
+          navigation.replace('RoleSelection');
+        } else if (phoneVerified && roleSelected && !profileCompleted) {
+          console.log('👤 Role selected, navigating to IntroduceYourself');
+          navigation.replace('IntroduceYourself');
+        }
+        // If phone not verified, stay on Welcome screen
+      } catch (error) {
+        console.error('Error checking auth state in WelcomeScreen:', error);
+      }
+    };
+
+    checkAuthAndNavigate();
+  }, [navigation]);
+
   const handleGetStarted = () => {
     console.log('Get Started pressed');
     navigation.navigate('MobileScreen');
   };
+  
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />

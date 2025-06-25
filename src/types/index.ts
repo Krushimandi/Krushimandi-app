@@ -127,9 +127,14 @@ export interface OTPVerificationRequest {
 
 // Navigation Types
 export type RootStackParamList = {
-  Welcome: undefined;
   Auth: undefined;
   Main: undefined;
+  Settings: undefined;
+  Profile: undefined;
+  NotificationDetail: undefined;
+  Notification: undefined;
+  ProfileScreen: undefined;
+  ProductFlow: undefined | { screen: string; params: any };
 };
 
 export type AuthStackParamList = {
@@ -138,14 +143,27 @@ export type AuthStackParamList = {
   OTPVerification: { phone?: string };
   RoleSelection: undefined;
   IntroduceYourself: { userRole?: string };
-  PhotoUpload: undefined;
+  AuthDebug?: undefined; // Add this for development/debug only
 };
 
 export type MainTabParamList = {
+  Home: undefined;
   AddFruit: undefined;
-  EditProfile: undefined;
-  Profile: undefined;
-  Settings: undefined;
+  Requests: undefined;
+};
+
+export type FruitStackParamList = {
+  AddFruit: undefined;
+  PriceSelection: undefined;
+  PhotoUpload: undefined;
+};
+
+export type ProductStackParamList = {
+  HomeScreen: undefined;
+  PriceSelection: undefined;
+  PhotoUpload: undefined;
+  AddFruit: undefined;
+  ProductDetail: { product: any };
 };
 
 export type HomeStackParamList = {
@@ -198,3 +216,6 @@ export interface PaginatedData<T> {
 }
 
 export type Theme = 'light' | 'dark' | 'system';
+
+// Re-export all navigation types
+export * from '../navigation/types';

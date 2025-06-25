@@ -8,16 +8,19 @@ import {
   SafeAreaView,
   ActivityIndicator,
   Animated,
+  Image,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { setAuthStep } from '../../utils/authFlow';
 
 const RoleSelectionScreen = ({ navigation }) => {
   const [selectedRole, setSelectedRole] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
-
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
+
   useEffect(() => {
     // Entrance animation
     Animated.parallel([
@@ -46,14 +49,20 @@ const RoleSelectionScreen = ({ navigation }) => {
   const handleRoleSelect = (role) => {
     setSelectedRole(role);
   };
-
   const handleGetStarted = async () => {
     if (selectedRole) {
       setIsLoading(true);
       try {
-        // Simulate API call to save role
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        // Save role to AsyncStorage
+        const userData = {
+          userRole: selectedRole,
+          createdAt: new Date().toISOString()
+        };
+        await AsyncStorage.setItem('userData', JSON.stringify(userData));
         
+        // Update auth step
+        await setAuthStep('RoleSelected');
+
         console.log('Selected role:', selectedRole);
         navigation.navigate('IntroduceYourself', { userRole: selectedRole });
       } catch (err) {
@@ -72,21 +81,21 @@ const RoleSelectionScreen = ({ navigation }) => {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-      
+
       <View style={styles.innerContainer}>
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={handleBackPress} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color="#333" />
           </TouchableOpacity>
-          
+
           <TouchableOpacity onPress={showHelp} style={styles.helpButton}>
             <Ionicons name="help-circle-outline" size={24} color="#007E2F" />
           </TouchableOpacity>
         </View>
 
         {/* Main Content */}
-        <Animated.View 
+        <Animated.View
           style={[
             styles.content,
             {
@@ -102,18 +111,11 @@ const RoleSelectionScreen = ({ navigation }) => {
           <View style={styles.illustrationContainer}>
             <View style={styles.illustrationBackground}>
               {/* Placeholder illustration - you can replace with actual image */}
-              <View style={styles.personLeft}>
-                <View style={styles.personAvatar}>
-                  <Ionicons name="person" size={40} color="#007E2F" />
-                </View>
-                <Text style={styles.personLabel}>Farmer</Text>
-              </View>
-              <View style={styles.personRight}>
-                <View style={styles.personAvatarFemale}>
-                  <Ionicons name="person" size={40} color="#FF6B6B" />
-                </View>
-                <Text style={styles.personLabel}>Buyer</Text>
-              </View>
+              <Image
+                source={require('../../assets/images/illus.png')}
+                style={{ width: 280, height: 280 }}
+                resizeMode="center"
+              />
             </View>
           </View>
 
@@ -251,14 +253,10 @@ const styles = StyleSheet.create({
   illustrationBackground: {
     width: 280,
     height: 200,
-    backgroundColor: '#F0F8FF',
     borderRadius: 20,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
-    paddingHorizontal: 40,
-    borderWidth: 1,
-    borderColor: '#E8F4FD',
   },
   personLeft: {
     alignItems: 'center',

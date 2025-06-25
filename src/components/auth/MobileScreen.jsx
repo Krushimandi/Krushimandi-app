@@ -20,15 +20,16 @@ import {
   Platform,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import auth from '@react-native-firebase/auth';
 
 const MobileScreen = ({ navigation }) => {
-  const [mobile, setMobile] = useState('');
-  const [modalVisible, setModalVisible] = useState(false);
+  const [mobile, setMobile] = useState('');  const [modalVisible, setModalVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [isFocused, setIsFocused] = useState(false);
-  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const [showHelpModal, setShowHelpModal] = useState(false);  const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
+  const modalAnimation = useRef(new Animated.Value(0)).current;
   const inputRef = useRef(null);
   const scrollViewRef = useRef(null);
   useEffect(() => {
@@ -123,13 +124,11 @@ const MobileScreen = ({ navigation }) => {
     setError('');
 
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
-      console.log('Phone number:', mobile);
-      navigation.navigate('OTPVerification', { phone: `+91${mobile}` });
+      // Send OTP using Firebase
+      const confirmation = await auth().signInWithPhoneNumber(`+91${mobile}`);
+      navigation.navigate('OTPVerification', { phone: `+91${mobile}`, confirmation });
     } catch (err) {
-      setError('Something went wrong. Please try again.');
+      setError('Failed to send OTP. Please try again.' + err);
     } finally {
       setIsLoading(false);
     }
@@ -138,16 +137,24 @@ const MobileScreen = ({ navigation }) => {
   const handleBackPress = () => {
     navigation.goBack();
   };
-
   const showHelp = () => {
-    Alert.alert(
-      'Need Help?',
-      'Enter your 10-digit mobile number to receive an OTP for verification. Make sure you have access to this number.',
-      [
-        { text: 'Got it', style: 'default' },
-        { text: 'Contact Support', style: 'default', onPress: () => {/* Add support contact logic */ } }
-      ]
-    );
+    setShowHelpModal(true);
+    Animated.spring(modalAnimation, {
+      toValue: 1,
+      useNativeDriver: true,
+      tension: 100,
+      friction: 8,
+    }).start();
+  };
+
+  const closeHelpModal = () => {
+    Animated.timing(modalAnimation, {
+      toValue: 0,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => {
+      setShowHelpModal(false);
+    });
   };
   // Handle dismissing keyboard only when tapping outside input area
   const handleOutsidePress = () => {
@@ -156,13 +163,12 @@ const MobileScreen = ({ navigation }) => {
     }
   }; return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-
-      <KeyboardAvoidingView
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />      <KeyboardAvoidingView
         style={styles.keyboardAvoidingView}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
-      >        <View style={styles.innerContainer}>
+      >
+        <View style={styles.innerContainer}>
           {/* Header */}
           <TouchableWithoutFeedback onPress={handleOutsidePress}>
             <View style={styles.header}>
@@ -211,12 +217,11 @@ const MobileScreen = ({ navigation }) => {
               ]}
             >
               <Text style={styles.heading}>Verify your phone number</Text>
-              <Text style={styles.subtext}>
-                We'll send you a 6-digit verification code to confirm your identity
-              </Text>
+              <Text style={styles.subtext}>We'll send you a 6-digit verification code to confirm your identity</Text>
 
-              {/* Enhanced Input Section */}
-              <View style={styles.inputSection}>                <Text style={styles.inputLabel}>Mobile Number</Text>
+              {/* Enhanced Input Section */}              
+              <View style={styles.inputSection}>
+                <Text style={styles.inputLabel}>Mobile Number</Text>
                 <View style={inputWrapperStyle}>
                   <View style={styles.phoneInputRow}>
                     <View style={styles.countryCodeContainer}>
@@ -264,13 +269,7 @@ const MobileScreen = ({ navigation }) => {
                 <Text style={styles.characterCount}>
                   {mobile.length}/10 digits
                 </Text>
-              </View>              {/* Security note */}
-              <View style={styles.securityNote}>
-                <Ionicons name="shield-checkmark" size={16} color="#007E2F" />
-                <Text style={styles.securityText}>
-                  Your number is safe and will only be used for verification
-                </Text>
-              </View>
+              </View>              
             </Animated.View>
           </ScrollView>
 
@@ -292,10 +291,72 @@ const MobileScreen = ({ navigation }) => {
                   <Text style={styles.nextText}>Continue</Text>
                   <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
                 </>)}
-            </TouchableOpacity>
-          </View>
+            </TouchableOpacity>          </View>
         </View>
       </KeyboardAvoidingView>
+
+      {/* Help Modal */}
+      {showHelpModal && (
+        <View style={styles.modalOverlay}>
+          <TouchableWithoutFeedback onPress={closeHelpModal}>
+            <View style={styles.modalBackground} />
+          </TouchableWithoutFeedback>
+          
+          <Animated.View 
+            style={[
+              styles.helpModal,
+              {
+                transform: [
+                  {
+                    scale: modalAnimation.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.8, 1],
+                    }),
+                  },
+                  {
+                    translateY: modalAnimation.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [50, 0],
+                    }),
+                  },
+                ],
+                opacity: modalAnimation,
+              },
+            ]}
+          >
+            {/* Modal Header */}
+            <View style={styles.modalHeader}>
+              <View style={styles.helpIconContainer}>
+                <Ionicons name="help-circle" size={28} color="#007E2F" />
+              </View>
+              <Text style={styles.modalTitle}>Need Help?</Text>
+              <TouchableOpacity onPress={closeHelpModal} style={styles.closeButton}>
+                <Ionicons name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Modal Content */}
+            <View style={styles.modalContent}>
+              <Text style={styles.modalSubtitle}>Tips for entering your mobile number:</Text>
+              
+              <View style={styles.helpOption}>
+                <Ionicons name="call-outline" size={20} color="#007E2F" />
+                <Text style={styles.helpOptionText}>Enter 10-digit Indian mobile number</Text>
+              </View>
+
+              <View style={styles.helpOption}>
+                <Ionicons name="shield-checkmark-outline" size={20} color="#007E2F" />
+                <Text style={styles.helpOptionText}>Your number is secure and verified</Text>
+              </View>
+
+              <View style={styles.helpOption}>
+                <Ionicons name="chatbubble-outline" size={20} color="#007E2F" />
+                <Text style={styles.helpOptionText}>You'll receive an SMS verification code</Text>
+              </View>
+            </View>
+          </Animated.View>
+        </View>
+      )}
     </SafeAreaView>
   );
 };
@@ -496,12 +557,95 @@ const styles = StyleSheet.create({
     backgroundColor: '#CCCCCC',
     shadowOpacity: 0,
     elevation: 0,
-  },
-  nextText: {
+  },  nextText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
     marginRight: 8,
+  },
+  // Help Modal Styles
+  modalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  modalBackground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  helpModal: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    marginHorizontal: 24,
+    maxWidth: 400,
+    width: '90%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 16,
+  },
+  helpIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#E8F5E8',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#1A1A1A',
+    flex: 1,
+  },
+  closeButton: {
+    padding: 8,
+    borderRadius: 16,
+    backgroundColor: '#F5F5F5',
+  },
+  modalContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  modalSubtitle: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 20,
+    lineHeight: 22,
+  },
+  helpOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 12,
+    marginBottom: 10,
+  },
+  helpOptionText: {
+    fontSize: 15,
+    color: '#333',
+    marginLeft: 12,
+    flex: 1,
+    lineHeight: 20,
   },
 });
 

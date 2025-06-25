@@ -47,14 +47,19 @@ const SplashScreen: React.FC = () => {
     return () => clearTimeout(timer);
   }, [isOnboardingComplete, isAuthenticated, token]);
   const checkAuthAndNavigate = async () => {
-    try {
-      if (!isOnboardingComplete) {
+    try {      if (!isOnboardingComplete) {
+        // Use direct navigation for Onboarding since it might not be in RootStackParamList
         (navigation as any).navigate('Onboarding');
       } else if (isAuthenticated && token) {
-        // Optionally refresh token here
-        (navigation as any).navigate('Main');
+        // Import and use our navigation utility to avoid reset errors
+        import('../../utils/navigationUtils').then(({ navigateToMain }) => {
+          navigateToMain();
+        });
       } else {
-        (navigation as any).navigate('Auth');
+        // Import and use our navigation utility to avoid reset errors
+        import('../../utils/navigationUtils').then(({ navigateToAuth }) => {
+          navigateToAuth();
+        });
       }
     } catch (error) {
       console.error('Navigation error:', error);

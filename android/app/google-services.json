@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "915325221809",
+    "firebase_url": "https://krushimandi-fruit-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "krushimandi-fruit",
+    "storage_bucket": "krushimandi-fruit.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:915325221809:android:9869d311ec5c802692db90",
+        "android_client_info": {
+          "package_name": "com.krushimandi.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBwRBl7lr5hhW2lIqkJsoxf1qLnkOIIvcM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

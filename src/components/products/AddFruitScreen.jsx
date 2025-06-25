@@ -16,6 +16,7 @@ import {
   StatusBar
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import { Colors } from '../../constants';
 
 const AddFruitScreen = ({ navigation }) => {
   const [fruitName, setFruitName] = useState('');
@@ -69,14 +70,16 @@ const AddFruitScreen = ({ navigation }) => {
     navigation.goBack();
   }; return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-
+      <StatusBar
+        backgroundColor="transparent"
+        translucent={true}
+        barStyle="dark-content"
+      />
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
-
         <ScrollView
           ref={scrollViewRef}
           style={styles.scrollView}
@@ -93,6 +96,7 @@ const AddFruitScreen = ({ navigation }) => {
           <View style={styles.content}>
             {/* Fruit Name Input */}
             <View style={styles.inputContainer}>
+              <Text style={styles.headerTitle}>Add Fruit</Text>
               <Text style={styles.label}>Enter fruit name</Text>
               <TextInput
                 style={[
@@ -258,7 +262,8 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-  },  progressContainer: {
+    paddingTop: StatusBar.currentHeight + 8,
+  }, progressContainer: {
     height: 3,
     backgroundColor: '#e0e0e0',
     marginHorizontal: 20,
@@ -271,7 +276,8 @@ const styles = StyleSheet.create({
     borderRadius: 1.5,
   },
   scrollView: {
-    flex: 1,  },
+    flex: 1,
+  },
   scrollContent: {
     flexGrow: 1,
     paddingBottom: 120,
@@ -282,6 +288,12 @@ const styles = StyleSheet.create({
   },
   inputContainer: {
     marginBottom: 24,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#000000',
+    marginBottom: 8,
   },
   label: {
     fontSize: 16,
@@ -299,7 +311,7 @@ const styles = StyleSheet.create({
     color: '#000000',
   },
   inputFocused: {
-    borderColor: '#007AFF',
+    borderColor: Colors.light.primaryDark,
     borderWidth: 2,
   },
   dropdownInput: {
@@ -409,7 +421,7 @@ const styles = StyleSheet.create({
     textTransform: 'capitalize',
   },
   selectedOption: {
-    color: '#007AFF',
+    color: Colors.light.primaryDark,
     fontWeight: '600',
   },
   modalCloseButton: {

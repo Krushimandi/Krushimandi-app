@@ -1,144 +1,119 @@
 /**
- * Navigation Configuration
- * Defines all navigation stacks and screens
+ * Root Navigator
+ * Main entry point for app navigation
  */
 
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import Ionicons from 'react-native-vector-icons/Ionicons';
+import auth from '@react-native-firebase/auth';
+import { navigationRef } from './navigationService';
 
-// Component Screens - Organized by Category
-import {
-  WelcomeScreen,
-  MobileScreen,
-  OTPVerificationScreen,
-  RoleSelectionScreen,
-  IntroduceYourselfScreen,
-  PhotoUploadScreen,
-} from '../components/auth';
+// Helpers
+import { getAuthState, debugAuthState, UserAuthState } from '../utils/authFlow';
 
-// Product Screens
-import { AddFruitScreen, ProductDetailScreen, ProductCard, ProductsListScreen } from '../components/products';
+// Screen components
+import LoadingScreen from '../components/common/LoadingScreen';
+import { NotificationScreen, NotificationDetail } from '../components/notification';
+import { SettingsScreen } from '../components/settings';
+import { ProfileScreen } from '../components/profile';
 
-// Profile Screens
-import { EditProfileScreen } from '../components/profile';
+// Navigation provider
+import { NavigationProvider } from './NavigationProvider';
+
+// Navigation stacks
+import AuthNavigator, { getAuthScreen } from './auth/AuthStack';
+import FarmerStack from './farmer/FarmerStack';
+import BuyerStack from './buyer/BuyerStack';
 
 // Types
-import {
-  RootStackParamList,
-  AuthStackParamList,
-  MainTabParamList,
-} from '../types';
+import { RootStackParamList } from './types';
 
 // Store
-import { useAuthStore, useAppStore } from '../store';
-import { Colors } from '../constants';
+import { useAuthStore } from '../store';
 
 const RootStack = createStackNavigator<RootStackParamList>();
-const AuthStack = createStackNavigator<AuthStackParamList>();
-const MainTab = createBottomTabNavigator<MainTabParamList>();
 
-// Auth Navigator
-const AuthNavigator = () => {
-  return (
-    <AuthStack.Navigator
-      screenOptions={{
-        headerShown: false,
-      }}
-    >
-      <AuthStack.Screen name="Welcome" component={WelcomeScreen} />
-      <AuthStack.Screen name="MobileScreen" component={MobileScreen} />
-      <AuthStack.Screen name="OTPVerification" component={OTPVerificationScreen} />
-      <AuthStack.Screen name="RoleSelection" component={RoleSelectionScreen} />
-      <AuthStack.Screen name="IntroduceYourself" component={IntroduceYourselfScreen} />
-      <AuthStack.Screen name="PhotoUpload" component={PhotoUploadScreen} />
-    </AuthStack.Navigator>
-  );
-};
-
-// Main Tab Navigator
-const MainTabNavigator = () => {
-  const { theme } = useAppStore();
-  const isDark = theme === 'dark';
-
-  return (
-    <MainTab.Navigator
-      screenOptions={({ route }: any) => ({
-        headerShown: false,
-        tabBarIcon: ({ focused, color, size }: any) => {
-          let iconName: string;
-
-          switch (route.name) {
-            case 'AddFruit':
-              iconName = focused ? 'add-circle' : 'add-circle-outline';
-              break;
-            case 'EditProfile':
-              iconName = focused ? 'person' : 'person-outline';
-              break;
-            case 'Profile':
-              iconName = focused ? 'settings' : 'settings-outline';
-              break;
-            case 'Settings':
-              iconName = focused ? 'cog' : 'cog-outline';
-              break;
-            default:
-              iconName = 'circle';
-          }
-
-          return <Ionicons name={iconName} size={size} color={color} />;
-        },
-        tabBarActiveTintColor: isDark ? Colors.dark.tabBarActive : Colors.light.tabBarActive,
-        tabBarInactiveTintColor: isDark ? Colors.dark.tabBarInactive : Colors.light.tabBarInactive,
-        tabBarStyle: {
-          backgroundColor: isDark ? Colors.dark.tabBarBackground : Colors.light.tabBarBackground,
-          borderTopColor: isDark ? Colors.dark.border : Colors.light.border,
-        },
-      })}
-    >
-      <MainTab.Screen
-        name="AddFruit"
-        component={AddFruitScreen}
-        options={{ tabBarLabel: 'Add Fruit' }}
-      />
-      <MainTab.Screen
-        name="EditProfile"
-        component={EditProfileScreen}
-        options={{ tabBarLabel: 'Edit Profile' }}
-      />
-      <MainTab.Screen
-        name="Profile"
-        component={EditProfileScreen}
-        options={{ tabBarLabel: 'Profile' }}
-      />
-      <MainTab.Screen
-        name="Settings"
-        component={EditProfileScreen}
-        options={{ tabBarLabel: 'Settings' }}
-      />
-    </MainTab.Navigator>
-  );
-};
+// We're now using navigationRef from navigationService
 
 // Root Navigator
 const AppNavigator = () => {
-  const { isAuthenticated } = useAuthStore();
+  const [authState, setAuthState] = React.useState<UserAuthState | null>(null);
+  const [loading, setLoading] = React.useState(true);
+  const authStore = useAuthStore();
+  const userRole = authStore.user?.userType;
 
+  React.useEffect(() => {
+    const checkAuthState = async () => {
+      try {
+        const state = await getAuthState();
+        if (__DEV__) await debugAuthState();
+        setAuthState(state);
+      } catch (error) {
+        setAuthState({
+          isAuthenticated: false,
+          phoneVerified: false,
+          roleSelected: false,
+          profileCompleted: false,
+          currentStep: 'welcome',
+          nextRoute: 'Auth',
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+    const unsubscribe = auth().onAuthStateChanged(async () => {
+      await checkAuthState();
+    });
+    checkAuthState();
+    return unsubscribe;
+  }, []);
+  // Choose the appropriate stack based on user role
+  const getMainComponent = () => {
+    switch (userRole) {
+      case 'buyer':
+        return BuyerStack;
+      case 'farmer':
+        return FarmerStack;
+      default:
+        // If userRole is undefined or not recognized, default to FarmerStack
+        console.warn('User role not defined or recognized, defaulting to Farmer UI');
+        return FarmerStack;
+    }
+  };
+
+  if (loading || !authState) {
+    return <LoadingScreen />;
+  }
+  
+  // If not authenticated, route to correct AuthStack screen
+  if (!authState.isAuthenticated || authState.nextRoute === 'Auth') {
+    const initialAuthScreen = getAuthScreen(authState.currentStep);    return (
+      <NavigationProvider>
+        <NavigationContainer ref={navigationRef} onReady={() => console.log('Navigation container is ready')}>
+          <RootStack.Navigator screenOptions={{ headerShown: false }} initialRouteName="Auth">
+            <RootStack.Screen name="Auth" component={AuthNavigator} />
+          </RootStack.Navigator>
+        </NavigationContainer>
+      </NavigationProvider>
+    );
+  }
+  
+  // If authenticated, go to Main based on role
+  const MainStack = getMainComponent();
   return (
-    <NavigationContainer>
-      <RootStack.Navigator
-        screenOptions={{
-          headerShown: false,
-        }}
-      >
-        {!isAuthenticated ? (
+    <NavigationProvider>
+      <NavigationContainer ref={navigationRef} onReady={() => console.log('Navigation container is ready')}>
+        <RootStack.Navigator screenOptions={{ headerShown: false }} initialRouteName="Main">
+          <RootStack.Screen name="Main" component={MainStack} />
           <RootStack.Screen name="Auth" component={AuthNavigator} />
-        ) : (
-          <RootStack.Screen name="Main" component={MainTabNavigator} />
-        )}
-      </RootStack.Navigator>
-    </NavigationContainer>
+          <RootStack.Screen name="Notification" component={NotificationScreen} />
+          <RootStack.Screen name="NotificationDetail" component={NotificationDetail as React.ComponentType<any>} />
+          <RootStack.Screen name="ProfileScreen" component={ProfileScreen} />
+          <RootStack.Screen name="Settings" component={SettingsScreen} options={{ presentation: 'modal' }} />
+        </RootStack.Navigator>
+      </NavigationContainer>
+    </NavigationProvider>
   );
 };
 

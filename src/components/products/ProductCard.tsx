@@ -12,13 +12,17 @@ import { Colors } from '../../constants';
 const { width } = Dimensions.get('window');
 
 interface ProductCardItem {
-  id?: number;
+  id?: number | string;
   name: string;
   description: string;
   price: number;
   rating: number;
   reviewCount: number;
   isFavorite?: boolean;
+  farmerName?: string;
+  location?: string;
+  category?: string;
+  image?: string;
 }
 
 interface ProductCardProps {

@@ -3,7 +3,9 @@
  * Re-exports all product related components
  */
 
-export { default as AddFruitScreen } from './AddFruitScreen.jsx';
-export { default as ProductDetailScreen } from './ProductDetailScreen.tsx';
-export { default as ProductCard } from './ProductCard.tsx';
-export { default as ProductsListScreen } from './ProductsListScreen.tsx';
+export { default as AddFruitScreen } from './AddFruitScreen';
+export { default as PhotoUploadScreen } from './PhotoUploadScreen';
+export { default as ProductDetailScreen } from './ProductDetailScreen';
+export { default as ProductCard } from './ProductCard';
+export { default as ProductsListScreen } from './ProductsListScreen';
+export { default as PriceSelectionScreen } from './PriceSelectionScreen';

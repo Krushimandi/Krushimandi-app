@@ -5,6 +5,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   StyleSheet,
   ScrollView,
   Platform,
@@ -15,23 +16,47 @@ import {
   ActivityIndicator,
   Animated,
   Vibration,
+  InteractionManager,
+  Keyboard,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import auth from '@react-native-firebase/auth';
 
 const OTPVerificationScreen = ({ navigation, route }) => {
   const [otp, setOtp] = useState(''); // Single string for OTP
   const [timer, setTimer] = useState(60);
   const [canResend, setCanResend] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [isFocused, setIsFocused] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const [isPressed, setIsPressed] = useState(false);
   const [error, setError] = useState('');
-  const inputRef = useRef(null);
-  const shakeAnimation = useRef(new Animated.Value(0)).current;
+  const [showHelpModal, setShowHelpModal] = useState(false);
+  const inputRef = useRef(null);  const shakeAnimation = useRef(new Animated.Value(0)).current;
   const fadeAnimation = useRef(new Animated.Value(0)).current;
   const cursorAnimation = useRef(new Animated.Value(1)).current;
-
+  const modalAnimation = useRef(new Animated.Value(0)).current;
+  const lastTapTime = useRef(0);
   // Get phone number from navigation params
   const phoneNumber = route?.params?.phone || '+91 XXXXXXXXXX';
+  const confirmation = route?.params?.confirmation;
+
+  // Keyboard listeners
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
+      console.log('Keyboard shown');
+      setIsKeyboardVisible(true);
+    });
+
+    const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
+      console.log('Keyboard hidden');
+      setIsKeyboardVisible(false);
+    });
+
+    return () => {
+      keyboardDidShowListener?.remove();
+      keyboardDidHideListener?.remove();
+    };
+  }, []);
 
   // Cursor blinking animation
   useEffect(() => {
@@ -63,8 +88,7 @@ const OTPVerificationScreen = ({ navigation, route }) => {
       return () => clearInterval(interval);
     } else {
       setCanResend(true);
-    }
-  }, [timer]);
+    }  }, [timer]);
 
   // Entrance animation
   useEffect(() => {
@@ -73,74 +97,274 @@ const OTPVerificationScreen = ({ navigation, route }) => {
       duration: 600,
       useNativeDriver: true,
     }).start();
-  }, []);
-  const handleOtpChange = (value) => {
+
+    // Auto-focus the input when screen loads
+    const focusTimer = setTimeout(() => {
+      if (inputRef.current) {
+        inputRef.current.focus();
+      }
+    }, 800); // Give time for animation to complete
+
+    return () => clearTimeout(focusTimer);
+  }, []);  const handleOtpChange = (value) => {
     // Only allow digits and limit to 6 characters
     const cleanedValue = value.replace(/[^0-9]/g, '').slice(0, 6);
     setOtp(cleanedValue);
 
-    // Clear error when user starts typing
+    // Clear error when user starts typing or pasting
     if (error) {
       setError('');
     }
-  };
 
-  const handleInputFocus = () => {
+    // Log if 6 digits are entered (from paste or typing)
+    if (cleanedValue.length === 6) {
+      console.log('Full OTP entered:', cleanedValue);
+    }
+  };const handleInputFocus = () => {
+    console.log('Input focused');
     setIsFocused(true);
+    setError(''); // Clear any existing errors when focusing
   };
 
   const handleInputBlur = () => {
+    console.log('Input blurred');
     setIsFocused(false);
-  }; const handleVerify = async () => {
+  };  // More robust focus handling with debouncing
+  const handleContainerPress = () => {
+    const currentTime = Date.now();
+    
+    // Prevent rapid successive taps
+    if (currentTime - lastTapTime.current < 300) {
+      return;
+    }
+    lastTapTime.current = currentTime;
+    
+    console.log('Container pressed, current focus state:', isFocused, 'keyboard visible:', isKeyboardVisible);
+    
+    // Visual feedback
+    setIsPressed(true);
+    setTimeout(() => setIsPressed(false), 150);
+    
+    // Clear any errors first
+    setError('');
+    
+    if (inputRef.current) {
+      // Always try to focus, let React Native handle the rest
+      inputRef.current.focus();
+      
+      // If the input doesn't seem to be responding, use fallback methods
+      setTimeout(() => {
+        if (inputRef.current && !isKeyboardVisible && !isFocused) {
+          console.log('Using fallback focus method');
+          inputRef.current.blur();
+          
+          // Small delay before refocusing
+          setTimeout(() => {
+            if (inputRef.current) {
+              inputRef.current.focus();
+            }
+          }, 50);
+        }
+      }, 200);
+    }
+  };
+
+  // Add method to force focus
+  const forceKeyboardOpen = () => {
+    if (inputRef.current) {
+      inputRef.current.blur();
+      InteractionManager.runAfterInteractions(() => {
+        setTimeout(() => {
+          if (inputRef.current) {
+            inputRef.current.focus();
+          }
+        }, 50);
+      });
+    }
+  };  const handleVerify = async () => {
     if (otp.length === 6) {
       setIsLoading(true);
+      setError('');
       try {
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 1500));        console.log('OTP Code:', otp);
-        Alert.alert('Success', 'OTP verified successfully!');
-        navigation.navigate('RoleSelection');
+        if (!confirmation) {
+          throw new Error('No confirmation object found. Please request a new OTP.');
+        }
+
+        // Confirm the OTP
+        const userCredential = await confirmation.confirm(otp);
+        console.log('✅ OTP verified successfully for user:', userCredential.user.uid);
+        
+        // Import dynamically to avoid circular dependency issues
+        const { checkUserExistsInFirestore, saveUserToAsyncStorage } = require('../../services/firebaseService');
+        
+        // Check if user data exists in Firestore using phone number
+        const result = await checkUserExistsInFirestore(phoneNumber);
+        
+        if (result.exists && result.userData) {
+          console.log('✅ User data found in Firestore, restoring session', result.userData);
+          
+          // Save the existing user data to AsyncStorage
+          await saveUserToAsyncStorage(result.userData);
+          
+          // Show success message
+          Alert.alert('Welcome Back', 'Your account has been recovered successfully!');
+            // Navigate directly to HomeScreen using our utility function
+          import('../../utils/navigationUtils').then(
+            ({ navigateToMain }) => navigateToMain()
+          );
+        } else {
+          // User data not found in Firestore, proceed with new user flow
+          console.log('❌ User data not found in Firestore, continuing with new user setup');
+          Alert.alert('Success', 'OTP verified successfully!');
+          
+          // Navigate to role selection for new user setup
+          navigation.replace('RoleSelection');
+        }
+        
       } catch (err) {
-        setError('Invalid OTP. Please try again.');
-        // Shake animation for error
+        console.error('OTP Verification Error:', err);
+        
+        // Clear the OTP field for wrong OTP
+        setOtp('');
+        
+        // Handle different error types
+        let errorMessage = 'Invalid OTP. Please try again.';
+        if (err.code === 'auth/invalid-verification-code') {
+          errorMessage = 'Invalid verification code. Please check and try again.';
+        } else if (err.code === 'auth/session-expired') {
+          errorMessage = 'OTP has expired. Please request a new one.';
+          setCanResend(true);
+          setTimer(0);
+        } else if (err.code === 'auth/too-many-requests') {
+          errorMessage = 'Too many attempts. Please try again later.';
+        } else if (err.message && err.message.includes('confirmation')) {
+          errorMessage = 'Session expired. Please request a new OTP.';
+          setCanResend(true);
+          setTimer(0);
+        }
+        
+        setError(errorMessage);
+        
+        // Shake animation for visual feedback
         Animated.sequence([
-          Animated.timing(shakeAnimation, {
-            toValue: 10,
-            duration: 100,
-            useNativeDriver: true,
-          }),
-          Animated.timing(shakeAnimation, {
-            toValue: -10,
-            duration: 100,
-            useNativeDriver: true,
-          }),
-          Animated.timing(shakeAnimation, {
-            toValue: 0,
-            duration: 100,
-            useNativeDriver: true,
-          }),
+          Animated.timing(shakeAnimation, { toValue: 10, duration: 100, useNativeDriver: true }),
+          Animated.timing(shakeAnimation, { toValue: -10, duration: 100, useNativeDriver: true }),
+          Animated.timing(shakeAnimation, { toValue: 10, duration: 100, useNativeDriver: true }),
+          Animated.timing(shakeAnimation, { toValue: 0, duration: 100, useNativeDriver: true }),
         ]).start();
-        Vibration.vibrate(400);
+          // Vibration feedback with error handling
+        try {
+          if (Platform.OS === 'android') {
+            Vibration.vibrate([0, 100, 50, 100]);
+          } else {
+            Vibration.vibrate();
+          }
+        } catch (vibrationError) {
+          console.warn('Vibration failed:', vibrationError);
+          // Fallback: Just continue without vibration
+        }
+        
+        // Auto-focus input for retry
+        setTimeout(() => {
+          if (inputRef.current) {
+            inputRef.current.focus();
+          }
+        }, 500);
       } finally {
         setIsLoading(false);
       }
     } else {
       setError('Please enter complete 6-digit OTP code');
+      // Focus the input if incomplete
+      if (inputRef.current) {
+        inputRef.current.focus();
+      }
     }
-  }; const handleResend = () => {
+  };
+
+  const handleResend = async () => {
     if (canResend) {
       setTimer(60);
       setCanResend(false);
-      setOtp(''); // Clear OTP
-      inputRef.current?.focus();
-      console.log('Resending OTP...');
+      setOtp('');
+      setError('');
+      try {
+        const newConfirmation = await auth().signInWithPhoneNumber(phoneNumber);
+        route.params.confirmation = newConfirmation;
+        Alert.alert('OTP Sent', 'A new OTP has been sent to your phone.');
+      } catch (err) {
+        setError('Failed to resend OTP. Try again.');
+      }
+      setTimeout(() => {
+        if (inputRef.current) inputRef.current.focus();
+      }, 100);
     }
   };
 
   const handleBackPress = () => {
     navigation.goBack();
-  };
-  const handleEditPhone = () => {
+  };  const handleEditPhone = () => {
     navigation.goBack(); // Go back to mobile screen
+  };  const handleHelp = () => {
+    setShowHelpModal(true);
+    Animated.spring(modalAnimation, {
+      toValue: 1,
+      useNativeDriver: true,
+      tension: 100,
+      friction: 8,
+    }).start();
+  };
+
+  const closeHelpModal = () => {
+    Animated.timing(modalAnimation, {
+      toValue: 0,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => {
+      setShowHelpModal(false);
+    });
+  };
+
+  const showCommonIssues = () => {
+    Alert.alert(
+      'Common OTP Issues',
+      '📱 SMS Delivery:\n' +
+      '• Check your SMS/Messages app\n' +
+      '• Ensure good network signal\n' +
+      '• SMS may take 1-2 minutes to arrive\n\n' +
+      '⏰ Code Expiry:\n' +
+      '• OTP codes expire after a few minutes\n' +
+      '• Request a new code if expired\n\n' +
+      '📋 Input Tips:\n' +
+      '• You can paste the 6-digit code directly\n' +
+      '• Make sure to enter all 6 digits\n' +
+      '• Code is case-sensitive\n\n' +
+      '🔄 Still Having Issues?\n' +
+      '• Try requesting a new code\n' +
+      '• Check if phone number is correct\n' +
+      '• Contact support if problem persists',
+      [
+        {
+          text: 'Change Phone Number',
+          onPress: () => handleEditPhone(),
+          style: 'default'
+        },
+        {
+          text: 'Try Again',
+          onPress: () => {
+            setError('');
+            if (inputRef.current) {
+              inputRef.current.focus();
+            }
+          },
+          style: 'default'
+        },
+        {
+          text: 'OK',
+          style: 'cancel'
+        }
+      ]
+    );
   };
 
   const formatTime = (seconds) => {
@@ -164,9 +388,13 @@ const OTPVerificationScreen = ({ navigation, route }) => {
           <View style={styles.header}>
             <TouchableOpacity onPress={handleBackPress} style={styles.backButton}>
               <Ionicons name="arrow-back" size={24} color="#333" />
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.helpButton}>
+            </TouchableOpacity>            <TouchableOpacity 
+              onPress={handleHelp} 
+              style={styles.helpButton}
+              accessible={true}
+              accessibilityLabel="Get help with OTP verification"
+              accessibilityHint="Shows information about common OTP issues and solutions"
+            >
               <Ionicons name="help-circle-outline" size={24} color="#007E2F" />
             </TouchableOpacity>
           </View>
@@ -191,28 +419,26 @@ const OTPVerificationScreen = ({ navigation, route }) => {
                 <TouchableOpacity onPress={handleEditPhone} style={styles.editButton}>
                   <Ionicons name="pencil" size={18} color="#007E2F" />
                 </TouchableOpacity>
-              </View>
-
-              {/* Instruction text */}
+              </View>              {/* Instruction text */}
               <Text style={styles.instructionText}>
-                Tap the field below and enter your verification code
-              </Text>{/* OTP Input Field */}
+                Tap the field below and enter your verification code or paste it directly
+              </Text>
+
+              {/* OTP Input Field */}              
               <Animated.View
                 style={[
                   styles.otpContainer,
                   { transform: [{ translateX: shakeAnimation }] }
                 ]}
               >
-                <TouchableOpacity
-                  style={[
-                    styles.otpInputContainer,
-                    isFocused && styles.otpInputContainerFocused,
-                    error && styles.otpInputContainerError
-                  ]}
-                  onPress={() => inputRef.current?.focus()}
-                  activeOpacity={1}
-                >
-                  {/* Hidden TextInput */}
+                <TouchableWithoutFeedback onPress={handleContainerPress}>
+                  <View                    style={[
+                      styles.otpInputContainer,
+                      isFocused && styles.otpInputContainerFocused,
+                      error && styles.otpInputContainerError,
+                      isPressed && styles.otpInputContainerPressed
+                    ]}
+                  >                {/* TextInput - Made more accessible and robust with paste support */}
                   <TextInput
                     ref={inputRef}
                     style={styles.hiddenInput}
@@ -224,10 +450,28 @@ const OTPVerificationScreen = ({ navigation, route }) => {
                     maxLength={6}
                     autoComplete="sms-otp"
                     textContentType="oneTimeCode"
-                  />
-
-                  {/* Visual OTP Display */}
-                  <View style={styles.otpDisplayContainer}>
+                    autoFocus={false}
+                    blurOnSubmit={false}
+                    caretHidden={false}
+                    selectTextOnFocus={true}
+                    contextMenuHidden={false}
+                    importantForAccessibility="yes"
+                    accessible={true}
+                    accessibilityLabel="OTP Input Field"
+                    editable={true}
+                    showSoftInputOnFocus={true}
+                    multiline={false}
+                    numberOfLines={1}
+                    allowFontScaling={false}
+                    spellCheck={false}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />{/* Visual OTP Display */}
+                  <TouchableOpacity 
+                    style={styles.otpDisplayContainer}
+                    onPress={handleContainerPress}
+                    activeOpacity={1}
+                  >
                     {[...Array(6)].map((_, index) => (
                       <View key={index} style={styles.otpDigitContainer}>
                         <Text style={[
@@ -239,28 +483,30 @@ const OTPVerificationScreen = ({ navigation, route }) => {
                         {index < 5 && <View style={styles.separator} />}
                       </View>
                     ))}
-                  </View>
+                  </TouchableOpacity>
                   {/* Cursor */}
                   {isFocused && otp.length < 6 && (
                     <Animated.View
                       style={[
                         styles.cursor,
                         {
-                          left: 32 + (otp.length * 38),
-                          top: 22,
+                          left: 32 + (otp.length * 38),                          top: 22,
                           opacity: cursorAnimation,
                         }
-                      ]}
-                    />
+                      ]}                    />
                   )}
-                </TouchableOpacity>
-              </Animated.View>
-
-              {/* Error message */}
+                  </View>
+                </TouchableWithoutFeedback>
+              </Animated.View>              {/* Error message */}
               {error ? (
-                <Animated.View style={styles.errorContainer}>
-                  <Ionicons name="alert-circle" size={16} color="#FF3547" />
-                  <Text style={styles.errorText}>{error}</Text>
+                <Animated.View style={[
+                  styles.errorContainer,
+                  { transform: [{ translateX: shakeAnimation }] }
+                ]}>
+                  <Ionicons name="alert-circle" size={18} color="#FF3547" />
+                  <Text style={styles.errorText}>{error}</Text>                  <TouchableOpacity onPress={handleHelp} style={styles.helpIconSmall}>
+                    <Ionicons name="help-circle" size={16} color="#007E2F" />
+                  </TouchableOpacity>
                 </Animated.View>
               ) : null}
 
@@ -304,11 +550,103 @@ const OTPVerificationScreen = ({ navigation, route }) => {
                   <Text style={styles.verifyButtonText}>Verify Code</Text>
                   <Ionicons name="checkmark" size={16} color="#FFFFFF" />
                 </>
-              )}
-            </TouchableOpacity>
+              )}            </TouchableOpacity>
           </View>
         </View>
       </KeyboardAvoidingView>
+
+      {/* Beautiful Help Modal */}
+      {showHelpModal && (
+        <View style={styles.modalOverlay}>
+          <TouchableWithoutFeedback onPress={closeHelpModal}>
+            <View style={styles.modalBackground} />
+          </TouchableWithoutFeedback>
+          
+          <Animated.View 
+            style={[
+              styles.helpModal,
+              {
+                transform: [
+                  {
+                    scale: modalAnimation.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.8, 1],
+                    }),
+                  },
+                  {
+                    translateY: modalAnimation.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [50, 0],
+                    }),
+                  },
+                ],
+                opacity: modalAnimation,
+              },
+            ]}
+          >
+            {/* Modal Header */}
+            <View style={styles.modalHeader}>
+              <View style={styles.helpIconContainer}>
+                <Ionicons name="help-circle" size={28} color="#007E2F" />
+              </View>
+              <Text style={styles.modalTitle}>Need Help?</Text>
+              <TouchableOpacity onPress={closeHelpModal} style={styles.closeButton}>
+                <Ionicons name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Modal Content */}
+            <View style={styles.modalContent}>
+              <Text style={styles.modalSubtitle}>Having trouble with your code?</Text>
+              
+              <View style={styles.helpOption}>
+                <Ionicons name="chatbubble-outline" size={20} color="#007E2F" />
+                <Text style={styles.helpOptionText}>Check your SMS messages</Text>
+              </View>
+
+              <View style={styles.helpOption}>
+                <Ionicons name="time-outline" size={20} color="#007E2F" />
+                <Text style={styles.helpOptionText}>Code expires in a few minutes</Text>
+              </View>
+
+              <View style={styles.helpOption}>
+                <Ionicons name="clipboard-outline" size={20} color="#007E2F" />
+                <Text style={styles.helpOptionText}>You can paste the code directly</Text>
+              </View>
+            </View>
+
+            {/* Modal Actions */}
+            <View style={styles.modalActions}>
+              <TouchableOpacity 
+                style={styles.actionButton}
+                onPress={() => {
+                  closeHelpModal();
+                  if (canResend) {
+                    handleResend();
+                  }
+                }}
+                disabled={!canResend}
+              >
+                <Ionicons name="refresh" size={18} color={canResend ? "#007E2F" : "#999"} />
+                <Text style={[styles.actionButtonText, !canResend && styles.actionButtonTextDisabled]}>
+                  {canResend ? 'Resend Code' : `Wait ${formatTime(timer)}`}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={styles.actionButton}
+                onPress={() => {
+                  closeHelpModal();
+                  handleEditPhone();
+                }}
+              >
+                <Ionicons name="pencil" size={18} color="#007E2F" />
+                <Text style={styles.actionButtonText}>Edit Phone</Text>
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
+        </View>
+      )}
     </SafeAreaView>
   );
 };
@@ -338,11 +676,15 @@ const styles = StyleSheet.create({
     padding: 8,
     borderRadius: 20,
     backgroundColor: '#F8F9FA',
-  },
-  helpButton: {
+  },  helpButton: {
     padding: 8,
     borderRadius: 20,
     backgroundColor: '#E8F5E8',
+    shadowColor: '#007E2F',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   scrollView: {
     flex: 1,
@@ -391,13 +733,19 @@ const styles = StyleSheet.create({
     padding: 4,
     borderRadius: 8,
     backgroundColor: '#E8F5E8',
-  },
-  instructionText: {
+  },  instructionText: {
     fontSize: 14,
     color: '#999',
     textAlign: 'center',
     marginBottom: 20,
     fontStyle: 'italic',
+  },
+  pasteHint: {
+    fontSize: 12,
+    color: '#007E2F',
+    textAlign: 'center',
+    marginBottom: 10,
+    fontWeight: '500',
   },
   otpContainer: {
     marginBottom: 30,
@@ -422,16 +770,27 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 4,
-  },
-  otpInputContainerError: {
+  },  otpInputContainerError: {
     borderColor: '#FF3547',
     backgroundColor: '#FFF5F5',
   },
-  hiddenInput: {
+  otpInputContainerPressed: {
+    backgroundColor: '#F0F8F0',
+    transform: [{ scale: 0.98 }],
+  },  hiddenInput: {
     position: 'absolute',
-    opacity: 0,
-    width: 1,
-    height: 1,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    opacity: 0.01, // Make slightly visible for paste functionality
+    zIndex: 2,
+    fontSize: 24,
+    textAlign: 'center',
+    color: 'transparent',
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    padding: 0,
   },
   otpDisplayContainer: {
     flexDirection: 'row',
@@ -467,20 +826,32 @@ const styles = StyleSheet.create({
     height: 24,
     backgroundColor: '#007E2F',
     borderRadius: 1,
-  },
-  errorContainer: {
+  },  errorContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 12,
-    paddingHorizontal: 24,
+    marginTop: 16,
+    marginHorizontal: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#FFF5F5',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FFE5E5',
     justifyContent: 'center',
-  },
-  errorText: {
+  },  errorText: {
     fontSize: 14,
     color: '#FF3547',
-    marginLeft: 6,
+    marginLeft: 8,
     fontWeight: '500',
     textAlign: 'center',
+    flex: 1,
+    lineHeight: 20,
+  },
+  helpIconSmall: {
+    padding: 4,
+    marginLeft: 8,
+    borderRadius: 12,
+    backgroundColor: '#E8F5E8',
   },
   securityNote: {
     flexDirection: 'row',
@@ -543,12 +914,122 @@ const styles = StyleSheet.create({
     backgroundColor: '#CCCCCC',
     shadowOpacity: 0,
     elevation: 0,
-  },
-  verifyButtonText: {
+  },  verifyButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
     marginRight: 8,
+  },
+  // Help Modal Styles
+  modalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  modalBackground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  helpModal: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    marginHorizontal: 24,
+    maxWidth: 400,
+    width: '90%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 16,
+  },
+  helpIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#E8F5E8',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#1A1A1A',
+    flex: 1,
+  },
+  closeButton: {
+    padding: 8,
+    borderRadius: 16,
+    backgroundColor: '#F5F5F5',
+  },
+  modalContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  modalSubtitle: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 20,
+    lineHeight: 22,
+  },
+  helpOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 12,
+    marginBottom: 10,
+  },
+  helpOptionText: {
+    fontSize: 15,
+    color: '#333',
+    marginLeft: 12,
+    flex: 1,
+    lineHeight: 20,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    gap: 12,
+  },
+  actionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    backgroundColor: '#E8F5E8',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#D0E7D0',
+  },
+  actionButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#007E2F',
+    marginLeft: 6,
+  },
+  actionButtonTextDisabled: {
+    color: '#999',
   },
 });
 

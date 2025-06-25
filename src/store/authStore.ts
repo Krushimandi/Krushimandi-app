@@ -57,7 +57,8 @@ export const useAuthStore = create<AuthStore>()(
           });
           throw error;
         }
-      },      register: async (userData: any): Promise<void> => {
+      },      
+      register: async (userData: any): Promise<void> => {
         try {
           set({ isLoading: true, error: null });
           
