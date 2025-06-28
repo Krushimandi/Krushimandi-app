@@ -10,14 +10,21 @@ import { AppNavigator } from './src/navigation';
 import { Colors } from './src/constants';
 import './global.css';
 import './src/config/firebase';
+// In App.js or index.js
+import { LogBox } from 'react-native';
+
 
 const App: React.FC = () => {
-    const isDark = false;    useEffect(() => {
 
+    LogBox.ignoreAllLogs(true); // Hide all warnings
+
+    const isDark = false;
+    
+    useEffect(() => {
         const init = async () => {
             await new Promise(resolve => setTimeout(resolve, 2000));
-        }; 
-        
+        };
+
         init().finally(async () => {
             await RNBootSplash.hide({ fade: true });
         });

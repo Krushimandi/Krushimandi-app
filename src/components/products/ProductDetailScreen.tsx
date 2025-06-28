@@ -16,7 +16,10 @@ import {
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Octicons from 'react-native-vector-icons/Octicons';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { RouteProp } from '@react-navigation/native';
 import { Colors } from '../../constants';
+import { ProductStackParamList } from '../../types';
 
 const { width, height } = Dimensions.get('window');
 
@@ -33,16 +36,10 @@ interface Product {
   postedDate?: string;
 }
 
-interface ProductDetailScreenProps {
-  navigation: {
-    goBack: () => void;
-  };
-  route?: {
-    params?: {
-      product?: Product;
-    };
-  };
-}
+type ProductDetailScreenProps = {
+  navigation: StackNavigationProp<ProductStackParamList, 'ProductDetail'>;
+  route: RouteProp<ProductStackParamList, 'ProductDetail'>;
+};
 
 const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, route }) => {
   const [selectedSize, setSelectedSize] = useState<string>('1 kg');

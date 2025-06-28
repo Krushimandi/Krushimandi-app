@@ -154,8 +154,8 @@ export type MainTabParamList = {
 
 export type FruitStackParamList = {
   AddFruit: undefined;
-  PriceSelection: undefined;
-  PhotoUpload: undefined;
+  PhotoUpload: { fruitData: any };
+  PriceSelection: { productData: any };
 };
 
 export type ProductStackParamList = {

@@ -44,7 +44,8 @@ const BuyerStack = () => {
             case 'Home':
               return <Octicons name="home" size={22} color={color} />;
             case 'Browse':
-              return <Ionicons name="search" size={24} color={color} />;            case 'Orders':
+              return <Ionicons name="search" size={24} color={color} />;
+            case 'Orders':
               return <Feather name="package" size={22} color={color} />;
             case 'Watchlist':
               return <Ionicons name="heart-outline" size={22} color={color} />;
@@ -83,7 +84,8 @@ const BuyerStack = () => {
           fontWeight: '500',
         },
       })}
-    >      <BuyerTab.Screen
+    >
+      <BuyerTab.Screen
         name="Home"
         component={BuyerHomeScreen}
         options={{
@@ -96,7 +98,8 @@ const BuyerStack = () => {
         options={{
           tabBarLabel: 'Browse',
         }}
-      />      <BuyerTab.Screen
+      />
+      <BuyerTab.Screen
         name="Orders"
         component={MyOrdersScreen}
         options={{

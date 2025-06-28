@@ -51,6 +51,7 @@ export type CommonScreensParamList = {
 export type MainTabParamList = {
   Home: undefined;
   AddFruit: undefined;
+  AddFarm: undefined;
   Requests: undefined;
 };
 
@@ -72,4 +73,12 @@ export type FruitStackParamList = {
   AddFruit: undefined;
   PhotoUpload: { fruitData: any };
   PriceSelection: { fruitData: any; photoUrls: string[] };
+};
+
+// Farm Stack (for farmers)
+export type FarmStackParamList = {
+  AddFarm: undefined;
+  FarmDetails: { farmData: any };
+  FarmLocation: { farmData: any };
+  FarmPhotos: { farmData: any };
 };

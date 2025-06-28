@@ -15,20 +15,21 @@ import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 // Components
 import { FarmerHomeScreen } from '../../components/home';
 import { RequestsScreen } from '../../components/requests';
-import { AddFruitScreen, PhotoUploadScreen, PriceSelectionScreen } from '../../components/products';
+import { AddFruitScreen, PhotoUploadScreen, PriceSelectionScreen, ProductDetailScreen } from '../../components/products';
 
 // Hooks
 import { useAppStore } from '../../store';
 import { useNavigationControl } from '../NavigationProvider';
 
 // Types
-import { MainTabParamList, FruitStackParamList } from '../../types';
+import { MainTabParamList, FruitStackParamList, ProductStackParamList } from '../../types';
 
 // Constants
 import { Colors } from '../../constants';
 
 const MainTab = createBottomTabNavigator<MainTabParamList>();
 const FruitStack = createStackNavigator<FruitStackParamList>();
+const ProductStack = createStackNavigator<ProductStackParamList>();
 
 // New Fruit Navigator - Specific to farmers
 const NewFruitNavigator = () => (
@@ -37,6 +38,13 @@ const NewFruitNavigator = () => (
     <FruitStack.Screen name="PhotoUpload" component={PhotoUploadScreen} />
     <FruitStack.Screen name="PriceSelection" component={PriceSelectionScreen} />
   </FruitStack.Navigator>
+);
+
+// Product Flow Navigator - For viewing and managing products
+const ProductFlowNavigator = () => (
+  <ProductStack.Navigator screenOptions={{ headerShown: false }}>
+    <ProductStack.Screen name="ProductDetail" component={ProductDetailScreen} />
+  </ProductStack.Navigator>
 );
 
 // Farmer Tab Navigator
@@ -94,7 +102,8 @@ const FarmerStack = () => {
           fontWeight: '500',
         },
       })}
-    >      <MainTab.Screen
+    >
+      <MainTab.Screen
         name="Home"
         component={FarmerHomeScreen}
         options={{

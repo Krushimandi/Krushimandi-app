@@ -11,12 +11,14 @@ import { navigationRef } from './navigationService';
 
 // Helpers
 import { getAuthState, debugAuthState, UserAuthState } from '../utils/authFlow';
+import { authStateManager } from '../utils/authStateManager';
 
 // Screen components
 import LoadingScreen from '../components/common/LoadingScreen';
 import { NotificationScreen, NotificationDetail } from '../components/notification';
 import { SettingsScreen } from '../components/settings';
 import { ProfileScreen } from '../components/profile';
+import { ProductDetailScreen } from '../components/products';
 
 // Navigation provider
 import { NavigationProvider } from './NavigationProvider';
@@ -27,12 +29,23 @@ import FarmerStack from './farmer/FarmerStack';
 import BuyerStack from './buyer/BuyerStack';
 
 // Types
-import { RootStackParamList } from './types';
+import { RootStackParamList, ProductStackParamList } from './types';
 
 // Store
 import { useAuthStore } from '../store';
 
 const RootStack = createStackNavigator<RootStackParamList>();
+const ProductStack = createStackNavigator<ProductStackParamList>();
+
+// ProductFlow Navigator
+const ProductFlowNavigator = () => (
+  <ProductStack.Navigator screenOptions={{ headerShown: false }}>
+    <ProductStack.Screen 
+      name="ProductDetail" 
+      component={ProductDetailScreen as React.ComponentType<any>} 
+    />
+  </ProductStack.Navigator>
+);
 
 // We're now using navigationRef from navigationService
 
@@ -62,12 +75,45 @@ const AppNavigator = () => {
         setLoading(false);
       }
     };
-    const unsubscribe = auth().onAuthStateChanged(async () => {
+
+    // Listen to Firebase auth state changes
+    const unsubscribeAuth = auth().onAuthStateChanged(async () => {
       await checkAuthState();
     });
+
+    // Listen to auth state manager for other changes (like auth step completion)
+    const unsubscribeAuthManager = authStateManager.addListener((authState) => {
+      console.log('🔄 Auth state updated via manager:', authState);
+      setAuthState(authState);
+      setLoading(false);
+    });
+
     checkAuthState();
-    return unsubscribe;
+
+    return () => {
+      unsubscribeAuth();
+      unsubscribeAuthManager();
+    };
   }, []);
+
+  // Effect to handle navigation when auth state changes
+  React.useEffect(() => {
+    if (!authState || loading) return;
+
+    const shouldShowMainApp = authState.isAuthenticated && 
+      authState.profileCompleted && 
+      authState.nextRoute === 'Main';
+
+    if (navigationRef.isReady()) {
+      if (shouldShowMainApp) {
+        console.log('🚀 Navigating to Main app');
+        navigationRef.navigate('Main');
+      } else {
+        console.log('🔐 Navigating to Auth flow');
+        navigationRef.navigate('Auth');
+      }
+    }
+  }, [authState, loading]);
   // Choose the appropriate stack based on user role
   const getMainComponent = () => {
     switch (userRole) {
@@ -85,28 +131,34 @@ const AppNavigator = () => {
   if (loading || !authState) {
     return <LoadingScreen />;
   }
-  
-  // If not authenticated, route to correct AuthStack screen
-  if (!authState.isAuthenticated || authState.nextRoute === 'Auth') {
-    const initialAuthScreen = getAuthScreen(authState.currentStep);    return (
-      <NavigationProvider>
-        <NavigationContainer ref={navigationRef} onReady={() => console.log('Navigation container is ready')}>
-          <RootStack.Navigator screenOptions={{ headerShown: false }} initialRouteName="Auth">
-            <RootStack.Screen name="Auth" component={AuthNavigator} />
-          </RootStack.Navigator>
-        </NavigationContainer>
-      </NavigationProvider>
-    );
-  }
-  
-  // If authenticated, go to Main based on role
+
+  console.log('🔍 AppNavigator render - Auth State:', {
+    isAuthenticated: authState.isAuthenticated,
+    phoneVerified: authState.phoneVerified,
+    roleSelected: authState.roleSelected,
+    profileCompleted: authState.profileCompleted,
+    currentStep: authState.currentStep,
+    nextRoute: authState.nextRoute
+  });
+
+  // Choose the appropriate stack based on user role
   const MainStack = getMainComponent();
+
+  // Determine initial route based on auth state
+  const shouldShowMainApp = authState.isAuthenticated && 
+    authState.profileCompleted && 
+    authState.nextRoute === 'Main';
+
   return (
     <NavigationProvider>
       <NavigationContainer ref={navigationRef} onReady={() => console.log('Navigation container is ready')}>
-        <RootStack.Navigator screenOptions={{ headerShown: false }} initialRouteName="Main">
-          <RootStack.Screen name="Main" component={MainStack} />
+        <RootStack.Navigator 
+          screenOptions={{ headerShown: false }} 
+          initialRouteName={shouldShowMainApp ? "Main" : "Auth"}
+        >
           <RootStack.Screen name="Auth" component={AuthNavigator} />
+          <RootStack.Screen name="Main" component={MainStack} />
+          <RootStack.Screen name="ProductFlow" component={ProductFlowNavigator} />
           <RootStack.Screen name="Notification" component={NotificationScreen} />
           <RootStack.Screen name="NotificationDetail" component={NotificationDetail as React.ComponentType<any>} />
           <RootStack.Screen name="ProfileScreen" component={ProfileScreen} />

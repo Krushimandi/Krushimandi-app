@@ -68,14 +68,11 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
     const checkFirebaseUser = async () => {
       console.log('🔍 IntroduceYourselfScreen - Starting Firebase user check...');
 
-      // Run comprehensive auth state test
-      await testFirebaseAuthState();
-
-      // Wait for Firebase auth to be ready
-      const user = await waitForFirebaseAuth(3000);
+      // Check current Firebase user
+      const user = auth().currentUser;
 
       if (!user) {
-        console.error('❌ No Firebase user found after wait period!');
+        console.error('❌ No Firebase user found!');
         Alert.alert(
           'Authentication Error',
           'Your session has expired. Please sign in again.',
@@ -259,12 +256,38 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
 
         console.log('✅ Profile sync completed successfully');
 
+        // Store profile completion in AsyncStorage as well for persistence
+        try {
+          const existingUserData = await AsyncStorage.getItem('userData');
+          let updatedUserData = userData;
+          
+          if (existingUserData) {
+            const parsed = JSON.parse(existingUserData);
+            updatedUserData = { ...parsed, ...userData };
+          }
+          
+          await AsyncStorage.setItem('userData', JSON.stringify(updatedUserData));
+          console.log('✅ Profile data persisted to AsyncStorage');
+        } catch (storageError) {
+          console.warn('⚠️ Failed to persist profile data to AsyncStorage:', storageError);
+        }
+
         // Mark auth as complete
         await setAuthStep('Complete');
-        setUploadStatus('Complete!');        // Navigate to main app using our utility function
-        import('../../utils/navigationUtils').then(
-          ({ navigateToMain }) => navigateToMain()
-        );
+        setUploadStatus('Complete!');
+        
+        console.log('✅ Auth step set to Complete - AppNavigator should handle navigation automatically');
+        
+        // Give the auth state manager a moment to process and trigger navigation
+        setTimeout(() => {
+          if (isLoading) {
+            console.log('🔄 Navigation should have occurred, clearing loading state');
+            setIsLoading(false);
+          }
+        }, 2000); // Clear loading after 2 seconds as fallback
+        
+        // Don't navigate immediately - let the auth state listener in AppNavigator handle it
+        // The auth state will update and AppNavigator will automatically switch to main app
 
       } catch (error) {
         console.error('❌ Error updating user profile:', error);
@@ -542,7 +565,7 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
                   <Text style={styles.loadingText}>
                     {uploadStatus || 'Processing...'}
                   </Text>
-                  {uploadProgress > 0 && (
+                 {/* uploadProgress > 0 && (
                     <View style={styles.progressContainer}>
                       <View style={styles.progressBar}>
                         <View
@@ -553,7 +576,8 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
                         />
                       </View>
                     </View>
-                  )}
+                  ) */}
+                  
                 </View>
               ) : (
                 <>

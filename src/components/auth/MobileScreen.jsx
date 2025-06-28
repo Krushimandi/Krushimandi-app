@@ -406,7 +406,7 @@ const styles = StyleSheet.create({
     width: 320,
     height: 120,
   }, contentContainer: {
-    paddingVertical: 20,
+    paddingVertical: 22,
   },
   heading: {
     fontSize: 24,

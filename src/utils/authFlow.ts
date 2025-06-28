@@ -179,6 +179,13 @@ export const setAuthStep = async (step: string): Promise<void> => {
   try {
     await AsyncStorage.setItem('authStep', step);
     console.log('✅ Auth step set to:', step);
+    
+    // Small delay to ensure AsyncStorage write is complete
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    // Notify auth state manager of the change
+    const { authStateManager } = await import('./authStateManager');
+    authStateManager.refreshAuthState();
   } catch (error) {
     console.error('Error setting auth step:', error);
   }
@@ -210,17 +217,50 @@ export const getAuthState = async (): Promise<UserAuthState> => {
     const profileCompleted = await isProfileCompleted();
     const authComplete = await isAuthComplete();
 
+    console.log('📊 Auth state components:', {
+      phoneVerified,
+      roleSelected,
+      profileCompleted,
+      authComplete
+    });
+
     // If all steps are complete, go to main app
     if (phoneVerified && roleSelected && profileCompleted && authComplete) {
-      console.log('✅ All auth steps complete, going to Main');
-      return {
-        isAuthenticated: true,
-        phoneVerified: true,
-        roleSelected: true,
-        profileCompleted: true,
-        currentStep: 'complete',
-        nextRoute: 'Main'
-      };
+      console.log('✅ All auth steps complete, checking Firebase user...');
+      
+      // Check if we have a Firebase user
+      const user = auth().currentUser;
+      if (user) {
+        console.log('✅ Firebase user confirmed, going to Main');
+        return {
+          isAuthenticated: true,
+          phoneVerified: true,
+          roleSelected: true,
+          profileCompleted: true,
+          currentStep: 'complete',
+          nextRoute: 'Main'
+        };
+      } else {
+        // Even if Firebase user is missing, if we have complete auth state,
+        // try to restore from AsyncStorage and continue
+        const userData = await AsyncStorage.getItem('userData');
+        if (userData) {
+          const userProfile = JSON.parse(userData);
+          if (userProfile.uid && userProfile.isProfileComplete) {
+            console.log('⚠️ Auth complete but Firebase user missing - continuing with stored data');
+            return {
+              isAuthenticated: true,
+              phoneVerified: true,
+              roleSelected: true,
+              profileCompleted: true,
+              currentStep: 'complete',
+              nextRoute: 'Main'
+            };
+          }
+        }
+        
+        console.log('❌ Auth steps complete but no valid user data - restarting auth');
+      }
     }
 
     // Now check Firebase user for validation if we have partial auth state
@@ -270,10 +310,22 @@ export const getAuthState = async (): Promise<UserAuthState> => {
       currentStep = 'profile_setup';
       console.log('📝 Resuming from profile setup');
     }
-    // Step 4: If everything seems complete but authComplete is false, go to profile
+    // Step 4: If all main steps are complete, go to main app
+    else if (phoneVerified && roleSelected && profileCompleted) {
+      console.log('✅ All main auth steps complete - going to main app');
+      return {
+        isAuthenticated: true,
+        phoneVerified: true,
+        roleSelected: true,
+        profileCompleted: true,
+        currentStep: 'complete',
+        nextRoute: 'Main'
+      };
+    }
+    // Fallback: unexpected state
     else {
       currentStep = 'welcome';
-      console.log('🔄 All steps seem complete but authComplete is false, going to welcome');
+      console.log('⚠️ Unexpected auth state, going to welcome');
     }
 
     return {

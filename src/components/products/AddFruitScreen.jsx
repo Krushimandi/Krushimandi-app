@@ -27,7 +27,10 @@ const AddFruitScreen = ({ navigation }) => {
   const [showQuantityModal, setShowQuantityModal] = useState(false);
   const [isFormValid, setIsFormValid] = useState(false);
   const [focusedInput, setFocusedInput] = useState('');
-  const [progress] = useState(0.6); // 60% progress for Add Fruit screen
+  const [showDescriptionTooltip, setShowDescriptionTooltip] = useState(false);
+  const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
+  const infoIconRef = useRef(null);
+  const [progress, setProgress] = useState(0); // 0% progress for Add Fruit screen
 
   const scrollViewRef = useRef(null);
 
@@ -58,17 +61,41 @@ const AddFruitScreen = ({ navigation }) => {
     setIsFormValid(isValid);
   }, [fruitName, category, quantity, description]);
 
+  React.useEffect(() => {
+    const totalFields = 4;
+    let filled = 0;
+
+    if (fruitName.trim()) filled++;
+    if (category) filled++;
+    if (quantity) filled++;
+    if (description.trim()) filled++;
+
+    const updatedProgress = (33 / totalFields) * filled / 100; // scale to 0–1 range
+    setProgress(updatedProgress);
+  }, [fruitName, category, quantity, description]);
+
+
   const handleContinue = () => {
     if (isFormValid) {
       console.log('Fruit data:', { fruitName, category, quantity, description });
       Keyboard.dismiss();
-      // Handle form submission
+      // Navigate to PhotoUpload screen with the fruit data
+      navigation.navigate('PhotoUpload', {
+        fruitData: {
+          fruitName,
+          category,
+          quantity,
+          description
+        }
+      });
     }
   };
 
   const handleBack = () => {
     navigation.goBack();
-  }; return (
+  };
+
+  return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar
         backgroundColor="transparent"
@@ -158,13 +185,24 @@ const AddFruitScreen = ({ navigation }) => {
                   textAlignVertical="top"
                   returnKeyType="done"
                 />
-                <TouchableOpacity style={styles.infoIcon}>
+                <TouchableOpacity
+                  ref={infoIconRef}
+                  style={styles.infoIcon}
+                  onPress={() => {
+                    infoIconRef.current.measure((fx, fy, width, height, px, py) => {
+                      setTooltipPosition({ x: px, y: py });
+                      setShowDescriptionTooltip(true);
+                    });
+                  }}
+                >
                   <Ionicons name="information-circle-outline" size={20} color="#999999" />
                 </TouchableOpacity>
+
               </View>
             </View>
           </View>
-        </ScrollView>      {/* Continue Button */}
+        </ScrollView>
+        {/* Continue Button */}
         <View style={styles.buttonContainer}>
           <TouchableOpacity
             style={[
@@ -249,6 +287,36 @@ const AddFruitScreen = ({ navigation }) => {
                 <Text style={styles.modalCloseText}>Close</Text>            </TouchableOpacity>          </View>
           </View>
         </Modal>
+
+        {/* Description Tooltip */}
+        <Modal
+          transparent
+          animationType="fade"
+          visible={showDescriptionTooltip}
+          onRequestClose={() => setShowDescriptionTooltip(false)}
+        >
+          <TouchableOpacity
+            style={styles.tooltipOverlay}
+            onPressOut={() => setShowDescriptionTooltip(false)}
+            activeOpacity={1}
+          >
+            <View
+              style={[
+                styles.tooltipBox,
+                {
+                  position: 'absolute',
+                  top: tooltipPosition.y - 30, // Adjust Y above the icon
+                  left: tooltipPosition.x - 242, // Center horizontally (assuming 240px width)
+                }
+              ]}
+            >
+              <Text style={styles.tooltipText}>
+                Mention taste, color, size, harvesting date, and any quality or specialty info.
+              </Text>
+            </View>
+          </TouchableOpacity>
+        </Modal>
+
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -361,7 +429,7 @@ const styles = StyleSheet.create({
     right: 0,
     paddingHorizontal: 20,
     paddingTop: 15,
-    paddingBottom: Platform.OS === 'ios' ? 40 : 25,
+    paddingBottom: Platform.OS === 'ios' ? 64 : 64,
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
     borderTopColor: '#F0F0F0',
@@ -375,7 +443,7 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   continueButton: {
-    backgroundColor: '#000000',
+    backgroundColor: Colors.light.primaryDark,
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
@@ -436,6 +504,30 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
   },
+
+  tooltipOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.15)',
+  },
+
+  tooltipBox: {
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    padding: 12,
+    borderRadius: 8,
+    maxWidth: 240,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    zIndex: 100,
+  },
+
+  tooltipText: {
+    color: '#ffffff',
+    fontSize: 12,
+  },
+
+
 });
 
 export default AddFruitScreen;
