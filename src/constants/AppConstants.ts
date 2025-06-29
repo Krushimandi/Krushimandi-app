@@ -62,6 +62,7 @@ export enum NotificationType {
 export const StorageKeys = {
   USER_TOKEN: '@krushimandi:user_token',
   USER_DATA: '@krushimandi:user_data',
+  USER_ROLE: '@krushimandi:user_role',
   THEME_MODE: '@krushimandi:theme_mode',
   LANGUAGE: '@krushimandi:language',
   ONBOARDING_COMPLETE: '@krushimandi:onboarding_complete',

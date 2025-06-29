@@ -51,6 +51,15 @@ export interface Product {
   updatedAt: string;
 }
 
+export type Fruit = {
+  id: number;
+  name: string;
+  price: string;
+  image: any;
+  bgColor: string;
+  description: string;
+};
+
 export interface Order {
   id: string;
   orderNumber: string;
@@ -143,6 +152,7 @@ export type AuthStackParamList = {
   OTPVerification: { phone?: string };
   RoleSelection: undefined;
   IntroduceYourself: { userRole?: string };
+  FruitsScreen: undefined;
   AuthDebug?: undefined; // Add this for development/debug only
 };
 

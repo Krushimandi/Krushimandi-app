@@ -171,7 +171,7 @@ const RequestsScreen = () => {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [data, setData] = useState<RequestItem[]>(dummyData);
   const [loading, setLoading] = useState<boolean>(false);
-  const [refreshing, setRefreshing] = useState<boolean>(false); 
+  const [refreshing, setRefreshing] = useState<boolean>(false);
   const [filter, setFilter] = useState<FilterCategory>('all');
   const filteredData = data.filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(searchText.toLowerCase()) ||
@@ -380,7 +380,11 @@ const RequestsScreen = () => {
 
       {/* Header - positioned after status bar height */}
       <View style={[styles.header, { marginTop: statusBarHeight }]}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+        <TouchableOpacity style={styles.backButton}
+          onPress={() => {
+            setManageMode(false);
+            navigation.goBack();
+          }}>
           <Icon name="arrow-back" size={22} color={Colors.light.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Connection Requests</Text>        <TouchableOpacity
@@ -389,7 +393,7 @@ const RequestsScreen = () => {
             const newManageMode = !manageMode;
             setManageMode(newManageMode);
             setSelectedIds([]);
-            
+
             // Explicitly control tab bar visibility when button is pressed
             if (newManageMode) {
               hideTabBar(); // Hide when entering manage mode

@@ -1,6 +1,7 @@
 import auth from '@react-native-firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { validateCurrentUser } from '../services/firebaseService';
+import { clearUserRole } from './userRoleStorage';
 
 export interface AuthStep {
   step: string;
@@ -403,6 +404,7 @@ export const clearAuthData = async (): Promise<void> => {
       'auth_state',
       'authStep'
     ]);
+    await clearUserRole();
     console.log('✅ Auth data cleared');
   } catch (error) {
     console.error('Error clearing auth data:', error);

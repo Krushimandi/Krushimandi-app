@@ -13,6 +13,7 @@ import {
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { setAuthStep } from '../../utils/authFlow';
+import { saveUserRole } from '../../utils/userRoleStorage';
 
 const RoleSelectionScreen = ({ navigation }) => {
   const [selectedRole, setSelectedRole] = useState(null);
@@ -53,7 +54,10 @@ const RoleSelectionScreen = ({ navigation }) => {
     if (selectedRole) {
       setIsLoading(true);
       try {
-        // Save role to AsyncStorage
+        // Save role to dedicated localStorage
+        await saveUserRole(selectedRole);
+        
+        // Also save to userData for backward compatibility
         const userData = {
           userRole: selectedRole,
           createdAt: new Date().toISOString()
@@ -63,7 +67,7 @@ const RoleSelectionScreen = ({ navigation }) => {
         // Update auth step
         await setAuthStep('RoleSelected');
 
-        console.log('Selected role:', selectedRole);
+        console.log('Selected role saved to localStorage:', selectedRole);
         navigation.navigate('IntroduceYourself', { userRole: selectedRole });
       } catch (err) {
         console.error('Error saving role:', err);

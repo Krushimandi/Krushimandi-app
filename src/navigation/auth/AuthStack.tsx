@@ -14,6 +14,7 @@ import {
   RoleSelectionScreen,
   IntroduceYourselfScreen,
 } from '../../components/auth';
+import { FruitsScreen } from '../../components/fruitIntrest';
 
 // Types
 import { AuthStackParamList } from '../../types';
@@ -33,6 +34,7 @@ const AuthNavigator = () => {
       <AuthStack.Screen name="OTPVerification" component={OTPVerificationScreen} />
       <AuthStack.Screen name="RoleSelection" component={RoleSelectionScreen} />
       <AuthStack.Screen name="IntroduceYourself" component={IntroduceYourselfScreen} />
+      <AuthStack.Screen name="FruitsScreen" component={FruitsScreen} />
     </AuthStack.Navigator>
   );
 };
@@ -49,6 +51,8 @@ export const getAuthScreen = (step: string) => {
       return 'RoleSelection';
     case 'profile_setup':
       return 'IntroduceYourself';
+    case 'fruits_selection':
+      return 'FruitsScreen';
     default:
       return 'Welcome';
   }

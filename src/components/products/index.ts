@@ -7,5 +7,4 @@ export { default as AddFruitScreen } from './AddFruitScreen';
 export { default as PhotoUploadScreen } from './PhotoUploadScreen';
 export { default as ProductDetailScreen } from './ProductDetailScreen';
 export { default as ProductCard } from './ProductCard';
-export { default as ProductsListScreen } from './ProductsListScreen';
 export { default as PriceSelectionScreen } from './PriceSelectionScreen';

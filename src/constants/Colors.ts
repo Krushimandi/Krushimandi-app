@@ -9,6 +9,8 @@ export const Colors = {
     primary: '#4CAF50',      // Green for agriculture theme
     primaryDark: '#388E3C',
     primaryLight: '#81C784',
+    disabledPrimary: '#9DB2CE',
+    gray: '#8E8E93',
     
     // Secondary Colors
     secondary: '#FF9800',    // Orange for accent

@@ -18,16 +18,23 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
 import { requestImagePickerPermissions } from '../../utils/permissions';
+import { useTabBarControl } from '../../utils/navigationControls';
 
 const PhotoUploadScreen = ({ navigation, route }) => {
     // Get fruit data from previous screen
     const { fruitData } = route.params || {};
 
+    const { showTabBar, hideTabBar } = useTabBarControl();
     const [uploadedPhotos, setUploadedPhotos] = useState([]); // Array of photo URIs
     const maxPhotos = 4; // Increased to 4 photos
     const [progress, setProgress] = useState(0.33); // Start from 33%
     const [imagePickerModalVisible, setImagePickerModalVisible] = useState(false);
     const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+
+    useEffect(() => {
+        // Hide tab bar for this screen
+        hideTabBar();
+    }, []);
 
     useEffect(() => {
         const photoProgress = (uploadedPhotos.length / maxPhotos) * 0.33; // Remaining 33%
@@ -138,7 +145,10 @@ const PhotoUploadScreen = ({ navigation, route }) => {
 
     const handleBack = () => {
         navigation.goBack();
-    }; const handleSkip = () => {
+        showTabBar();
+    };
+
+    const handleSkip = () => {
         Alert.alert(
             'Skip Photo Upload',
             'Are you sure you want to continue without adding photos? Photos help attract more buyers.',
@@ -308,7 +318,7 @@ const PhotoUploadScreen = ({ navigation, route }) => {
                                 <View style={styles.modalOptionIcon}>
                                     <Ionicons name="camera" size={28} color="#4CAF50" />
                                 </View>
-                                <View style={{ flexDirection: 'column',}}>
+                                <View style={{ flexDirection: 'column', }}>
                                     <Text style={styles.modalOptionText}>Camera</Text>
                                     <Text style={styles.modalOptionSubtext}>Take a new photo</Text>
                                 </View>

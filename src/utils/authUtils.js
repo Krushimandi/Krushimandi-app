@@ -1,6 +1,7 @@
 import auth from '@react-native-firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getCompleteUserProfile, clearUserData, updateLastLogin, validateUserProfileCompleteness, validateCurrentUser } from '../services/firebaseService';
+import { clearUserRole } from './userRoleStorage';
 
 /**
  * Get current authenticated user information from Firebase Auth
@@ -148,6 +149,7 @@ export const signOut = async () => {
   try {
     await auth().signOut();
     await AsyncStorage.multiRemove(['userData', 'authStep']);
+    await clearUserRole();
     return true;
   } catch (error) {
     console.error('Error signing out:', error);

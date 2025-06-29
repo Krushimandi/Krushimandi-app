@@ -1,19 +1,24 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  TouchableOpacity, 
-  StyleSheet, 
-  SafeAreaView, 
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  SafeAreaView,
   StatusBar,
+  Image,
   Alert,
   ScrollView,
+  Animated,
   TextInput,
-  Dimensions
+  Dimensions,
+  Platform
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import Svg, { Path, Circle, G, Text as SvgText } from 'react-native-svg';
+import Icon from 'react-native-vector-icons/Ionicons';
+import { Colors } from '../../constants';
 
 // Simple smart pricing - keep complex logic hidden
 const getSmartPrice = (fruitCategory, variety) => {
@@ -21,13 +26,13 @@ const getSmartPrice = (fruitCategory, variety) => {
     mango: { alphonso: 45, kesar: 38, totapuri: 25, langra: 22 },
     apple: { kashmiri: 120, shimla: 85, kinnaur: 95 }
   };
-  
+
   const category = basePrices[fruitCategory] || basePrices.mango;
   const basePrice = category[variety] || Object.values(category)[0] || 30;
-  
+
   // Apply market factors quietly in background (farmers don't need to see this complexity)
   const marketPrice = Math.round(basePrice * 0.92 * 100) / 100; // Simplified calculation
-  
+
   return {
     recommended: marketPrice,
     min: Math.round(marketPrice * 0.85),
@@ -42,66 +47,85 @@ const PriceGauge = ({ currentPrice, minPrice, maxPrice, recommendedPrice }) => {
   const radius = gaugeSize / 2 - 30;
   const centerX = gaugeSize / 2;
   const centerY = gaugeSize / 2; // Center for semi-circle
-  
-  // Calculate angle for current price (180 to 0 degrees - left to right)
-  const priceRange = maxPrice - minPrice;
-  const currentRange = currentPrice - minPrice;
-  const priceRatio = Math.max(0, Math.min(1, currentRange / priceRange));
-  
-  // Map price ratio to angle (180° = left/start, 0° = right/end)
-  const angle = 180 - (priceRatio * 180);
-  
+
+  // Calculate angle for current price
+  const realisticMin = minPrice * 0.9;  // 10% below min is considered unrealistically low
+  const realisticMax = maxPrice * 1.1;  // 10% above max is considered unrealistically high
+
+  let priceRatio = (currentPrice - realisticMin) / (realisticMax - realisticMin);
+  priceRatio = Math.max(0, Math.min(1, priceRatio));  // Clamp between 0 and 1
+
+  const angle = 180 - (priceRatio * 180); // 180° left to 0° right
+
+
   // Get color and status based on price position
   const getPriceStatus = () => {
-    if (priceRatio < 0.4) return { 
-      color: '#FF6B6B', 
-      status: 'Too Low', 
-      chance: 'High chance to sell',
-      bgColor: '#FFE5E5'
-    };
-    if (priceRatio < 0.8) return { 
-      color: '#FFD93D', 
-      status: 'Average', 
-      chance: 'Good chance to sell',
-      bgColor: '#FFF8E1'
-    };
-    return { 
-      color: '#FF6B6B', 
-      status: 'Too High', 
-      chance: 'Very low chance to sell',
-      bgColor: '#FFE5E5'
+    if (priceRatio < 0.33) {
+      return {
+        color: '#FF6B6B',
+        status: 'Too Low',
+        chance: 'High chance to sell but low profit',
+        bgColor: '#FFE5E5'
+      };
+    }
+
+    if (priceRatio >= 0.33 && priceRatio < 0.66) {
+      return {
+        color: '#6BCF7F',
+        status: 'Good Price',
+        chance: 'Good visibility and fair price',
+        bgColor: '#E8F5E9'
+      };
+    }
+
+    if (priceRatio >= 0.66 && priceRatio <= 1) {
+      return {
+        color: '#FFD93D',
+        status: 'Balanced',
+        chance: 'Optimal price with buyer interest',
+        bgColor: '#FFFDE7'
+      };
+    }
+
+    // Fallback
+    return {
+      color: '#C62828',
+      status: 'Unrealistic',
+      chance: 'Check again',
+      bgColor: '#FFEBEE'
     };
   };
-  
+
+
   const { color, status, chance, bgColor } = getPriceStatus();
-  
+
   // Create improved arc paths for a proper semi-circle
   const createArcPath = (startAngle, endAngle) => {
     // Convert to radians and adjust for SVG coordinate system
     const startRad = ((startAngle - 90) * Math.PI) / 180;
     const endRad = ((endAngle - 90) * Math.PI) / 180;
-    
+
     const startX = centerX + radius * Math.cos(startRad);
     const startY = centerY + radius * Math.sin(startRad);
     const endX = centerX + radius * Math.cos(endRad);
     const endY = centerY + radius * Math.sin(endRad);
-    
+
     const largeArcFlag = Math.abs(endAngle - startAngle) > 180 ? 1 : 0;
-    
+
     return `M ${startX} ${startY} A ${radius} ${radius} 0 ${largeArcFlag} 1 ${endX} ${endY}`;
   };
-  
+
   // Calculate needle position (0° = left, 180° = right in our coordinate system)
   const needleAngle = -angle;
   const needleLength = radius - 15;
-  
+
   return (
     <View style={styles.gaugeContainer}>
       {/* Main price display at the top */}
       <View style={styles.priceDisplayTop}>
         <Text style={styles.currentPriceTextLarge}>₹{currentPrice.toFixed(2)}</Text>
       </View>
-      
+
       <Svg width={gaugeSize} height={gaugeSize * 0.6} style={styles.gaugeSvg}>
         {/* Background track - Full semi-circle */}
         <Path
@@ -111,7 +135,7 @@ const PriceGauge = ({ currentPrice, minPrice, maxPrice, recommendedPrice }) => {
           fill="none"
           strokeLinecap="round"
         />
-        
+
         {/* Red section (0-60 degrees - Left side - Too High/Low) */}
         <Path
           d={createArcPath(-90, -30)}
@@ -120,25 +144,25 @@ const PriceGauge = ({ currentPrice, minPrice, maxPrice, recommendedPrice }) => {
           fill="none"
           strokeLinecap="round"
         />
-        
-        {/* Yellow section (60-120 degrees - Middle - Average) */}
+
+        {/* Yellow section (120-180 degrees - Right side - Average) */}
         <Path
-          d={createArcPath(-30, 30)}
+          d={createArcPath(30, 90)}
           stroke="#FFD93D"
           strokeWidth="18"
           fill="none"
           strokeLinecap="round"
         />
-        
-        {/* Green section (120-180 degrees - Right side - Good Price) */}
+
+        {/* Green section (60-120 degrees - Middle - Good Price) */}
         <Path
-          d={createArcPath(30, 90)}
+          d={createArcPath(-30, 30)}
           stroke="#6BCF7F"
           strokeWidth="18"
           fill="none"
           strokeLinecap="round"
         />
-        
+
         {/* Needle */}
         <G transform={`rotate(${needleAngle} ${centerX} ${centerY})`}>
           <Path
@@ -152,7 +176,7 @@ const PriceGauge = ({ currentPrice, minPrice, maxPrice, recommendedPrice }) => {
             fill="#E74C3C"
           />
         </G>
-        
+
         {/* Center hub */}
         <Circle
           cx={centerX}
@@ -167,18 +191,18 @@ const PriceGauge = ({ currentPrice, minPrice, maxPrice, recommendedPrice }) => {
           fill="#FFFFFF"
         />
       </Svg>
-      
+
       {/* Status display */}
       <View style={[styles.statusContainer, { backgroundColor: bgColor }]}>
         <Text style={[styles.priceStatusText, { color: color }]}>{status}</Text>
         <Text style={styles.chanceText}>{chance}</Text>
       </View>
-      
+
       {/* Gauge labels */}
       <View style={styles.gaugeLabels}>
         <Text style={[styles.labelText, { color: '#FF6B6B' }]}>Too High</Text>
-        <Text style={[styles.labelText, { color: '#FFD93D' }]}>Average</Text>
         <Text style={[styles.labelText, { color: '#6BCF7F' }]}>Good Price</Text>
+        <Text style={[styles.labelText, { color: '#FFD93D' }]}>Average</Text>
       </View>
     </View>
   );
@@ -189,18 +213,56 @@ export default function PriceSelectionScreen({ navigation, route }) {
   const [customPrice, setCustomPrice] = useState('');
   const [showCustomInput, setShowCustomInput] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  
+  const [isHint, setIsHint] = useState(false);
+  const timeoutRef = useRef(null);
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+
   // Get product data from previous screen
   const { productData } = route.params || {};
-  
+
   // Extract fruit info
   const fruitCategory = (productData?.category || 'mango').toLowerCase();
+  const fruitQuantity = productData?.quantity;
+  const fruitPhoto = productData?.photos[0];
   const fruitName = productData?.fruitName || '';
-  const fruitVariety = fruitName.toLowerCase().includes('alphonso') ? 'alphonso' : 
-                      fruitName.toLowerCase().includes('kesar') ? 'kesar' : 'totapuri';
-  
+  const fruitVariety = fruitName.toLowerCase().includes('alphonso') ? 'alphonso' :
+    fruitName.toLowerCase().includes('kesar') ? 'kesar' : 'totapuri';
+
   const smartPricing = getSmartPrice(fruitCategory, fruitVariety);
-  
+
+  const handlePress = () => {
+    if (timeoutRef.current) return; // Prevent rapid re-clicks
+    setIsHint(true);
+    // Optional animation
+    Animated.sequence([
+      Animated.timing(scaleAnim, {
+        toValue: 1.2,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 1,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    timeoutRef.current = setTimeout(() => {
+      setIsHint(false);
+      timeoutRef.current = null;
+    }, 800);
+  };
+
+  useEffect(() => {
+    // Clean up timeout on unmount
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
+
   useEffect(() => {
     // Simple loading simulation
     console.log('PriceSelection: Loading started');
@@ -208,30 +270,35 @@ export default function PriceSelectionScreen({ navigation, route }) {
       console.log('PriceSelection: Loading completed, showing content');
       setIsLoading(false);
       setSelectedPrice(smartPricing.recommended); // Auto-select recommended price
+      setCustomPrice(smartPricing.recommended.toString()); // Sync custom input
     }, 800); // Reduced loading time
   }, [smartPricing.recommended]);
 
   const handlePriceSelect = (price) => {
     setSelectedPrice(price);
+    setCustomPrice(price.toString()); // Sync with custom input
     setShowCustomInput(false);
-    setCustomPrice('');
   };
 
   const handleCustomPrice = () => {
     setShowCustomInput(true);
-    setSelectedPrice(null);
+    // Don't clear selectedPrice here to maintain sync
   };
 
   const handleCustomPriceChange = (value) => {
     setCustomPrice(value);
-    if (value) {
+    if (value && !isNaN(parseFloat(value))) {
       setSelectedPrice(parseFloat(value));
+    } else if (!value) {
+      // If input is cleared, reset to zero
+      setSelectedPrice();
+      setCustomPrice();
     }
   };
 
   const handleContinue = () => {
-    const finalPrice = selectedPrice || parseFloat(customPrice);
-    
+    const finalPrice = selectedPrice;
+
     if (!finalPrice || finalPrice <= 0) {
       Alert.alert('कृपया मूल्य चुनें', 'Please select a price for your fruit.');
       return;
@@ -239,7 +306,7 @@ export default function PriceSelectionScreen({ navigation, route }) {
 
     // Simple success message
     Alert.alert(
-      '🎉 बधाई हो!', 
+      '🎉 बधाई हो!',
       `आपका ${productData?.fruitName} ₹${finalPrice}/किग्रा पर लिस्ट हो गया है!`,
       [{ text: 'Great!', onPress: () => navigation.navigate('Home') }]
     );
@@ -249,14 +316,14 @@ export default function PriceSelectionScreen({ navigation, route }) {
   if (isLoading) {
     return (
       <SafeAreaView style={styles.container}>
-        <StatusBar backgroundColor="#4CAF50" barStyle="light-content" />
-        
+        <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+
         <View style={styles.loadingContainer}>
           <View style={styles.loadingCard}>
             <MaterialCommunityIcons name="leaf" size={56} color="#4CAF50" />
             <Text style={styles.loadingTitle}>बाज़ार की जानकारी ले रहे हैं...</Text>
             <Text style={styles.loadingSubtitle}>Getting best price for you</Text>
-            
+
             <View style={styles.loadingBar}>
               <View style={styles.loadingProgress} />
             </View>
@@ -268,131 +335,135 @@ export default function PriceSelectionScreen({ navigation, route }) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar backgroundColor="#4CAF50" barStyle="light-content" />
-      
-      {/* Simple Header */}
+      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+
+      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="white" />
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+          <Ionicons name="arrow-back" size={24} color="#333" />
         </TouchableOpacity>
-        <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>अपना भाव तय करें</Text>
-          <Text style={styles.headerSubtitle}>Set Your Price</Text>
-        </View>
+        <Text style={styles.headerText}>Set Your Price</Text>
+        <View style={styles.headerSpacer} />
       </View>
 
-      <ScrollView 
-        style={styles.scrollView} 
+      <ScrollView
+        style={styles.scrollView}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Price Gauge Section */}
-        <View style={styles.gaugeCard}>
-          <PriceGauge 
-            currentPrice={selectedPrice || smartPricing.recommended}
-            minPrice={smartPricing.min}
-            maxPrice={smartPricing.max}
-            recommendedPrice={smartPricing.recommended}
-          />
-          
-          {/* Market Info */}
-          <View style={styles.marketInfo}>
-            <View style={styles.marketRow}>
-              <Text style={styles.marketLabel}>Current mandi average</Text>
-              <Text style={styles.marketValue}>₹{Math.round(smartPricing.recommended * 0.85)}</Text>
-            </View>
-            
-            <View style={styles.priceOptionsRow}>
-              <TouchableOpacity 
-                style={[styles.priceChip, selectedPrice === Math.round(smartPricing.recommended * 0.95) && styles.selectedChip]}
-                onPress={() => handlePriceSelect(Math.round(smartPricing.recommended * 0.95))}
-              >
-                <Text style={styles.chipText}>₹{Math.round(smartPricing.recommended * 0.95)}</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={[styles.priceChip, selectedPrice === smartPricing.recommended && styles.selectedChip]}
-                onPress={() => handlePriceSelect(smartPricing.recommended)}
-              >
-                <Text style={styles.chipText}>₹{smartPricing.recommended}</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={[styles.priceChip, selectedPrice === Math.round(smartPricing.recommended * 1.1) && styles.selectedChip]}
-                onPress={() => handlePriceSelect(Math.round(smartPricing.recommended * 1.1))}
-              >
-                <Text style={styles.chipText}>₹{Math.round(smartPricing.recommended * 1.1)}</Text>
-              </TouchableOpacity>
-            </View>
-            
-            <View style={styles.suggestionRow}>
-              <Text style={styles.suggestionLabel}>KrushiMandi suggested price range</Text>
-              <Text style={styles.suggestionRange}>₹{smartPricing.min} - {smartPricing.max}</Text>
+        {/* Fruit Card*/}
+        <TouchableOpacity
+          style={styles.fruitCard}
+          activeOpacity={0.9}
+        >
+          <Image source={{ uri: fruitPhoto }} style={styles.fruitImage} />
+
+          <View style={styles.fruitDetailsSection}>
+            <Text style={styles.fruitName}>{fruitName}</Text>
+            <Text style={styles.fruitCategory}>Category: {fruitCategory}</Text>
+
+            <View style={styles.locationRow}>
+              <Icon name="location-outline" size={12} color="#505050" />
+              <Text style={styles.fruitLocation}>Pune, Maharashtra</Text>
             </View>
           </View>
-        </View>
+
+          <View style={styles.priceContainer}>
+            <Text style={styles.fruitPrice}>₹{selectedPrice || smartPricing.recommended}/kg</Text>
+            <Text style={styles.fruitTons}>{fruitQuantity}</Text>
+          </View>
+        </TouchableOpacity>
 
         {/* Custom Price Input */}
         <View style={styles.customInputCard}>
-          <Text style={styles.customInputTitle}>या अपना भाव डालें</Text>
-          <Text style={styles.customInputSubtitle}>Enter custom price</Text>
-          
-          <TouchableOpacity 
-            style={styles.customButton}
-            onPress={handleCustomPrice}
-          >
-            <MaterialCommunityIcons name="pencil" size={20} color="#666" />
-            <Text style={styles.customButtonText}>अपना भाव लिखें</Text>
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Text style={styles.customInputTitle}>Enter Price</Text>
+            <TouchableOpacity onPress={handlePress} style={styles.button}>
+              <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+                <Ionicons
+                  name={isHint ? 'information-circle' : 'information-circle-outline'}
+                  size={24}
+                  color={isHint ? '#2980B9' : '#2C3E50'}
+                />
+              </Animated.View>
+            </TouchableOpacity>
+          </View>
 
-          {showCustomInput && (
-            <View style={styles.customInput}>
-              <Text style={styles.rupeeSymbol}>₹</Text>
-              <TextInput
-                style={styles.customTextInput}
-                value={customPrice}
-                onChangeText={handleCustomPriceChange}
-                keyboardType="numeric"
-                placeholder="Enter price"
-                placeholderTextColor="#999"
-                autoFocus
-              />
-              <Text style={styles.unitLabel}>प्रति किग्रा</Text>
-            </View>
-          )}
+          <View style={styles.customInput}>
+            <Text style={styles.rupeeSymbol}>₹</Text>
+            <TextInput
+              style={styles.customTextInput}
+              value={customPrice}
+              onChangeText={handleCustomPriceChange}
+              keyboardType="numeric"
+              placeholder="Enter price"
+              placeholderTextColor="#999"
+              autoFocus
+            />
+            <Text style={styles.unitLabel}>/kg</Text>
+          </View>
+
+          <View style={styles.priceOptionsRow}>
+            <Text style={styles.priceLabel}>Price: </Text>
+            <TouchableOpacity
+              style={[styles.priceChip, selectedPrice === Math.round(smartPricing.recommended * 0.95) && styles.selectedChip]}
+              onPress={() => handlePriceSelect(Math.round(smartPricing.recommended * 0.95))}
+            >
+              <Text style={styles.chipText}>₹{Math.round(smartPricing.recommended * 0.95)}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.priceChip, selectedPrice === smartPricing.recommended && styles.selectedChip]}
+              onPress={() => handlePriceSelect(smartPricing.recommended)}
+            >
+              <Text style={styles.chipText}>₹{smartPricing.recommended}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.priceChip, selectedPrice === Math.round(smartPricing.recommended * 1.1) && styles.selectedChip]}
+              onPress={() => handlePriceSelect(Math.round(smartPricing.recommended * 1.1))}
+            >
+              <Text style={styles.chipText}>₹{Math.round(smartPricing.recommended * 1.1)}</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Simple Help Text */}
+          {isHint && <Text style={styles.helpText}>
+            💡 सलाह: आज के बाज़ार भाव के अनुसार ₹{smartPricing.recommended} सबसे अच्छा है
+          </Text>}
         </View>
 
-        {/* Fruit Display - Now Below Price */}
-        <View style={styles.fruitCard}>
-          <View style={styles.fruitIcon}>
-            <MaterialCommunityIcons 
-              name={fruitCategory === 'mango' ? 'fruit-grapes' : 'apple'} 
-              size={48} 
-              color="#4CAF50" 
-            />
+        {/* Price Gauge Section - Direct part of screen */}
+        <PriceGauge
+          currentPrice={selectedPrice || smartPricing.recommended}
+          minPrice={smartPricing.min}
+          maxPrice={smartPricing.max}
+          recommendedPrice={smartPricing.recommended}
+        />
+
+        {/* Market Info - Simple section without card */}
+        <View style={styles.marketInfo}>
+          <View style={styles.marketRow}>
+            <Text style={styles.marketLabel}>Current mandi average</Text>
+            <Text style={styles.marketValue}>₹{Math.round(smartPricing.recommended * 0.85)}</Text>
           </View>
-          <View style={styles.fruitInfo}>
-            <Text style={styles.fruitName}>{productData?.fruitName || 'Fresh Fruit'}</Text>
-            <Text style={styles.fruitQuantity}>{productData?.quantity} available</Text>
+          <View style={styles.suggestionRow}>
+            <Text style={styles.suggestionLabel}>KrushiMandi suggested price range</Text>
+            <Text style={styles.suggestionRange}>₹{smartPricing.min} - {smartPricing.max}</Text>
           </View>
         </View>
 
         {/* Simple Continue Button */}
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[styles.continueButton, { opacity: selectedPrice ? 1 : 0.5 }]}
           onPress={handleContinue}
           disabled={!selectedPrice}
         >
           <MaterialCommunityIcons name="check-circle" size={24} color="white" />
-          <Text style={styles.continueText}>फल को बाज़ार में डालें</Text>
+          <Text style={styles.continueText}>Finish</Text>
         </TouchableOpacity>
-
-        {/* Simple Help Text */}
-        <Text style={styles.helpText}>
-          💡 सलाह: आज के बाज़ार भाव के अनुसार ₹{smartPricing.recommended} सबसे अच्छा है
-        </Text>
       </ScrollView>
-    </SafeAreaView>
+    </SafeAreaView >
   );
 }
 
@@ -401,94 +472,81 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f8f9fa',
   },
-  
+
   // Simple Header
   header: {
-    backgroundColor: '#4CAF50',
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingTop: StatusBar.currentHeight + 12,
-    paddingBottom: 16,
-    elevation: 2,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 8 : 8,
+    paddingBottom: 10,
+    backgroundColor: '#F8F9FA',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
   },
   backButton: {
-    width: 40,
-    height: 40,
+    padding: 8,
     borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
-  headerCenter: {
-    flex: 1,
-    alignItems: 'center',
-    marginHorizontal: 16,
-  },
-  headerTitle: {
-    fontSize: 20,
+  headerText: {
+    fontSize: 18,
     fontWeight: '700',
-    color: 'white',
+    color: '#212121',
   },
-  headerSubtitle: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.8)',
-    marginTop: 2,
+  headerSpacer: {
+    width: 40, // Same width as backButton to center the title
   },
 
   // ScrollView
   scrollView: {
     flex: 1,
-    backgroundColor: '#f8f9fa', // Debug: ensure background is visible
+    backgroundColor: '#f8f9fa',
   },
   scrollContent: {
-    padding: 20,
-    paddingBottom: 40,
-    minHeight: 600,
+    padding: 12,
+    paddingBottom: 20,
   },
 
-  // Gauge Card
-  gaugeCard: {
-    backgroundColor: 'white',
-    borderRadius: 20,
-    padding: 24,
-    marginBottom: 20,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-  },
-  
   // Gauge Container
   gaugeContainer: {
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 12,
+    backgroundColor: 'white',
+    marginHorizontal: 4,
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
   },
-  
+
   // Price Display (at the top of gauge)
   priceDisplayTop: {
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 12,
   },
   currentPriceTextLarge: {
-    fontSize: 48,
+    fontSize: 42,
     fontWeight: '800',
     color: '#2C3E50',
   },
-  
+
   // SVG Gauge
   gaugeSvg: {
-    marginBottom: 20,
+    marginBottom: 12,
   },
-  
+
   // Status Container (below gauge)
   statusContainer: {
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 25,
-    marginBottom: 15,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginBottom: 10,
   },
   priceStatusText: {
     fontSize: 18,
@@ -500,7 +558,7 @@ const styles = StyleSheet.create({
     color: '#666',
     textAlign: 'center',
   },
-  
+
   // Price Display (center of gauge) - keeping for backward compatibility
   priceDisplay: {
     position: 'absolute',
@@ -513,7 +571,7 @@ const styles = StyleSheet.create({
     color: '#2C3E50',
     marginBottom: 4,
   },
-  
+
   // Gauge Labels
   gaugeLabels: {
     flexDirection: 'row',
@@ -525,16 +583,25 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
-  
+
   // Market Info
   marketInfo: {
-    marginTop: 20,
+    backgroundColor: 'white',
+    marginHorizontal: 4,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
   },
   marketRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 12,
   },
   marketLabel: {
     fontSize: 14,
@@ -545,18 +612,27 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#2C3E50',
   },
-  
+
   // Price Options Row
+  priceLabel: {
+    fontWeight: '500',
+    marginRight: 10,
+    fontSize: 16,
+    color: '#2C3E50',
+  },
+
   priceOptionsRow: {
     flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginVertical: 10,
     justifyContent: 'center',
-    marginBottom: 20,
-    gap: 12,
+    gap: 16,
   },
   priceChip: {
     backgroundColor: '#F8F9FA',
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 4,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: '#E9ECEF',
@@ -570,11 +646,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#2C3E50',
   },
-  
+
   // Suggestion Row
   suggestionRow: {
     alignItems: 'center',
-    paddingTop: 16,
+    paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: '#E9ECEF',
   },
@@ -592,16 +668,22 @@ const styles = StyleSheet.create({
   // Custom Input Card
   customInputCard: {
     backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 20,
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 12,
     elevation: 2,
   },
   customInputTitle: {
     fontSize: 18,
     fontWeight: '700',
     color: '#2C3E50',
-    textAlign: 'center',
+    marginBottom: 4,
+  },
+  customHint: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#2C3E50',
+    textAlign: 'right',
     marginBottom: 4,
   },
   customInputSubtitle: {
@@ -609,6 +691,75 @@ const styles = StyleSheet.create({
     color: '#7F8C8D',
     textAlign: 'center',
     marginBottom: 16,
+  },
+
+  // Fruit Card
+  fruitCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 8,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  fruitImage: {
+    height: 74,
+    width: 74,
+    borderRadius: 10,
+    marginRight: 14,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  fruitDetailsSection: {
+    flex: 1,
+    paddingRight: 10,
+  },
+  fruitName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#000000',
+    marginBottom: 4,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  fruitCategory: {
+    fontSize: 13,
+    color: '#939393',
+    marginBottom: 4,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  fruitLocation: {
+    fontSize: 12,
+    color: '#505050',
+    marginLeft: 4,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  priceContainer: {
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    minWidth: 80,
+  },
+  fruitPrice: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: Colors.light.primaryDark,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  fruitTons: {
+    fontSize: 12,
+    color: '#939393',
+    marginTop: 2,
+    textAlign: 'right',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
 
   // Custom Input
@@ -633,26 +784,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#F8F9FA',
     borderRadius: 12,
-    padding: 16,
-    marginTop: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    marginTop: 10,
     borderWidth: 2,
     borderColor: '#27AE60',
   },
   rupeeSymbol: {
-    fontSize: 20,
+    fontSize: 26,
     fontWeight: '600',
     color: '#2C3E50',
     marginRight: 8,
   },
   customTextInput: {
     flex: 1,
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: '700',
     color: '#2C3E50',
     textAlign: 'center',
   },
   unitLabel: {
-    fontSize: 14,
+    fontSize: 16,
     color: '#7F8C8D',
     marginLeft: 8,
   },
@@ -661,7 +813,7 @@ const styles = StyleSheet.create({
   fruitCard: {
     backgroundColor: 'white',
     borderRadius: 16,
-    padding: 20,
+    padding: 10,
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 20,
@@ -696,9 +848,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
+    paddingVertical: 14,
     borderRadius: 12,
-    marginBottom: 16,
+    marginBottom: 12,
+    marginTop: 8,
     elevation: 3,
   },
   continueText: {
@@ -714,7 +867,8 @@ const styles = StyleSheet.create({
     color: '#666',
     textAlign: 'center',
     lineHeight: 20,
-    paddingHorizontal: 16,
+    marginTop: 10,
+    paddingHorizontal: 10,
   },
 
   // Loading Screen

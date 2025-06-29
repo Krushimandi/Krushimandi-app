@@ -27,6 +27,8 @@ import { launchImageLibrary, launchCamera, MediaType } from 'react-native-image-
 import { requestImagePickerPermissions } from '../../utils/permissions';
 import { setAuthStep } from '../../utils/authFlow';
 import { syncUserProfile } from '../../services/firebaseService';
+import { saveUserRole } from '../../utils/userRoleStorage';
+import { useAuthStore } from '../../store';
 
 // Business type options for buyer role
 const BUSINESS_TYPE_OPTIONS = [
@@ -38,7 +40,8 @@ const BUSINESS_TYPE_OPTIONS = [
 ];
 
 const IntroduceYourselfScreen = ({ navigation, route }) => {
-  const { userRole = null } = route?.params || {}; const [firstName, setFirstName] = useState('');
+  const { userRole = null } = route?.params || {}; 
+  const authStore = useAuthStore(); const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [profileImage, setProfileImage] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
@@ -188,7 +191,8 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
         }
 
         console.log('📝 Starting profile sync for user:', currentUser.uid);
-        console.log('👤 User role:', selectedUserRole);
+        console.log('👤 User role selected:', selectedUserRole);
+        console.log('👤 User role from route params:', userRole);
         console.log('📷 Has profile image:', !!profileImage);        // Prepare user data
         const userData = {
           uid: currentUser.uid,
@@ -256,6 +260,26 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
 
         console.log('✅ Profile sync completed successfully');
 
+        // Save user role to localStorage for immediate availability
+        await saveUserRole(selectedUserRole);
+        console.log('✅ User role saved to localStorage:', selectedUserRole);
+
+        // Update auth store immediately with the user data
+        authStore.updateUser({
+          id: currentUser.uid,
+          firstName: userData.firstName,
+          lastName: userData.lastName,
+          email: userData.email,
+          phone: userData.phoneNumber,
+          userType: selectedUserRole, // 'farmer' | 'buyer'
+          status: 'active',
+          isVerified: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        });
+        
+        console.log('🎯 Auth store updated with user role:', selectedUserRole);
+
         // Store profile completion in AsyncStorage as well for persistence
         try {
           const existingUserData = await AsyncStorage.getItem('userData');
@@ -272,19 +296,28 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
           console.warn('⚠️ Failed to persist profile data to AsyncStorage:', storageError);
         }
 
-        // Mark auth as complete
-        await setAuthStep('Complete');
-        setUploadStatus('Complete!');
-        
-        console.log('✅ Auth step set to Complete - AppNavigator should handle navigation automatically');
-        
-        // Give the auth state manager a moment to process and trigger navigation
-        setTimeout(() => {
-          if (isLoading) {
-            console.log('🔄 Navigation should have occurred, clearing loading state');
-            setIsLoading(false);
-          }
-        }, 2000); // Clear loading after 2 seconds as fallback
+        // Check if user is buyer to determine next step
+        if (selectedUserRole === 'buyer') {
+          // For buyers, navigate to FruitsScreen instead of completing auth
+          setUploadStatus('Complete!');
+          setIsLoading(false);
+          console.log('🍎 Buyer detected - navigating to FruitsScreen');
+          navigation.navigate('FruitsScreen');
+        } else {
+          // For farmers, complete auth flow as before
+          await setAuthStep('Complete');
+          setUploadStatus('Complete!');
+          
+          console.log('✅ Auth step set to Complete - AppNavigator should handle navigation automatically');
+          
+          // Give the auth state manager a moment to process and trigger navigation
+          setTimeout(() => {
+            if (isLoading) {
+              console.log('🔄 Navigation should have occurred, clearing loading state');
+              setIsLoading(false);
+            }
+          }, 2000); // Clear loading after 2 seconds as fallback
+        }
         
         // Don't navigate immediately - let the auth state listener in AppNavigator handle it
         // The auth state will update and AppNavigator will automatically switch to main app

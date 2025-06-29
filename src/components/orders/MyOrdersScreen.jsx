@@ -14,12 +14,20 @@ import {
   StatusBar,
   ActivityIndicator,
   Platform,
+  ScrollView,
+  Animated,
+  Dimensions,
+  SafeAreaView,
+  TextInput,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 import { useNavigation } from '@react-navigation/native';
 import { Colors } from '../../constants';
 import { useTabBarControl } from '../../utils/navigationControls.ts';
+
+const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 // Mock order data for UI
 const ORDERS_DATA = [
@@ -73,6 +81,8 @@ const MyOrdersScreen = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
   
   // Show tab bar when screen is focused
   useEffect(() => {
@@ -99,11 +109,40 @@ const MyOrdersScreen = () => {
     
     loadOrders();
   }, []);
+
+  // Pull to refresh
+  const onRefresh = async () => {
+    setRefreshing(true);
+    // Simulate network request
+    setTimeout(() => {
+      setOrders(ORDERS_DATA);
+      setRefreshing(false);
+    }, 1500);
+  };
+
+  // Get order statistics
+  const getOrderStats = () => {
+    return {
+      total: orders.length,
+      delivered: orders.filter(o => o.status === 'delivered').length,
+      processing: orders.filter(o => o.status === 'processing').length,
+      canceled: orders.filter(o => o.status === 'canceled').length,
+    };
+  };
   
   // Filter orders based on selected status
   const filteredOrders = activeFilter === 'all' 
-    ? orders 
-    : orders.filter(order => order.status === activeFilter);
+    ? orders.filter(order => 
+        order.productName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        order.orderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        order.seller.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : orders.filter(order => 
+        order.status === activeFilter &&
+        (order.productName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+         order.orderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+         order.seller.toLowerCase().includes(searchQuery.toLowerCase()))
+      );
   
   // View order details
   const viewOrderDetails = (order) => {
@@ -128,75 +167,100 @@ const MyOrdersScreen = () => {
   };
   
   // Render individual order item
-  const renderOrderItem = ({ item }) => {
+  const renderOrderItem = ({ item, index }) => {
     const statusInfo = getStatusBadge(item.status);
     
     return (
-      <TouchableOpacity 
-        style={styles.orderItem}
-        activeOpacity={0.9}
-        onPress={() => viewOrderDetails(item)}
-      >
-        <View style={styles.orderHeader}>
-          <Text style={styles.orderNumber}>Order #{item.orderNumber}</Text>
-          <View style={[styles.statusBadge, { backgroundColor: `${statusInfo.color}15` }]}>
-            <Icon name={statusInfo.icon} size={12} color={statusInfo.color} />
-            <Text style={[styles.statusText, { color: statusInfo.color }]}>
-              {statusInfo.text}
-            </Text>
+      <View style={styles.orderItem}>
+        <TouchableOpacity 
+          activeOpacity={0.95}
+          onPress={() => viewOrderDetails(item)}
+        >
+          <View style={styles.orderHeader}>
+            <View style={styles.orderHeaderLeft}>
+              <Text style={styles.orderNumber}>#{item.orderNumber}</Text>
+              <Text style={styles.orderDate}>{item.dateOrdered}</Text>
+            </View>
+            <View style={[styles.statusBadge, { backgroundColor: `${statusInfo.color}15` }]}>
+              <Icon name={statusInfo.icon} size={14} color={statusInfo.color} />
+              <Text style={[styles.statusText, { color: statusInfo.color }]}>
+                {statusInfo.text}
+              </Text>
+            </View>
           </View>
-        </View>
-        
-        <View style={styles.orderContent}>
-          <Image source={item.image} style={styles.productImage} />
           
-          <View style={styles.orderDetails}>
-            <Text style={styles.productName}>{item.productName}</Text>
-            <Text style={styles.sellerName}>by {item.seller}</Text>
-            
-            <View style={styles.orderMeta}>
-              <Text style={styles.quantity}>Qty: {item.quantity}</Text>
-              <Text style={styles.price}>{item.price}</Text>
+          <View style={styles.orderContent}>
+            <View style={styles.productImageContainer}>
+              <Image source={item.image} style={styles.productImage} />
+              <View style={styles.quantityBadge}>
+                <Text style={styles.quantityText}>{item.quantity}</Text>
+              </View>
             </View>
             
-            <Text style={styles.dateText}>
-              {item.status === 'delivered'
-                ? `Delivered on ${item.dateDelivered}`
-                : item.status === 'canceled'
-                ? `Canceled on ${item.dateOrdered}`
-                : `Ordered on ${item.dateOrdered}`}
-            </Text>
+            <View style={styles.orderDetails}>
+              <Text style={styles.productName} numberOfLines={2}>{item.productName}</Text>
+              <View style={styles.sellerRow}>
+                <Icon name="storefront-outline" size={14} color="#757575" />
+                <Text style={styles.sellerName}>{item.seller}</Text>
+              </View>
+              
+              <View style={styles.priceRow}>
+                <Text style={styles.price}>{item.price}</Text>
+                {item.status === 'delivered' && (
+                  <View style={styles.ratingContainer}>
+                    <FontAwesome5 name="star" size={12} color="#FFD700" solid />
+                    <Text style={styles.ratingText}>4.5</Text>
+                  </View>
+                )}
+              </View>
+            </View>
+
+            <View style={styles.orderActions}>
+              <TouchableOpacity 
+                style={styles.quickActionButton}
+                onPress={() => viewOrderDetails(item)}
+              >
+                <Icon name="eye-outline" size={18} color={Colors.light.primary} />
+              </TouchableOpacity>
+              
+              {item.status === 'delivered' && (
+                <TouchableOpacity style={styles.quickActionButton}>
+                  <MaterialIcons name="rate-review" size={18} color={Colors.light.primary} />
+                </TouchableOpacity>
+              )}
+              
+              {item.status === 'processing' && (
+                <TouchableOpacity style={styles.quickActionButton}>
+                  <Icon name="location-outline" size={18} color={Colors.light.primary} />
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
-        </View>
-        
-        <View style={styles.orderActions}>
-          <TouchableOpacity 
-            style={[styles.actionButton, styles.viewButton]}
-            onPress={() => viewOrderDetails(item)}
-          >
-            <Text style={styles.viewButtonText}>View Details</Text>
-          </TouchableOpacity>
           
-          {item.status === 'delivered' && (
-            <TouchableOpacity style={styles.iconButton}>
-              <MaterialIcons name="rate-review" size={18} color={Colors.light.primary} />
-              <Text style={styles.iconButtonText}>Review</Text>
-            </TouchableOpacity>
-          )}
-          
+          {/* Progress indicator for processing orders */}
           {item.status === 'processing' && (
-            <TouchableOpacity style={styles.iconButton}>
-              <Icon name="location-outline" size={18} color={Colors.light.primary} />
-              <Text style={styles.iconButtonText}>Track</Text>
-            </TouchableOpacity>
+            <View style={styles.progressContainer}>
+              <View style={styles.progressBar}>
+                <View style={[styles.progressFill, { width: '60%' }]} />
+              </View>
+              <Text style={styles.progressText}>Order is being prepared</Text>
+            </View>
           )}
-        </View>
-      </TouchableOpacity>
+          
+          {/* Cancellation reason for canceled orders */}
+          {item.status === 'canceled' && item.cancellationReason && (
+            <View style={styles.cancellationContainer}>
+              <Icon name="information-circle-outline" size={16} color="#F44336" />
+              <Text style={styles.cancellationText}>{item.cancellationReason}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
+      </View>
     );
   };
   
   // Filter buttons for order status
-  const FilterButton = ({ title, value }) => (
+  const FilterButton = ({ title, value, count }) => (
     <TouchableOpacity
       style={[
         styles.filterButton,
@@ -210,43 +274,107 @@ const MyOrdersScreen = () => {
       ]}>
         {title}
       </Text>
+      {count > 0 && (
+        <View style={[
+          styles.filterBadge,
+          activeFilter === value && styles.activeFilterBadge
+        ]}>
+          <Text style={[
+            styles.filterBadgeText,
+            activeFilter === value && styles.activeFilterBadgeText
+          ]}>
+            {count}
+          </Text>
+        </View>
+      )}
     </TouchableOpacity>
   );
   
   // Empty state when no orders match filter
   const renderEmptyComponent = () => (
     <View style={styles.emptyContainer}>
-      <Icon name="basket-outline" size={70} color="#CCCCCC" />
-      <Text style={styles.emptyTitle}>No orders found</Text>
+      <View style={styles.emptyIconContainer}>
+        <Icon name="basket-outline" size={80} color="#E0E0E0" />
+        <View style={styles.emptyIconOverlay}>
+          <Icon name="search-outline" size={30} color="#BDBDBD" />
+        </View>
+      </View>
+      <Text style={styles.emptyTitle}>
+        {searchQuery ? 'No matching orders' : 'No orders found'}
+      </Text>
       <Text style={styles.emptyText}>
-        {activeFilter === 'all'
+        {searchQuery 
+          ? `No orders match "${searchQuery}"`
+          : activeFilter === 'all'
           ? "You haven't placed any orders yet"
           : `You don't have any ${activeFilter} orders`}
       </Text>
-      <TouchableOpacity 
-        style={styles.browseButton}
-        onPress={() => navigation.navigate('Browse')}
-      >
-        <Text style={styles.browseButtonText}>Browse Products</Text>
-      </TouchableOpacity>
+      {!searchQuery && (
+        <TouchableOpacity 
+          style={styles.browseButton}
+          onPress={() => navigation.navigate('Browse')}
+        >
+          <Icon name="storefront-outline" size={18} color="#FFFFFF" />
+          <Text style={styles.browseButtonText}>Start Shopping</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
+
+  const orderStats = getOrderStats();
+
     return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <StatusBar backgroundColor="#FFFFFF" barStyle="dark-content" />
       
-      {/* Header */}
+      {/* Enhanced Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>My Orders</Text>
-      </View>
-        {/* Filters */}
-      <View style={styles.filtersContainer}>
-        <View style={styles.filtersScrollContent}>
-          <FilterButton title="All Orders" value="all" />
-          <FilterButton title="Processing" value="processing" />
-          <FilterButton title="Delivered" value="delivered" />
-          <FilterButton title="Canceled" value="canceled" />
+        <View style={styles.headerTop}>
+          <View>
+            <Text style={styles.headerTitle}>My Orders</Text>
+            <Text style={styles.headerSubtitle}>{orderStats.total} orders placed</Text>
+          </View>
+          <TouchableOpacity style={styles.notificationButton}>
+            <Icon name="notifications-outline" size={24} color="#000000" />
+            <View style={styles.notificationBadge}>
+              <Text style={styles.notificationBadgeText}>2</Text>
+            </View>
+          </TouchableOpacity>
         </View>
+
+        {/* Search Bar */}
+        <View style={styles.searchContainer}>
+          <Icon name="search-outline" size={20} color="#757575" style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search orders..."
+            placeholderTextColor="#999"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity 
+              style={styles.clearButton}
+              onPress={() => setSearchQuery('')}
+            >
+              <Icon name="close-circle" size={20} color="#757575" />
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+
+      {/* Enhanced Filters */}
+      <View style={styles.filtersContainer}>
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filtersScrollContent}
+        >
+          <FilterButton title="All" value="all" count={orderStats.total} />
+          <FilterButton title="Processing" value="processing" count={orderStats.processing} />
+          <FilterButton title="Delivered" value="delivered" count={orderStats.delivered} />
+          <FilterButton title="Canceled" value="canceled" count={orderStats.canceled} />
+        </ScrollView>
       </View>
       
       {/* Main Content */}
@@ -263,211 +391,381 @@ const MyOrdersScreen = () => {
           contentContainerStyle={styles.listContainer}
           ListEmptyComponent={renderEmptyComponent}
           showsVerticalScrollIndicator={false}
+          refreshing={refreshing}
+          onRefresh={onRefresh}
         />
       )}
-    </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#F8F9FA',
   },
   header: {
     backgroundColor: '#FFFFFF',
-    paddingTop: Platform.OS === 'ios' ? 44 : StatusBar.currentHeight,
     paddingHorizontal: 20,
+    paddingTop: 10,
     paddingBottom: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 3,
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  headerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: 28,
+    fontWeight: '700',
     color: '#000000',
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: '#757575',
+    marginTop: 2,
+  },
+  notificationButton: {
+    position: 'relative',
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: '#F5F5F5',
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    backgroundColor: '#FF4444',
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  notificationBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F5F5F5',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 4,
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: '#000',
+    paddingVertical: 4,
+  },
+  clearButton: {
+    padding: 4,
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingHorizontal: 20,
+  },
+  statItem: {
+    alignItems: 'center',
+  },
+  statNumber: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#4CAF50',
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#757575',
+    marginTop: 4,
   },
   filtersContainer: {
     backgroundColor: '#FFFFFF',
-    paddingVertical: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 3,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
   },
   filtersScrollContent: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
   },
   filterButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#F0F0F0',
-    marginRight: 10,
+    paddingVertical: 10,
+    borderRadius: 25,
+    backgroundColor: '#F5F5F5',
+    marginRight: 12,
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
   activeFilterButton: {
     backgroundColor: Colors.light.primary,
+    borderColor: Colors.light.primaryDark,
   },
   filterButtonText: {
-    fontSize: 12,
-    fontWeight: '500',
+    fontSize: 14,
+    fontWeight: '600',
     color: '#757575',
   },
   activeFilterText: {
     color: '#FFFFFF',
   },
+  filterBadge: {
+    backgroundColor: '#E0E0E0',
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginLeft: 8,
+  },
+  activeFilterBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  filterBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#757575',
+  },
+  activeFilterBadgeText: {
+    color: '#FFFFFF',
+  },
   listContainer: {
-    padding: 16,
-    paddingBottom: 120, // Extra space for bottom tab bar
+    padding: 20,
+    paddingBottom: 100,
   },
   orderItem: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    borderRadius: 16,
     marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 3,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#F0F0F0',
   },
   orderHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    borderBottomColor: '#F5F5F5',
+  },
+  orderHeaderLeft: {
+    flex: 1,
   },
   orderNumber: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#000000',
+  },
+  orderDate: {
     fontSize: 12,
-    fontWeight: '600',
     color: '#757575',
+    marginTop: 2,
   },
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
   },
   statusText: {
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: '600',
-    marginLeft: 4,
+    marginLeft: 6,
   },
   orderContent: {
     flexDirection: 'row',
-    padding: 16,
+    padding: 20,
+    alignItems: 'center',
+  },
+  productImageContainer: {
+    position: 'relative',
   },
   productImage: {
-    width: 70,
-    height: 70,
-    borderRadius: 8,
+    width: 80,
+    height: 80,
+    borderRadius: 12,
+  },
+  quantityBadge: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    backgroundColor: Colors.light.primary,
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  quantityText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   orderDetails: {
     flex: 1,
-    marginLeft: 12,
+    marginLeft: 16,
   },
   productName: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '600',
     color: '#000000',
-    marginBottom: 2,
+    marginBottom: 6,
   },
-  sellerName: {
-    fontSize: 12,
-    color: '#757575',
+  sellerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 8,
   },
-  orderMeta: {
+  sellerName: {
+    fontSize: 14,
+    color: '#757575',
+    marginLeft: 6,
+  },
+  priceRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  quantity: {
-    fontSize: 12,
-    color: '#757575',
   },
   price: {
-    fontSize: 16,
+    fontSize: 20,
     fontWeight: '700',
     color: Colors.light.primaryDark,
   },
-  dateText: {
-    fontSize: 11,
-    color: '#757575',
+  ratingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF8E1',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  ratingText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#F57C00',
+    marginLeft: 4,
   },
   orderActions: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
-    padding: 12,
+    marginLeft: 16,
   },
-  actionButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 4,
+  quickActionButton: {
+    padding: 10,
+    borderRadius: 20,
+    backgroundColor: '#F5F5F5',
+    marginBottom: 8,
   },
-  viewButton: {
-    backgroundColor: '#F0F0F0',
+  progressContainer: {
+    paddingHorizontal: 20,
+    paddingBottom: 16,
   },
-  viewButtonText: {
+  progressBar: {
+    height: 4,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 2,
+    marginBottom: 8,
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#2196F3',
+    borderRadius: 2,
+  },
+  progressText: {
     fontSize: 12,
+    color: '#2196F3',
     fontWeight: '500',
-    color: '#000000',
   },
-  iconButton: {
+  cancellationContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 8,
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    backgroundColor: '#FFEBEE',
   },
-  iconButtonText: {
+  cancellationText: {
     fontSize: 12,
-    color: Colors.light.primary,
-    marginLeft: 4,
+    color: '#F44336',
+    marginLeft: 8,
+    flex: 1,
   },
   emptyContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 40,
-    marginTop: 40,
+    paddingHorizontal: 40,
+    paddingVertical: 60,
   },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#000000',
-    marginTop: 20,
-    marginBottom: 10,
-  },
-  emptyText: {
-    fontSize: 14,
-    color: '#757575',
-    textAlign: 'center',
+  emptyIconContainer: {
+    position: 'relative',
     marginBottom: 24,
   },
+  emptyIconOverlay: {
+    position: 'absolute',
+    bottom: -5,
+    right: -5,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#000000',
+    marginBottom: 12,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#757575',
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 32,
+  },
   browseButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: Colors.light.primary,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+    borderRadius: 25,
+    shadowColor: Colors.light.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
   browseButtonText: {
     color: '#FFFFFF',
-    fontWeight: '600',
-    fontSize: 14,
+    fontWeight: '700',
+    fontSize: 16,
+    marginLeft: 8,
   },
   loadingContainer: {
     flex: 1,
@@ -475,10 +773,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   loadingText: {
-    fontSize: 14,
+    fontSize: 16,
     color: '#757575',
-    marginTop: 12,
-  }
+    marginTop: 16,
+  },
 });
 
 export default MyOrdersScreen;

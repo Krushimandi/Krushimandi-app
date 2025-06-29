@@ -1,5 +1,3 @@
-// HomeScreen.js
-
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
@@ -19,77 +17,79 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Octicons from 'react-native-vector-icons/Octicons';
+import Feather from 'react-native-vector-icons/Feather';
 import { useNavigation } from '@react-navigation/native';
 import { getCompleteUserProfile, updateLastLogin, validateCurrentUser } from '../../services/firebaseService';
 import auth from '@react-native-firebase/auth';
 import { Colors, Typography, Layout } from '../../constants';
+import { useTabBarControl } from '../../utils/navigationControls';
 
 const categories = [
-  { name: 'Bananas', icon: require('../../assets/banana.png') },
-  { name: 'Apples', icon: require('../../assets/Apple.png') },
-  { name: 'Spinach', icon: require('../../assets/spinach.jpg') },
+  { name: 'Fruits', icon: require('../../assets/Apple.png') },
+  { name: 'Vegetables', icon: require('../../assets/spinach.jpg') },
+  { name: 'Organics', icon: require('../../assets/banana.png') },
 ];
 
-const fruits = [
+const products = [
   {
     id: 1,
-    name: 'Hapus Amba',
+    name: 'Premium Hapus Mango',
     category: 'Mango',
-    price: '₹50/KG',
+    price: '₹120/KG',
+    originalPrice: '₹150/KG',
     location: 'Ratnagiri, Maharashtra',
-    tons: '10–12 Tons',
+    available: '500 kg',
     rating: 4.8,
     image: require('../../assets/hapus.jpeg'),
+    seller: 'Kishor Patil',
+    sellerRating: 4.7,
+    sellerProducts: 15,
+    organic: true,
   },
   {
     id: 2,
     name: 'Kashmiri Apple',
     category: 'Apple',
-    price: '₹50/KG',
+    price: '₹180/KG',
+    originalPrice: '₹200/KG',
     location: 'Alshpur, Jammu',
-    tons: '10–12 Tons',
+    available: '250 kg',
     rating: 4.6,
     image: require('../../assets/appleFruit.jpeg'),
+    seller: 'Ramesh Kumar',
+    sellerRating: 4.5,
+    sellerProducts: 8,
+    organic: false,
   },
   {
     id: 3,
-    name: 'Hapus Amba',
-    category: 'Mango',
-    price: '₹50/KG',
+    name: 'Fresh Nashik Tomatoes',
+    category: 'Vegetable',
+    price: '₹60/KG',
+    originalPrice: '₹75/KG',
     location: 'Nashik, Maharashtra',
-    tons: '10–12 Tons',
+    available: '300 kg',
     rating: 4.7,
     image: require('../../assets/hapus.jpeg'),
+    seller: 'Sunil Jadhav',
+    sellerRating: 4.9,
+    sellerProducts: 22,
+    organic: true,
   },
   {
     id: 4,
-    name: 'Hapus Amba',
-    category: 'Mango',
-    price: '₹50/KG',
-    location: 'Ratnagiri, Maharashtra',
-    tons: '10–12 Tons',
+    name: 'Organic Spinach',
+    category: 'Vegetable',
+    price: '₹40/KG',
+    originalPrice: '₹45/KG',
+    location: 'Pune, Maharashtra',
+    available: '100 kg',
     rating: 4.8,
-    image: require('../../assets/hapus.jpeg'),
-  },
-  {
-    id: 5,
-    name: 'Hapus Amba',
-    category: 'Mango',
-    price: '₹50/KG',
-    location: 'Ratnagiri, Maharashtra',
-    tons: '10–12 Tons',
-    rating: 4.8,
-    image: require('../../assets/hapus.jpeg'),
-  },
-  {
-    id: 6,
-    name: 'Hapus Amba',
-    category: 'Mango',
-    price: '₹50/KG',
-    location: 'Ratnagiri, Maharashtra',
-    tons: '10–12 Tons',
-    rating: 4.8,
-    image: require('../../assets/hapus.jpeg'),
+    image: require('../../assets/spinach.jpg'),
+    seller: 'Anita Patil',
+    sellerRating: 4.8,
+    sellerProducts: 12,
+    organic: true,
   },
 ];
 
@@ -97,11 +97,19 @@ const HEADER_MAX_HEIGHT = 158; // Maximum header height
 const HEADER_MIN_HEIGHT = Platform.OS === 'ios' ? 95 : 75; // Minimum header height after scroll
 const HEADER_SCROLL_DISTANCE = HEADER_MAX_HEIGHT - HEADER_MIN_HEIGHT;
 
-const HomeScreen = () => {
+const FarmerHomeScreen = () => {
   const navigation = useNavigation();
+  const { showTabBar } = useTabBarControl();
   const [userProfile, setUserProfile] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [watchlist, setWatchlist] = useState([]);
   const scrollY = useRef(new Animated.Value(0)).current;
+
+  // Make sure tab bar is visible
+  useEffect(() => {
+    showTabBar();
+  }, []);
 
   // Calculate header height and opacity based on scroll
   const headerHeight = scrollY.interpolate({
@@ -122,7 +130,7 @@ const HomeScreen = () => {
     extrapolate: 'clamp',
   });
 
-   const titleIndex = scrollY.interpolate({
+  const titleIndex = scrollY.interpolate({
     inputRange: [0, HEADER_SCROLL_DISTANCE / 2, HEADER_SCROLL_DISTANCE],
     outputRange: [0, 50, 100],
     extrapolate: 'clamp',
@@ -131,10 +139,9 @@ const HomeScreen = () => {
   useEffect(() => {
     loadUserProfile();
   }, []);
+
   // Safe navigation function to prevent "route not defined" errors
   const safeNavigate = (routeName, params = {}) => {
-    console.log("clicked");
-
     try {
       navigation.navigate(routeName, params);
     } catch (error) {
@@ -149,7 +156,7 @@ const HomeScreen = () => {
 
       const user = auth().currentUser;
       if (!user) {
-        console.log('❌ No authenticated user found in HomeScreen');
+        console.log('❌ No authenticated user found in BuyerHomeScreen');
         handleUserValidationFailure();
         return;
       }
@@ -190,7 +197,9 @@ const HomeScreen = () => {
     } finally {
       setIsLoading(false);
     }
-  };  const handleUserValidationFailure = () => {
+  };
+
+  const handleUserValidationFailure = () => {
     Alert.alert(
       'Authentication Error',
       'Your session has expired or your account is no longer valid. Please sign in again.',
@@ -217,7 +226,16 @@ const HomeScreen = () => {
     if (userProfile?.displayName) {
       return userProfile.displayName.split(' ')[0];
     }
-    return 'bhau';
+    return 'there';
+  };
+
+  // Toggle product in watchlist
+  const toggleWatchlist = (productId) => {
+    if (watchlist.includes(productId)) {
+      setWatchlist(watchlist.filter(id => id !== productId));
+    } else {
+      setWatchlist([...watchlist, productId]);
+    }
   };
 
   const renderStars = (rating) => {
@@ -242,6 +260,7 @@ const HomeScreen = () => {
       </View>
     );
   };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar
@@ -259,12 +278,10 @@ const HomeScreen = () => {
             zIndex: titleIndex,
           }
         ]}>
-        <Image source={require('../../assets/icon.png')} style={styles.fixedHeaderImage} />        <TouchableOpacity
+        <Image source={require('../../assets/icon.png')} style={styles.fixedHeaderImage} />
+        <TouchableOpacity
           style={styles.notificationIconButton}
-          onPress={() => {
-            console.log('Opening notifications from header');
-            navigation.navigate('Notification'); // Navigate to Notification screen
-          }}
+          onPress={() => safeNavigate('Notification')}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
           <Icon name="notifications-outline" size={24} color="#000" />
@@ -291,18 +308,14 @@ const HomeScreen = () => {
           <View style={styles.headerRow}>
             <View style={styles.profileContainer}>
               {userProfile?.profileImage ? (
-                <TouchableOpacity onPress={() => {
-                  safeNavigate('ProfileScreen');
-                }}
+                <TouchableOpacity
+                  onPress={() => safeNavigate('ProfileScreen')}
                   style={styles.profileImageButton}
                   activeOpacity={0.7}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
                   <View style={styles.profileImage}>
                     <Image
-                      onPress={() => {
-                        safeNavigate('ProfileScreen');
-                      }}
                       source={{ uri: userProfile.profileImage }}
                       style={{ width: '100%', height: '100%' }}
                     />
@@ -310,16 +323,12 @@ const HomeScreen = () => {
                 </TouchableOpacity>
               ) : (
                 <TouchableOpacity
-                  style={styles.profilePlaceholderButton} onPress={() => {
-                    console.log('Navigating to Profile from placeholder');
-                    safeNavigate('ProfileScreen');
-                  }}
+                  style={styles.profilePlaceholderButton}
+                  onPress={() => safeNavigate('ProfileScreen')}
                   activeOpacity={0.7}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
-                  <View style={styles.profilePlaceholder} onPress={() => {
-                    safeNavigate('ProfileScreen');
-                  }}>
+                  <View style={styles.profilePlaceholder}>
                     <Octicons
                       name="person"
                       size={24}
@@ -329,27 +338,24 @@ const HomeScreen = () => {
                 </TouchableOpacity>
               )}
               <TouchableOpacity
-                style={styles.userInfo} onPress={() => {
-                  safeNavigate('ProfileScreen');
-                }}
+                style={styles.userInfo}
+                onPress={() => safeNavigate('ProfileScreen')}
                 activeOpacity={0.8}
                 hitSlop={{ top: 10, bottom: 10, left: 0, right: 10 }}
               >
                 <Text style={styles.welcome}>
-                  Namaste {getDisplayName()}!
+                  Hello, {getDisplayName()}!
                 </Text>
                 <View style={styles.locationContainer}>
                   <Text style={styles.location}>
-                    Paithan, Chhatrapati Sambhajinagar
+                    Paithan, Maharashtra
                   </Text>
                   <Icon name="chevron-down" size={12} color="#505050" />
                 </View>
               </TouchableOpacity>
             </View>
             <TouchableOpacity
-              onPress={() => {
-                safeNavigate('Notification');
-              }}
+              onPress={() => safeNavigate('Notification')}
               style={styles.notificationIconButton}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
@@ -362,7 +368,7 @@ const HomeScreen = () => {
             <View style={styles.searchBox}>
               <Icon name="search" size={20} color="#939393" style={{ marginLeft: 12 }} />
               <TextInput
-                placeholder="Search fruits, vegetables..."
+                placeholder="Search produce, farmers..."
                 placeholderTextColor="#939393"
                 style={styles.searchInput}
               />
@@ -378,7 +384,7 @@ const HomeScreen = () => {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Categories</Text>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={() => safeNavigate('Browse')}>
               <Text style={styles.viewAll}>View all</Text>
             </TouchableOpacity>
           </View>
@@ -388,32 +394,63 @@ const HomeScreen = () => {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.categoriesContainer}
           >
+            <TouchableOpacity
+              style={[
+                styles.categoryCard,
+                selectedCategory === 'All' && styles.selectedCategoryCard
+              ]}
+              onPress={() => setSelectedCategory('All')}
+            >
+              <Icon name="apps-outline" size={22} color={"#505050"} style={styles.categoryIcon} />
+              <Text style={[
+                styles.categoryText,
+                selectedCategory === 'All' && styles.selectedCategoryText
+              ]}>All</Text>
+            </TouchableOpacity>
+
             {categories.map((item, index) => (
-              <TouchableOpacity key={index} style={styles.categoryCard}>
+              <TouchableOpacity
+                key={index}
+                style={[
+                  styles.categoryCard,
+                  selectedCategory === item.name && styles.selectedCategoryCard
+                ]}
+                onPress={() => setSelectedCategory(item.name)}
+              >
                 <Image source={item.icon} style={styles.categoryImage} />
-                <Text style={styles.categoryText}>{item.name}</Text>
+                <Text style={[
+                  styles.categoryText,
+                  selectedCategory === item.name && styles.selectedCategoryText
+                ]}>{item.name}</Text>
               </TouchableOpacity>
             ))}
           </ScrollView>
         </View>
 
-        {/* Available Fruits */}
+        {/* Featured Items */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Available Fruits</Text>
-            <TouchableOpacity>
-              <Text style={styles.viewAll}>View all</Text>
+            <Text style={styles.sectionTitle}>Featured Items</Text>
+            <TouchableOpacity onPress={() => safeNavigate('Browse')}>
+              <Text style={styles.viewAll}>See more</Text>
             </TouchableOpacity>
           </View>
-          <View style={styles.fruitsContainer}>
-            {fruits.map((item) => (<TouchableOpacity
-              key={item.id}
-              style={styles.fruitCard} activeOpacity={0.9} onPress={() => {
-                // Navigate to the ProductDetail screen in the nested ProductFlowNavigator
-                safeNavigate('ProductFlow', {
+
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.featuredContainer}
+          >
+            {products.map((item) => (
+              <TouchableOpacity
+                key={item.id}
+                style={styles.featuredCard}
+                activeOpacity={0.9}
+                onPress={() => safeNavigate('ProductFlow', {
                   screen: 'ProductDetail',
                   params: {
                     product: {
+                      id: item.id,
                       name: item.name,
                       description: `Category: ${item.category}`,
                       price: parseFloat(item.price.replace('₹', '').replace('/KG', '')),
@@ -421,52 +458,117 @@ const HomeScreen = () => {
                       reviewCount: Math.floor(item.rating * 10),
                       sizes: ['1 kg', '500 gm', '2 kg'],
                       freshness: 'Fresh',
-                      details: `${item.name} from ${item.location}. Available quantity: ${item.tons}`,
+                      details: `Seller: ${item.seller}. Available quantity: ${item.available}`,
                       image: item.image,
-                      postedDate: '3 days ago' // Add postedDate for the badge
+                      location: item.location,
+                      postedDate: '3 days ago'
                     }
                   }
-                });
-              }}
-            >
-              <Image source={item.image} style={styles.fruitImage} />
-
-              <View style={styles.fruitDetailsSection}>
-                <Text style={styles.fruitName}>{item.name}</Text>
-                <Text style={styles.fruitCategory}>Category: {item.category}</Text>
-
-                <View style={styles.locationRow}>
-                  <Icon name="location-outline" size={12} color="#505050" />
-                  <Text style={styles.fruitLocation}>{item.location}</Text>
+                })}
+              >
+                <View style={styles.featuredImageContainer}>
+                  <Image source={item.image} style={styles.featuredImage} />
+                  <TouchableOpacity
+                    style={styles.watchlistButton}
+                    onPress={() => toggleWatchlist(item.id)}
+                  >
+                    <Icon
+                      name={watchlist.includes(item.id) ? "heart" : "heart-outline"}
+                      size={18}
+                      color={watchlist.includes(item.id) ? "#FF3B30" : "#757575"}
+                    />
+                  </TouchableOpacity>
+                  {item.organic && (
+                    <View style={styles.organicBadge}>
+                      <Text style={styles.organicText}>Organic</Text>
+                    </View>
+                  )}
                 </View>
-              </View>
 
-              <View style={styles.priceContainer}>
-                <Text style={styles.fruitPrice}>{item.price}</Text>
-                <Text style={styles.fruitTons}>{item.tons}</Text>
-                {renderStars(item.rating)}
-              </View>
+                <View style={styles.featuredDetails}>
+                  <Text style={styles.featuredName} numberOfLines={1}>{item.name}</Text>
+                  <Text style={styles.featuredCategory}>{item.category}</Text>
+
+                  <View style={styles.priceRow}>
+                    <Text style={styles.featuredPrice}>{item.price}</Text>
+                    <Text style={styles.originalPrice}>{item.originalPrice}</Text>
+                  </View>
+
+                  <View style={styles.ratingRow}>
+                    {renderStars(item.rating)}
+                    <Text style={styles.locationText} numberOfLines={1}>
+                      <Icon name="location-outline" size={10} color="#757575" /> {item.location.split(',')[0]}
+                    </Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+
+        {/* Best Sellers Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Verified Farmers</Text>
+            <TouchableOpacity>
+              <Text style={styles.viewAll}>View all</Text>
             </TouchableOpacity>
+          </View>
+
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.farmersContainer}
+          >
+            {[1, 2, 3, 4].map((item) => (
+              <TouchableOpacity key={item} style={styles.farmerCard} activeOpacity={0.9}>
+                <View style={styles.farmerImageContainer}>
+                  <Image source={require('../../assets/student.jpeg')} style={styles.farmerImage} />
+                  <View style={styles.verifiedBadge}>
+                    <Octicons name="verified" size={14} color="#FFFFFF" />
+                  </View>
+                </View>
+                <Text style={styles.farmerName}>Raju Patil</Text>
+                <Text style={styles.farmerLocation}>Nashik, MH</Text>
+                <View style={styles.farmerRating}>
+                  <Icon name="star" size={12} color="#FFB800" />
+                  <Text style={styles.ratingText}>4.8</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+
+        {/* Recently Viewed */}
+        <View style={[styles.section, { marginBottom: 100 }]}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Recently Viewed</Text>
+            <TouchableOpacity>
+              <Text style={styles.viewAll}>Clear</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.recentContainer}>
+            {products.slice(0, 2).map((item) => (
+              <TouchableOpacity
+                key={item.id + "-recent"}
+                style={styles.recentProductCard}
+                activeOpacity={0.9}
+                onPress={() => safeNavigate('ProductFlow', {
+                  screen: 'ProductDetail',
+                  params: { productId: item.id }
+                })}
+              >
+                <Image source={item.image} style={styles.recentProductImage} />
+                <View style={styles.recentProductDetails}>
+                  <Text style={styles.recentProductName} numberOfLines={1}>{item.name}</Text>
+                  <Text style={styles.recentProductPrice}>{item.price}</Text>
+                </View>
+              </TouchableOpacity>
             ))}
           </View>
-        </View>      </Animated.ScrollView>
-
-      {/* Bottom Navigation */}
-      <View style={styles.bottomNavigation}>
-        <TouchableOpacity style={[styles.navItem, styles.activeNavItem]}>
-          <Icon name="home" size={22} color={Colors.light.primaryDark} />
-          <Text style={styles.activeNavText}>Home</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.navItem}>
-          <Icon name="add-circle" size={40} color="#CCCCCC" />
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.navItem}>
-          <Icon name="cart-outline" size={22} color="#CCCCCC" />
-          <Text style={styles.navText}>Orders</Text>
-        </TouchableOpacity>
-      </View>
+        </View>
+      </Animated.ScrollView>
     </SafeAreaView>
   );
 };
@@ -475,7 +577,6 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: '#ffffff',
-
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   scrollViewContent: {
@@ -507,11 +608,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderBottomWidth: 1,
     borderBottomColor: '#EFEFEF',
+    zIndex: 1000,
   },
   fixedHeaderImage: {
     width: 160,
     height: '100%',
-    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
   headerRow: {
     flexDirection: 'row',
@@ -524,11 +625,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   profileImageButton: {
-    padding: 5, // Add padding to increase touch area
+    padding: 5,
     borderRadius: 60,
   },
   profilePlaceholderButton: {
-    padding: 5, // Add padding to increase touch area
+    padding: 5,
     borderRadius: 60,
   },
   profileImage: {
@@ -537,7 +638,7 @@ const styles = StyleSheet.create({
     borderRadius: 60,
     borderWidth: 1,
     borderColor: '#EEEEEE',
-    overflow: 'hidden', // Ensures the image stays within circular bounds
+    overflow: 'hidden',
   },
   profilePlaceholder: {
     width: 48,
@@ -548,7 +649,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: '#E0E0E0',
-    backgroundColor: '#F6F6F6', // Light background color
+    backgroundColor: '#F6F6F6',
   },
   userInfo: {
     marginLeft: 12,
@@ -558,7 +659,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: Colors.light.primaryDark,
     marginBottom: 2,
-    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
   locationContainer: {
     flexDirection: 'row',
@@ -568,9 +668,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#505050',
     marginRight: 4,
-    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
-  }, notificationIcon: {
-    padding: 10,
+  },
+  notificationIconButton: {
+    padding: 5,
   },
   searchRow: {
     flexDirection: 'row',
@@ -594,7 +694,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#505050',
     height: 48,
-    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
   filterBtn: {
     backgroundColor: '#E8F5E8',
@@ -607,7 +706,8 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 3,
-  }, section: {
+  },
+  section: {
     paddingHorizontal: 20,
     marginTop: 18,
   },
@@ -621,21 +721,19 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: '#000000',
-    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
   viewAll: {
     fontSize: 14,
     fontWeight: '500',
     color: Colors.light.primaryDark,
-    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
   categoriesContainer: {
-    padding: 4,
+    paddingVertical: 4,
     paddingRight: 18,
     gap: 10,
   },
   categoryCard: {
-    backgroundColor: '#E8F5E8',
+    backgroundColor: '#F6F6F6',
     borderRadius: 25,
     paddingRight: 18,
     paddingLeft: 4,
@@ -643,11 +741,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: Colors.light.primaryDark,
-    shadowOffset: { width: 0, height: 2 },
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowRadius: 2,
+    elevation: 1,
+    borderWidth: 1,
+    borderColor: '#EFEFEF',
+  },
+  selectedCategoryCard: {
+    backgroundColor: Colors.light.primaryLight,
+    borderColor: Colors.light.primary,
+  },
+  categoryIcon: {
+    marginLeft: 12,
+    marginRight: 8,
   },
   categoryImage: {
     width: 42,
@@ -660,115 +768,205 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#505050',
     fontWeight: '500',
-    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
-  }, fruitsContainer: {
-    gap: 16,
-    paddingVertical: 6,
   },
-  fruitCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  selectedCategoryText: {
+    // color: Colors.light.primaryDark,
+    fontWeight: '600',
+  },
+  featuredContainer: {
+    paddingVertical: 6,
+    paddingRight: 20,
+    gap: 16,
+  },
+  featuredCard: {
+    width: 160,
     backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 8,
+    borderRadius: 12,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 4,
-    elevation: 3,
+    elevation: 2,
+    marginRight: 16,
+    overflow: 'hidden',
   },
-  fruitImage: {
-    height: 70,
-    width: 70,
-    borderRadius: 10,
-    marginRight: 14,
+  featuredImageContainer: {
+    position: 'relative',
+    width: '100%',
+    height: 140,
   },
-  fruitDetailsSection: {
-    flex: 1,
-    paddingRight: 10,
+  featuredImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
   },
-  fruitName: {
+  watchlistButton: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    width: 34,
+    height: 34,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  organicBadge: {
+    position: 'absolute',
+    bottom: 10,
+    left: 10,
+    backgroundColor: 'rgba(76, 175, 80, 0.9)',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 4,
+  },
+  organicText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  featuredDetails: {
+    padding: 12,
+  },
+  featuredName: {
     fontSize: 16,
     fontWeight: '600',
     color: '#000000',
     marginBottom: 4,
-    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
-  fruitCategory: {
-    fontSize: 13,
-    color: '#939393',
-    marginBottom: 4,
-    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  featuredCategory: {
+    fontSize: 12,
+    color: '#757575',
+    marginBottom: 6,
   },
-  locationRow: {
+  priceRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 2,
+    marginBottom: 6,
   },
-  fruitLocation: {
-    fontSize: 12,
-    color: '#505050',
-    marginLeft: 4,
-    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
-  },
-  priceContainer: {
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-    minWidth: 80,
-  },
-  fruitPrice: {
+  featuredPrice: {
     fontSize: 16,
     fontWeight: '700',
     color: Colors.light.primaryDark,
-    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+    marginRight: 8,
   },
-  fruitTons: {
-    fontSize: 11,
-    color: '#939393',
-    marginTop: 2,
-    textAlign: 'right',
-    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
-  }, bottomNavigation: {
+  originalPrice: {
+    fontSize: 12,
+    color: '#757575',
+    textDecorationLine: 'line-through',
+  },
+  ratingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  locationText: {
+    fontSize: 10,
+    color: '#757575',
+    maxWidth: '50%',
+  },
+  farmersContainer: {
+    padding: 4,
+    paddingRight: 20,
+    gap: 16,
+  },
+  farmerCard: {
+    alignItems: 'center',
+    marginRight: 20,
+  },
+  farmerImageContainer: {
+    position: 'relative',
+    width: 80,
+    height: 80,
+    marginBottom: 8,
+  },
+  farmerImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  verifiedBadge: {
     position: 'absolute',
     bottom: 0,
-    left: 0,
     right: 0,
-    height: 70,
-    flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 10,
-    paddingBottom: Platform.OS === 'ios' ? 20 : 8,
-  },
-  navItem: {
-    flex: 1,
+    backgroundColor: Colors.light.primary,
+    borderRadius: 10,
+    width: 20,
+    height: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    height: '100%',
+    borderWidth: 1,
+    borderColor: '#FFFFFF',
   },
-  activeNavItem: {
-    borderTopWidth: 3,
-    borderTopColor: Colors.light.primaryDark,
+  farmerName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#000000',
+    marginBottom: 2,
   },
-  navText: {
+  farmerLocation: {
     fontSize: 12,
-    color: '#AAAAAA',
-    marginTop: 4,
-    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+    color: '#757575',
+    marginBottom: 4,
+  },
+  farmerRating: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  ratingText: {
+    marginLeft: 4,
+    fontSize: 12,
+    color: '#505050',
     fontWeight: '500',
   },
-  activeNavText: {
-    fontSize: 12,
+  recentContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  recentProductCard: {
+    width: '48%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+    marginBottom: 16,
+    overflow: 'hidden',
+  },
+  recentProductImage: {
+    width: '100%',
+    height: 100,
+    resizeMode: 'cover',
+  },
+  recentProductDetails: {
+    padding: 10,
+  },
+  recentProductName: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#000000',
+    marginBottom: 4,
+  },
+  recentProductPrice: {
+    fontSize: 14,
+    fontWeight: '700',
     color: Colors.light.primaryDark,
-    fontWeight: '600',
-    marginTop: 4,
-    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
-  }
+  },
 });
 
-export default HomeScreen;
+export default FarmerHomeScreen;

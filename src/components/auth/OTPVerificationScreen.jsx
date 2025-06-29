@@ -21,6 +21,7 @@ import {
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import auth from '@react-native-firebase/auth';
+import { saveUserRole } from '../../utils/userRoleStorage';
 
 const OTPVerificationScreen = ({ navigation, route }) => {
   const [otp, setOtp] = useState(''); // Single string for OTP
@@ -202,6 +203,12 @@ const OTPVerificationScreen = ({ navigation, route }) => {
         
         if (result.exists && result.userData) {
           console.log('✅ User data found in Firestore, restoring session', result.userData);
+          
+          // Save user role to localStorage
+          if (result.userData.userRole) {
+            await saveUserRole(result.userData.userRole);
+            console.log('✅ User role saved to localStorage for existing user:', result.userData.userRole);
+          }
           
           // Save the existing user data to AsyncStorage
           await saveUserToAsyncStorage(result.userData);

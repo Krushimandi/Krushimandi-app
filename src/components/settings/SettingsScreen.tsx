@@ -15,8 +15,9 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import auth from '@react-native-firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
-import { Colors } from '../../constants';
+import { Colors, StorageKeys } from '../../constants';
 import { getCompleteUserProfile } from '../../services/firebaseService';
+import { clearUserRole } from '../../utils/userRoleStorage';
 
 interface SettingItem {
   id: string;
@@ -101,15 +102,19 @@ const SettingsScreen: React.FC = () => {
           style: 'destructive',
           onPress: async () => {
             try {
-              // Clear local data
+              // Clear local data including user role
               await AsyncStorage.multiRemove([
                 'userData',
                 'user_role',
                 'auth_state',
                 'notifications_enabled',
                 'dark_mode_enabled',
-                'location_enabled'
+                'location_enabled',
+                'authStep'
               ]);
+              
+              // Clear user role from dedicated storage
+              await clearUserRole();
               
               // Sign out from Firebase
               await auth().signOut();
