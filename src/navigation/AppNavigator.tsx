@@ -68,6 +68,16 @@ const AppNavigator = () => {
     isProfileLoaded
   });
 
+  // Debug: Monitor userRole changes
+  React.useEffect(() => {
+    console.log('🔄 UserRole changed:', {
+      userRole,
+      authStoreUser: authStore.user,
+      isAuthenticated: authStore.isAuthenticated
+    });
+  }, [userRole, authStore.user, authStore.isAuthenticated]);
+
+  // Initialize user role on mount and when auth state changes
   React.useEffect(() => {
     const initializeUserRole = async () => {
       try {
@@ -90,8 +100,9 @@ const AppNavigator = () => {
       }
     };
 
+    // Initialize role immediately
     initializeUserRole();
-  }, []);
+  }, []); // Only run once on mount
 
   React.useEffect(() => {
     const checkAuthState = async () => {
@@ -103,39 +114,63 @@ const AppNavigator = () => {
         // If user is authenticated, sync role and load profile
         if (state.isAuthenticated && state.profileCompleted) {
           try {
-            // Sync user role between localStorage and Firestore
-            const syncedRole = await syncUserRole();
-            if (syncedRole && syncedRole !== userRole) {
-              setUserRole(syncedRole);
-              console.log('🔄 User role synced:', syncedRole);
-            }
-
-            // Load user profile for auth store
+            // Load user profile first to get role from Firestore
             const userProfile = await getCompleteUserProfile();
             if (userProfile) {
+              const profileRole = (userProfile as any).userRole;
+              
               console.log('🎯 Loading user profile into auth store:', {
-                userType: (userProfile as any).userRole,
+                userType: profileRole,
                 firstName: (userProfile as any).firstName
               });
+
+              // Update auth store
               authStore.updateUser({
                 id: (userProfile as any).uid,
                 firstName: (userProfile as any).firstName,
                 lastName: (userProfile as any).lastName,
                 email: (userProfile as any).email,
                 phone: (userProfile as any).phoneNumber,
-                userType: (userProfile as any).userRole as 'farmer' | 'buyer',
+                userType: profileRole as 'farmer' | 'buyer',
                 status: 'active',
                 isVerified: (userProfile as any).isVerified || true,
                 createdAt: (userProfile as any).createdAt,
                 updatedAt: (userProfile as any).updatedAt,
                 avatar: (userProfile as any).profileImage
               });
+
+              // Sync user role between localStorage and Firestore
+              const syncedRole = await syncUserRole();
+              
+              // If we got a role from either profile or sync, update local state
+              const finalRole = syncedRole || profileRole;
+              if (finalRole && finalRole !== userRole) {
+                setUserRole(finalRole);
+                console.log('🔄 User role updated after sync:', finalRole);
+              }
+
               setIsProfileLoaded(true);
             } else {
+              // Try to sync role even if profile loading failed
+              const syncedRole = await syncUserRole();
+              if (syncedRole && syncedRole !== userRole) {
+                setUserRole(syncedRole);
+                console.log('🔄 User role synced without profile:', syncedRole);
+              }
               setIsProfileLoaded(true); // Still mark as loaded even if no profile found
             }
           } catch (profileError) {
             console.error('❌ Error loading user profile for navigation:', profileError);
+            // Try to sync role even if profile loading failed
+            try {
+              const syncedRole = await syncUserRole();
+              if (syncedRole && syncedRole !== userRole) {
+                setUserRole(syncedRole);
+                console.log('🔄 User role synced after profile error:', syncedRole);
+              }
+            } catch (syncError) {
+              console.error('❌ Error syncing role after profile error:', syncError);
+            }
             setIsProfileLoaded(true); // Mark as loaded to prevent infinite loading
           }
         } else {

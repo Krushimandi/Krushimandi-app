@@ -58,9 +58,8 @@ export type MainTabParamList = {
 // Buyer Tab Navigator
 export type BuyerTabParamList = {
   Home: undefined;
-  Browse: undefined;
   Orders: undefined;
-  Watchlist: undefined;
+  Requests: undefined;
 };
 
 // Product Stack

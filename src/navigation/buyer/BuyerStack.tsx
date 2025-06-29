@@ -8,8 +8,7 @@ import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { BlurView } from '@react-native-community/blur';
 
 // Screens
-import BuyerHomeScreen from '../../components/home/FarmerHomeScreen.jsx';
-import WatchlistScreen from '../../components/home/WatchlistScreen.jsx';
+import { BuyerHomeScreen, RequestsScreen} from '../../components/home';
 import { MyOrdersScreen } from '../../components/orders';
 
 // Hooks
@@ -92,7 +91,7 @@ const CustomTabBarIcon = ({ focused, color, size, route }: any) => {
   switch (route.name) {
     case 'Home':
       iconComponent = focused ? (
-        <MaterialIcons name="home-filled" size={size-2} color={color} />
+        <MaterialIcons name="home-filled" size={size - 2} color={color} />
       ) : (
         <Octicons name="home" size={size} color={color} />
       );
@@ -100,19 +99,19 @@ const CustomTabBarIcon = ({ focused, color, size, route }: any) => {
       break;
     case 'Orders':
       iconComponent = focused ? (
-        <MaterialDesignIcons name="shopping" size={size-2 } color={color} />
+        <MaterialDesignIcons name="shopping" size={size - 2} color={color} />
       ) : (
         <MaterialDesignIcons name="shopping-outline" size={size} color={color} />
       );
       iconName = 'Orders';
       break;
-    case 'Watchlist':
+    case 'Requests':
       iconComponent = focused ? (
-        <Ionicons name="heart" size={size-2} color={color} />
+        <Ionicons name="chatbox-ellipses" size={size - 2} color={color} />
       ) : (
-        <Ionicons name="heart-outline" size={size} color={color} />
+        <Ionicons name="chatbox-ellipses-outline" size={size} color={color} />
       );
-      iconName = 'Watchlist';
+      iconName = 'Requests';
       break;
     default:
       iconComponent = <Ionicons name="ellipse" size={size} color={color} />;
@@ -120,7 +119,7 @@ const CustomTabBarIcon = ({ focused, color, size, route }: any) => {
   }
 
   return (
-    <Animated.View 
+    <Animated.View
       style={[
         styles.tabIconContainer,
         {
@@ -141,12 +140,12 @@ const CustomTabBarIcon = ({ focused, color, size, route }: any) => {
           }
         ]}
       />
-      
+
       {/* Icon */}
       <View style={styles.iconWrapper}>
         {iconComponent}
       </View>
-      
+
       {/* Enhanced active indicator */}
       <Animated.View
         style={[
@@ -224,38 +223,38 @@ const BuyerStack = () => {
             ]} />
           ),
         tabBarIcon: ({ focused, color, size }) => (
-          <CustomTabBarIcon 
-            focused={focused} 
-            color={color} 
-            size={size+2} 
-            route={route} 
+          <CustomTabBarIcon
+            focused={focused}
+            color={color}
+            size={size + 2}
+            route={route}
           />
         ),
       })}
     >
-      <BuyerTab.Screen 
-        name="Home" 
-        component={BuyerHomeScreen} 
-        options={{ 
+      <BuyerTab.Screen
+        name="Home"
+        component={BuyerHomeScreen}
+        options={{
           tabBarLabel: 'Home',
           tabBarAccessibilityLabel: 'Home Tab'
-        }} 
+        }}
       />
-      <BuyerTab.Screen 
-        name="Orders" 
-        component={MyOrdersScreen} 
-        options={{ 
+      <BuyerTab.Screen
+        name="Orders"
+        component={MyOrdersScreen}
+        options={{
           tabBarLabel: 'Orders',
           tabBarAccessibilityLabel: 'My Orders Tab'
-        }} 
+        }}
       />
-      <BuyerTab.Screen 
-        name="Watchlist" 
-        component={WatchlistScreen} 
-        options={{ 
-          tabBarLabel: 'Watchlist',
-          tabBarAccessibilityLabel: 'Watchlist Tab'
-        }} 
+      <BuyerTab.Screen
+        name="Requests"
+        component={RequestsScreen}
+        options={{
+          tabBarLabel: 'Requests',
+          tabBarAccessibilityLabel: 'Requests Tab'
+        }}
       />
     </BuyerTab.Navigator>
   );

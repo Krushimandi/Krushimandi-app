@@ -52,7 +52,7 @@ export const clearUserRole = async (): Promise<void> => {
 
 /**
  * Synchronize user role between localStorage and Firestore
- * If roles differ, update Firestore with localStorage value
+ * Priority: Firestore role takes precedence when localStorage is empty
  * @returns Updated user role
  */
 export const syncUserRole = async (): Promise<UserRole | null> => {
@@ -76,11 +76,17 @@ export const syncUserRole = async (): Promise<UserRole | null> => {
       userId: user.uid
     });
 
-    // If localStorage has no role but Firestore does, save to localStorage
+    // If localStorage has no role but Firestore does, save to localStorage (priority to Firestore)
     if (!localRole && firestoreRole) {
       await saveUserRole(firestoreRole);
       console.log('✅ Role synced from Firestore to localStorage:', firestoreRole);
       return firestoreRole;
+    }
+
+    // If both exist and match, return the role
+    if (localRole && firestoreRole && localRole === firestoreRole) {
+      console.log('✅ Roles already in sync:', localRole);
+      return localRole;
     }
 
     // If localStorage has role but Firestore doesn't or they differ, update Firestore
@@ -97,13 +103,14 @@ export const syncUserRole = async (): Promise<UserRole | null> => {
       return localRole;
     }
 
-    // If both exist and match, return the role
-    if (localRole && firestoreRole && localRole === firestoreRole) {
-      console.log('✅ Roles already in sync:', localRole);
+    // If only localStorage has role (shouldn't happen in normal flow)
+    if (localRole && !firestoreRole) {
+      console.log('⚠️ Only localStorage has role, keeping it:', localRole);
       return localRole;
     }
 
     // If neither exists, return null
+    console.log('❌ No role found in either localStorage or Firestore');
     return null;
 
   } catch (error) {

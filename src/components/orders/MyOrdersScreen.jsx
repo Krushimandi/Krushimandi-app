@@ -75,6 +75,7 @@ const ORDERS_DATA = [
   }
 ];
 
+
 const MyOrdersScreen = () => {
   const navigation = useNavigation();
   const { showTabBar } = useTabBarControl();
@@ -83,19 +84,19 @@ const MyOrdersScreen = () => {
   const [activeFilter, setActiveFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
-  
+
   // Show tab bar when screen is focused
   useEffect(() => {
     showTabBar();
   }, []);
-  
+
   // Load orders data
   useEffect(() => {
     const loadOrders = async () => {
       try {
         // In a real app, this would fetch from an API
         setLoading(true);
-        
+
         // Simulate network request
         setTimeout(() => {
           setOrders(ORDERS_DATA);
@@ -106,7 +107,7 @@ const MyOrdersScreen = () => {
         setLoading(false);
       }
     };
-    
+
     loadOrders();
   }, []);
 
@@ -129,21 +130,21 @@ const MyOrdersScreen = () => {
       canceled: orders.filter(o => o.status === 'canceled').length,
     };
   };
-  
+
   // Filter orders based on selected status
-  const filteredOrders = activeFilter === 'all' 
-    ? orders.filter(order => 
-        order.productName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+  const filteredOrders = activeFilter === 'all'
+    ? orders.filter(order =>
+      order.productName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      order.orderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      order.seller.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+    : orders.filter(order =>
+      order.status === activeFilter &&
+      (order.productName.toLowerCase().includes(searchQuery.toLowerCase()) ||
         order.orderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        order.seller.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : orders.filter(order => 
-        order.status === activeFilter &&
-        (order.productName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-         order.orderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-         order.seller.toLowerCase().includes(searchQuery.toLowerCase()))
-      );
-  
+        order.seller.toLowerCase().includes(searchQuery.toLowerCase()))
+    );
+
   // View order details
   const viewOrderDetails = (order) => {
     // In a real app, navigate to order details screen
@@ -151,7 +152,7 @@ const MyOrdersScreen = () => {
     // Example navigation:
     // navigation.navigate('OrderDetail', { orderId: order.id });
   };
-  
+
   // Status badge based on order status
   const getStatusBadge = (status) => {
     switch (status) {
@@ -165,14 +166,14 @@ const MyOrdersScreen = () => {
         return { color: '#9E9E9E', text: 'Unknown', icon: 'help-circle' };
     }
   };
-  
+
   // Render individual order item
   const renderOrderItem = ({ item, index }) => {
     const statusInfo = getStatusBadge(item.status);
-    
+
     return (
       <View style={styles.orderItem}>
-        <TouchableOpacity 
+        <TouchableOpacity
           activeOpacity={0.95}
           onPress={() => viewOrderDetails(item)}
         >
@@ -188,7 +189,7 @@ const MyOrdersScreen = () => {
               </Text>
             </View>
           </View>
-          
+
           <View style={styles.orderContent}>
             <View style={styles.productImageContainer}>
               <Image source={item.image} style={styles.productImage} />
@@ -196,14 +197,14 @@ const MyOrdersScreen = () => {
                 <Text style={styles.quantityText}>{item.quantity}</Text>
               </View>
             </View>
-            
+
             <View style={styles.orderDetails}>
               <Text style={styles.productName} numberOfLines={2}>{item.productName}</Text>
               <View style={styles.sellerRow}>
                 <Icon name="storefront-outline" size={14} color="#757575" />
                 <Text style={styles.sellerName}>{item.seller}</Text>
               </View>
-              
+
               <View style={styles.priceRow}>
                 <Text style={styles.price}>{item.price}</Text>
                 {item.status === 'delivered' && (
@@ -216,19 +217,19 @@ const MyOrdersScreen = () => {
             </View>
 
             <View style={styles.orderActions}>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.quickActionButton}
                 onPress={() => viewOrderDetails(item)}
               >
                 <Icon name="eye-outline" size={18} color={Colors.light.primary} />
               </TouchableOpacity>
-              
+
               {item.status === 'delivered' && (
                 <TouchableOpacity style={styles.quickActionButton}>
                   <MaterialIcons name="rate-review" size={18} color={Colors.light.primary} />
                 </TouchableOpacity>
               )}
-              
+
               {item.status === 'processing' && (
                 <TouchableOpacity style={styles.quickActionButton}>
                   <Icon name="location-outline" size={18} color={Colors.light.primary} />
@@ -236,7 +237,7 @@ const MyOrdersScreen = () => {
               )}
             </View>
           </View>
-          
+
           {/* Progress indicator for processing orders */}
           {item.status === 'processing' && (
             <View style={styles.progressContainer}>
@@ -246,7 +247,7 @@ const MyOrdersScreen = () => {
               <Text style={styles.progressText}>Order is being prepared</Text>
             </View>
           )}
-          
+
           {/* Cancellation reason for canceled orders */}
           {item.status === 'canceled' && item.cancellationReason && (
             <View style={styles.cancellationContainer}>
@@ -258,7 +259,7 @@ const MyOrdersScreen = () => {
       </View>
     );
   };
-  
+
   // Filter buttons for order status
   const FilterButton = ({ title, value, count }) => (
     <TouchableOpacity
@@ -289,7 +290,7 @@ const MyOrdersScreen = () => {
       )}
     </TouchableOpacity>
   );
-  
+
   // Empty state when no orders match filter
   const renderEmptyComponent = () => (
     <View style={styles.emptyContainer}>
@@ -303,14 +304,14 @@ const MyOrdersScreen = () => {
         {searchQuery ? 'No matching orders' : 'No orders found'}
       </Text>
       <Text style={styles.emptyText}>
-        {searchQuery 
+        {searchQuery
           ? `No orders match "${searchQuery}"`
           : activeFilter === 'all'
-          ? "You haven't placed any orders yet"
-          : `You don't have any ${activeFilter} orders`}
+            ? "You haven't placed any orders yet"
+            : `You don't have any ${activeFilter} orders`}
       </Text>
       {!searchQuery && (
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.browseButton}
           onPress={() => navigation.navigate('Browse')}
         >
@@ -323,10 +324,14 @@ const MyOrdersScreen = () => {
 
   const orderStats = getOrderStats();
 
-    return (
+  return (
     <SafeAreaView style={styles.container}>
-      <StatusBar backgroundColor="#FFFFFF" barStyle="dark-content" />
-      
+      <StatusBar
+        backgroundColor="transparent"
+        translucent={true}
+        barStyle="dark-content"
+      />
+
       {/* Enhanced Header */}
       <View style={styles.header}>
         <View style={styles.headerTop}>
@@ -353,7 +358,7 @@ const MyOrdersScreen = () => {
             onChangeText={setSearchQuery}
           />
           {searchQuery.length > 0 && (
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.clearButton}
               onPress={() => setSearchQuery('')}
             >
@@ -365,8 +370,8 @@ const MyOrdersScreen = () => {
 
       {/* Enhanced Filters */}
       <View style={styles.filtersContainer}>
-        <ScrollView 
-          horizontal 
+        <ScrollView
+          horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.filtersScrollContent}
         >
@@ -376,7 +381,7 @@ const MyOrdersScreen = () => {
           <FilterButton title="Canceled" value="canceled" count={orderStats.canceled} />
         </ScrollView>
       </View>
-      
+
       {/* Main Content */}
       {loading ? (
         <View style={styles.loadingContainer}>
@@ -402,18 +407,17 @@ const MyOrdersScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: '#ffffff',
   },
   header: {
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 20,
-    paddingTop: 10,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 10 : 0,
     paddingBottom: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 4,
-    elevation: 4,
   },
   headerTop: {
     flexDirection: 'row',
@@ -494,7 +498,7 @@ const styles = StyleSheet.create({
   },
   filtersContainer: {
     backgroundColor: '#FFFFFF',
-    paddingVertical: 16,
+    paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#F0F0F0',
   },
@@ -508,13 +512,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 25,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#F6F6F6',
     marginRight: 12,
     borderWidth: 1,
     borderColor: 'transparent',
   },
   activeFilterButton: {
-    backgroundColor: Colors.light.primary,
+    backgroundColor: Colors.light.primaryDark,
     borderColor: Colors.light.primaryDark,
   },
   filterButtonText: {
@@ -727,7 +731,7 @@ const styles = StyleSheet.create({
     bottom: -5,
     right: -5,
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    borderRadius: 36,
     padding: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },

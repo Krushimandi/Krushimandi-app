@@ -344,7 +344,7 @@ const FarmerHomeScreen = () => {
                 hitSlop={{ top: 10, bottom: 10, left: 0, right: 10 }}
               >
                 <Text style={styles.welcome}>
-                  Hello, {getDisplayName()}!
+                  Namste, {getDisplayName()}!
                 </Text>
                 <View style={styles.locationContainer}>
                   <Text style={styles.location}>

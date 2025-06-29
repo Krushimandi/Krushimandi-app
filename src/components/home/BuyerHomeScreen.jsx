@@ -16,6 +16,7 @@ import {
   Animated,
   Platform,
   SafeAreaView,
+  Modal,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Octicons from 'react-native-vector-icons/Octicons';
@@ -23,6 +24,7 @@ import { useNavigation } from '@react-navigation/native';
 import { getCompleteUserProfile, updateLastLogin, validateCurrentUser } from '../../services/firebaseService';
 import auth from '@react-native-firebase/auth';
 import { Colors, Typography, Layout } from '../../constants';
+import FilterScreen from './FilterScreen';
 
 const categories = [
   { name: 'Bananas', icon: require('../../assets/banana.png') },
@@ -102,7 +104,9 @@ const BuyerHomeScreen = () => {
   const [userProfile, setUserProfile] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
   const scrollY = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(0)).current;
 
   // Calculate header height and opacity based on scroll
   const headerHeight = scrollY.interpolate({
@@ -132,6 +136,33 @@ const BuyerHomeScreen = () => {
   useEffect(() => {
     loadUserProfile();
   }, []);
+
+  // Filter modal functions
+  const openFilterModal = () => {
+    setIsFilterModalVisible(true);
+    slideAnim.setValue(0);
+    Animated.timing(slideAnim, {
+      toValue: 1,
+      duration: 200,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const closeFilterModal = () => {
+    Animated.timing(slideAnim, {
+      toValue: 0,
+      duration: 150,
+      useNativeDriver: true,
+    }).start(() => {
+      setIsFilterModalVisible(false);
+    });
+  };
+
+  const handleApplyFilters = (filters) => {
+    console.log('Applied filters:', filters);
+    // Here you can handle the filter logic
+    closeFilterModal();
+  };
   // Safe navigation function to prevent "route not defined" errors
   const safeNavigate = (routeName, params = {}) => {
     console.log("clicked");
@@ -369,7 +400,11 @@ const BuyerHomeScreen = () => {
               />
             </View>
 
-            <TouchableOpacity style={styles.filterBtn}>
+            {/* Filter Model */}
+            <TouchableOpacity style={styles.filterBtn} onPress={() => {
+              console.log('Opening filter Modal');
+              openFilterModal();
+            }}>
               <Icon name="options-outline" size={20} color={Colors.light.primaryDark} />
             </TouchableOpacity>
           </View>
@@ -396,7 +431,7 @@ const BuyerHomeScreen = () => {
               ]}
               onPress={() => setSelectedCategory('All')}
             >
-              <Icon name="apps-outline" size={22} color={selectedCategory === 'All' ? Colors.light.primaryDark : "#505050"} style={[styles.categoryIcon, {
+              <Icon name="apps-outline" size={22} color={"#505050"} style={[styles.categoryIcon, {
                 marginHorizontal: 6,
               }]} />
               <Text style={[
@@ -432,52 +467,139 @@ const BuyerHomeScreen = () => {
             </TouchableOpacity>
           </View>
           <View style={styles.fruitsContainer}>
-            {fruits.map((item) => (
-              <TouchableOpacity
-                key={item.id}
-                style={styles.fruitCard} activeOpacity={0.9}
-                onPress={() => {
-                  // Navigate to the ProductDetail screen in the nested ProductFlowNavigator
-                  safeNavigate('ProductFlow', {
-                    screen: 'ProductDetail',
-                    params: {
-                      product: {
-                        name: item.name,
-                        description: `Category: ${item.category}`,
-                        price: parseFloat(item.price.replace('₹', '').replace('/KG', '')),
-                        rating: item.rating,
-                        reviewCount: Math.floor(item.rating * 10),
-                        sizes: ['1 kg', '500 gm', '2 kg'],
-                        freshness: 'Fresh',
-                        details: `${item.name} from ${item.location}. Available quantity: ${item.tons}`,
-                        image: item.image,
-                        postedDate: '3 days ago' // Add postedDate for the badge
+            {fruits.length > 0 ? (
+              fruits.map((item) => (
+                <TouchableOpacity
+                  key={item.id}
+                  style={styles.fruitCard} activeOpacity={0.9}
+                  onPress={() => {
+                    // Navigate to the ProductDetail screen in the nested ProductFlowNavigator
+                    safeNavigate('ProductFlow', {
+                      screen: 'ProductDetail',
+                      params: {
+                        product: {
+                          name: item.name,
+                          description: `Category: ${item.category}`,
+                          price: parseFloat(item.price.replace('₹', '').replace('/KG', '')),
+                          rating: item.rating,
+                          reviewCount: Math.floor(item.rating * 10),
+                          sizes: ['1 kg', '500 gm', '2 kg'],
+                          freshness: 'Fresh',
+                          details: `${item.name} from ${item.location}. Available quantity: ${item.tons}`,
+                          image: item.image,
+                          postedDate: '3 days ago' // Add postedDate for the badge
+                        }
                       }
-                    }
-                  });
-                }}
-              >
-                <Image source={item.image} style={styles.fruitImage} />
-                <View style={styles.fruitDetailsSection}>
-                  <Text style={styles.fruitName}>{item.name}</Text>
-                  <Text style={styles.fruitCategory}>Category: {item.category}</Text>
+                    });
+                  }}
+                >
+                  <Image source={item.image} style={styles.fruitImage} />
+                  <View style={styles.fruitDetailsSection}>
+                    <Text style={styles.fruitName}>{item.name}</Text>
+                    <Text style={styles.fruitCategory}>Category: {item.category}</Text>
 
-                  <View style={styles.locationRow}>
-                    <Icon name="location-outline" size={12} color="#505050" />
-                    <Text style={styles.fruitLocation}>{item.location}</Text>
+                    <View style={styles.locationRow}>
+                      <Icon name="location-outline" size={12} color="#505050" />
+                      <Text style={styles.fruitLocation}>{item.location}</Text>
+                    </View>
                   </View>
-                </View>
 
-                <View style={styles.priceContainer}>
-                  <Text style={styles.fruitPrice}>{item.price}</Text>
-                  <Text style={styles.fruitTons}>{item.tons}</Text>
-                  {renderStars(item.rating)}
+                  <View style={styles.priceContainer}>
+                    <Text style={styles.fruitPrice}>{item.price}</Text>
+                    <Text style={styles.fruitTons}>{item.tons}</Text>
+                    {renderStars(item.rating)}
+                  </View>
+                </TouchableOpacity>
+              ))
+            ) : (
+              <View style={styles.emptyStateContainer}>
+                <View style={styles.emptyStateIcon}>
+                  <Icon name="basket-outline" size={48} color="#CCCCCC" />
                 </View>
-              </TouchableOpacity>
-            ))}
+                <Text style={styles.emptyStateTitle}>No Fruits Available</Text>
+                <Text style={styles.emptyStateSubtitle}>
+                  Fresh fruits will be listed here when farmers post them
+                </Text>
+                <TouchableOpacity
+                  style={styles.refreshButton}
+                  onPress={() => {
+                    // Add refresh logic here if needed
+                    console.log('Refreshing fruits list...');
+                  }}
+                >
+                  <Icon name="refresh-outline" size={18} color={Colors.light.primary} />
+                  <Text style={styles.refreshButtonText}>Refresh</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+            {/* Add a spacer view to ensure the last item has padding at the bottom */}
+            <View styles={{ flex: 1, paddingBottom: 40, backgroundColor: '#F6F6F6' }}></View>
           </View>
         </View>
       </Animated.ScrollView>
+
+      {/* Filter Modal */}
+      <Modal
+        visible={isFilterModalVisible}
+        transparent={true}
+        animationType="none"
+        onRequestClose={closeFilterModal}
+        statusBarTranslucent={true}
+        hardwareAccelerated={true}
+      >
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity
+            style={styles.modalBackdrop}
+            activeOpacity={1}
+            onPress={closeFilterModal}
+          />
+          <Animated.View
+            style={[
+              styles.modalContainer,
+              {
+                transform: [
+                  {
+                    translateY: slideAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [300, 0],
+                      extrapolate: 'clamp',
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
+            <View style={styles.modalHeader}>
+              <View style={styles.modalHandle} />
+              <View style={styles.modalHeaderContent}>
+                <TouchableOpacity
+                  style={styles.modalBackButton}
+                  onPress={closeFilterModal}
+                  activeOpacity={0.7}
+                >
+                  <Icon name="close" size={20} color="#6B7280" />
+                </TouchableOpacity>
+                <Text style={styles.modalTitle}>Filters</Text>
+                <TouchableOpacity
+                  style={styles.modalClearButton}
+                  onPress={() => {
+                    // Handle clear filters immediately
+                    console.log('Clear filters');
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.modalClearButtonText}>Clear</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+            <FilterScreen
+              onApplyFilters={handleApplyFilters}
+              onClose={closeFilterModal}
+              isModal={true}
+            />
+          </Animated.View>
+        </View>
+      </Modal>
     </SafeAreaView >
   );
 };
@@ -486,7 +608,6 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: '#ffffff',
-
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   scrollViewContent: {
@@ -748,6 +869,132 @@ const styles = StyleSheet.create({
     color: '#939393',
     marginTop: 2,
     textAlign: 'right',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  emptyStateContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+    paddingHorizontal: 20,
+    backgroundColor: '#FAFAFA',
+    borderRadius: 12,
+    marginVertical: 8,
+  },
+  emptyStateIcon: {
+    marginBottom: 16,
+    padding: 20,
+    backgroundColor: '#F5F5F5',
+    borderRadius: 50,
+  },
+  emptyStateTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333333',
+    marginBottom: 8,
+    textAlign: 'center',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  emptyStateSubtitle: {
+    fontSize: 14,
+    color: '#666666',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 20,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  refreshButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: Colors.light.primary,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  refreshButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: Colors.light.primary,
+    marginLeft: 6,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
+  modalContainer: {
+    backgroundColor: '#ffffff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '85%',
+    minHeight: '70%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  modalHeader: {
+    paddingTop: 8,
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EFEFEF',
+  },
+  modalHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#DDDDDD',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 12,
+  },
+  modalHeaderContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  modalBackButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: 'black',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  modalClearButton: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 18,
+    backgroundColor: '#EF4444',
+    borderWidth: 1,
+    borderColor: '#DC2626',
+  },
+  modalClearButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
     fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
 

@@ -33,7 +33,7 @@ const additionalFeatures = [
   'Out of Stock',
 ];
 
-const FilterScreen = () => {
+const FilterScreen = ({ onApplyFilters, onClose, isModal = false }) => {
   const navigation = useNavigation();
   const [selectedFruit, setSelectedFruit] = useState('Apple');
   const [selectedFeatures, setSelectedFeatures] = useState(['Top Rated']);
@@ -51,14 +51,20 @@ const FilterScreen = () => {
 
   const handleApplyFilters = () => {
     // Apply filters logic here
-    console.log('Applying filters:', {
+    const filters = {
       selectedFruit,
       selectedFeatures,
       minPrice,
       maxPrice,
       minRating
-    });
-    navigation.goBack();
+    };
+    console.log('Applying filters:', filters);
+    
+    if (isModal && onApplyFilters) {
+      onApplyFilters(filters);
+    } else {
+      navigation.goBack();
+    }
   };
 
   const handleClearFilters = () => {
@@ -70,29 +76,33 @@ const FilterScreen = () => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar
-        backgroundColor="transparent"
-        translucent={true}
-        barStyle="dark-content"
-      />
-      
-      {/* Header with Back Button */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Icon name="arrow-back" size={24} color="#007E2F" />
-        </TouchableOpacity>
-        <Text style={styles.headerText}>Filters</Text>
-        <TouchableOpacity
-          style={styles.clearButton}
-          onPress={handleClearFilters}
-        >
-          <Text style={styles.clearButtonText}>Clear</Text>
-        </TouchableOpacity>
-      </View>
+    <SafeAreaView style={[styles.safeArea, isModal && styles.modalSafeArea]}>
+      {!isModal && (
+        <>
+          <StatusBar
+            backgroundColor="transparent"
+            translucent={true}
+            barStyle="dark-content"
+          />
+          
+          {/* Header with Back Button */}
+          <View style={styles.header}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => navigation.goBack()}
+            >
+              <Icon name="arrow-back" size={24} color="#007E2F" />
+            </TouchableOpacity>
+            <Text style={styles.headerText}>Filters</Text>
+            <TouchableOpacity
+              style={styles.clearButton}
+              onPress={handleClearFilters}
+            >
+              <Text style={styles.clearButtonText}>Clear</Text>
+            </TouchableOpacity>
+          </View>
+        </>
+      )}
 
       <ScrollView style={styles.scrollContent}>
 
@@ -101,58 +111,64 @@ const FilterScreen = () => {
         {[`₹${minPrice} - ₹${maxPrice}`, selectedFruit, ...selectedFeatures].map((tag) => (
           <View key={tag} style={styles.tag}>
             <Text style={styles.tagText}>{tag}</Text>
-            <Text style={styles.tagClose}>×</Text>
+            <TouchableOpacity onPress={() => {
+              // Handle tag removal
+              if (selectedFeatures.includes(tag)) {
+                toggleFeature(tag);
+              }
+            }}>
+              <Icon name="close" size={16} color="#6B7280" />
+            </TouchableOpacity>
           </View>
         ))}
       </View>
 
       {/* Fruit Type Section */}
       <Text style={styles.sectionTitle}>Fruit type</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-        {fruitTypes.map((fruit) => (
-          <TouchableOpacity
-            key={fruit.name}
-            style={[
-              styles.fruitOption,
-              selectedFruit === fruit.name && styles.fruitOptionSelected,
-            ]}
-            onPress={() => setSelectedFruit(fruit.name)}
-          >
-            <Image source={{ uri: fruit.icon }} style={styles.fruitIcon} />
-            <Text style={styles.fruitText}>{fruit.name}</Text>
-          </TouchableOpacity>
-        ))}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
+        <View style={styles.fruitOptionsRow}>
+          {fruitTypes.map((fruit) => (
+            <TouchableOpacity
+              key={fruit.name}
+              style={[
+                styles.fruitOption,
+                selectedFruit === fruit.name && styles.fruitOptionSelected,
+              ]}
+              onPress={() => setSelectedFruit(fruit.name)}
+            >
+              <View style={[
+                styles.fruitIconContainer,
+                selectedFruit === fruit.name && styles.fruitIconContainerSelected
+              ]}>
+                <Image source={{ uri: fruit.icon }} style={styles.fruitIcon} />
+              </View>
+              <Text style={[
+                styles.fruitText,
+                selectedFruit === fruit.name && styles.fruitTextSelected
+              ]}>{fruit.name}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
       </ScrollView>
 
       {/* Price Range */}
       <Text style={styles.sectionTitle}>Price per kg</Text>
       <View style={styles.priceRangeContainer}>
-        <Text style={styles.priceLabel}>Select price range:</Text>
-        <View style={styles.priceOptionsContainer}>
-          <TouchableOpacity 
-            style={[styles.priceOption, minPrice === 0 && styles.priceOptionSelected]}
-            onPress={() => setMinPrice(0)}
-          >
-            <Text style={[styles.priceOptionText, minPrice === 0 && styles.priceOptionTextSelected]}>₹0-50</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.priceOption, minPrice === 50 && styles.priceOptionSelected]}
-            onPress={() => setMinPrice(50)}
-          >
-            <Text style={[styles.priceOptionText, minPrice === 50 && styles.priceOptionTextSelected]}>₹50-100</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.priceOption, minPrice === 100 && styles.priceOptionSelected]}
-            onPress={() => setMinPrice(100)}
-          >
-            <Text style={[styles.priceOptionText, minPrice === 100 && styles.priceOptionTextSelected]}>₹100-200</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.priceOption, minPrice === 200 && styles.priceOptionSelected]}
-            onPress={() => setMinPrice(200)}
-          >
-            <Text style={[styles.priceOptionText, minPrice === 200 && styles.priceOptionTextSelected]}>₹200+</Text>
-          </TouchableOpacity>
+        <View style={styles.priceSliderContainer}>
+          <View style={styles.priceSlider}>
+            <View style={styles.priceTrack} />
+            <View style={styles.priceRange} />
+            <View style={[styles.priceThumb, styles.priceThumbLeft]} />
+            <View style={[styles.priceThumb, styles.priceThumbRight]} />
+          </View>
+        </View>
+        <View style={styles.priceLabelsContainer}>
+          <View style={styles.priceLabel}>
+            <Text style={styles.priceLabelText}>₹{minPrice}</Text>
+          </View>
+          <View style={styles.priceLabel}>
+            <Text style={styles.priceLabelText}>₹{maxPrice}</Text>
+          </View>
         </View>
       </View>
 
@@ -209,7 +225,7 @@ const FilterScreen = () => {
       </ScrollView>
 
       {/* Bottom Action Buttons */}
-      <View style={styles.bottomActions}>
+      <View style={[styles.bottomActions, isModal && styles.modalBottomActions]}>
         <TouchableOpacity
           style={styles.applyButton}
           onPress={handleApplyFilters}
@@ -229,167 +245,236 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flex: 1,
-    padding: 16,
-    paddingBottom: 100, // Space for bottom action button
+    padding: 20,
+    paddingBottom: 100,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
   },
   close: {
     fontSize: 20,
     color: '#555',
   },
   headerText: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: 'black',
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#111827',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
   selectedTags: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginTop: 16,
+    marginBottom: 24,
+    gap: 8,
   },
   tag: {
     flexDirection: 'row',
-    backgroundColor: '#E8F5E9',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    alignItems: 'center',
+    backgroundColor: '#E0F2FE',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 20,
-    margin: 4,
+    borderWidth: 1,
+    borderColor: '#BAE6FD',
   },
   tagText: {
-    color: 'black',
-    marginRight: 4,
+    color: '#0369A1',
+    fontSize: 14,
+    fontWeight: '500',
+    marginRight: 6,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
   tagClose: {
-    color: '#2E7D32',
+    color: '#6B7280',
     fontWeight: 'bold',
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    marginVertical: 12,
-    color: 'black',
+    marginBottom: 16,
+    color: '#111827',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  horizontalScroll: {
+    marginBottom: 32,
+  },
+  fruitOptionsRow: {
+    flexDirection: 'row',
+    paddingRight: 20,
   },
   fruitOption: {
     alignItems: 'center',
-    padding: 10,
-    margin: 4,
-    marginRight: 12,
-    borderWidth: 1,
-    borderColor: '#C8E6C9',
-    borderRadius: 10,
+    marginRight: 20,
+    minWidth: 80,
   },
   fruitOptionSelected: {
-    borderColor: '#2E7D32',
-    backgroundColor: '#E8F5E9',
+    // Selected state handled by individual elements
   },
-  fruitText: {
-    marginTop: 4,
-    color: '#2E7D32',
-    fontSize: 12,
+  fruitIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 2,
+    borderColor: '#E2E8F0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  fruitIconContainerSelected: {
+    backgroundColor: '#E0F7FA',
+    borderColor: '#007E2F',
+    borderWidth: 2,
   },
   fruitIcon: {
-    width: 40,
-    height: 40,
+    width: 36,
+    height: 36,
+  },
+  fruitText: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontWeight: '500',
+    textAlign: 'center',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  fruitTextSelected: {
+    color: '#007E2F',
+    fontWeight: '600',
   },
   priceRangeContainer: {
-    marginTop: 10,
+    marginBottom: 32,
+  },
+  priceSliderContainer: {
+    paddingHorizontal: 16,
     marginBottom: 20,
   },
-  priceLabel: {
-    fontSize: 14,
-    color: '#666666',
-    marginBottom: 10,
+  priceSlider: {
+    height: 40,
+    justifyContent: 'center',
+    position: 'relative',
   },
-  priceOptionsContainer: {
+  priceTrack: {
+    height: 4,
+    backgroundColor: '#E2E8F0',
+    borderRadius: 2,
+  },
+  priceRange: {
+    position: 'absolute',
+    height: 4,
+    backgroundColor: '#3B82F6',
+    borderRadius: 2,
+    left: '20%',
+    right: '30%',
+  },
+  priceThumb: {
+    position: 'absolute',
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#3B82F6',
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  priceThumbLeft: {
+    left: '18%',
+  },
+  priceThumbRight: {
+    right: '28%',
+  },
+  priceLabelsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+  },
+  priceLabel: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  priceLabelText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  featuresContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
+    marginBottom: 32,
   },
-  priceOption: {
+  featureTag: {
     borderWidth: 1,
-    borderColor: '#2E7D32',
+    borderColor: '#D1D5DB',
     borderRadius: 20,
     paddingHorizontal: 16,
     paddingVertical: 8,
     backgroundColor: '#FFFFFF',
   },
-  priceOptionSelected: {
-    backgroundColor: '#2E7D32',
-  },
-  priceOptionText: {
-    color: '#2E7D32',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  priceOptionTextSelected: {
-    color: '#FFFFFF',
-  },
-  featuresContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  featureTag: {
-    borderWidth: 1,
-    borderColor: 'green',
-    borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    margin: 4,
-  },
   featureTagSelected: {
-    backgroundColor: '#2E7D32',
+    backgroundColor: '#007E2F',
+    borderColor: '#007E2F',
   },
   featureText: {
-    color: 'black',
+    color: '#6B7280',
+    fontSize: 14,
+    fontWeight: '500',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
   featureTextSelected: {
-    color: '#fff',
+    color: '#FFFFFF',
   },
-
-
-
-
-
-
-      ratingContainer: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      marginVertical: 8,
-    },
-    ratingOption: {
-      borderWidth: 1,
-      borderColor: 'green',
-      borderRadius: 20,
-      paddingHorizontal: 12,
-      paddingVertical: 6,
-      margin: 4,
-      backgroundColor: '#fff',
-    },
-    ratingOptionSelected: {
-      backgroundColor: '#4CAF50',
-    },
-    ratingText: {
-      color: '#4CAF50',
-      fontSize: 14,
-    },
-    ratingTextSelected: {
-      color: '#fff',
-      fontWeight: '600',
-    },
+  ratingContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 32,
+  },
+  ratingOption: {
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#FFFFFF',
+  },
+  ratingOptionSelected: {
+    backgroundColor: '#007E2F',
+    borderColor: '#007E2F',
+  },
+  ratingText: {
+    color: '#6B7280',
+    fontSize: 14,
+    fontWeight: '500',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  ratingTextSelected: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
     safeArea: {
       flex: 1,
       backgroundColor: '#ffffff',
       paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
     },
+    modalSafeArea: {
+      paddingTop: 0,
+    },
     backButton: {
       width: 40,
       height: 40,
       borderRadius: 20,
-      backgroundColor: '#F6F6F6',
+      backgroundColor: '#F3F4F6',
       justifyContent: 'center',
       alignItems: 'center',
     },
@@ -397,35 +482,40 @@ const styles = StyleSheet.create({
       paddingHorizontal: 16,
       paddingVertical: 8,
       borderRadius: 20,
-      backgroundColor: '#FF6B6B',
+      backgroundColor: '#EF4444',
     },
     clearButtonText: {
       color: '#FFFFFF',
       fontSize: 14,
       fontWeight: '600',
+      fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
     },
     bottomActions: {
-      position: 'absolute',
-      bottom: 0,
-      left: 0,
-      right: 0,
       backgroundColor: '#FFFFFF',
       paddingHorizontal: 20,
       paddingVertical: 20,
       borderTopWidth: 1,
-      borderTopColor: '#EFEFEF',
+      borderTopColor: '#E5E7EB',
       shadowColor: '#000000',
       shadowOffset: {
         width: 0,
-        height: -4,
+        height: -2,
       },
-      shadowOpacity: 0.1,
+      shadowOpacity: 0.05,
       shadowRadius: 8,
-      elevation: 8,
+      elevation: 4,
+    },
+    modalBottomActions: {
+      position: 'relative',
+      bottom: 'auto',
+      shadowOpacity: 0,
+      elevation: 0,
+      borderTopWidth: 1,
+      borderTopColor: '#E5E7EB',
     },
     applyButton: {
       backgroundColor: '#007E2F',
-      borderRadius: 26,
+      borderRadius: 12,
       height: 52,
       justifyContent: 'center',
       alignItems: 'center',
@@ -434,9 +524,9 @@ const styles = StyleSheet.create({
         width: 0,
         height: 2,
       },
-      shadowOpacity: 0.15,
+      shadowOpacity: 0.1,
       shadowRadius: 4,
-      elevation: 4,
+      elevation: 3,
     },
     applyButtonText: {
       color: '#FFFFFF',

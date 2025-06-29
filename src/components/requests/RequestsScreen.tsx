@@ -536,6 +536,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: Typography.fontSize.lg,
     fontFamily: Typography.fontFamily.bold,
+    fontWeight: '700',
     color: Colors.light.text,
     flex: 1,
     textAlign: 'center',

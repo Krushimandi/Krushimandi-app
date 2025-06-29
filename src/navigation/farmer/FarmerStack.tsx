@@ -28,6 +28,7 @@ import { MainTabParamList, FruitStackParamList, ProductStackParamList } from '..
 
 // Constants
 import { Colors } from '../../constants';
+import Icon from 'react-native-vector-icons/Ionicons';
 
 const MainTab = createBottomTabNavigator<MainTabParamList>();
 const FruitStack = createStackNavigator<FruitStackParamList>();
@@ -124,10 +125,10 @@ const CustomFarmerTabIcon = ({ focused, color, size, route }: any) => {
       break;
     case 'Requests':
       iconComponent = focused ? (
-        <FontAwesome6 name="cart-shopping" size={size-4} color={color} />
+        <Icon name="chatbox-ellipses" size={size-4} color={color} />
         // <Feather name="shopping-cart" size={size} color={color} />
       ) : (
-        <Feather name="shopping-cart" size={size} color={color} />
+        <Icon name="chatbox-ellipses-outline" size={size} color={color} />
       );
       break;
     default:
