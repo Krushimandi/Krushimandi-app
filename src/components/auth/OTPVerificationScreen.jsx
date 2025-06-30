@@ -22,17 +22,18 @@ import {
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import auth from '@react-native-firebase/auth';
 import { saveUserRole } from '../../utils/userRoleStorage';
+import Toast from 'react-native-toast-message';
 
 const OTPVerificationScreen = ({ navigation, route }) => {
   const [otp, setOtp] = useState(''); // Single string for OTP
   const [timer, setTimer] = useState(60);
   const [canResend, setCanResend] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [isFocused, setIsFocused] = useState(false);  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const [isFocused, setIsFocused] = useState(false); const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const [isPressed, setIsPressed] = useState(false);
   const [error, setError] = useState('');
   const [showHelpModal, setShowHelpModal] = useState(false);
-  const inputRef = useRef(null);  const shakeAnimation = useRef(new Animated.Value(0)).current;
+  const inputRef = useRef(null); const shakeAnimation = useRef(new Animated.Value(0)).current;
   const fadeAnimation = useRef(new Animated.Value(0)).current;
   const cursorAnimation = useRef(new Animated.Value(1)).current;
   const modalAnimation = useRef(new Animated.Value(0)).current;
@@ -89,7 +90,8 @@ const OTPVerificationScreen = ({ navigation, route }) => {
       return () => clearInterval(interval);
     } else {
       setCanResend(true);
-    }  }, [timer]);
+    }
+  }, [timer]);
 
   // Entrance animation
   useEffect(() => {
@@ -107,7 +109,7 @@ const OTPVerificationScreen = ({ navigation, route }) => {
     }, 800); // Give time for animation to complete
 
     return () => clearTimeout(focusTimer);
-  }, []);  const handleOtpChange = (value) => {
+  }, []); const handleOtpChange = (value) => {
     // Only allow digits and limit to 6 characters
     const cleanedValue = value.replace(/[^0-9]/g, '').slice(0, 6);
     setOtp(cleanedValue);
@@ -121,7 +123,7 @@ const OTPVerificationScreen = ({ navigation, route }) => {
     if (cleanedValue.length === 6) {
       console.log('Full OTP entered:', cleanedValue);
     }
-  };const handleInputFocus = () => {
+  }; const handleInputFocus = () => {
     console.log('Input focused');
     setIsFocused(true);
     setError(''); // Clear any existing errors when focusing
@@ -133,32 +135,32 @@ const OTPVerificationScreen = ({ navigation, route }) => {
   };  // More robust focus handling with debouncing
   const handleContainerPress = () => {
     const currentTime = Date.now();
-    
+
     // Prevent rapid successive taps
     if (currentTime - lastTapTime.current < 300) {
       return;
     }
     lastTapTime.current = currentTime;
-    
+
     console.log('Container pressed, current focus state:', isFocused, 'keyboard visible:', isKeyboardVisible);
-    
+
     // Visual feedback
     setIsPressed(true);
     setTimeout(() => setIsPressed(false), 150);
-    
+
     // Clear any errors first
     setError('');
-    
+
     if (inputRef.current) {
       // Always try to focus, let React Native handle the rest
       inputRef.current.focus();
-      
+
       // If the input doesn't seem to be responding, use fallback methods
       setTimeout(() => {
         if (inputRef.current && !isKeyboardVisible && !isFocused) {
           console.log('Using fallback focus method');
           inputRef.current.blur();
-          
+
           // Small delay before refocusing
           setTimeout(() => {
             if (inputRef.current) {
@@ -182,7 +184,7 @@ const OTPVerificationScreen = ({ navigation, route }) => {
         }, 50);
       });
     }
-  };  const handleVerify = async () => {
+  }; const handleVerify = async () => {
     if (otp.length === 6) {
       setIsLoading(true);
       setError('');
@@ -194,28 +196,33 @@ const OTPVerificationScreen = ({ navigation, route }) => {
         // Confirm the OTP
         const userCredential = await confirmation.confirm(otp);
         console.log('✅ OTP verified successfully for user:', userCredential.user.uid);
-        
+
         // Import dynamically to avoid circular dependency issues
         const { checkUserExistsInFirestore, saveUserToAsyncStorage } = require('../../services/firebaseService');
-        
+
         // Check if user data exists in Firestore using phone number
         const result = await checkUserExistsInFirestore(phoneNumber);
-        
+
         if (result.exists && result.userData) {
           console.log('✅ User data found in Firestore, restoring session', result.userData);
-          
+
           // Save user role to localStorage
           if (result.userData.userRole) {
             await saveUserRole(result.userData.userRole);
             console.log('✅ User role saved to localStorage for existing user:', result.userData.userRole);
           }
-          
+
           // Save the existing user data to AsyncStorage
           await saveUserToAsyncStorage(result.userData);
-          
+
           // Show success message
-          Alert.alert('Welcome Back', 'Your account has been recovered successfully!');
-            // Navigate directly to HomeScreen using our utility function
+          Toast.show({
+            type: 'success', // 'success', 'error', 'info'
+            text1: 'Welcome Back!',
+            position: 'bottom',
+            visibilityTime: 1000, // 1 seconds
+          });
+          // Navigate directly to HomeScreen using our utility function
           import('../../utils/navigationUtils').then(
             ({ navigateToMain }) => navigateToMain()
           );
@@ -223,17 +230,17 @@ const OTPVerificationScreen = ({ navigation, route }) => {
           // User data not found in Firestore, proceed with new user flow
           console.log('❌ User data not found in Firestore, continuing with new user setup');
           Alert.alert('Success', 'OTP verified successfully!');
-          
+
           // Navigate to role selection for new user setup
           navigation.replace('RoleSelection');
         }
-        
+
       } catch (err) {
         console.error('OTP Verification Error:', err);
-        
+
         // Clear the OTP field for wrong OTP
         setOtp('');
-        
+
         // Handle different error types
         let errorMessage = 'Invalid OTP. Please try again.';
         if (err.code === 'auth/invalid-verification-code') {
@@ -249,9 +256,9 @@ const OTPVerificationScreen = ({ navigation, route }) => {
           setCanResend(true);
           setTimer(0);
         }
-        
+
         setError(errorMessage);
-        
+
         // Shake animation for visual feedback
         Animated.sequence([
           Animated.timing(shakeAnimation, { toValue: 10, duration: 100, useNativeDriver: true }),
@@ -259,7 +266,7 @@ const OTPVerificationScreen = ({ navigation, route }) => {
           Animated.timing(shakeAnimation, { toValue: 10, duration: 100, useNativeDriver: true }),
           Animated.timing(shakeAnimation, { toValue: 0, duration: 100, useNativeDriver: true }),
         ]).start();
-          // Vibration feedback with error handling
+        // Vibration feedback with error handling
         try {
           if (Platform.OS === 'android') {
             Vibration.vibrate([0, 100, 50, 100]);
@@ -270,7 +277,7 @@ const OTPVerificationScreen = ({ navigation, route }) => {
           console.warn('Vibration failed:', vibrationError);
           // Fallback: Just continue without vibration
         }
-        
+
         // Auto-focus input for retry
         setTimeout(() => {
           if (inputRef.current) {
@@ -310,9 +317,9 @@ const OTPVerificationScreen = ({ navigation, route }) => {
 
   const handleBackPress = () => {
     navigation.goBack();
-  };  const handleEditPhone = () => {
+  }; const handleEditPhone = () => {
     navigation.goBack(); // Go back to mobile screen
-  };  const handleHelp = () => {
+  }; const handleHelp = () => {
     setShowHelpModal(true);
     Animated.spring(modalAnimation, {
       toValue: 1,
@@ -395,8 +402,8 @@ const OTPVerificationScreen = ({ navigation, route }) => {
           <View style={styles.header}>
             <TouchableOpacity onPress={handleBackPress} style={styles.backButton}>
               <Ionicons name="arrow-back" size={24} color="#333" />
-            </TouchableOpacity>            <TouchableOpacity 
-              onPress={handleHelp} 
+            </TouchableOpacity>            <TouchableOpacity
+              onPress={handleHelp}
               style={styles.helpButton}
               accessible={true}
               accessibilityLabel="Get help with OTP verification"
@@ -431,7 +438,7 @@ const OTPVerificationScreen = ({ navigation, route }) => {
                 Tap the field below and enter your verification code or paste it directly
               </Text>
 
-              {/* OTP Input Field */}              
+              {/* OTP Input Field */}
               <Animated.View
                 style={[
                   styles.otpContainer,
@@ -439,69 +446,69 @@ const OTPVerificationScreen = ({ navigation, route }) => {
                 ]}
               >
                 <TouchableWithoutFeedback onPress={handleContainerPress}>
-                  <View                    style={[
-                      styles.otpInputContainer,
-                      isFocused && styles.otpInputContainerFocused,
-                      error && styles.otpInputContainerError,
-                      isPressed && styles.otpInputContainerPressed
-                    ]}
+                  <View style={[
+                    styles.otpInputContainer,
+                    isFocused && styles.otpInputContainerFocused,
+                    error && styles.otpInputContainerError,
+                    isPressed && styles.otpInputContainerPressed
+                  ]}
                   >                {/* TextInput - Made more accessible and robust with paste support */}
-                  <TextInput
-                    ref={inputRef}
-                    style={styles.hiddenInput}
-                    value={otp}
-                    onChangeText={handleOtpChange}
-                    onFocus={handleInputFocus}
-                    onBlur={handleInputBlur}
-                    keyboardType="number-pad"
-                    maxLength={6}
-                    autoComplete="sms-otp"
-                    textContentType="oneTimeCode"
-                    autoFocus={false}
-                    blurOnSubmit={false}
-                    caretHidden={false}
-                    selectTextOnFocus={true}
-                    contextMenuHidden={false}
-                    importantForAccessibility="yes"
-                    accessible={true}
-                    accessibilityLabel="OTP Input Field"
-                    editable={true}
-                    showSoftInputOnFocus={true}
-                    multiline={false}
-                    numberOfLines={1}
-                    allowFontScaling={false}
-                    spellCheck={false}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                  />{/* Visual OTP Display */}
-                  <TouchableOpacity 
-                    style={styles.otpDisplayContainer}
-                    onPress={handleContainerPress}
-                    activeOpacity={1}
-                  >
-                    {[...Array(6)].map((_, index) => (
-                      <View key={index} style={styles.otpDigitContainer}>
-                        <Text style={[
-                          styles.otpDigit,
-                          otp[index] && styles.otpDigitFilled
-                        ]}>
-                          {otp[index] || ''}
-                        </Text>
-                        {index < 5 && <View style={styles.separator} />}
-                      </View>
-                    ))}
-                  </TouchableOpacity>
-                  {/* Cursor */}
-                  {isFocused && otp.length < 6 && (
-                    <Animated.View
-                      style={[
-                        styles.cursor,
-                        {
-                          left: 32 + (otp.length * 38),                          top: 22,
-                          opacity: cursorAnimation,
-                        }
-                      ]}                    />
-                  )}
+                    <TextInput
+                      ref={inputRef}
+                      style={styles.hiddenInput}
+                      value={otp}
+                      onChangeText={handleOtpChange}
+                      onFocus={handleInputFocus}
+                      onBlur={handleInputBlur}
+                      keyboardType="number-pad"
+                      maxLength={6}
+                      autoComplete="sms-otp"
+                      textContentType="oneTimeCode"
+                      autoFocus={false}
+                      blurOnSubmit={false}
+                      caretHidden={false}
+                      selectTextOnFocus={true}
+                      contextMenuHidden={false}
+                      importantForAccessibility="yes"
+                      accessible={true}
+                      accessibilityLabel="OTP Input Field"
+                      editable={true}
+                      showSoftInputOnFocus={true}
+                      multiline={false}
+                      numberOfLines={1}
+                      allowFontScaling={false}
+                      spellCheck={false}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                    />{/* Visual OTP Display */}
+                    <TouchableOpacity
+                      style={styles.otpDisplayContainer}
+                      onPress={handleContainerPress}
+                      activeOpacity={1}
+                    >
+                      {[...Array(6)].map((_, index) => (
+                        <View key={index} style={styles.otpDigitContainer}>
+                          <Text style={[
+                            styles.otpDigit,
+                            otp[index] && styles.otpDigitFilled
+                          ]}>
+                            {otp[index] || ''}
+                          </Text>
+                          {index < 5 && <View style={styles.separator} />}
+                        </View>
+                      ))}
+                    </TouchableOpacity>
+                    {/* Cursor */}
+                    {isFocused && otp.length < 6 && (
+                      <Animated.View
+                        style={[
+                          styles.cursor,
+                          {
+                            left: 32 + (otp.length * 38), top: 22,
+                            opacity: cursorAnimation,
+                          }
+                        ]} />
+                    )}
                   </View>
                 </TouchableWithoutFeedback>
               </Animated.View>              {/* Error message */}
@@ -568,8 +575,8 @@ const OTPVerificationScreen = ({ navigation, route }) => {
           <TouchableWithoutFeedback onPress={closeHelpModal}>
             <View style={styles.modalBackground} />
           </TouchableWithoutFeedback>
-          
-          <Animated.View 
+
+          <Animated.View
             style={[
               styles.helpModal,
               {
@@ -605,7 +612,7 @@ const OTPVerificationScreen = ({ navigation, route }) => {
             {/* Modal Content */}
             <View style={styles.modalContent}>
               <Text style={styles.modalSubtitle}>Having trouble with your code?</Text>
-              
+
               <View style={styles.helpOption}>
                 <Ionicons name="chatbubble-outline" size={20} color="#007E2F" />
                 <Text style={styles.helpOptionText}>Check your SMS messages</Text>
@@ -624,7 +631,7 @@ const OTPVerificationScreen = ({ navigation, route }) => {
 
             {/* Modal Actions */}
             <View style={styles.modalActions}>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.actionButton}
                 onPress={() => {
                   closeHelpModal();
@@ -640,7 +647,7 @@ const OTPVerificationScreen = ({ navigation, route }) => {
                 </Text>
               </TouchableOpacity>
 
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.actionButton}
                 onPress={() => {
                   closeHelpModal();
@@ -683,7 +690,7 @@ const styles = StyleSheet.create({
     padding: 8,
     borderRadius: 20,
     backgroundColor: '#F8F9FA',
-  },  helpButton: {
+  }, helpButton: {
     padding: 8,
     borderRadius: 20,
     backgroundColor: '#E8F5E8',
@@ -740,7 +747,7 @@ const styles = StyleSheet.create({
     padding: 4,
     borderRadius: 8,
     backgroundColor: '#E8F5E8',
-  },  instructionText: {
+  }, instructionText: {
     fontSize: 14,
     color: '#999',
     textAlign: 'center',
@@ -777,14 +784,14 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 4,
-  },  otpInputContainerError: {
+  }, otpInputContainerError: {
     borderColor: '#FF3547',
     backgroundColor: '#FFF5F5',
   },
   otpInputContainerPressed: {
     backgroundColor: '#F0F8F0',
     transform: [{ scale: 0.98 }],
-  },  hiddenInput: {
+  }, hiddenInput: {
     position: 'absolute',
     top: 0,
     left: 0,
@@ -833,7 +840,7 @@ const styles = StyleSheet.create({
     height: 24,
     backgroundColor: '#007E2F',
     borderRadius: 1,
-  },  errorContainer: {
+  }, errorContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     marginTop: 16,
@@ -845,7 +852,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#FFE5E5',
     justifyContent: 'center',
-  },  errorText: {
+  }, errorText: {
     fontSize: 14,
     color: '#FF3547',
     marginLeft: 8,
@@ -921,7 +928,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#CCCCCC',
     shadowOpacity: 0,
     elevation: 0,
-  },  verifyButtonText: {
+  }, verifyButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',

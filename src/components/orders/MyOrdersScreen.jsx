@@ -339,7 +339,12 @@ const MyOrdersScreen = () => {
             <Text style={styles.headerTitle}>My Orders</Text>
             <Text style={styles.headerSubtitle}>{orderStats.total} orders placed</Text>
           </View>
-          <TouchableOpacity style={styles.notificationButton}>
+          <TouchableOpacity
+            onPress={() => {
+              console.log('Opening notifications from header');
+              navigation.navigate('Notification'); // Navigate to Notification screen
+            }}
+            style={styles.notificationButton}>
             <Icon name="notifications-outline" size={24} color="#000000" />
             <View style={styles.notificationBadge}>
               <Text style={styles.notificationBadgeText}>2</Text>

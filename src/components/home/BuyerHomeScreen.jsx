@@ -25,6 +25,7 @@ import { getCompleteUserProfile, updateLastLogin, validateCurrentUser } from '..
 import auth from '@react-native-firebase/auth';
 import { Colors, Typography, Layout } from '../../constants';
 import FilterScreen from './FilterScreen';
+import Toast from 'react-native-toast-message';
 
 const categories = [
   { name: 'Bananas', icon: require('../../assets/banana.png') },
@@ -222,7 +223,9 @@ const BuyerHomeScreen = () => {
     } finally {
       setIsLoading(false);
     }
-  }; const handleUserValidationFailure = () => {
+  };
+
+  const handleUserValidationFailure = () => {
     Alert.alert(
       'Authentication Error',
       'Your session has expired or your account is no longer valid. Please sign in again.',
@@ -361,8 +364,9 @@ const BuyerHomeScreen = () => {
                 </TouchableOpacity>
               )}
               <TouchableOpacity
-                style={styles.userInfo} onPress={() => {
-                  safeNavigate('ProfileScreen');
+                style={styles.userInfo}
+                onPress={() => {
+                  // safeNavigate('ProfileScreen');
                 }}
                 activeOpacity={0.8}
                 hitSlop={{ top: 10, bottom: 10, left: 0, right: 10 }}
@@ -473,22 +477,20 @@ const BuyerHomeScreen = () => {
                   key={item.id}
                   style={styles.fruitCard} activeOpacity={0.9}
                   onPress={() => {
-                    // Navigate to the ProductDetail screen in the nested ProductFlowNavigator
-                    safeNavigate('ProductFlow', {
-                      screen: 'ProductDetail',
-                      params: {
-                        product: {
-                          name: item.name,
-                          description: `Category: ${item.category}`,
-                          price: parseFloat(item.price.replace('₹', '').replace('/KG', '')),
-                          rating: item.rating,
-                          reviewCount: Math.floor(item.rating * 10),
-                          sizes: ['1 kg', '500 gm', '2 kg'],
-                          freshness: 'Fresh',
-                          details: `${item.name} from ${item.location}. Available quantity: ${item.tons}`,
-                          image: item.image,
-                          postedDate: '3 days ago' // Add postedDate for the badge
-                        }
+                    // Navigate to the ProductDetail screen directly
+                    safeNavigate('ProductDetail', {
+                      productId: item.id,
+                      product: {
+                        name: item.name,
+                        description: `Category: ${item.category}`,
+                        price: parseFloat(item.price.replace('₹', '').replace('/KG', '')),
+                        rating: item.rating,
+                        reviewCount: Math.floor(item.rating * 10),
+                        sizes: ['1 kg', '500 gm', '2 kg'],
+                        freshness: 'Fresh',
+                        details: `${item.name} from ${item.location}. Available quantity: ${item.tons}`,
+                        image: item.image,
+                        postedDate: '3 days ago'
                       }
                     });
                   }}

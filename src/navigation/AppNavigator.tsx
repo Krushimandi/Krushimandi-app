@@ -1,238 +1,54 @@
 /**
  * Root Navigator
- * Main entry point for app navigation
+ * Main entry point for app navigation - Now uses bootstrap state
  */
 
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import auth from '@react-native-firebase/auth';
 import { navigationRef } from './navigationService';
-
-// Helpers
-import { getAuthState, debugAuthState, UserAuthState } from '../utils/authFlow';
-import { authStateManager } from '../utils/authStateManager';
-import { getCompleteUserProfile } from '../services/firebaseService';
-import { getUserRole, syncUserRole, initializeUserRoleFromUserData } from '../utils/userRoleStorage';
 
 // Screen components
 import LoadingScreen from '../components/common/LoadingScreen';
 import { NotificationScreen, NotificationDetail } from '../components/notification';
 import { SettingsScreen } from '../components/settings';
 import { ProfileScreen } from '../components/profile';
-import { ProductDetailScreen } from '../components/products';
 
 // Navigation provider
 import { NavigationProvider } from './NavigationProvider';
 
 // Navigation stacks
-import AuthNavigator, { getAuthScreen } from './auth/AuthStack';
+import AuthNavigator from './auth/AuthStack';
 import FarmerStack from './farmer/FarmerStack';
 import BuyerStack from './buyer/BuyerStack';
 
 // Types
-import { RootStackParamList, ProductStackParamList } from './types';
-
-// Store
-import { useAuthStore } from '../store';
+import { RootStackParamList } from './types';
+import { AuthBootstrapState } from '../utils/authBootstrap';
+import { useAuthState } from '../components/providers/AuthStateProvider';
 
 const RootStack = createStackNavigator<RootStackParamList>();
-const ProductStack = createStackNavigator<ProductStackParamList>();
 
-// ProductFlow Navigator
-const ProductFlowNavigator = () => (
-  <ProductStack.Navigator screenOptions={{ headerShown: false }}>
-    <ProductStack.Screen
-      name="ProductDetail"
-      component={ProductDetailScreen as React.ComponentType<any>}
-    />
-  </ProductStack.Navigator>
-);
-
-// We're now using navigationRef from navigationService
+interface AppNavigatorProps {
+  bootstrapState: AuthBootstrapState;
+}
 
 // Root Navigator
-const AppNavigator = () => {
-  const [authState, setAuthState] = React.useState<UserAuthState | null>(null);
-  const [loading, setLoading] = React.useState(true);
-  const [isProfileLoaded, setIsProfileLoaded] = React.useState(false);
-  const [userRole, setUserRole] = React.useState<'farmer' | 'buyer' | null>(null);
-  const authStore = useAuthStore();
+const AppNavigator: React.FC<AppNavigatorProps> = ({ bootstrapState }) => {
+  const { isAuthenticated, userRole, isLoading } = useAuthState();
 
-  // Debug: Log the current state
-  console.log('🔍 AppNavigator render - Current state:', {
-    userRole,
-    authStoreUser: authStore.user,
-    isAuthenticated: authStore.isAuthenticated,
-    authState,
-    isProfileLoaded
+  console.log('🔍 AppNavigator render - Bootstrap State:', {
+    isAuthenticated: bootstrapState.isAuthenticated,
+    userRole: bootstrapState.userRole,
+    contextAuth: isAuthenticated,
+    contextRole: userRole,
+    isLoading
   });
 
-  // Debug: Monitor userRole changes
-  React.useEffect(() => {
-    console.log('🔄 UserRole changed:', {
-      userRole,
-      authStoreUser: authStore.user,
-      isAuthenticated: authStore.isAuthenticated
-    });
-  }, [userRole, authStore.user, authStore.isAuthenticated]);
-
-  // Initialize user role on mount and when auth state changes
-  React.useEffect(() => {
-    const initializeUserRole = async () => {
-      try {
-        // First try to get role from localStorage
-        let role = await getUserRole();
-
-        // If no role in localStorage, try to initialize from userData
-        if (!role) {
-          role = await initializeUserRoleFromUserData();
-        }
-
-        if (role) {
-          setUserRole(role);
-          console.log('✅ User role loaded from localStorage:', role);
-        } else {
-          console.log('❌ No user role found in localStorage');
-        }
-      } catch (error) {
-        console.error('❌ Error initializing user role:', error);
-      }
-    };
-
-    // Initialize role immediately
-    initializeUserRole();
-  }, []); // Only run once on mount
-
-  React.useEffect(() => {
-    const checkAuthState = async () => {
-      try {
-        const state = await getAuthState();
-        if (__DEV__) await debugAuthState();
-        setAuthState(state);
-
-        // If user is authenticated, sync role and load profile
-        if (state.isAuthenticated && state.profileCompleted) {
-          try {
-            // Load user profile first to get role from Firestore
-            const userProfile = await getCompleteUserProfile();
-            if (userProfile) {
-              const profileRole = (userProfile as any).userRole;
-              
-              console.log('🎯 Loading user profile into auth store:', {
-                userType: profileRole,
-                firstName: (userProfile as any).firstName
-              });
-
-              // Update auth store
-              authStore.updateUser({
-                id: (userProfile as any).uid,
-                firstName: (userProfile as any).firstName,
-                lastName: (userProfile as any).lastName,
-                email: (userProfile as any).email,
-                phone: (userProfile as any).phoneNumber,
-                userType: profileRole as 'farmer' | 'buyer',
-                status: 'active',
-                isVerified: (userProfile as any).isVerified || true,
-                createdAt: (userProfile as any).createdAt,
-                updatedAt: (userProfile as any).updatedAt,
-                avatar: (userProfile as any).profileImage
-              });
-
-              // Sync user role between localStorage and Firestore
-              const syncedRole = await syncUserRole();
-              
-              // If we got a role from either profile or sync, update local state
-              const finalRole = syncedRole || profileRole;
-              if (finalRole && finalRole !== userRole) {
-                setUserRole(finalRole);
-                console.log('🔄 User role updated after sync:', finalRole);
-              }
-
-              setIsProfileLoaded(true);
-            } else {
-              // Try to sync role even if profile loading failed
-              const syncedRole = await syncUserRole();
-              if (syncedRole && syncedRole !== userRole) {
-                setUserRole(syncedRole);
-                console.log('🔄 User role synced without profile:', syncedRole);
-              }
-              setIsProfileLoaded(true); // Still mark as loaded even if no profile found
-            }
-          } catch (profileError) {
-            console.error('❌ Error loading user profile for navigation:', profileError);
-            // Try to sync role even if profile loading failed
-            try {
-              const syncedRole = await syncUserRole();
-              if (syncedRole && syncedRole !== userRole) {
-                setUserRole(syncedRole);
-                console.log('🔄 User role synced after profile error:', syncedRole);
-              }
-            } catch (syncError) {
-              console.error('❌ Error syncing role after profile error:', syncError);
-            }
-            setIsProfileLoaded(true); // Mark as loaded to prevent infinite loading
-          }
-        } else {
-          setIsProfileLoaded(true); // No profile to load for unauthenticated users
-        }
-      } catch (error) {
-        setAuthState({
-          isAuthenticated: false,
-          phoneVerified: false,
-          roleSelected: false,
-          profileCompleted: false,
-          currentStep: 'welcome',
-          nextRoute: 'Auth',
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    // Listen to Firebase auth state changes
-    const unsubscribeAuth = auth().onAuthStateChanged(async () => {
-      await checkAuthState();
-    });
-
-    // Listen to auth state manager for other changes (like auth step completion)
-    const unsubscribeAuthManager = authStateManager.addListener((authState) => {
-      console.log('🔄 Auth state updated via manager:', authState);
-      setAuthState(authState);
-      setLoading(false);
-    });
-
-    checkAuthState();
-
-    return () => {
-      unsubscribeAuth();
-      unsubscribeAuthManager();
-    };
-  }, []);
-
-  // Effect to handle navigation when auth state changes
-  React.useEffect(() => {
-    if (!authState || loading) return;
-
-    const shouldShowMainApp = authState.isAuthenticated &&
-      authState.profileCompleted &&
-      authState.nextRoute === 'Main';
-
-    if (navigationRef.isReady()) {
-      if (shouldShowMainApp && userRole) { // Use userRole instead of isProfileLoaded
-        console.log('🚀 Navigating to Main app with role:', userRole);
-        navigationRef.navigate('Main');
-      } else if (!shouldShowMainApp) {
-        console.log('🔐 Navigating to Auth flow');
-        navigationRef.navigate('Auth');
-      }
-      // If shouldShowMainApp is true but role is not loaded, wait
-    }
-  }, [authState, loading, userRole]); // Dependency on userRole instead of isProfileLoaded
   // Choose the appropriate stack based on user role
   const getMainComponent = () => {
     console.log('🎯 getMainComponent called with userRole:', userRole);
-    // return FarmerStack;
+    return FarmerStack; // Default to FarmerStack for testing
     switch (userRole) {
       case 'buyer':
         console.log('📱 Routing to BuyerStack for buyer role');
@@ -247,42 +63,35 @@ const AppNavigator = () => {
     }
   };
 
-  if (loading || !authState) {
+  if (isLoading) {
     return <LoadingScreen />;
   }
 
-  // Wait for role to be loaded if user is authenticated and profile is completed
-  const shouldShowMainApp = authState.isAuthenticated &&
-    authState.profileCompleted &&
-    authState.nextRoute === 'Main';
+  // Determine initial route based on bootstrap state
+  const shouldShowMainApp = isAuthenticated && userRole;
+  const initialRouteName = shouldShowMainApp ? "Main" : "Auth";
 
-  if (shouldShowMainApp && !userRole) {
-    console.log('⏳ Waiting for user role to load...');
-    return <LoadingScreen />;
-  }
-
-  console.log('🔍 AppNavigator render - Auth State:', {
-    isAuthenticated: authState.isAuthenticated,
-    phoneVerified: authState.phoneVerified,
-    roleSelected: authState.roleSelected,
-    profileCompleted: authState.profileCompleted,
-    currentStep: authState.currentStep,
-    nextRoute: authState.nextRoute
+  console.log('🚀 AppNavigator - Final routing decision:', {
+    shouldShowMainApp,
+    initialRouteName,
+    userRole
   });
 
-  // Choose the appropriate stack based on user role
+  // Choose the appropriate main stack component
   const MainStack = getMainComponent();
 
   return (
     <NavigationProvider>
-      <NavigationContainer ref={navigationRef} onReady={() => console.log('Navigation container is ready')}>
+      <NavigationContainer 
+        ref={navigationRef} 
+        onReady={() => console.log('Navigation container is ready')}
+      >
         <RootStack.Navigator
           screenOptions={{ headerShown: false }}
-          initialRouteName={shouldShowMainApp ? "Main" : "Auth"}
+          initialRouteName={initialRouteName}
         >
           <RootStack.Screen name="Auth" component={AuthNavigator} />
           <RootStack.Screen name="Main" component={MainStack} />
-          <RootStack.Screen name="ProductFlow" component={ProductFlowNavigator} />
           <RootStack.Screen name="Notification" component={NotificationScreen} />
           <RootStack.Screen name="NotificationDetail" component={NotificationDetail as React.ComponentType<any>} />
           <RootStack.Screen name="ProfileScreen" component={ProfileScreen} />

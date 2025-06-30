@@ -32,6 +32,7 @@ import { Swipeable } from 'react-native-gesture-handler';
 import { Colors, Typography, Layout } from '../../constants';
 import { useTabBarControl } from '../../utils/navigationControls';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNotifications } from '../../hooks/useNotifications';
 
 // Define types for notification data
 interface Notification {
@@ -238,6 +239,16 @@ const FilterChip: React.FC<{
 
 const NotificationScreen: React.FC<NotificationScreenProps> = ({ navigation }) => {
     const { showTabBar, hideTabBar } = useTabBarControl();
+    const { 
+        notifications,
+        unreadCount,
+        markAsRead: markNotificationAsRead,
+        markAllAsRead: markAllNotificationsAsRead,
+        deleteNotification,
+        getFilteredNotifications,
+        refreshNotifications
+    } = useNotifications();
+    
     const [showSettings, setShowSettings] = useState<boolean>(false);
     const [refreshing, setRefreshing] = useState<boolean>(false);
     const [loading, setLoading] = useState<boolean>(true);
@@ -258,73 +269,6 @@ const NotificationScreen: React.FC<NotificationScreenProps> = ({ navigation }) =
     const translateY = useRef(new Animated.Value(50)).current;
     const opacity = useRef(new Animated.Value(0)).current;
 
-    // Mock notification data - in a real app, this would come from an API
-    const mockNotifications: Notification[] = [
-        {
-            id: '1',
-            title: 'Order #KM2045 Confirmed',
-            message: 'Your order for 5 kg of organic fertilizer has been confirmed and will be delivered within 2 days.',
-            date: '2025-06-23',
-            time: '10:30 AM',
-            read: false,
-            type: 'transaction',
-        },
-        {
-            id: '2',
-            title: 'Special Discount!',
-            message: 'Get 15% off on all seeds and gardening tools this weekend. Limited time offer!',
-            date: '2023-06-21',
-            time: '08:15 AM',
-            read: true,
-            type: 'promotion',
-        },
-        {
-            id: '3',
-            title: 'App Update Available',
-            message: 'KrushiMandi v2.5 is now available with new features and improvements. Update now!',
-            date: '2023-06-20',
-            time: '03:45 PM',
-            read: false,
-            type: 'update',
-        },
-        {
-            id: '4',
-            title: 'Payment Received',
-            message: 'We have received your payment of ₹1,500 for order #KM2032. Thank you!',
-            date: '2023-06-20',
-            time: '11:20 AM',
-            read: true,
-            type: 'transaction',
-        },
-        {
-            id: '5',
-            title: 'Weather Alert',
-            message: 'Heavy rainfall expected in your area in the next 24 hours. Please secure your crops.',
-            date: '2023-06-19',
-            time: '09:00 AM',
-            read: false,
-            type: 'alert',
-        },
-        {
-            id: '6',
-            title: 'New Article Available',
-            message: 'Check out our new article on "Efficient Irrigation Methods" in the Knowledge Base.',
-            date: '2023-06-18',
-            time: '02:30 PM',
-            read: true,
-            type: 'update',
-        },
-        {
-            id: '7',
-            title: 'Your Profile is Incomplete',
-            message: 'Complete your farmer profile to get personalized recommendations and updates.',
-            date: '2023-06-17',
-            time: '10:45 AM',
-            read: true,
-            type: 'alert',
-        },
-    ];
-
     // Filter options
     const filters = [
         { id: 'all', label: 'All', icon: 'notifications-outline' },
@@ -339,7 +283,7 @@ const NotificationScreen: React.FC<NotificationScreenProps> = ({ navigation }) =
         // Simulating API fetch
         setLoading(true);
         setTimeout(() => {
-            const groupedData = groupNotificationsByDate(mockNotifications);
+            const groupedData = groupNotificationsByDate(notifications);
             setSections(groupedData);
             setLoading(false);
 
@@ -359,7 +303,7 @@ const NotificationScreen: React.FC<NotificationScreenProps> = ({ navigation }) =
                 }),
             ]).start();
         }, 400);
-    }, []);
+    }, [notifications]);
 
     // Group notifications by date
     const groupNotificationsByDate = (notifications: Notification[]): { title: string; data: Notification[] }[] => {
@@ -397,14 +341,7 @@ const NotificationScreen: React.FC<NotificationScreenProps> = ({ navigation }) =
 
     // Filter notifications based on active filter
     const filterNotifications = (filter: string) => {
-        let filtered = [...mockNotifications];
-
-        if (filter === 'unread') {
-            filtered = filtered.filter(item => !item.read);
-        } else if (filter !== 'all') {
-            filtered = filtered.filter(item => item.type === filter);
-        }
-
+        const filtered = getFilteredNotifications(filter);
         setSections(groupNotificationsByDate(filtered));
     };
 
@@ -419,12 +356,14 @@ const NotificationScreen: React.FC<NotificationScreenProps> = ({ navigation }) =
 
     // Mark notification as read
     const markAsRead = (id: string) => {
-        const updatedNotifications = mockNotifications.map(notification =>
-            notification.id === id ? { ...notification, read: true } : notification
-        );
+        // Mark as read using hook function
+        markNotificationAsRead(id);
+        
+        // Update filtered data
+        filterNotifications(selectedFilter);
 
         // Navigate to notification detail
-        const notification = mockNotifications.find(n => n.id === id);
+        const notification = notifications.find((n: Notification) => n.id === id);
         if (notification) {
             navigation.navigate('NotificationDetail', {
                 title: notification.title,
@@ -437,10 +376,8 @@ const NotificationScreen: React.FC<NotificationScreenProps> = ({ navigation }) =
 
     // Mark all notifications as read
     const markAllAsRead = () => {
-        const updatedNotifications = mockNotifications.map(notification => ({
-            ...notification,
-            read: true
-        }));
+        // Mark all as read using hook function
+        markAllNotificationsAsRead();
 
         // Update filtered data
         filterNotifications(selectedFilter);
@@ -450,10 +387,9 @@ const NotificationScreen: React.FC<NotificationScreenProps> = ({ navigation }) =
     };
 
     // Delete notification
-    const deleteNotification = (id: string) => {
-        const updatedNotifications = mockNotifications.filter(notification =>
-            notification.id !== id
-        );
+    const deleteNotificationHandler = (id: string) => {
+        // Delete using hook function
+        deleteNotification(id);
 
         // Update filtered data
         filterNotifications(selectedFilter);

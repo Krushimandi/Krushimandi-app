@@ -143,7 +143,6 @@ export type RootStackParamList = {
   NotificationDetail: undefined;
   Notification: undefined;
   ProfileScreen: undefined;
-  ProductFlow: undefined | { screen: string; params: any };
 };
 
 export type AuthStackParamList = {
@@ -173,12 +172,10 @@ export type ProductStackParamList = {
   PriceSelection: undefined;
   PhotoUpload: undefined;
   AddFruit: undefined;
-  ProductDetail: { product: any };
 };
 
 export type HomeStackParamList = {
   Dashboard: undefined;
-  ProductDetails: { productId: string };
   AddProduct: undefined;
   EditProduct: { productId: string };
   OrderDetails: { orderId: string };

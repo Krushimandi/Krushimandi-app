@@ -1,12 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Background color -->
-    <item android:drawable="@android:color/white" />
-
-    <!-- Logo centered -->
+    <!-- Centered logo -->
     <item>
         <bitmap
             android:gravity="center"
-            android:src="@drawable/bootsplash_logo" />
+            android:src="@drawable/bootsplash_logo"
+            android:tileMode="disabled"
+            android:antialias="true"
+            android:dither="true"
+            android:filter="true" />
     </item>
 </layer-list>

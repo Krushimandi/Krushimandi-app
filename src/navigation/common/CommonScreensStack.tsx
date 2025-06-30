@@ -10,7 +10,6 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { NotificationScreen, NotificationDetail } from '../../components/notification';
 import { SettingsScreen } from '../../components/settings';
 import { ProfileScreen } from '../../components/profile';
-import { ProductDetailScreen } from '../../components/products';
 
 // Types
 import { CommonScreensParamList } from '../../types';
@@ -23,7 +22,6 @@ const CommonScreensStack = () => (
     <CommonStack.Screen name="NotificationDetail" component={NotificationDetail as React.ComponentType<any>} />
     <CommonStack.Screen name="ProfileScreen" component={ProfileScreen} />
     <CommonStack.Screen name="Settings" component={SettingsScreen} options={{ presentation: 'modal', headerShown: false }} />
-    <CommonStack.Screen name="ProductDetail" component={ProductDetailScreen as React.ComponentType<any>} />
 </CommonStack.Navigator>
 );
 

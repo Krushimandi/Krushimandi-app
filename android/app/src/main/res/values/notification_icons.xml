@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Default notification icon -->
+    <drawable name="ic_notification">@mipmap/ic_launcher</drawable>
+    
+    <!-- Notification icon for different states -->
+    <drawable name="ic_stat_notification">@mipmap/ic_launcher</drawable>
+    
+    <!-- Small icon (should be white/transparent with alpha) -->
+    <drawable name="ic_stat_notify">@mipmap/ic_launcher</drawable>
+</resources>

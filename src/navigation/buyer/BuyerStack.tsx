@@ -1,5 +1,6 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createStackNavigator } from '@react-navigation/stack';
 import { View, Animated, Platform, Dimensions, StyleSheet, Text } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Octicons from 'react-native-vector-icons/Octicons';
@@ -10,18 +11,21 @@ import { BlurView } from '@react-native-community/blur';
 // Screens
 import { BuyerHomeScreen, RequestsScreen} from '../../components/home';
 import { MyOrdersScreen } from '../../components/orders';
+import { ProductDetailScreen } from '../../components/products';
+import NotificationBadge from '../../components/common/NotificationBadge';
 
 // Hooks
 import { useAppStore } from '../../store';
 import { useNavigationControl } from '../NavigationProvider';
 
 // Types
-import { BuyerTabParamList } from '../../types';
+import { BuyerTabParamList, BuyerStackParamList } from '../../types';
 
 // Constants
 import { Colors } from '../../constants';
 
 const BuyerTab = createBottomTabNavigator<BuyerTabParamList>();
+const BuyerMainStack = createStackNavigator<BuyerStackParamList>();
 const { width, height } = Dimensions.get('window');
 const isSmallScreen = height < 700;
 
@@ -106,10 +110,15 @@ const CustomTabBarIcon = ({ focused, color, size, route }: any) => {
       iconName = 'Orders';
       break;
     case 'Requests':
-      iconComponent = focused ? (
-        <Ionicons name="chatbox-ellipses" size={size - 2} color={color} />
-      ) : (
-        <Ionicons name="chatbox-ellipses-outline" size={size} color={color} />
+      iconComponent = (
+        <View style={{ position: 'relative' }}>
+          {focused ? (
+            <Ionicons name="chatbox-ellipses" size={size - 2} color={color} />
+          ) : (
+            <Ionicons name="chatbox-ellipses-outline" size={size} color={color} />
+          )}
+          <NotificationBadge size="small" />
+        </View>
       );
       iconName = 'Requests';
       break;
@@ -160,7 +169,8 @@ const CustomTabBarIcon = ({ focused, color, size, route }: any) => {
   );
 };
 
-const BuyerStack = () => {
+// Buyer Tab Navigator Component
+const BuyerTabNavigator = () => {
   const { theme } = useAppStore();
   const isDark = theme === 'dark';
   const { tabBarVisible, tabBarAnimation } = useNavigationControl();
@@ -257,6 +267,16 @@ const BuyerStack = () => {
         }}
       />
     </BuyerTab.Navigator>
+  );
+};
+
+// Main Buyer Stack with Product Detail Screen
+const BuyerStack = () => {
+  return (
+    <BuyerMainStack.Navigator screenOptions={{ headerShown: false }}>
+      <BuyerMainStack.Screen name="BuyerTabs" component={BuyerTabNavigator} />
+      <BuyerMainStack.Screen name="ProductDetail" component={ProductDetailScreen as React.ComponentType<any>} />
+    </BuyerMainStack.Navigator>
   );
 };
 

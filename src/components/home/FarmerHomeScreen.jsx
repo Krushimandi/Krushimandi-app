@@ -446,22 +446,36 @@ const FarmerHomeScreen = () => {
                 key={item.id}
                 style={styles.featuredCard}
                 activeOpacity={0.9}
-                onPress={() => safeNavigate('ProductFlow', {
-                  screen: 'ProductDetail',
-                  params: {
-                    product: {
-                      id: item.id,
-                      name: item.name,
-                      description: `Category: ${item.category}`,
-                      price: parseFloat(item.price.replace('₹', '').replace('/KG', '')),
-                      rating: item.rating,
-                      reviewCount: Math.floor(item.rating * 10),
-                      sizes: ['1 kg', '500 gm', '2 kg'],
-                      freshness: 'Fresh',
-                      details: `Seller: ${item.seller}. Available quantity: ${item.available}`,
-                      image: item.image,
-                      location: item.location,
-                      postedDate: '3 days ago'
+                onPress={() => safeNavigate('ProductDetailsFarmer', {
+                  productId: item.id,
+                  product: {
+                    id: item.id,
+                    name: item.name,
+                    category: item.category,
+                    description: `Category: ${item.category}`,
+                    price: parseFloat(item.price.replace('₹', '').replace('/KG', '')),
+                    unit: 'KG',
+                    rating: item.rating,
+                    reviewCount: Math.floor(item.rating * 10),
+                    sizes: ['1 kg', '500 gm', '2 kg'],
+                    availableSizes: ['1 kg', '500 gm', '2 kg'],
+                    freshness: 'Fresh',
+                    details: `Seller: ${item.seller}. Available quantity: ${item.available}`,
+                    description: `${item.name} from ${item.location}. Available quantity: ${item.available}`,
+                    availableQuantity: item.available,
+                    image: item.image,
+                    location: item.location,
+                    postedDate: '3 days ago',
+                    isLive: true,
+                    daysAgo: 3,
+                    analytics: {
+                      totalViews: Math.floor(Math.random() * 300) + 100,
+                      viewsChange: Math.floor(Math.random() * 20) + 1,
+                      favorites: Math.floor(Math.random() * 25) + 5,
+                      favoritesChange: Math.floor(Math.random() * 5) + 1,
+                      buyerRequests: Math.floor(Math.random() * 10) + 1,
+                      requestsChange: Math.floor(Math.random() * 3) + 1,
+                      performance: Math.floor(Math.random() * 15) + 8,
                     }
                   }
                 })}
@@ -554,9 +568,38 @@ const FarmerHomeScreen = () => {
                 key={item.id + "-recent"}
                 style={styles.recentProductCard}
                 activeOpacity={0.9}
-                onPress={() => safeNavigate('ProductFlow', {
-                  screen: 'ProductDetail',
-                  params: { productId: item.id }
+                onPress={() => safeNavigate('ProductDetailsFarmer', {
+                  productId: item.id,
+                  product: {
+                    id: item.id,
+                    name: item.name,
+                    category: item.category,
+                    description: `Category: ${item.category}`,
+                    price: parseFloat(item.price.replace('₹', '').replace('/KG', '')),
+                    unit: 'KG',
+                    rating: item.rating,
+                    reviewCount: Math.floor(item.rating * 10),
+                    sizes: ['1 kg', '500 gm', '2 kg'],
+                    availableSizes: ['1 kg', '500 gm', '2 kg'],
+                    freshness: 'Fresh',
+                    details: `Seller: ${item.seller}. Available quantity: ${item.available}`,
+                    description: `${item.name} from ${item.location}. Available quantity: ${item.available}`,
+                    availableQuantity: item.available,
+                    image: item.image,
+                    location: item.location,
+                    postedDate: '3 days ago',
+                    isLive: true,
+                    daysAgo: 3,
+                    analytics: {
+                      totalViews: Math.floor(Math.random() * 300) + 100,
+                      viewsChange: Math.floor(Math.random() * 20) + 1,
+                      favorites: Math.floor(Math.random() * 25) + 5,
+                      favoritesChange: Math.floor(Math.random() * 5) + 1,
+                      buyerRequests: Math.floor(Math.random() * 10) + 1,
+                      requestsChange: Math.floor(Math.random() * 3) + 1,
+                      performance: Math.floor(Math.random() * 15) + 8,
+                    }
+                  }
                 })}
               >
                 <Image source={item.image} style={styles.recentProductImage} />

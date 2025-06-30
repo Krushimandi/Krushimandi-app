@@ -9,22 +9,21 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Octicons from 'react-native-vector-icons/Octicons';
-import FontAwesome6 from 'react-native-vector-icons/FontAwesome6';
-import Feather from 'react-native-vector-icons/Feather';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { BlurView } from '@react-native-community/blur';
 
-// Components
+// Components  
 import { FarmerHomeScreen } from '../../components/home';
 import { RequestsScreen } from '../../components/requests';
-import { AddFruitScreen, PhotoUploadScreen, PriceSelectionScreen, ProductDetailScreen } from '../../components/products';
+import { AddFruitScreen, PhotoUploadScreen, PriceSelectionScreen, ProductDetailScreen, ProductDetailsFarmer } from '../../components/products';
+import NotificationBadge from '../../components/common/NotificationBadge';
 
 // Hooks
 import { useAppStore } from '../../store';
 import { useNavigationControl } from '../NavigationProvider';
 
 // Types
-import { MainTabParamList, FruitStackParamList, ProductStackParamList } from '../../types';
+import { MainTabParamList, FruitStackParamList, FarmerProductStackParamList } from '../../types';
 
 // Constants
 import { Colors } from '../../constants';
@@ -32,7 +31,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 
 const MainTab = createBottomTabNavigator<MainTabParamList>();
 const FruitStack = createStackNavigator<FruitStackParamList>();
-const ProductStack = createStackNavigator<ProductStackParamList>();
+const FarmerMainStack = createStackNavigator<FarmerProductStackParamList>();
 const { width, height } = Dimensions.get('window');
 const isSmallScreen = height < 700;
 
@@ -124,11 +123,15 @@ const CustomFarmerTabIcon = ({ focused, color, size, route }: any) => {
       );
       break;
     case 'Requests':
-      iconComponent = focused ? (
-        <Icon name="chatbox-ellipses" size={size-4} color={color} />
-        // <Feather name="shopping-cart" size={size} color={color} />
-      ) : (
-        <Icon name="chatbox-ellipses-outline" size={size} color={color} />
+      iconComponent = (
+        <View style={{ position: 'relative' }}>
+          {focused ? (
+            <Icon name="chatbox-ellipses" size={size - 4} color={color} />
+          ) : (
+            <Icon name="chatbox-ellipses-outline" size={size} color={color} />
+          )}
+          <NotificationBadge size="small" />
+        </View>
       );
       break;
     default:
@@ -159,7 +162,7 @@ const CustomFarmerTabIcon = ({ focused, color, size, route }: any) => {
 
       <View style={farmerStyles.iconWrapper}>
         {iconComponent}
-      </View> 
+      </View>
     </Animated.View>
   );
 };
@@ -173,15 +176,8 @@ const NewFruitNavigator = () => (
   </FruitStack.Navigator>
 );
 
-// Product Flow Navigator - For viewing and managing products
-const ProductFlowNavigator = () => (
-  <ProductStack.Navigator screenOptions={{ headerShown: false }}>
-    <ProductStack.Screen name="ProductDetail" component={ProductDetailScreen} />
-  </ProductStack.Navigator>
-);
-
-// Farmer Tab Navigator
-const FarmerStack = () => {
+// Farmer Tab Navigator Component
+const FarmerTabNavigator = () => {
   const { theme } = useAppStore();
   const isDark = theme === 'dark';
   const { tabBarVisible, tabBarAnimation } = useNavigationControl();
@@ -277,6 +273,16 @@ const FarmerStack = () => {
         }}
       />
     </MainTab.Navigator>
+  );
+};
+
+// Main Farmer Stack with Product Detail Screen
+const FarmerStack = () => {
+  return (
+    <FarmerMainStack.Navigator screenOptions={{ headerShown: false }}>
+      <FarmerMainStack.Screen name="FarmerTabs" component={FarmerTabNavigator} />
+      <FarmerMainStack.Screen name="ProductDetailsFarmer" component={ProductDetailsFarmer as React.ComponentType<any>} />
+    </FarmerMainStack.Navigator>
   );
 };
 

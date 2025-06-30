@@ -10,7 +10,6 @@ import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 export type RootStackParamList = {
   Auth: undefined;
   Main: undefined;
-  ProductFlow: undefined;
   Notification: undefined;
   NotificationDetail: {
     title: string;
@@ -44,7 +43,6 @@ export type CommonScreensParamList = {
   };
   ProfileScreen: undefined;
   Settings: undefined;
-  ProductDetail: { productId: string };
 };
 
 // Main Tab Navigator (Farmer)
@@ -62,9 +60,21 @@ export type BuyerTabParamList = {
   Requests: undefined;
 };
 
-// Product Stack
+// Buyer Stack Navigator (includes tabs + product detail)
+export type BuyerStackParamList = {
+  BuyerTabs: undefined;
+  ProductDetail: { productId: string; product?: any };
+};
+
+// Product Stack (for buyers)
 export type ProductStackParamList = {
   ProductDetail: { productId: string };
+};
+
+// Farmer Product Stack (for farmers)
+export type FarmerProductStackParamList = {
+  FarmerTabs: undefined;
+  ProductDetailsFarmer: { productId: string; product?: any };
 };
 
 // Fruit Stack (for farmers)
