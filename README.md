@@ -1,97 +1,505 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# 🌾 MyApp - Agricultural Marketplace
 
-# Getting Started
+A modern React Native application connecting farmers directly with buyers, enabling fresh produce trading with real-time communication and smart logistics.
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+![React Native](https://img.shields.io/badge/React%20Native-0.72+-61DAFB?style=for-the-badge&logo=react&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)
+![Android](https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white)
+![iOS](https://img.shields.io/badge/iOS-000000?style=for-the-badge&logo=ios&logoColor=white)
+![Node.js](https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)
 
-## Step 1: Start Metro
+## 📱 About
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+MyApp is an innovative agricultural marketplace that eliminates middlemen by connecting farmers directly with buyers. The platform enables fresh produce trading with features like real-time chat, order tracking, and intelligent market insights.
 
-To start the Metro dev server, run the following command from the root of your React Native project:
+### 🎯 Key Features
 
-```sh
-# Using npm
-npm start
+#### 👨‍🌾 For Farmers
+- **Product Listing Management** - Upload multiple product images with detailed descriptions
+- **Real-time Order Management** - Track inquiries, sales, and delivery status
+- **Smart Analytics** - AI-powered insights on product performance and pricing
+- **Direct Communication** - Chat directly with potential buyers
+- **Sales Tracking** - Comprehensive sales history and revenue analytics
 
-# OR using Yarn
+#### 🛒 For Buyers
+- **Product Discovery** - Browse fresh produce with detailed farmer profiles
+- **Advanced Search & Filters** - Find products by location, price, variety, and quality
+- **Order Management** - Track orders from placement to delivery
+- **Review System** - Rate and review farmers and products
+- **Secure Payments** - Multiple payment options with transaction security
+
+#### 🚀 Smart Features
+- **Role-based Navigation** - Adaptive UI based on user type (Farmer/Buyer)
+- **Real-time Notifications** - Push notifications for orders, messages, and updates
+- **Location-based Services** - Find nearby farmers and calculate delivery costs
+- **Multi-language Support** - Accessible in local languages
+- **Offline Capability** - Core features work without internet connection
+
+## 🏗️ Tech Stack
+
+### Frontend
+- **React Native CLI** 0.72+ - Native mobile development
+- **TypeScript** - Type-safe development
+- **React Navigation 6** - Navigation and routing
+- **React Native Vector Icons** - Icon library
+- **React Native Async Storage** - Local data persistence
+- **React Native Image Picker** - Camera and gallery integration
+- **React Native Gesture Handler** - Touch and gesture system
+
+### State Management
+- **React Context API** - Global state management
+- **Custom Hooks** - Reusable state logic
+- **AsyncStorage** - Local data caching
+
+### Native Features
+- **React Native Permissions** - Handle device permissions
+- **React Native Device Info** - Device information
+- **React Native NetInfo** - Network connectivity
+- **React Native Push Notifications** - Local and remote notifications
+
+### UI/UX
+- **Custom Design System** - Consistent theming and components
+- **React Native Reanimated** - High-performance animations
+- **React Native Safe Area Context** - Safe area handling
+- **Responsive Design** - Optimized for different screen sizes
+
+## 📂 Project Structure
+
+```
+src/
+├── components/
+│   ├── auth/                 # Authentication screens
+│   ├── buyer/               # Buyer-specific components
+│   ├── farmer/              # Farmer-specific components
+│   ├── orders/              # Order management
+│   ├── products/            # Product-related components
+│   ├── common/              # Shared components
+│   ├── notification/        # Notification system
+│   ├── profile/             # User profile management
+│   └── providers/           # Context providers
+├── navigation/
+│   ├── auth/               # Authentication navigation
+│   ├── buyer/              # Buyer navigation stack
+│   ├── farmer/             # Farmer navigation stack
+│   └── types.ts            # Navigation type definitions
+├── utils/
+│   ├── authBootstrap.ts    # Authentication initialization
+│   ├── storage.ts          # AsyncStorage utilities
+│   └── constants.ts        # App constants
+android/                    # Android native code
+ios/                       # iOS native code
+└── assets/               # Images, fonts, and static files
+```
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- **Node.js** (v16 or higher)
+- **npm** or **yarn**
+- **React Native CLI** (`npm install -g @react-native-community/cli`)
+- **Java Development Kit** (JDK 11 or newer)
+- **Android Studio** (for Android development)
+- **Xcode** (for iOS development - macOS only)
+- **Watchman** (recommended for macOS)
+
+### Development Environment Setup
+
+#### Android Setup
+1. **Install Android Studio**
+2. **Configure Android SDK** (API level 31 or higher)
+3. **Set up Android Virtual Device (AVD)**
+4. **Add Android SDK to PATH**:
+   ```bash
+   export ANDROID_HOME=$HOME/Library/Android/sdk
+   export PATH=$PATH:$ANDROID_HOME/emulator
+   export PATH=$PATH:$ANDROID_HOME/tools
+   export PATH=$PATH:$ANDROID_HOME/tools/bin
+   export PATH=$PATH:$ANDROID_HOME/platform-tools
+   ```
+
+#### iOS Setup (macOS only)
+1. **Install Xcode** (from Mac App Store)
+2. **Install Xcode Command Line Tools**:
+   ```bash
+   xcode-select --install
+   ```
+3. **Install CocoaPods**:
+   ```bash
+   sudo gem install cocoapods
+   ```
+
+### Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/yourusername/MyApp.git
+   cd MyApp
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   # or
+   yarn install
+   ```
+
+3. **Install iOS dependencies** (iOS only)
+   ```bash
+   cd ios && pod install && cd ..
+   ```
+
+4. **Set up environment variables**
+   ```bash
+   cp .env.example .env
+   # Edit .env with your configuration
+   ```
+
+### Running the App
+
+#### Start Metro Bundler
+```bash
+npx react-native start
+# or
 yarn start
 ```
 
-## Step 2: Build and run your app
-
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
-
-### Android
-
-```sh
-# Using npm
-npm run android
-
-# OR using Yarn
+#### Run on Android
+```bash
+# Make sure you have an Android emulator running or device connected
+npx react-native run-android
+# or
 yarn android
 ```
 
-### iOS
-
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
-
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
-
-```sh
-bundle install
-```
-
-Then, and every time you update your native dependencies, run:
-
-```sh
-bundle exec pod install
-```
-
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
-
-```sh
-# Using npm
-npm run ios
-
-# OR using Yarn
+#### Run on iOS (macOS only)
+```bash
+# Make sure you have an iOS simulator running or device connected
+npx react-native run-ios
+# or
 yarn ios
+
+# Run on specific iOS device
+npx react-native run-ios --device "Device Name"
 ```
 
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
+### Debugging
 
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
+#### React Native Debugger
+```bash
+# Install React Native Debugger
+brew install --cask react-native-debugger
 
-## Step 3: Modify your app
+# Enable debugging in app (Cmd+D on iOS, Cmd+M on Android)
+# Select "Debug JS Remotely"
+```
 
-Now that you have successfully run the app, let's make changes!
+#### Flipper Integration
+```bash
+# Install Flipper
+brew install --cask flipper
 
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
+# Flipper plugins are already configured in the project
+```
 
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
+## 🔧 Configuration
 
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
+### Environment Variables
 
-## Congratulations! :tada:
+Create a `.env` file in the root directory:
 
-You've successfully run and modified your React Native App. :partying_face:
+```env
+# API Configuration
+API_BASE_URL=https://your-api-endpoint.com
+API_KEY=your-api-key
 
-### Now what?
+# Authentication
+GOOGLE_OAUTH_CLIENT_ID=your-google-client-id
+FACEBOOK_APP_ID=your-facebook-app-id
 
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
+# Maps & Location
+GOOGLE_MAPS_API_KEY=your-google-maps-key
 
-# Troubleshooting
+# Push Notifications
+FCM_SERVER_KEY=your-fcm-server-key
 
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
+# Payment Gateway
+RAZORPAY_KEY_ID=your-razorpay-key
+STRIPE_PUBLISHABLE_KEY=your-stripe-key
+```
 
-# Learn More
+### Android Configuration
 
-To learn more about React Native, take a look at the following resources:
+#### 1. Google Services Setup
+```bash
+# Add google-services.json to android/app/
+# Get this file from Firebase Console
+```
 
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+#### 2. Signing Configuration
+```gradle
+// android/app/build.gradle
+android {
+    ...
+    signingConfigs {
+        debug {
+            storeFile file('debug.keystore')
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
+        }
+        release {
+            if (project.hasProperty('MYAPP_UPLOAD_STORE_FILE')) {
+                storeFile file(MYAPP_UPLOAD_STORE_FILE)
+                storePassword MYAPP_UPLOAD_STORE_PASSWORD
+                keyAlias MYAPP_UPLOAD_KEY_ALIAS
+                keyPassword MYAPP_UPLOAD_KEY_PASSWORD
+            }
+        }
+    }
+}
+```
+
+#### 3. Permissions
+```xml
+<!-- android/app/src/main/AndroidManifest.xml -->
+<uses-permission android:name="android.permission.INTERNET" />
+<uses-permission android:name="android.permission.CAMERA" />
+<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+```
+
+### iOS Configuration
+
+#### 1. Bundle Identifier
+```bash
+# Update bundle identifier in ios/MyApp.xcodeproj
+# Format: com.yourcompany.myapp
+```
+
+#### 2. Info.plist Permissions
+```xml
+<!-- ios/MyApp/Info.plist -->
+<key>NSCameraUsageDescription</key>
+<string>This app needs access to camera to take product photos</string>
+<key>NSPhotoLibraryUsageDescription</key>
+<string>This app needs access to photo library to select product images</string>
+<key>NSLocationWhenInUseUsageDescription</key>
+<string>This app needs location access to find nearby farmers</string>
+```
+
+## 🧪 Testing
+
+### Running Tests
+```bash
+# Unit tests with Jest
+npm test
+# or
+yarn test
+
+# Run tests in watch mode
+npm test -- --watch
+# or
+yarn test --watch
+```
+
+### E2E Testing with Detox
+```bash
+# Install Detox CLI
+npm install -g detox-cli
+
+# Build the app for testing
+detox build --configuration ios.sim.debug
+
+# Run E2E tests
+detox test --configuration ios.sim.debug
+```
+
+### Code Quality
+```bash
+# ESLint
+npm run lint
+# or
+yarn lint
+
+# TypeScript type checking
+npm run type-check
+# or
+yarn type-check
+```
+
+## 📦 Building for Production
+
+### Android Release Build
+
+#### 1. Generate Release APK
+```bash
+cd android
+./gradlew assembleRelease
+# APK will be generated at: android/app/build/outputs/apk/release/app-release.apk
+```
+
+#### 2. Generate Android App Bundle (AAB)
+```bash
+cd android
+./gradlew bundleRelease
+# AAB will be generated at: android/app/build/outputs/bundle/release/app-release.aab
+```
+
+### iOS Release Build
+
+#### 1. Archive in Xcode
+```bash
+# Open iOS project in Xcode
+open ios/MyApp.xcworkspace
+
+# In Xcode:
+# 1. Select "Any iOS Device" or your device
+# 2. Product > Archive
+# 3. Follow the wizard to upload to App Store Connect
+```
+
+#### 2. Command Line Build
+```bash
+# Build for release
+npx react-native run-ios --configuration Release
+```
+
+## 🔧 Troubleshooting
+
+### Common Issues
+
+#### Metro Bundler Issues
+```bash
+# Clear Metro cache
+npx react-native start --reset-cache
+
+# Clear node modules and reinstall
+rm -rf node_modules && npm install
+```
+
+#### Android Build Issues
+```bash
+# Clean Android build
+cd android && ./gradlew clean && cd ..
+
+# Reset Metro and Android
+npx react-native start --reset-cache
+npx react-native run-android
+```
+
+#### iOS Build Issues
+```bash
+# Clean iOS build
+cd ios && xcodebuild clean && cd ..
+
+# Reinstall iOS dependencies
+cd ios && pod deintegrate && pod install && cd ..
+```
+
+#### Permission Issues
+```bash
+# Fix file permissions
+chmod +x android/gradlew
+```
+
+## 🤝 Contributing
+
+We welcome contributions! Please follow these steps:
+
+1. **Fork the repository**
+2. **Create a feature branch**
+   ```bash
+   git checkout -b feature/amazing-feature
+   ```
+3. **Commit your changes**
+   ```bash
+   git commit -m 'Add some amazing feature'
+   ```
+4. **Push to the branch**
+   ```bash
+   git push origin feature/amazing-feature
+   ```
+5. **Open a Pull Request**
+
+### Development Guidelines
+
+- Follow **TypeScript** best practices
+- Use **ESLint** and **Prettier** for code formatting
+- Write **unit tests** for new features
+- Test on both **iOS and Android**
+- Update documentation for significant changes
+- Follow **conventional commit** messages
+
+## 📋 Roadmap
+
+### Phase 1 (Current) ✅
+- [x] User authentication and role management
+- [x] Basic farmer and buyer interfaces
+- [x] Product listing and browsing
+- [x] Order management system
+- [x] Role-based navigation
+
+### Phase 2 (In Progress) 🚧
+- [ ] Real-time chat functionality
+- [ ] Payment gateway integration
+- [ ] Push notification system
+- [ ] Advanced search and filtering
+- [ ] Delivery tracking with GPS
+
+### Phase 3 (Planned) 📋
+- [ ] AI-powered price recommendations
+- [ ] Weather integration for farmers
+- [ ] Multi-language support
+- [ ] Bulk order management
+- [ ] Analytics dashboard
+
+### Phase 4 (Future) 🔮
+- [ ] Web admin panel
+- [ ] API for third-party integrations
+- [ ] Machine learning for demand forecasting
+- [ ] Blockchain for supply chain transparency
+- [ ] IoT integration for smart farming
+
+## 📄 License
+
+This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
+
+## 👥 Team
+
+- **Mobile Lead** - React Native & TypeScript
+- **Backend Lead** - Node.js & Database
+- **iOS Developer** - Native iOS features
+- **Android Developer** - Native Android features
+- **Product Manager** - Strategy & Roadmap
+
+## 📞 Support
+
+### Get Help
+- 📧 **Email**: krushimandiofficial@gmail.com
+- 📖 **Documentation**: [docs.krushimandi.com](https://docs.krushimandi.com)
+- 🐛 **Bug Reports**: [GitHub Issues](https://github.com/Krushimandi/Krushimandi-app/issues)
+
+### FAQ
+
+**Q: Why React Native CLI instead of Expo?**
+A: React Native CLI gives us full control over native code, custom native modules, and better performance for our agricultural marketplace features.
+
+**Q: Do I need both Android Studio and Xcode?**
+A: You only need the development environment for the platform you're targeting. However, for full development, both are recommended.
+
+**Q: How do I run on a physical device?**
+A: Enable developer options and USB debugging on Android, or register your device with Apple Developer Program for iOS.
+
+**Q: The app crashes on startup, what should I do?**
+A: Check Metro bundler logs, ensure all dependencies are installed, and try cleaning the build cache.
+
+---
+
+<div align="center">
+
+**Built with ❤️ for farmers and buyers using React Native CLI**
+
+[⭐ Star this repo](https://github.com/Krushimandi/Krushimandi-app) • [🍴 Fork it](https://github.com/Krushimandi/Krushimandi-app/fork) • [📄 Report Bug](https://github.com/Krushimandi/Krushimandi-app/issues)
+
+</div>
