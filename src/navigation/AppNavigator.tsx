@@ -3,7 +3,7 @@
  * Main entry point for app navigation - Now uses bootstrap state
  */
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { navigationRef } from './navigationService';
@@ -36,6 +36,30 @@ interface AppNavigatorProps {
 // Root Navigator
 const AppNavigator: React.FC<AppNavigatorProps> = ({ bootstrapState }) => {
   const { isAuthenticated, userRole, isLoading } = useAuthState();
+  const [navigationKey, setNavigationKey] = useState(0);
+
+  console.log('🔍 AppNavigator render - Bootstrap State:', {
+    isAuthenticated: bootstrapState.isAuthenticated,
+    userRole: bootstrapState.userRole,
+    contextAuth: isAuthenticated,
+    contextRole: userRole,
+    isLoading
+  });
+
+  // Force navigation re-mount when auth state changes
+  useEffect(() => {
+    const currentIsAuthenticated = isAuthenticated || bootstrapState.isAuthenticated;
+    const currentUserRole = userRole || bootstrapState.userRole;
+    const shouldShowMainApp = currentIsAuthenticated && currentUserRole;
+    
+    console.log('🔄 Auth state changed, re-evaluating navigation:', {
+      currentIsAuthenticated,
+      currentUserRole,
+      shouldShowMainApp
+    });
+    
+    setNavigationKey(prev => prev + 1);
+  }, [isAuthenticated, userRole, bootstrapState.isAuthenticated, bootstrapState.userRole]);
 
   console.log('🔍 AppNavigator render - Bootstrap State:', {
     isAuthenticated: bootstrapState.isAuthenticated,
@@ -48,7 +72,7 @@ const AppNavigator: React.FC<AppNavigatorProps> = ({ bootstrapState }) => {
   // Choose the appropriate stack based on user role
   const getMainComponent = () => {
     console.log('🎯 getMainComponent called with userRole:', userRole);
-    return FarmerStack; // Default to FarmerStack for testing
+    return BuyerStack; // Default to BuyerStack for now
     switch (userRole) {
       case 'buyer':
         console.log('📱 Routing to BuyerStack for buyer role');
@@ -67,14 +91,23 @@ const AppNavigator: React.FC<AppNavigatorProps> = ({ bootstrapState }) => {
     return <LoadingScreen />;
   }
 
-  // Determine initial route based on bootstrap state
-  const shouldShowMainApp = isAuthenticated && userRole;
+  // Use current auth state instead of just bootstrap state
+  const currentIsAuthenticated = isAuthenticated || bootstrapState.isAuthenticated;
+  const currentUserRole = userRole || bootstrapState.userRole;
+  
+  // Determine initial route based on current auth state
+  const shouldShowMainApp = currentIsAuthenticated && currentUserRole;
   const initialRouteName = shouldShowMainApp ? "Main" : "Auth";
 
   console.log('🚀 AppNavigator - Final routing decision:', {
+    currentIsAuthenticated,
+    currentUserRole,
     shouldShowMainApp,
     initialRouteName,
-    userRole
+    bootstrapIsAuth: bootstrapState.isAuthenticated,
+    bootstrapRole: bootstrapState.userRole,
+    contextIsAuth: isAuthenticated,
+    contextRole: userRole
   });
 
   // Choose the appropriate main stack component
@@ -83,6 +116,7 @@ const AppNavigator: React.FC<AppNavigatorProps> = ({ bootstrapState }) => {
   return (
     <NavigationProvider>
       <NavigationContainer 
+        key={navigationKey}
         ref={navigationRef} 
         onReady={() => console.log('Navigation container is ready')}
       >

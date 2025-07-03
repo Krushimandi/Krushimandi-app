@@ -24,13 +24,15 @@ import auth from '@react-native-firebase/auth';
 import { Colors, Typography, Layout } from '../../constants';
 import { useTabBarControl } from '../../utils/navigationControls';
 
-const categories = [
-  { name: 'Fruits', icon: require('../../assets/Apple.png') },
-  { name: 'Vegetables', icon: require('../../assets/spinach.jpg') },
-  { name: 'Organics', icon: require('../../assets/banana.png') },
+const fruitCategories = [
+  { name: 'All Fruits', icon: require('../../assets/Apple.png') },
+  { name: 'Mangoes', icon: require('../../assets/hapus.jpeg') },
+  { name: 'Apples', icon: require('../../assets/appleFruit.jpeg') },
+  { name: 'Bananas', icon: require('../../assets/banana.png') },
 ];
 
-const products = [
+// Current active listings by the farmer
+const myActiveFruits = [
   {
     id: 1,
     name: 'Premium Hapus Mango',
@@ -38,58 +40,80 @@ const products = [
     price: '₹120/KG',
     originalPrice: '₹150/KG',
     location: 'Ratnagiri, Maharashtra',
-    available: '500 kg',
+    available: '40-60 tons',
     rating: 4.8,
     image: require('../../assets/hapus.jpeg'),
-    seller: 'Kishor Patil',
-    sellerRating: 4.7,
-    sellerProducts: 15,
-    organic: true,
+    listedDate: '2 days ago',
+    status: 'active',
+    views: 127,
+    inquiries: 8,
   },
   {
     id: 2,
-    name: 'Kashmiri Apple',
-    category: 'Apple',
-    price: '₹180/KG',
-    originalPrice: '₹200/KG',
-    location: 'Alshpur, Jammu',
-    available: '250 kg',
-    rating: 4.6,
-    image: require('../../assets/appleFruit.jpeg'),
-    seller: 'Ramesh Kumar',
-    sellerRating: 4.5,
-    sellerProducts: 8,
-    organic: false,
+    name: 'Sweet Banana',
+    category: 'Banana',
+    price: '₹80/KG',
+    originalPrice: '₹95/KG',
+    location: 'Paithan, Maharashtra',
+    available: '25-35 tons',
+    rating: 4.7,
+    image: require('../../assets/banana.png'),
+    listedDate: '1 day ago',
+    status: 'active',
+    views: 89,
+    inquiries: 5,
   },
+];
+
+// Previous listings history
+const myFruitHistory = [
   {
     id: 3,
-    name: 'Fresh Nashik Tomatoes',
-    category: 'Vegetable',
-    price: '₹60/KG',
-    originalPrice: '₹75/KG',
-    location: 'Nashik, Maharashtra',
-    available: '300 kg',
-    rating: 4.7,
+    name: 'Alphonso Mango',
+    category: 'Mango',
+    price: '₹200/KG',
+    originalPrice: '₹250/KG',
+    location: 'Ratnagiri, Maharashtra',
+    available: '0 tons',
+    rating: 4.9,
     image: require('../../assets/hapus.jpeg'),
-    seller: 'Sunil Jadhav',
-    sellerRating: 4.9,
-    sellerProducts: 22,
-    organic: true,
+    listedDate: '1 week ago',
+    status: 'sold_out',
+    views: 245,
+    inquiries: 15,
+    soldQuantity: '12-18 tons',
   },
   {
     id: 4,
-    name: 'Organic Spinach',
-    category: 'Vegetable',
-    price: '₹40/KG',
-    originalPrice: '₹45/KG',
-    location: 'Pune, Maharashtra',
-    available: '100 kg',
-    rating: 4.8,
-    image: require('../../assets/spinach.jpg'),
-    seller: 'Anita Patil',
-    sellerRating: 4.8,
-    sellerProducts: 12,
-    organic: true,
+    name: 'Red Apple',
+    category: 'Apple',
+    price: '₹160/KG',
+    originalPrice: '₹180/KG',
+    location: 'Paithan, Maharashtra',
+    available: '0 tons',
+    rating: 4.5,
+    image: require('../../assets/appleFruit.jpeg'),
+    listedDate: '2 weeks ago',
+    status: 'expired',
+    views: 98,
+    inquiries: 3,
+    soldQuantity: '3-7 tons',
+  },
+  {
+    id: 5,
+    name: 'Premium Banana',
+    category: 'Banana',
+    price: '₹75/KG',
+    originalPrice: '₹85/KG',
+    location: 'Paithan, Maharashtra',
+    available: '0 tons',
+    rating: 4.6,
+    image: require('../../assets/banana.png'),
+    listedDate: '3 weeks ago',
+    status: 'sold_out',
+    views: 156,
+    inquiries: 12,
+    soldQuantity: '15-25 tons',
   },
 ];
 
@@ -102,8 +126,9 @@ const FarmerHomeScreen = () => {
   const { showTabBar } = useTabBarControl();
   const [userProfile, setUserProfile] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [selectedCategory, setSelectedCategory] = useState('All Fruits');
   const [watchlist, setWatchlist] = useState([]);
+  const [showHistory, setShowHistory] = useState(false);
   const scrollY = useRef(new Animated.Value(0)).current;
 
   // Make sure tab bar is visible
@@ -368,7 +393,7 @@ const FarmerHomeScreen = () => {
             <View style={styles.searchBox}>
               <Icon name="search" size={20} color="#939393" style={{ marginLeft: 12 }} />
               <TextInput
-                placeholder="Search produce, farmers..."
+                placeholder="Search fruits, farmers..."
                 placeholderTextColor="#939393"
                 style={styles.searchInput}
               />
@@ -380,13 +405,10 @@ const FarmerHomeScreen = () => {
           </View>
         </Animated.View>
 
-        {/* Categories */}
+        {/* Fruit Categories */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Categories</Text>
-            <TouchableOpacity onPress={() => safeNavigate('Browse')}>
-              <Text style={styles.viewAll}>View all</Text>
-            </TouchableOpacity>
+            <Text style={styles.sectionTitle}>Fruit Categories</Text>
           </View>
 
           <ScrollView
@@ -394,21 +416,7 @@ const FarmerHomeScreen = () => {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.categoriesContainer}
           >
-            <TouchableOpacity
-              style={[
-                styles.categoryCard,
-                selectedCategory === 'All' && styles.selectedCategoryCard
-              ]}
-              onPress={() => setSelectedCategory('All')}
-            >
-              <Icon name="apps-outline" size={22} color={"#505050"} style={styles.categoryIcon} />
-              <Text style={[
-                styles.categoryText,
-                selectedCategory === 'All' && styles.selectedCategoryText
-              ]}>All</Text>
-            </TouchableOpacity>
-
-            {categories.map((item, index) => (
+            {fruitCategories.map((item, index) => (
               <TouchableOpacity
                 key={index}
                 style={[
@@ -427,189 +435,163 @@ const FarmerHomeScreen = () => {
           </ScrollView>
         </View>
 
-        {/* Featured Items */}
+        {/* My Listings Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Featured Items</Text>
-            <TouchableOpacity onPress={() => safeNavigate('Browse')}>
-              <Text style={styles.viewAll}>See more</Text>
-            </TouchableOpacity>
+            <Text style={styles.sectionTitle}>My Listings</Text>
+            <View style={styles.tabContainer}>
+              <TouchableOpacity
+                style={[styles.tab, !showHistory && styles.activeTab]}
+                onPress={() => setShowHistory(false)}
+              >
+                <Text style={[styles.tabText, !showHistory && styles.activeTabText]}>
+                  Active ({myActiveFruits.length})
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.tab, showHistory && styles.activeTab]}
+                onPress={() => setShowHistory(true)}
+              >
+                <Text style={[styles.tabText, showHistory && styles.activeTabText]}>
+                  History ({myFruitHistory.length})
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.featuredContainer}
-          >
-            {products.map((item) => (
-              <TouchableOpacity
-                key={item.id}
-                style={styles.featuredCard}
-                activeOpacity={0.9}
-                onPress={() => safeNavigate('ProductDetailsFarmer', {
-                  productId: item.id,
-                  product: {
-                    id: item.id,
-                    name: item.name,
-                    category: item.category,
-                    description: `Category: ${item.category}`,
-                    price: parseFloat(item.price.replace('₹', '').replace('/KG', '')),
-                    unit: 'KG',
-                    rating: item.rating,
-                    reviewCount: Math.floor(item.rating * 10),
-                    sizes: ['1 kg', '500 gm', '2 kg'],
-                    availableSizes: ['1 kg', '500 gm', '2 kg'],
-                    freshness: 'Fresh',
-                    details: `Seller: ${item.seller}. Available quantity: ${item.available}`,
-                    description: `${item.name} from ${item.location}. Available quantity: ${item.available}`,
-                    availableQuantity: item.available,
-                    image: item.image,
-                    location: item.location,
-                    postedDate: '3 days ago',
-                    isLive: true,
-                    daysAgo: 3,
-                    analytics: {
-                      totalViews: Math.floor(Math.random() * 300) + 100,
-                      viewsChange: Math.floor(Math.random() * 20) + 1,
-                      favorites: Math.floor(Math.random() * 25) + 5,
-                      favoritesChange: Math.floor(Math.random() * 5) + 1,
-                      buyerRequests: Math.floor(Math.random() * 10) + 1,
-                      requestsChange: Math.floor(Math.random() * 3) + 1,
-                      performance: Math.floor(Math.random() * 15) + 8,
-                    }
-                  }
-                })}
-              >
-                <View style={styles.featuredImageContainer}>
-                  <Image source={item.image} style={styles.featuredImage} />
-                  <TouchableOpacity
-                    style={styles.watchlistButton}
-                    onPress={() => toggleWatchlist(item.id)}
-                  >
-                    <Icon
-                      name={watchlist.includes(item.id) ? "heart" : "heart-outline"}
-                      size={18}
-                      color={watchlist.includes(item.id) ? "#FF3B30" : "#757575"}
-                    />
-                  </TouchableOpacity>
-                  {item.organic && (
-                    <View style={styles.organicBadge}>
-                      <Text style={styles.organicText}>Organic</Text>
-                    </View>
+          {!showHistory ? (
+            // Active Listings
+            <View>
+              {myActiveFruits.length === 0 ? (
+                <View style={styles.emptyState}>
+                  <Icon name="leaf-outline" size={64} color="#E0E0E0" />
+                  <Text style={styles.emptyStateText}>No Active Listings</Text>
+                  <Text style={styles.emptyStateSubtext}>
+                    You haven't listed any fruits yet.{'\n'}
+                    Contact admin to add your harvest.
+                  </Text>
+                </View>
+              ) : (
+                <FlatList
+                  key={selectedCategory} // Force re-render when category changes
+                  data={myActiveFruits.filter(fruit => 
+                    selectedCategory === 'All Fruits' || 
+                    fruit.category.toLowerCase().includes(selectedCategory.toLowerCase().replace('s', ''))
                   )}
+                  keyExtractor={(item) => item.id.toString()}
+                  numColumns={2}
+                  showsVerticalScrollIndicator={false}
+                  columnWrapperStyle={styles.fruitRow}
+                  renderItem={({ item }) => (
+                    <TouchableOpacity
+                      style={styles.fruitCard}
+                      activeOpacity={0.9}
+                      onPress={() => safeNavigate('ProductDetailsFarmer', {
+                        productId: item.id,
+                        product: item
+                      })}
+                    >
+                      <View style={styles.fruitImageContainer}>
+                        <Image source={item.image} style={styles.fruitImage} />
+                        <View style={styles.statusBadge}>
+                          <View style={[styles.statusDot, { backgroundColor: '#4CAF50' }]} />
+                          <Text style={styles.statusText}>Live</Text>
+                        </View>
+                      </View>
+
+                      <View style={styles.fruitDetails}>
+                        <Text style={styles.fruitName} numberOfLines={1}>{item.name}</Text>
+                        <Text style={styles.dateText}>{item.listedDate}</Text>
+                        
+                        <View style={styles.priceRow}>
+                          <Text style={styles.fruitPrice}>{item.price}</Text>
+                          <Text style={styles.originalPrice}>{item.originalPrice}</Text>
+                        </View>
+
+                        <View style={styles.statsRow}>
+                          <View style={styles.statItem}>
+                            <Icon name="eye-outline" size={12} color="#757575" />
+                            <Text style={styles.statText}>{item.views}</Text>
+                          </View>
+                          <View style={styles.statItem}>
+                            <Icon name="chatbubble-outline" size={12} color="#757575" />
+                            <Text style={styles.statText}>{item.inquiries}</Text>
+                          </View>
+                          <Text style={styles.availableText}>{item.available}</Text>
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  )}
+                />
+              )}
+            </View>
+          ) : (
+            // History Listings
+            <View>
+              {myFruitHistory.length === 0 ? (
+                <View style={styles.emptyState}>
+                  <Icon name="time-outline" size={64} color="#E0E0E0" />
+                  <Text style={styles.emptyStateText}>No History Yet</Text>
+                  <Text style={styles.emptyStateSubtext}>
+                    Your past listings will appear here.{'\n'}
+                    Start listing fruits to build your history.
+                  </Text>
                 </View>
-
-                <View style={styles.featuredDetails}>
-                  <Text style={styles.featuredName} numberOfLines={1}>{item.name}</Text>
-                  <Text style={styles.featuredCategory}>{item.category}</Text>
-
-                  <View style={styles.priceRow}>
-                    <Text style={styles.featuredPrice}>{item.price}</Text>
-                    <Text style={styles.originalPrice}>{item.originalPrice}</Text>
-                  </View>
-
-                  <View style={styles.ratingRow}>
-                    {renderStars(item.rating)}
-                    <Text style={styles.locationText} numberOfLines={1}>
-                      <Icon name="location-outline" size={10} color="#757575" /> {item.location.split(',')[0]}
-                    </Text>
-                  </View>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-
-        {/* Best Sellers Section */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Verified Farmers</Text>
-            <TouchableOpacity>
-              <Text style={styles.viewAll}>View all</Text>
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.farmersContainer}
-          >
-            {[1, 2, 3, 4].map((item) => (
-              <TouchableOpacity key={item} style={styles.farmerCard} activeOpacity={0.9}>
-                <View style={styles.farmerImageContainer}>
-                  <Image source={require('../../assets/student.jpeg')} style={styles.farmerImage} />
-                  <View style={styles.verifiedBadge}>
-                    <Octicons name="verified" size={14} color="#FFFFFF" />
-                  </View>
-                </View>
-                <Text style={styles.farmerName}>Raju Patil</Text>
-                <Text style={styles.farmerLocation}>Nashik, MH</Text>
-                <View style={styles.farmerRating}>
-                  <Icon name="star" size={12} color="#FFB800" />
-                  <Text style={styles.ratingText}>4.8</Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-
-        {/* Recently Viewed */}
-        <View style={[styles.section, { marginBottom: 100 }]}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Recently Viewed</Text>
-            <TouchableOpacity>
-              <Text style={styles.viewAll}>Clear</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.recentContainer}>
-            {products.slice(0, 2).map((item) => (
-              <TouchableOpacity
-                key={item.id + "-recent"}
-                style={styles.recentProductCard}
-                activeOpacity={0.9}
-                onPress={() => safeNavigate('ProductDetailsFarmer', {
-                  productId: item.id,
-                  product: {
-                    id: item.id,
-                    name: item.name,
-                    category: item.category,
-                    description: `Category: ${item.category}`,
-                    price: parseFloat(item.price.replace('₹', '').replace('/KG', '')),
-                    unit: 'KG',
-                    rating: item.rating,
-                    reviewCount: Math.floor(item.rating * 10),
-                    sizes: ['1 kg', '500 gm', '2 kg'],
-                    availableSizes: ['1 kg', '500 gm', '2 kg'],
-                    freshness: 'Fresh',
-                    details: `Seller: ${item.seller}. Available quantity: ${item.available}`,
-                    description: `${item.name} from ${item.location}. Available quantity: ${item.available}`,
-                    availableQuantity: item.available,
-                    image: item.image,
-                    location: item.location,
-                    postedDate: '3 days ago',
-                    isLive: true,
-                    daysAgo: 3,
-                    analytics: {
-                      totalViews: Math.floor(Math.random() * 300) + 100,
-                      viewsChange: Math.floor(Math.random() * 20) + 1,
-                      favorites: Math.floor(Math.random() * 25) + 5,
-                      favoritesChange: Math.floor(Math.random() * 5) + 1,
-                      buyerRequests: Math.floor(Math.random() * 10) + 1,
-                      requestsChange: Math.floor(Math.random() * 3) + 1,
-                      performance: Math.floor(Math.random() * 15) + 8,
-                    }
-                  }
-                })}
-              >
-                <Image source={item.image} style={styles.recentProductImage} />
-                <View style={styles.recentProductDetails}>
-                  <Text style={styles.recentProductName} numberOfLines={1}>{item.name}</Text>
-                  <Text style={styles.recentProductPrice}>{item.price}</Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </View>
+              ) : (
+                <FlatList
+                  data={myFruitHistory}
+                  keyExtractor={(item) => item.id.toString()}
+                  showsVerticalScrollIndicator={false}
+                  renderItem={({ item }) => (
+                    <TouchableOpacity
+                      style={styles.historyCard}
+                      activeOpacity={0.7}
+                      onPress={() => safeNavigate('ProductDetailsFarmer', {
+                        productId: item.id,
+                        product: item
+                      })}
+                    >
+                      <Image source={item.image} style={styles.historyImage} />
+                      <View style={styles.historyDetails}>
+                        <View style={styles.historyHeader}>
+                          <Text style={styles.historyName} numberOfLines={1}>{item.name}</Text>
+                          <View style={[styles.historyStatusBadge, 
+                            item.status === 'sold_out' ? styles.soldOutBadge : styles.expiredBadge]}>
+                            <Text style={[styles.historyStatusText,
+                              item.status === 'sold_out' ? styles.soldOutText : styles.expiredText]}>
+                              {item.status === 'sold_out' ? 'Sold Out' : 'Expired'}
+                            </Text>
+                          </View>
+                        </View>
+                        <Text style={styles.historyDate}>{item.listedDate}</Text>
+                        <Text style={styles.historyPrice}>{item.price}</Text>
+                        
+                        <View style={styles.historyStats}>
+                          <View style={styles.historyStat}>
+                            <Icon name="eye-outline" size={12} color="#757575" />
+                            <Text style={styles.historyStatText}>{item.views} views</Text>
+                          </View>
+                          <View style={styles.historyStat}>
+                            <Icon name="chatbubble-outline" size={12} color="#757575" />
+                            <Text style={styles.historyStatText}>{item.inquiries} inquiries</Text>
+                          </View>
+                          {item.soldQuantity && (
+                            <View style={styles.historyStat}>
+                              <Icon name="checkmark-circle-outline" size={12} color="#4CAF50" />
+                              <Text style={styles.historyStatText}>Sold {item.soldQuantity}</Text>
+                            </View>
+                          )}
+                        </View>
+                      </View>
+                      <TouchableOpacity style={styles.relistButton}>
+                        <Icon name="refresh-outline" size={16} color={Colors.light.primary} />
+                      </TouchableOpacity>
+                    </TouchableOpacity>
+                  )}
+                />
+              )}
+            </View>
+          )}
         </View>
       </Animated.ScrollView>
     </SafeAreaView>
@@ -751,7 +733,7 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
   },
   section: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 10,
     marginTop: 18,
   },
   sectionHeader: {
@@ -773,7 +755,7 @@ const styles = StyleSheet.create({
   categoriesContainer: {
     paddingVertical: 4,
     paddingRight: 18,
-    gap: 10,
+    gap: 12,
   },
   categoryCard: {
     backgroundColor: '#F6F6F6',
@@ -796,10 +778,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.light.primaryLight,
     borderColor: Colors.light.primary,
   },
-  categoryIcon: {
-    marginLeft: 12,
-    marginRight: 8,
-  },
   categoryImage: {
     width: 42,
     height: 42,
@@ -813,16 +791,61 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   selectedCategoryText: {
-    // color: Colors.light.primaryDark,
     fontWeight: '600',
   },
-  featuredContainer: {
-    paddingVertical: 6,
-    paddingRight: 20,
-    gap: 16,
+  tabContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#F6F6F6',
+    borderRadius: 8,
+    padding: 2,
   },
-  featuredCard: {
-    width: 160,
+  tab: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+  },
+  activeTab: {
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  tabText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#757575',
+  },
+  activeTabText: {
+    color: '#000000',
+    fontWeight: '600',
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 60,
+    paddingHorizontal: 20,
+  },
+  emptyStateText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#757575',
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  emptyStateSubtext: {
+    fontSize: 14,
+    color: '#999999',
+    marginTop: 8,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  fruitRow: {
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  fruitCard: {
+    width: '48%',
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     shadowColor: '#000',
@@ -830,185 +853,177 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 4,
     elevation: 2,
-    marginRight: 16,
+    marginHorizontal: '1%',
     overflow: 'hidden',
   },
-  featuredImageContainer: {
+  fruitImageContainer: {
     position: 'relative',
     width: '100%',
-    height: 140,
+    height: 120,
   },
-  featuredImage: {
+  fruitImage: {
     width: '100%',
     height: '100%',
     resizeMode: 'cover',
   },
-  watchlistButton: {
+  statusBadge: {
     position: 'absolute',
-    top: 10,
-    right: 10,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    width: 34,
-    height: 34,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  organicBadge: {
-    position: 'absolute',
-    bottom: 10,
-    left: 10,
-    backgroundColor: 'rgba(76, 175, 80, 0.9)',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: 12,
     paddingVertical: 4,
     paddingHorizontal: 8,
-    borderRadius: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  organicText: {
-    color: '#FFFFFF',
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: 4,
+  },
+  statusText: {
     fontSize: 10,
-    fontWeight: 'bold',
+    fontWeight: '600',
+    color: '#4CAF50',
   },
-  featuredDetails: {
+  fruitDetails: {
     padding: 12,
   },
-  featuredName: {
-    fontSize: 16,
+  fruitName: {
+    fontSize: 15,
     fontWeight: '600',
     color: '#000000',
-    marginBottom: 4,
+    marginBottom: 2,
   },
-  featuredCategory: {
-    fontSize: 12,
+  dateText: {
+    fontSize: 11,
     color: '#757575',
     marginBottom: 6,
   },
   priceRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 8,
   },
-  featuredPrice: {
-    fontSize: 16,
+  fruitPrice: {
+    fontSize: 15,
     fontWeight: '700',
     color: Colors.light.primaryDark,
-    marginRight: 8,
+    marginRight: 6,
   },
   originalPrice: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#757575',
     textDecorationLine: 'line-through',
   },
-  ratingRow: {
+  statsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  locationText: {
+  statItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  statText: {
     fontSize: 10,
     color: '#757575',
-    maxWidth: '50%',
+    marginLeft: 2,
   },
-  farmersContainer: {
-    padding: 4,
-    paddingRight: 20,
-    gap: 16,
-  },
-  farmerCard: {
-    alignItems: 'center',
-    marginRight: 20,
-  },
-  farmerImageContainer: {
-    position: 'relative',
-    width: 80,
-    height: 80,
-    marginBottom: 8,
-  },
-  farmerImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  verifiedBadge: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    backgroundColor: Colors.light.primary,
-    borderRadius: 10,
-    width: 20,
-    height: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#FFFFFF',
-  },
-  farmerName: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#000000',
-    marginBottom: 2,
-  },
-  farmerLocation: {
-    fontSize: 12,
+  availableText: {
+    fontSize: 9,
     color: '#757575',
-    marginBottom: 4,
-  },
-  farmerRating: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  ratingText: {
-    marginLeft: 4,
-    fontSize: 12,
-    color: '#505050',
     fontWeight: '500',
   },
-  recentContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  recentProductCard: {
-    width: '48%',
+  historyCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
+    marginBottom: 12,
+    marginHorizontal: '1%',
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 2,
-    elevation: 1,
-    marginBottom: 16,
-    overflow: 'hidden',
+    elevation: 2,
   },
-  recentProductImage: {
-    width: '100%',
-    height: 100,
-    resizeMode: 'cover',
+  historyImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    marginRight: 12,
   },
-  recentProductDetails: {
-    padding: 10,
+  historyDetails: {
+    flex: 1,
   },
-  recentProductName: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#000000',
+  historyHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 4,
   },
-  recentProductPrice: {
+  historyName: {
     fontSize: 14,
+    fontWeight: '600',
+    color: '#000000',
+    flex: 1,
+    marginRight: 8,
+  },
+  historyStatusBadge: {
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+    borderRadius: 4,
+  },
+  soldOutBadge: {
+    backgroundColor: '#E8F5E8',
+  },
+  expiredBadge: {
+    backgroundColor: '#FFF3E0',
+  },
+  historyStatusText: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  soldOutText: {
+    color: '#4CAF50',
+  },
+  expiredText: {
+    color: '#FF9800',
+  },
+  historyDate: {
+    fontSize: 11,
+    color: '#757575',
+    marginBottom: 4,
+  },
+  historyPrice: {
+    fontSize: 13,
     fontWeight: '700',
     color: Colors.light.primaryDark,
+    marginBottom: 6,
+  },
+  historyStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  historyStat: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  historyStatText: {
+    fontSize: 10,
+    color: '#757575',
+    marginLeft: 2,
+  },
+  relistButton: {
+    padding: 8,
+    backgroundColor: '#F0F9FF',
+    borderRadius: 8,
+    marginLeft: 8,
   },
 });
 

@@ -4,7 +4,7 @@
  * Farmers can view, filter, and manage connection requests from various buyer types
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -21,7 +21,7 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTabBarControl } from '../../utils/navigationControls';
-import { useNavigation, NavigationProp, ParamListBase } from '@react-navigation/native';
+import { useNavigation, NavigationProp, ParamListBase, useFocusEffect } from '@react-navigation/native';
 import { Colors, Typography, Layout } from '../../constants';
 
 // Helper function to format category names for display
@@ -183,6 +183,18 @@ const RequestsScreen = () => {
     // Otherwise filter by category
     return matchesSearch && item.category === filter;
   });
+
+  useFocusEffect(
+    useCallback(() => {
+      // When screen is focused
+      return () => {
+        // When screen is unfocused / user navigates away
+        console.log('Screen lost focus');
+        setManageMode(false);
+      };
+    }, [])
+  );
+
   useEffect(() => {
     // Explicitly show/hide based on manageMode state
     if (manageMode) {
@@ -382,7 +394,6 @@ const RequestsScreen = () => {
       <View style={[styles.header, { marginTop: statusBarHeight }]}>
         <TouchableOpacity style={styles.backButton}
           onPress={() => {
-            setManageMode(false);
             navigation.goBack();
           }}>
           <Icon name="arrow-back" size={22} color={Colors.light.text} />

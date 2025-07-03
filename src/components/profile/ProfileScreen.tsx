@@ -34,7 +34,7 @@ interface UserProfile {
 }
 
 const ProfileScreen = () => {
-  const { user, logout } = useAuthBootstrap();
+  const { user } = useAuthBootstrap(); // Remove logout from here
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -72,11 +72,18 @@ const ProfileScreen = () => {
           onPress: async () => {
             try {
               setIsLoggingOut(true);
+              
+              console.log('🚪 Starting logout process...');
+              
+              // Clear auth data and user data (includes Firebase signOut)
               await clearAuthData();
               await clearUserData();
-              await logout();
+              
+              console.log('✅ Logout completed successfully');
+              
+              // The auth state will update automatically and navigate to auth screen
             } catch (error) {
-              console.error('Error during logout:', error);
+              console.error('❌ Error during logout:', error);
               Alert.alert('Error', 'Failed to logout. Please try again.');
             } finally {
               setIsLoggingOut(false);
@@ -135,7 +142,7 @@ const ProfileScreen = () => {
           <Text style={styles.name}>{getDisplayName()}</Text>
           <Text style={styles.lastLogin}>{getLastLoginText()}</Text>
           {userProfile?.phoneNumber && (
-            <Text style={styles.phoneNumber}>{userProfile.phoneNumber}</Text>
+            <Text style={styles.phoneNumber}>+91 {userProfile.phoneNumber.slice(3,13)}</Text>
           )}
         </View>
       </View>
@@ -193,7 +200,7 @@ const ProfileScreen = () => {
 
             <TouchableOpacity
               style={styles.socialIcon}
-              onPress={() => Linking.openURL('https://www.facebook.com')}
+              onPress={() => Linking.openURL('https://www.facebook.com/share/1C2G6fiHPW/')}
             >
               <FontAwesome5 name="facebook-f" size={22} color="#1877F2" />
             </TouchableOpacity>
@@ -374,9 +381,11 @@ const styles = StyleSheet.create({
   socialIcon: {
     backgroundColor: Colors.light.backgroundSecondary,
     borderRadius: 12,
+    minWidth:48,
     padding: 12,
     marginHorizontal: 8,
     elevation: 1,
+    alignItems: 'center',
     shadowColor: Colors.light.shadow,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,

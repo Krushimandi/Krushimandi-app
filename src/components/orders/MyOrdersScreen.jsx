@@ -19,6 +19,8 @@ import {
   Dimensions,
   SafeAreaView,
   TextInput,
+  Linking,
+  Alert,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
@@ -40,10 +42,19 @@ const ORDERS_DATA = [
     image: require('../../assets/hapus.jpeg'),
     status: 'delivered',
     seller: 'Kishor Patil',
+    farmerPhone: '+91 9876543210',
+    farmerLocation: 'Ratnagiri, Maharashtra',
     dateOrdered: '21 June 2025',
     dateDelivered: '24 June 2025',
     deliveryAddress: 'Flat 301, Sunrise Apartments, Kothrud, Pune - 411038',
-    paymentMethod: 'Cash on Delivery'
+    paymentMethod: 'Cash on Delivery',
+    category: 'Fruits',
+    fruitInfo: {
+      variety: 'Alphonso',
+      quality: 'Premium Grade A',
+      origin: 'Ratnagiri Farms',
+      harvestDate: '18 June 2025'
+    }
   },
   {
     id: 'o2',
@@ -54,10 +65,20 @@ const ORDERS_DATA = [
     image: require('../../assets/appleFruit.jpeg'),
     status: 'processing',
     seller: 'Ramesh Kumar',
+    farmerPhone: '+91 9876543211',
+    farmerLocation: 'Srinagar, Kashmir',
     dateOrdered: '20 June 2025',
     estimatedDelivery: '23 June 2025',
     deliveryAddress: 'Flat 301, Sunrise Apartments, Kothrud, Pune - 411038',
-    paymentMethod: 'UPI'
+    paymentMethod: 'UPI',
+    unreadMessages: 2,
+    category: 'Fruits',
+    fruitInfo: {
+      variety: 'Red Delicious',
+      quality: 'Export Quality',
+      origin: 'Kashmir Valley',
+      harvestDate: '19 June 2025'
+    }
   },
   {
     id: 'o3',
@@ -68,10 +89,19 @@ const ORDERS_DATA = [
     image: require('../../assets/spinach.jpg'),
     status: 'canceled',
     seller: 'Anita Patil',
+    farmerPhone: '+91 9876543212',
+    farmerLocation: 'Nashik, Maharashtra',
     dateOrdered: '18 June 2025',
-    cancellationReason: 'Stock unavailable',
+    cancellationReason: 'Stock unavailable - Heavy rains affected harvest',
     deliveryAddress: 'Flat 301, Sunrise Apartments, Kothrud, Pune - 411038',
-    paymentMethod: 'UPI'
+    paymentMethod: 'UPI',
+    category: 'Vegetables',
+    fruitInfo: {
+      variety: 'Baby Spinach',
+      quality: 'Organic Certified',
+      origin: 'Organic Farm',
+      harvestDate: '17 June 2025'
+    }
   }
 ];
 
@@ -153,6 +183,75 @@ const MyOrdersScreen = () => {
     // navigation.navigate('OrderDetail', { orderId: order.id });
   };
 
+  // Handle viewing inquiries/order details
+  const handleViewInquiries = (order) => {
+    // Navigate to order detail screen with inquiry focus
+    alert(`📧 Viewing details and messages for order ${order.orderNumber}\n\nThis would show:\n• Order timeline\n• Messages with seller\n• Delivery updates\n• Payment details`);
+    // navigation.navigate('OrderDetail', { orderId: order.id, tab: 'messages' });
+  };
+
+  // Handle contacting seller
+  const handleContactSeller = (order) => {
+    alert(`💬 Contact ${order.seller}\n\nThis would open a chat or message composer to communicate with the seller about your order.`);
+    // navigation.navigate('Chat', { sellerId: order.sellerId, orderId: order.id });
+  };
+
+  // Handle writing review
+  const handleWriteReview = (order) => {
+    alert(`⭐ Write Review for ${order.productName}\n\nThis would open a review form where you can:\n• Rate the product (1-5 stars)\n• Write detailed feedback\n• Upload photos\n• Rate seller service`);
+    // navigation.navigate('WriteReview', { orderId: order.id });
+  };
+
+  // Handle reorder
+  const handleReorder = (order) => {
+    alert(`🔄 Reorder ${order.productName}\n\nThis would:\n• Add the item to your cart\n• Navigate to checkout\n• Pre-fill delivery details\n• Show current price`);
+    // navigation.navigate('ProductDetail', { productId: order.productId, action: 'reorder' });
+  };
+
+  // Handle contact support
+  const handleContactSupport = (order) => {
+    alert(`🎧 Contact Support\n\nOrder: ${order.orderNumber}\n\nThis would open support chat or help center for assistance with your canceled order.`);
+    // navigation.navigate('Support', { orderId: order.id, issue: 'cancellation' });
+  };
+
+  // Handle find similar products
+  const handleFindSimilar = (order) => {
+    alert(`🔍 Find Similar to ${order.productName}\n\nThis would show:\n• Similar products from other sellers\n• Same category items\n• Recommended alternatives\n• Price comparisons`);
+    // navigation.navigate('Browse', { category: order.category, search: order.productName });
+  };
+
+  // Handle direct call to farmer
+  const handleCallFarmer = (order) => {
+    Alert.alert(
+      'Call Farmer',
+      `Would you like to call ${order.seller}?`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Call',
+          onPress: () => {
+            const phoneUrl = `tel:${order.farmerPhone}`;
+            Linking.canOpenURL(phoneUrl)
+              .then((supported) => {
+                if (supported) {
+                  return Linking.openURL(phoneUrl);
+                } else {
+                  Alert.alert('Error', 'Phone calls are not supported on this device');
+                }
+              })
+              .catch((err) => {
+                console.error('Error opening phone dialer:', err);
+                Alert.alert('Error', 'Unable to make phone call');
+              });
+          },
+        },
+      ]
+    );
+  };
+
   // Status badge based on order status
   const getStatusBadge = (status) => {
     switch (status) {
@@ -173,89 +272,132 @@ const MyOrdersScreen = () => {
 
     return (
       <View style={styles.orderItem}>
-        <TouchableOpacity
-          activeOpacity={0.95}
-          onPress={() => viewOrderDetails(item)}
-        >
-          <View style={styles.orderHeader}>
-            <View style={styles.orderHeaderLeft}>
-              <Text style={styles.orderNumber}>#{item.orderNumber}</Text>
-              <Text style={styles.orderDate}>{item.dateOrdered}</Text>
+        <View style={styles.orderCard}>
+          {/* Header Section */}
+          <View style={styles.cardHeader}>
+            <View style={styles.headerLeft}>
+              <Text style={styles.fruitName}>{item.productName}</Text>
+              {/* <Text style={styles.orderDate}>{item.dateOrdered}</Text> */}
+              <View style={styles.infoRow}>
+                <Icon name="calendar-outline" size={14} color="#8B5CF6" />
+                <Text style={styles.infoText}>{item.fruitInfo.harvestDate}</Text>
+              </View>
             </View>
-            <View style={[styles.statusBadge, { backgroundColor: `${statusInfo.color}15` }]}>
-              <Icon name={statusInfo.icon} size={14} color={statusInfo.color} />
-              <Text style={[styles.statusText, { color: statusInfo.color }]}>
-                {statusInfo.text}
-              </Text>
-            </View>
+
+
+            {item.status === 'delivered' && (
+              <View style={styles.ratingContainer}>
+                <FontAwesome5 name="star" size={12} color="#FFD700" solid />
+                <Text style={styles.ratingText}>4.5</Text>
+              </View>
+            )}
+
           </View>
 
-          <View style={styles.orderContent}>
-            <View style={styles.productImageContainer}>
+          {/* Main Content */}
+          <View style={styles.cardContent}>
+            {/* Left Side - Product Image */}
+            <View style={styles.imageSection}>
               <Image source={item.image} style={styles.productImage} />
               <View style={styles.quantityBadge}>
                 <Text style={styles.quantityText}>{item.quantity}</Text>
               </View>
             </View>
 
-            <View style={styles.orderDetails}>
-              <Text style={styles.productName} numberOfLines={2}>{item.productName}</Text>
-              <View style={styles.sellerRow}>
-                <Icon name="storefront-outline" size={14} color="#757575" />
-                <Text style={styles.sellerName}>{item.seller}</Text>
+            {/* Right Side - Details */}
+            <View style={styles.detailsSection}>
+
+              {/* Farmer Name */}
+              <Text style={styles.farmerName}>{item.seller}</Text>
+
+              {/* Fruit Info */}
+              <View style={styles.infoSection}>
+                <View style={styles.infoRow}>
+                  <Icon name="leaf-outline" size={14} color="#10B981" />
+                  <Text style={styles.infoText}>{item.fruitInfo.variety}</Text>
+                </View>
               </View>
 
-              <View style={styles.priceRow}>
-                <Text style={styles.price}>{item.price}</Text>
-                {item.status === 'delivered' && (
-                  <View style={styles.ratingContainer}>
-                    <FontAwesome5 name="star" size={12} color="#FFD700" solid />
-                    <Text style={styles.ratingText}>4.5</Text>
-                  </View>
-                )}
+              {/* Location */}
+              <View style={styles.locationSection}>
+                <Icon name="location-outline" size={16} color="#EF4444" />
+                <Text style={styles.locationText}>{item.farmerLocation}</Text>
               </View>
-            </View>
-
-            <View style={styles.orderActions}>
-              <TouchableOpacity
-                style={styles.quickActionButton}
-                onPress={() => viewOrderDetails(item)}
-              >
-                <Icon name="eye-outline" size={18} color={Colors.light.primary} />
-              </TouchableOpacity>
-
-              {item.status === 'delivered' && (
-                <TouchableOpacity style={styles.quickActionButton}>
-                  <MaterialIcons name="rate-review" size={18} color={Colors.light.primary} />
-                </TouchableOpacity>
-              )}
-
-              {item.status === 'processing' && (
-                <TouchableOpacity style={styles.quickActionButton}>
-                  <Icon name="location-outline" size={18} color={Colors.light.primary} />
-                </TouchableOpacity>
-              )}
             </View>
           </View>
 
-          {/* Progress indicator for processing orders */}
-          {item.status === 'processing' && (
-            <View style={styles.progressContainer}>
-              <View style={styles.progressBar}>
-                <View style={[styles.progressFill, { width: '60%' }]} />
-              </View>
-              <Text style={styles.progressText}>Order is being prepared</Text>
-            </View>
-          )}
+          {/* Action Buttons */}
+          <View style={styles.actionSection}>
+            {item.status === 'processing' && (
+              <View style={styles.actionRow}>
+                <TouchableOpacity
+                  style={[styles.actionButton, styles.primaryActionButton]}
+                  onPress={() => handleViewInquiries(item)}
+                >
+                  <Icon name="call" size={18} color="#FFFFFF" />
+                  <Text style={styles.actionButtonText}>Call Now</Text>
+                </TouchableOpacity>
 
-          {/* Cancellation reason for canceled orders */}
-          {item.status === 'canceled' && item.cancellationReason && (
-            <View style={styles.cancellationContainer}>
-              <Icon name="information-circle-outline" size={16} color="#F44336" />
-              <Text style={styles.cancellationText}>{item.cancellationReason}</Text>
-            </View>
-          )}
-        </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.actionButton, styles.secondaryActionButton]}
+                  onPress={() => handleContactSeller(item)}
+                >
+                  <Icon name="chatbubble-outline" size={18} color="#FFFFFF" />
+                  <Text style={styles.actionButtonText}>Message</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {item.status === 'delivered' && (
+              <View style={styles.actionRow}>
+                <TouchableOpacity
+                  style={[styles.actionButton]}
+                  onPress={() => handleWriteReview(item)}
+                >
+                  <Text style={styles.price}>{item.price}</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.actionButton, styles.primaryActionButton]}
+                  onPress={() => handleReorder(item)}
+                >
+                  <Icon name="call" size={18} color="#FFFFFF" />
+                  <Text style={styles.actionButtonText}>Call</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {item.status === 'canceled' && (
+              <>
+                <View style={styles.cancellationInfo}>
+                  <Icon name="information-circle" size={20} color="#EF4444" />
+                  <View style={styles.cancellationTextContainer}>
+                    <Text style={styles.cancellationTitle}>Order Cancelled</Text>
+                    <Text style={styles.cancellationReason}>{item.cancellationReason}</Text>
+                  </View>
+                </View>
+
+                <View style={styles.actionRow}>
+                  <TouchableOpacity
+                    style={[styles.actionButton, styles.supportActionButton]}
+                    onPress={() => handleContactSupport(item)}
+                  >
+                    <Icon name="headset-outline" size={18} color="#FFFFFF" />
+                    <Text style={styles.actionButtonText}>Get Help</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.actionButton, styles.findSimilarActionButton]}
+                    onPress={() => handleFindSimilar(item)}
+                  >
+                    <Icon name="search-outline" size={18} color="#FFFFFF" />
+                    <Text style={styles.actionButtonText}>Find Similar</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+          </View>
+        </View>
       </View>
     );
   };
@@ -337,7 +479,7 @@ const MyOrdersScreen = () => {
         <View style={styles.headerTop}>
           <View>
             <Text style={styles.headerTitle}>My Orders</Text>
-            <Text style={styles.headerSubtitle}>{orderStats.total} orders placed</Text>
+            <Text style={styles.headerSubtitle}>{orderStats.total} orders • {orderStats.processing} active</Text>
           </View>
           <TouchableOpacity
             onPress={() => {
@@ -412,132 +554,122 @@ const MyOrdersScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#F8FAFC',
   },
   header: {
     backgroundColor: '#FFFFFF',
-    paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 10 : 0,
-    paddingBottom: 16,
+    paddingHorizontal: 24,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 16 : 16,
+    paddingBottom: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
   },
   headerTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 20,
   },
   headerTitle: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#000000',
+    fontSize: 32,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: -0.5,
   },
   headerSubtitle: {
-    fontSize: 14,
-    color: '#757575',
-    marginTop: 2,
+    fontSize: 15,
+    color: '#64748B',
+    marginTop: 4,
+    fontWeight: '500',
   },
   notificationButton: {
     position: 'relative',
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: '#F5F5F5',
+    padding: 12,
+    borderRadius: 16,
+    backgroundColor: '#F1F5F9',
   },
   notificationBadge: {
     position: 'absolute',
-    top: 2,
-    right: 2,
-    backgroundColor: '#FF4444',
-    borderRadius: 8,
-    minWidth: 16,
-    height: 16,
+    top: 4,
+    right: 4,
+    backgroundColor: '#EF4444',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
     justifyContent: 'center',
     alignItems: 'center',
   },
   notificationBadgeText: {
     color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '700',
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F5F5F5',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    marginBottom: 4,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 8,
   },
   searchIcon: {
-    marginRight: 8,
+    marginRight: 12,
   },
   searchInput: {
     flex: 1,
     fontSize: 16,
-    color: '#000',
-    paddingVertical: 4,
+    color: '#0F172A',
+    paddingVertical: 0,
   },
   clearButton: {
     padding: 4,
   },
-  statsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingHorizontal: 20,
-  },
-  statItem: {
-    alignItems: 'center',
-  },
-  statNumber: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#4CAF50',
-  },
-  statLabel: {
-    fontSize: 12,
-    color: '#757575',
-    marginTop: 4,
-  },
   filtersContainer: {
     backgroundColor: '#FFFFFF',
-    paddingBottom: 16,
+    paddingBottom: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    borderBottomColor: '#E2E8F0',
   },
   filtersScrollContent: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     flexDirection: 'row',
   },
   filterButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 25,
-    backgroundColor: '#F6F6F6',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 20,
+    backgroundColor: '#F8FAFC',
     marginRight: 12,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: 'transparent',
   },
   activeFilterButton: {
-    backgroundColor: Colors.light.primaryDark,
-    borderColor: Colors.light.primaryDark,
+    backgroundColor: Colors.light.primary,
+    borderColor: Colors.light.primary,
+    shadowColor: Colors.light.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
   filterButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#757575',
+    color: '#64748B',
   },
   activeFilterText: {
     color: '#FFFFFF',
   },
   filterBadge: {
-    backgroundColor: '#E0E0E0',
-    borderRadius: 10,
-    paddingHorizontal: 6,
+    backgroundColor: '#E2E8F0',
+    borderRadius: 12,
+    paddingHorizontal: 8,
     paddingVertical: 2,
     marginLeft: 8,
   },
@@ -545,81 +677,90 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.3)',
   },
   filterBadgeText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#757575',
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748B',
   },
   activeFilterBadgeText: {
     color: '#FFFFFF',
   },
   listContainer: {
-    padding: 20,
-    paddingBottom: 100,
+    padding: 24,
+    paddingBottom: 120,
   },
+  // New Modern Order Card Styles
   orderItem: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
     marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 3,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#F0F0F0',
   },
-  orderHeader: {
+  orderCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+    overflow: 'hidden',
+  },
+
+  // Header Section
+  cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    alignItems: 'flex-start',
+    padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#F5F5F5',
+    borderBottomColor: '#F1F5F9',
   },
-  orderHeaderLeft: {
+  headerLeft: {
     flex: 1,
   },
-  orderNumber: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#000000',
+  fruitName: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginBottom: 4,
+    letterSpacing: -0.3,
   },
   orderDate: {
-    fontSize: 12,
-    color: '#757575',
-    marginTop: 2,
+    fontSize: 14,
+    color: '#64748B',
+    fontWeight: '500',
   },
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 20,
+    borderRadius: 32,
+    marginLeft: 12,
   },
   statusText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
+    color: '#FFFFFF',
     marginLeft: 6,
   },
-  orderContent: {
+
+  // Main Content
+  cardContent: {
     flexDirection: 'row',
     padding: 20,
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
-  productImageContainer: {
+  imageSection: {
     position: 'relative',
+    marginRight: 16,
   },
   productImage: {
     width: 80,
     height: 80,
-    borderRadius: 12,
+    borderRadius: 16,
   },
   quantityBadge: {
     position: 'absolute',
-    top: -8,
-    right: -8,
+    top: -6,
+    right: -6,
     backgroundColor: Colors.light.primary,
     borderRadius: 12,
     paddingHorizontal: 8,
@@ -629,150 +770,555 @@ const styles = StyleSheet.create({
   },
   quantityText: {
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#FFFFFF',
   },
-  orderDetails: {
+
+  // Details Section
+  detailsSection: {
     flex: 1,
-    marginLeft: 16,
   },
-  productName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#000000',
-    marginBottom: 6,
+  farmerName: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginBottom: 4,
   },
-  sellerRow: {
+  callButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    justifyContent: 'center',
+    backgroundColor: '#10B981',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    marginBottom: 16,
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  sellerName: {
+  callButtonText: {
+    color: '#FFFFFF',
     fontSize: 14,
-    color: '#757575',
+    fontWeight: '700',
     marginLeft: 6,
   },
-  priceRow: {
+
+  // Info Section
+  infoSection: {
+    marginBottom: 8,
+  },
+  infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  infoText: {
+    fontSize: 13,
+    color: '#64748B',
+    fontWeight: '500',
+    marginLeft: 8,
+  },
+
+  // Location Section
+  locationSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: '#FEF2F2',
+    borderRadius: 12,
+  },
+  locationText: {
+    fontSize: 14,
+    color: '#DC2626',
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+
+  // Bottom Row
+  bottomRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
   },
   price: {
     fontSize: 20,
-    fontWeight: '700',
-    color: Colors.light.primaryDark,
+    fontWeight: '800',
+    color: Colors.light.primary,
+    letterSpacing: -0.5,
   },
   ratingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF8E1',
+    backgroundColor: '#FEF3C7',
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: 16,
   },
   ratingText: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#F57C00',
+    fontWeight: '700',
+    color: '#D97706',
     marginLeft: 4,
   },
-  orderActions: {
-    flexDirection: 'column',
-    alignItems: 'center',
-    marginLeft: 16,
+
+  // Progress Section
+  progressSection: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: '#F8FAFC',
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
   },
-  quickActionButton: {
-    padding: 10,
-    borderRadius: 20,
-    backgroundColor: '#F5F5F5',
+  progressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 8,
   },
-  progressContainer: {
-    paddingHorizontal: 20,
-    paddingBottom: 16,
+  progressTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  progressPercent: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.light.primary,
   },
   progressBar: {
     height: 4,
-    backgroundColor: '#E0E0E0',
+    backgroundColor: '#E2E8F0',
     borderRadius: 2,
     marginBottom: 8,
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#2196F3',
+    backgroundColor: Colors.light.primary,
     borderRadius: 2,
   },
-  progressText: {
-    fontSize: 12,
-    color: '#2196F3',
+  progressDescription: {
+    fontSize: 13,
+    color: '#64748B',
     fontWeight: '500',
   },
-  cancellationContainer: {
+
+  // Action Section
+  actionSection: {
+    backgroundColor: '#F8FAFC',
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+  },
+  actionRow: {
+    flexDirection: 'row',
+    padding: 16,
+    gap: 12,
+  },
+  actionButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-    backgroundColor: '#FFEBEE',
-  },
-  cancellationText: {
-    fontSize: 12,
-    color: '#F44336',
-    marginLeft: 8,
-    flex: 1,
-  },
-  emptyContainer: {
-    flex: 1,
-    alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 40,
-    paddingVertical: 60,
-  },
-  emptyIconContainer: {
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
     position: 'relative',
-    marginBottom: 24,
   },
-  emptyIconOverlay: {
+  actionButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginLeft: 6,
+  },
+  primaryActionButton: {
+    backgroundColor: Colors.light.primary,
+  },
+  secondaryActionButton: {
+    backgroundColor: '#10B981',
+  },
+  reviewActionButton: {
+    backgroundColor: '#F59E0B',
+  },
+  reorderActionButton: {
+    backgroundColor: '#8B5CF6',
+  },
+  supportActionButton: {
+    backgroundColor: '#6B7280',
+  },
+  findSimilarActionButton: {
+    backgroundColor: '#3B82F6',
+  },
+  messageBadge: {
     position: 'absolute',
-    bottom: -5,
-    right: -5,
+    top: -6,
+    right: -6,
+    backgroundColor: '#EF4444',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  messageBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '800',
+  },
+
+  // Cancellation Info
+  cancellationInfo: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    padding: 16,
+    backgroundColor: '#FEF2F2',
+    borderTopWidth: 1,
+    borderTopColor: '#FCA5A5',
+  },
+  cancellationTextContainer: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  cancellationTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#DC2626',
+    marginBottom: 4,
+  },
+  cancellationReason: {
+    fontSize: 13,
+    color: '#991B1B',
+    lineHeight: 18,
+    fontWeight: '500',
+  },
+  orderCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 36,
-    padding: 8,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+    overflow: 'hidden',
+  },
+  orderHeader: {
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  orderHeaderLeft: {
+    flex: 1,
+  },
+  orderNumberContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  orderNumber: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: -0.3,
+  },
+  modernStatusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  modernStatusText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginLeft: 6,
+  },
+  orderDate: {
+    fontSize: 14,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  modernOrderContent: {
+    flexDirection: 'row',
+    padding: 24,
+    alignItems: 'center',
+  },
+  modernProductImageContainer: {
+    position: 'relative',
+  },
+  modernProductImage: {
+    width: 90,
+    height: 90,
+    borderRadius: 16,
+  },
+  modernQuantityBadge: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    backgroundColor: Colors.light.primary,
+    borderRadius: 14,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
   },
-  emptyTitle: {
-    fontSize: 20,
+  quantityText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  modernOrderDetails: {
+    flex: 1,
+    marginLeft: 20,
+  },
+  modernProductName: {
+    fontSize: 18,
     fontWeight: '700',
-    color: '#000000',
+    color: '#0F172A',
+    marginBottom: 8,
+    lineHeight: 24,
+  },
+  modernSellerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 12,
+  },
+  sellerIconContainer: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: Colors.light.primaryLight || '#E0F2FE',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  sellerInfoContainer: {
+    flex: 1,
+  },
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  locationText: {
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '500',
+    marginLeft: 4,
+  },
+  callButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#10B981',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  callButtonLarge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#10B981',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 16,
+    marginBottom: 16,
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  callButtonText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+    marginLeft: 8,
+  },
+  modernPriceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  modernPrice: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: Colors.light.primary,
+    letterSpacing: -0.5,
+  },
+  modernRatingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  ratingText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#D97706',
+    marginLeft: 4,
+  },
+  modernProgressContainer: {
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+    backgroundColor: '#F8FAFC',
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+  },
+  progressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  progressTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  progressPercentage: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.light.primary,
+  },
+  modernProgressBar: {
+    height: 6,
+    backgroundColor: '#E2E8F0',
+    borderRadius: 3,
+    marginBottom: 12,
+  },
+  modernProgressFill: {
+    height: '100%',
+    backgroundColor: Colors.light.primary,
+    borderRadius: 3,
+  },
+  modernProgressText: {
+    fontSize: 14,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  modernBottomActions: {
+    backgroundColor: '#F8FAFC',
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+  },
+  modernActionRow: {
+    flexDirection: 'row',
+    padding: 20,
+    gap: 16,
+  },
+  modernActionButton: {
+    flex: 1,
+    borderRadius: 16,
+    padding: 20,
+    position: 'relative',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  modernActionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  actionIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modernActionText: {
+    marginLeft: 16,
+    flex: 1,
+  },
+  modernActionTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 2,
+  },
+  modernActionSubtitle: {
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.8)',
+    lineHeight: 18,
+    fontWeight: '500',
+  },
+  emptyContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 40,
+    paddingVertical: 80,
+  },
+  emptyIconContainer: {
+    position: 'relative',
+    marginBottom: 32,
+  },
+  emptyIconOverlay: {
+    position: 'absolute',
+    bottom: -8,
+    right: -8,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  emptyTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginBottom: 12,
+    textAlign: 'center',
+    letterSpacing: -0.5,
   },
   emptyText: {
     fontSize: 16,
-    color: '#757575',
+    color: '#64748B',
     textAlign: 'center',
     lineHeight: 24,
-    marginBottom: 32,
+    marginBottom: 40,
+    fontWeight: '500',
   },
   browseButton: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.light.primary,
-    paddingVertical: 16,
-    paddingHorizontal: 32,
-    borderRadius: 25,
+    paddingVertical: 18,
+    paddingHorizontal: 36,
+    borderRadius: 20,
     shadowColor: Colors.light.primary,
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowRadius: 16,
+    elevation: 8,
   },
   browseButtonText: {
     color: '#FFFFFF',
-    fontWeight: '700',
+    fontWeight: '800',
     fontSize: 16,
     marginLeft: 8,
   },
@@ -780,11 +1326,13 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: 80,
   },
   loadingText: {
     fontSize: 16,
-    color: '#757575',
-    marginTop: 16,
+    color: '#64748B',
+    marginTop: 20,
+    fontWeight: '500',
   },
 });
 

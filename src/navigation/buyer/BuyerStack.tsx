@@ -251,19 +251,19 @@ const BuyerTabNavigator = () => {
         }}
       />
       <BuyerTab.Screen
-        name="Orders"
-        component={MyOrdersScreen}
-        options={{
-          tabBarLabel: 'Orders',
-          tabBarAccessibilityLabel: 'My Orders Tab'
-        }}
-      />
-      <BuyerTab.Screen
         name="Requests"
         component={RequestsScreen}
         options={{
           tabBarLabel: 'Requests',
           tabBarAccessibilityLabel: 'Requests Tab'
+        }}
+      />
+       <BuyerTab.Screen
+        name="Orders"
+        component={MyOrdersScreen}
+        options={{
+          tabBarLabel: 'Orders',
+          tabBarAccessibilityLabel: 'My Orders Tab'
         }}
       />
     </BuyerTab.Navigator>

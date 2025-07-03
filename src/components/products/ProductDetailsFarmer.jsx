@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,9 @@ import {
   SafeAreaView,
   StatusBar,
   Platform,
+  Alert,
+  FlatList,
+  Animated,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { Colors } from '../../constants';
@@ -17,69 +20,225 @@ import { Colors } from '../../constants';
 const { width } = Dimensions.get('window');
 
 const ProductDetailsFarmer = ({ route, navigation }) => {
-  // Sample product data - in real app this would come from props/API
-  const defaultProduct = {
-    id: 1,
-    name: 'Kashmiri Apple',
-    category: 'Apple',
-    price: 50,
-    unit: 'KG',
-    rating: 4.6,
-    reviewCount: 46,
-    description: 'Kashmiri Apple from Alshpur, Jammu. Available quantity: 10-12 Tons',
-    location: 'Alshpur, Jammu',
-    availableQuantity: '10-12 Tons',
-    image: require('../../assets/Apple.png'),
-    isLive: true,
-    daysAgo: 3,
-    analytics: {
-      totalViews: 245,
-      viewsChange: 15,
-      favorites: 18,
-      favoritesChange: 3,
-      buyerRequests: 5,
-      requestsChange: 2,
-      performance: 12,
-    },
-    availableSizes: ['1 kg', '500 gm', '2 kg']
-  };
-
-  const product = route?.params?.product || defaultProduct;
+  // Get product from route params (passed from FarmerHomeScreen)
+  const product = route?.params?.product;
   
-  // Ensure analytics exists with fallback values
-  const analytics = product.analytics || {
-    totalViews: 245,
-    viewsChange: 15,
-    favorites: 18,
-    favoritesChange: 3,
-    buyerRequests: 5,
-    requestsChange: 2,
-    performance: 12,
+  // State for image carousel
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const scrollX = useRef(new Animated.Value(0)).current;
+  const imageScrollRef = useRef(null);
+
+  // Mock multiple images - in real app, this would come from product data
+  const productImages = product?.images || [
+    product?.image,
+    // You can add fallback images or use the same image multiple times for demo
+    product?.image,
+    product?.image,
+    product?.image,
+  ].filter(Boolean);
+
+  const onImageScroll = Animated.event(
+    [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+    { useNativeDriver: false }
+  );
+
+  const onImageScrollEnd = (event) => {
+    const contentOffset = event.nativeEvent.contentOffset.x;
+    const imageIndex = Math.round(contentOffset / width);
+    setCurrentImageIndex(imageIndex);
   };
 
-  const handleViewRequests = () => {
-    // Navigate to requests screen
-    navigation.navigate('RequestsScreen', { productId: product.id });
-  };
-
-  const handleDelete = () => {
-    // Handle delete product
-    console.log('Delete product');
-  };
+  if (!product) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle-outline" size={48} color="#E0E0E0" />
+          <Text style={styles.errorText}>Product not found</Text>
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={styles.backButtonText}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   const handleEdit = () => {
     // Navigate to edit product screen
-    navigation.navigate('EditProduct', { product });
+    Alert.alert(
+      'Edit Product',
+      'Edit product functionality would be implemented here.',
+      [{ text: 'OK' }]
+    );
   };
 
   const handleShare = () => {
     // Handle share product
-    console.log('Share product');
+    Alert.alert(
+      'Share Product',
+      'Share functionality would be implemented here.',
+      [{ text: 'OK' }]
+    );
   };
 
-  const handleComplete = () => {
-    // Handle complete/mark as sold
-    console.log('Mark product as complete/sold');
+  const handleViewRequests = () => {
+    // Navigate to requests/inquiries screen
+    Alert.alert(
+      'View Inquiries',
+      `You have ${product.inquiries} inquiries for this product.`,
+      [{ text: 'OK' }]
+    );
+  };
+
+  const handleRemoveFromListing = () => {
+    Alert.alert(
+      'Remove from Public Listing',
+      'This will hide your product from public view and move it to history. You can relist it later if needed.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Remove', 
+          style: 'destructive',
+          onPress: () => {
+            // Here you would update the product status to 'unlisted' in your backend
+            Alert.alert(
+              'Product Removed',
+              'Your product has been removed from public listing and moved to history.',
+              [{ text: 'OK', onPress: () => navigation.goBack() }]
+            );
+          }
+        }
+      ]
+    );
+  };
+
+  const handleMarkSold = () => {
+    Alert.alert(
+      'Mark as Sold',
+      'Please provide details about the sale to help us improve the platform.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Provide Details', 
+          onPress: () => showSoldDetailsModal()
+        }
+      ]
+    );
+  };
+
+  const showSoldDetailsModal = () => {
+    Alert.alert(
+      '🎉 Sale Completed!',
+      'Congratulations on your successful sale! Help us understand how this sale happened to improve our platform:',
+      [
+        {
+          text: '📱 Sold via App Inquiry',
+          onPress: () => handleSaleComplete('app_inquiry')
+        },
+        {
+          text: '🤝 Sold Directly/Offline',
+          onPress: () => handleSaleComplete('direct_sale')
+        },
+        {
+          text: '🏪 Sold to Local Market',
+          onPress: () => handleSaleComplete('local_market')
+        },
+        {
+          text: '❌ Cancel',
+          style: 'cancel'
+        }
+      ]
+    );
+  };
+
+  const handleSaleComplete = (saleType) => {
+    const saleTypeText = saleType === 'app_inquiry' 
+      ? '📱 through an app inquiry' 
+      : saleType === 'direct_sale'
+      ? '🤝 through direct/offline channels'
+      : '🏪 to local market';
+    
+    Alert.alert(
+      '📊 Sale Details',
+      `You mentioned this was sold ${saleTypeText}.\n\nWhat quantity was sold? This helps us provide better market insights.`,
+      [
+        {
+          text: '📦 Partial Sale',
+          onPress: () => showQuantitySelector(saleType, 'partial')
+        },
+        {
+          text: '✅ Complete Sale',
+          onPress: () => showQuantitySelector(saleType, 'complete')
+        },
+        {
+          text: '← Back',
+          style: 'cancel',
+          onPress: () => showSoldDetailsModal()
+        }
+      ]
+    );
+  };
+
+  const showQuantitySelector = (saleType, saleAmount) => {
+    const quantities = [
+      { label: '25%', value: 0.25, color: '#FF6B6B' },
+      { label: '50%', value: 0.5, color: '#4ECDC4' },
+      { label: '75%', value: 0.75, color: '#45B7D1' },
+      { label: '100%', value: 1.0, color: '#96CEB4' }
+    ];
+    
+    const quantityOptions = quantities.map(qty => ({
+      text: `${qty.label} (${Math.round(qty.value * parseFloat(product.available.replace(/[^\d.]/g, '')))} kg)`,
+      onPress: () => confirmSaleDetails(saleType, saleAmount, qty.label, qty.value)
+    }));
+
+    Alert.alert(
+      '📊 Sale Quantity',
+      `What percentage of your ${product.available} was sold?\n\n💡 This helps us provide better market insights.`,
+      [
+        ...quantityOptions,
+        {
+          text: '← Back',
+          style: 'cancel',
+          onPress: () => handleSaleComplete(saleType)
+        }
+      ]
+    );
+  };
+
+  const confirmSaleDetails = (saleType, saleAmount, quantity, quantityValue) => {
+    const soldAmount = Math.round(quantityValue * parseFloat(product.available.replace(/[^\d.]/g, '')));
+    const estimatedRevenue = soldAmount * parseFloat(product.price.replace(/[^\d.]/g, ''));
+    
+    const details = {
+      productId: product.id,
+      saleType,
+      saleAmount,
+      quantitySold: quantity,
+      quantityValue,
+      soldAmount: `${soldAmount} kg`,
+      originalQuantity: product.available,
+      estimatedRevenue: `₹${estimatedRevenue.toLocaleString()}`,
+      saleDate: new Date().toISOString(),
+      finalPrice: product.price
+    };
+
+    // Here you would send this data to your backend for analytics
+    Alert.alert(
+      '🎉 Sale Recorded Successfully!',
+      `Thank you for the details!\n\n📈 ${quantity} of your ${product.name} (${soldAmount} kg) has been marked as sold.\n💰 Estimated revenue: ₹${estimatedRevenue.toLocaleString()}\n\n✨ This data helps improve our platform and provides better market insights for all farmers.`,
+      [
+        { 
+          text: '✅ Done', 
+          onPress: () => navigation.goBack()
+        }
+      ]
+    );
+    
+    // Enhanced analytics data
+    console.log('Enhanced Sale Data:', details);
   };
 
   return (
@@ -99,119 +258,188 @@ const ProductDetailsFarmer = ({ route, navigation }) => {
           <Ionicons name="arrow-back" size={24} color={Colors.light.text} />
         </TouchableOpacity>
         
-        <Text style={styles.headerTitle}>My Product</Text>
+        <Text style={styles.headerTitle}>Product Overview</Text>
         
-        <View style={styles.headerRight}>
-          <TouchableOpacity onPress={handleShare} style={styles.headerButton}>
-            <Ionicons name="share-outline" size={24} color={Colors.light.text} />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={handleEdit} style={styles.headerButton}>
-            <Ionicons name="create-outline" size={24} color={Colors.light.text} />
-          </TouchableOpacity>
-        </View>
+        {/* Quick Actions Overlay */}
+          <View style={styles.headerRight}>
+            <TouchableOpacity style={styles.headerButton} onPress={handleShare}>
+              <Ionicons name="share-outline" size={24} color={Colors.light.text} />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.headerButton} onPress={handleEdit}>
+              <Ionicons name="create-outline" size={24} color={Colors.light.text} />
+            </TouchableOpacity>
+          </View>
       </View>
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Product Image */}
+        {/* Product Images Carousel */}
         <View style={styles.imageContainer}>
-          <Image source={product.image} style={styles.productImage} />
+          <FlatList
+            ref={imageScrollRef}
+            data={productImages}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onScroll={onImageScroll}
+            onMomentumScrollEnd={onImageScrollEnd}
+            keyExtractor={(item, index) => index.toString()}
+            renderItem={({ item, index }) => (
+              <View style={styles.imageSlide}>
+                <Image 
+                  source={typeof item === 'string' ? { uri: item } : item} 
+                  style={styles.productImage} 
+                />
+                {/* Image overlay with gradient */}
+                <View style={styles.imageOverlay}>
+                  <View style={styles.imageCounter}>
+                    <Text style={styles.imageCounterText}>
+                      {index + 1} / {productImages.length}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            )}
+          />
           
-          {/* Live Badge */}
-          {product.isLive && (
-            <View style={styles.liveBadge}>
-              <View style={styles.liveIndicator} />
-              <Text style={styles.liveText}>Live</Text>
+          {/* Image Dots Indicator */}
+          {productImages.length > 1 && (
+            <View style={styles.dotsContainer}>
+              {productImages.map((_, index) => {
+                const opacity = scrollX.interpolate({
+                  inputRange: [
+                    (index - 1) * width,
+                    index * width,
+                    (index + 1) * width,
+                  ],
+                  outputRange: [0.3, 1, 0.3],
+                  extrapolate: 'clamp',
+                });
+                
+                const scale = scrollX.interpolate({
+                  inputRange: [
+                    (index - 1) * width,
+                    index * width,
+                    (index + 1) * width,
+                  ],
+                  outputRange: [0.8, 1.2, 0.8],
+                  extrapolate: 'clamp',
+                });
+                
+                return (
+                  <Animated.View
+                    key={index}
+                    style={[
+                      styles.dot,
+                      {
+                        opacity,
+                        transform: [{ scale }],
+                      },
+                    ]}
+                  />
+                );
+              })}
             </View>
           )}
           
-          {/* Days Ago Badge */}
-          <View style={styles.daysBadge}>
-            <Ionicons name="time-outline" size={12} color={Colors.light.textSecondary} />
-            <Text style={styles.daysText}>{product.daysAgo} days ago</Text>
-          </View>
+          {/* Status Badge */}
+          {product.status === 'active' && (
+            <View style={styles.statusBadge}>
+              {/* <View style={styles.statusIndicator} /> */}
+              <Text style={styles.statusText}>Active</Text>
+            </View>
+          )}
         </View>
 
         {/* Product Info */}
         <View style={styles.productInfo}>
           <View style={styles.productHeader}>
-            <Text style={styles.productName}>{product.name}</Text>
-            <Text style={styles.productPrice}>₹{product.price}/{product.unit}</Text>
-          </View>
-          
-          <Text style={styles.productCategory}>{product.category}</Text>
-        </View>
-
-        {/* Performance Analytics */}
-        <View style={styles.analyticsSection}>
-          <View style={styles.analyticsHeader}>
-            <Text style={styles.analyticsTitle}>Performance Analytics</Text>
-          </View>
-
-          <View style={styles.analyticsGrid}>
-            <View style={styles.analyticsCard}>
-              <View style={styles.analyticsIcon}>
-                <Ionicons name="eye-outline" size={24} color={Colors.light.success} />
+            <View style={styles.productTitleContainer}>
+              <Text style={styles.productName}>{product.name}</Text>
+              <View style={styles.categoryBadge}>
+                <Text style={styles.categoryText}>{product.category}</Text>
               </View>
-              <Text style={styles.analyticsNumber}>{analytics.totalViews}</Text>
-              <Text style={styles.analyticsLabel}>Total Views</Text>
             </View>
-
-            <View style={styles.analyticsCard}>
-              <View style={styles.analyticsIcon}>
-                <Ionicons name="heart-outline" size={24} color="#FF6B6B" />
-              </View>
-              <Text style={styles.analyticsNumber}>{analytics.favorites}</Text>
-              <Text style={styles.analyticsLabel}>Favorites</Text>
-            </View>
-
-            <View style={styles.analyticsCard}>
-              <View style={styles.analyticsIcon}>
-                <Ionicons name="mail-outline" size={24} color="#FFA726" />
-              </View>
-              <Text style={styles.analyticsNumber}>{analytics.buyerRequests}</Text>
-              <Text style={styles.analyticsLabel}>Buyer Requests</Text>
+            
+            <View style={styles.priceContainer}>
+              <Text style={styles.currentPrice}>{product.price}</Text>
+              {product.originalPrice && (
+                <Text style={styles.originalPrice}>{product.originalPrice}</Text>
+              )}
             </View>
           </View>
 
-          {/* Performance Message */}
-          <View style={styles.performanceMessage}>
-            <Ionicons name="trending-up" size={16} color={Colors.light.success} />
-            <Text style={styles.performanceMessageText}>
-              Excellent performance! Your product is trending upward with increased buyer interest.
-            </Text>
-          </View>
-        </View>
-
-        {/* Description */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Description</Text>
-          <Text style={styles.description}>{product.description}</Text>
-        </View>
-
-        {/* Available Sizes */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Available Sizes</Text>
-          <View style={styles.sizesContainer}>
-            {product.availableSizes.map((size, index) => (
-              <View key={index} style={styles.sizeChip}>
-                <Text style={styles.sizeText}>{size}</Text>
+          {/* Enhanced Product Stats with better visuals */}
+          <View style={styles.statsContainer}>
+            <View style={[styles.statCard, { backgroundColor: '#E3F2FD' }]}>
+              <View style={styles.statIconContainer}>
+                <Ionicons name="eye-outline" size={20} color="#1976D2" />
               </View>
-            ))}
+              <Text style={styles.statNumber}>{product.views}</Text>
+              <Text style={styles.statLabel}>Views Today</Text>
+              <Text style={styles.statTrend}>+12% ↗️</Text>
+            </View>
+            <View style={[styles.statCard, { backgroundColor: '#E8F5E8' }]}>
+              <View style={styles.statIconContainer}>
+                <Ionicons name="mail-outline" size={20} color="#388E3C" />
+              </View>
+              <Text style={styles.statNumber}>{product.inquiries}</Text>
+              <Text style={styles.statLabel}>Inquiries</Text>
+              <Text style={styles.statTrend}>
+                {product.inquiries > 5 ? '🔥 Hot' : product.inquiries > 2 ? '📈 Good' : '🌱 Growing'}
+              </Text>
+            </View>
+            <View style={[styles.statCard, { backgroundColor: '#FFF3E0' }]}>
+              <View style={styles.statIconContainer}>
+                <Ionicons name="time-outline" size={20} color="#F57C00" />
+              </View>
+              <Text style={styles.statNumber}>{product.listedDate}</Text>
+              <Text style={styles.statLabel}>Days Active</Text>
+              <Text style={styles.statTrend}>⭐ Fresh</Text>
+            </View>
           </View>
         </View>
 
-        {/* Location & Availability */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Location & Availability</Text>
+        {/* Details Section */}
+        <View style={styles.detailsSection}>
+          <Text style={styles.sectionTitle}>Product Details</Text>
           
-          <View style={styles.locationRow}>
-            <Ionicons name="location-outline" size={20} color={Colors.light.success} />
-            <Text style={styles.locationText}>{product.location}</Text>
-          </View>
-          
-          <View style={styles.locationRow}>
-            <Ionicons name="cube-outline" size={20} color={Colors.light.success} />
-            <Text style={styles.locationText}>Available: {product.availableQuantity}</Text>
+          <View style={styles.detailCard}>
+            <View style={styles.detailRow}>
+              <View style={styles.detailIcon}>
+                <Ionicons name="location" size={20} color={Colors.light.success} />
+              </View>
+              <View style={styles.detailContent}>
+                <Text style={styles.detailLabel}>Location</Text>
+                <Text style={styles.detailValue}>{product.location}</Text>
+              </View>
+            </View>
+            
+            <View style={styles.detailDivider} />
+            
+            <View style={styles.detailRow}>
+              <View style={styles.detailIcon}>
+                <Ionicons name="cube" size={20} color={Colors.light.primary} />
+              </View>
+              <View style={styles.detailContent}>
+                <Text style={styles.detailLabel}>Available Quantity</Text>
+                <Text style={styles.detailValue}>{product.available}</Text>
+              </View>
+            </View>
+
+            {product.rating && (
+              <>
+                <View style={styles.detailDivider} />
+                <View style={styles.detailRow}>
+                  <View style={styles.detailIcon}>
+                    <Ionicons name="star" size={20} color="#FFD700" />
+                  </View>
+                  <View style={styles.detailContent}>
+                    <Text style={styles.detailLabel}>Rating</Text>
+                    <Text style={styles.detailValue}>{product.rating}/5.0</Text>
+                  </View>
+                </View>
+              </>
+            )}
           </View>
         </View>
 
@@ -220,29 +448,47 @@ const ProductDetailsFarmer = ({ route, navigation }) => {
 
       {/* Bottom Actions */}
       <View style={styles.bottomActions}>
-        <TouchableOpacity 
-          style={styles.viewRequestsButton}
-          onPress={handleViewRequests}
-        >
-          <View style={styles.requestsBadge}>
-            <Text style={styles.requestsBadgeText}>{analytics.buyerRequests}</Text>
-          </View>
-          <Text style={styles.viewRequestsText}>View Requests</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={styles.deleteButton}
-          onPress={handleDelete}
-        >
-          <Ionicons name="trash-outline" size={24} color={Colors.light.background} />
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={styles.completeButton}
-          onPress={handleComplete}
-        >
-          <Ionicons name="checkmark-outline" size={24} color={Colors.light.background} />
-        </TouchableOpacity>
+        {product.status === 'active' ? (
+          <>
+            <TouchableOpacity 
+              style={styles.inquiriesButton}
+              onPress={handleViewRequests}
+            >
+              {product.inquiries > 0 && (
+                <View style={styles.inquiriesBadge}>
+                  <Text style={styles.inquiriesBadgeText}>{product.inquiries}</Text>
+                </View>
+              )}
+              <Ionicons name="mail-outline" size={20} color="#FFF" style={styles.buttonIcon} />
+              <Text style={styles.inquiriesButtonText}>
+                {product.inquiries > 0 ? 'View Inquiries' : 'No Inquiries'}
+              </Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.removeButton}
+              onPress={handleRemoveFromListing}
+            >
+              <Ionicons name="eye-off-outline" size={20} color="#FFF" />
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.soldButton}
+              onPress={handleMarkSold}
+            >
+              <Ionicons name="checkmark-circle-outline" size={20} color="#FFF" style={styles.buttonIcon} />
+              <Text style={styles.soldButtonText}>Mark Sold</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <TouchableOpacity 
+            style={styles.relistButton}
+            onPress={() => Alert.alert('Relist Product', 'This feature would allow you to make the product active again.')}
+          >
+            <Ionicons name="refresh-outline" size={20} color="#FFF" style={styles.buttonIcon} />
+            <Text style={styles.relistButtonText}>Relist Product</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </SafeAreaView>
   );
@@ -254,6 +500,30 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.light.background,
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  errorText: {
+    fontSize: 18,
+    color: Colors.light.textSecondary,
+    textAlign: 'center',
+    marginVertical: 16,
+  },
+  backButton: {
+    backgroundColor: Colors.light.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginTop: 16,
+  },
+  backButtonText: {
+    color: Colors.light.background,
+    fontSize: 16,
+    fontWeight: '600',
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -264,12 +534,11 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.light.background,
     borderBottomWidth: 1,
     borderBottomColor: Colors.light.borderLight,
-    // elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
-    zIndex: 1000,
+    elevation: 2,
   },
   headerButton: {
     padding: 8,
@@ -288,243 +557,426 @@ const styles = StyleSheet.create({
   imageContainer: {
     position: 'relative',
     backgroundColor: Colors.light.backgroundSecondary,
+    height: width * 0.7,
+  },
+  imageSlide: {
+    width: width,
+    height: width * 0.7,
+    position: 'relative',
   },
   productImage: {
     width: width,
-    height: width * 0.6,
+    height: width * 0.7,
     resizeMode: 'cover',
   },
-  liveBadge: {
+  imageOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.1)',
+  },
+  imageCounter: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  imageCounterText: {
+    color: Colors.light.background,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  dotsContainer: {
+    position: 'absolute',
+    bottom: 20,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.light.background,
+    marginHorizontal: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  quickActionsOverlay: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    flexDirection: 'row',
+    gap: 8,
+  },
+  quickActionButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backdropFilter: 'blur(10px)',
+  },
+  statusBadge: {
     position: 'absolute',
     top: 16,
     left: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.light.success,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
+    backgroundColor: Colors.light.success ,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 24,
+    shadowColor: Colors.light.success,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
-  liveIndicator: {
+  statusIndicator: {
     width: 8,
     height: 8,
     borderRadius: 4,
     backgroundColor: Colors.light.background,
-    marginRight: 6,
+    marginRight: 8,
   },
-  liveText: {
+  statusText: {
     color: Colors.light.background,
     fontSize: 12,
-    fontWeight: '600',
-  },
-  daysBadge: {
-    position: 'absolute',
-    top: 16,
-    right: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-  },
-  daysText: {
-    color: Colors.light.background,
-    fontSize: 12,
-    marginLeft: 4,
+    fontWeight: '700',
   },
   productInfo: {
-    padding: 16,
+    padding: 20,
+    backgroundColor: Colors.light.background,
   },
   productHeader: {
-    flexDirection: 'row',
-    justifiContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 8,
+    marginBottom: 20,
+  },
+  productTitleContainer: {
+    marginBottom: 12,
   },
   productName: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: '700',
     color: Colors.light.text,
-    flex: 1,
+    marginBottom: 8,
+    lineHeight: 32,
   },
-  productPrice: {
-    fontSize: 24,
+  categoryBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: Colors.light.primaryLight,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  categoryText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FFF',
+  },
+  priceContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  currentPrice: {
+    fontSize: 22,
     fontWeight: '700',
     color: Colors.light.success,
+    marginRight: 12,
   },
-  productCategory: {
+  originalPrice: {
     fontSize: 16,
     color: Colors.light.textSecondary,
-    marginBottom: 12,
+    textDecorationLine: 'line-through',
   },
-  analyticsSection: {
-    padding: 16,
-    backgroundColor: Colors.light.backgroundSecondary,
-    marginTop: 8,
-  },
-  analyticsHeader: {
+  statsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
+    marginTop: 20,
   },
-  analyticsTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: Colors.light.text,
-  },
-  analyticsGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  analyticsCard: {
+  statCard: {
     flex: 1,
-    backgroundColor: Colors.light.background,
-    padding: 16,
-    borderRadius: 12,
+    backgroundColor: '#F8F9FA',
+    padding: 20,
+    borderRadius: 16,
     alignItems: 'center',
-    marginHorizontal: 4,
+    marginHorizontal: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  analyticsIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#F5F5F5',
+  statIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.light.background,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  analyticsNumber: {
-    fontSize: 24,
-    fontWeight: '700',
+  statNumber: {
+    fontSize: 20,
+    fontWeight: '800',
     color: Colors.light.text,
     marginBottom: 4,
   },
-  analyticsLabel: {
+  statLabel: {
     fontSize: 12,
     color: Colors.light.textSecondary,
-    textAlign: 'center',
-    marginBottom: 8,
+    fontWeight: '600',
+    marginBottom: 4,
   },
-  performanceMessage: {
+  statTrend: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: Colors.light.success,
+  },
+  detailsSection: {
+    padding: 20,
+    backgroundColor: Colors.light.background,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: Colors.light.text,
+    marginBottom: 16,
+  },
+  detailCard: {
+    backgroundColor: '#F8F9FA',
+    borderRadius: 16,
+    padding: 20,
+  },
+  detailRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  detailIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.light.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  detailContent: {
+    flex: 1,
+  },
+  detailLabel: {
+    fontSize: 14,
+    color: Colors.light.textSecondary,
+    fontWeight: '500',
+    marginBottom: 2,
+  },
+  detailValue: {
+    fontSize: 16,
+    color: Colors.light.text,
+    fontWeight: '600',
+  },
+  detailDivider: {
+    height: 1,
+    backgroundColor: '#E9ECEF',
+    marginVertical: 8,
+  },
+  insightsSection: {
+    padding: 20,
+    backgroundColor: Colors.light.background,
+  },
+  insightCard: {
     backgroundColor: '#E8F5E8',
-    padding: 12,
-    borderRadius: 8,
+    borderRadius: 16,
+    padding: 20,
     borderLeftWidth: 4,
     borderLeftColor: Colors.light.success,
   },
-  performanceMessageText: {
-    fontSize: 14,
-    color: Colors.light.success,
-    marginLeft: 8,
-    flex: 1,
-    lineHeight: 20,
-  },
-  section: {
-    padding: 16,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: Colors.light.text,
-    marginBottom: 12,
-  },
-  description: {
-    fontSize: 16,
-    color: Colors.light.textSecondary,
-    lineHeight: 24,
-  },
-  sizesContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  sizeChip: {
-    backgroundColor: Colors.light.backgroundSecondary,
-    borderWidth: 1,
-    borderColor: Colors.light.success,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  sizeText: {
-    fontSize: 14,
-    color: Colors.light.success,
-    fontWeight: '600',
-  },
-  locationRow: {
+  insightHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 8,
   },
-  locationText: {
+  insightTitle: {
     fontSize: 16,
-    color: Colors.light.textSecondary,
+    fontWeight: '600',
+    color: Colors.light.text,
     marginLeft: 8,
+  },
+  insightText: {
+    fontSize: 14,
+    color: Colors.light.textSecondary,
+    marginBottom: 8,
+    lineHeight: 20,
+  },
+  insightTip: {
+    fontSize: 13,
+    color: Colors.light.success,
+    fontWeight: '500',
+    fontStyle: 'italic',
   },
   bottomSpacing: {
     height: 100,
   },
   bottomActions: {
     flexDirection: 'row',
-    padding: 16,
+    padding: 20,
     backgroundColor: Colors.light.background,
     borderTopWidth: 1,
     borderTopColor: Colors.light.borderLight,
+    gap: 12,
   },
-  viewRequestsButton: {
+  inquiriesButton: {
     flex: 1,
+    backgroundColor: Colors.light.primary,
+    paddingVertical: 16,
+    borderRadius: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#2196F3',
-    paddingVertical: 16,
-    borderRadius: 12,
-    marginRight: 12,
     position: 'relative',
+    shadowColor: Colors.light.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  requestsBadge: {
+  inquiriesBadge: {
     position: 'absolute',
     top: -8,
     right: 16,
     backgroundColor: Colors.light.error,
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
+    borderRadius: 12,
+    minWidth: 24,
+    height: 24,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 2,
+    borderColor: Colors.light.background,
   },
-  requestsBadgeText: {
+  inquiriesBadgeText: {
     color: Colors.light.background,
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
   },
-  viewRequestsText: {
+  inquiriesButtonText: {
     color: Colors.light.background,
     fontSize: 16,
     fontWeight: '600',
+    marginLeft: 8,
   },
-  deleteButton: {
+  removeButton: {
     width: 56,
     height: 56,
-    borderRadius: 28,
-    backgroundColor: Colors.light.error,
+    borderRadius: 16,
+    backgroundColor: '#FF6B6B',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    shadowColor: '#FF6B6B',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  completeButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+  soldButton: {
+    flex: 1,
+    backgroundColor: Colors.light.success,
+    paddingVertical: 16,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: Colors.light.success,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  soldButtonText: {
+    color: Colors.light.background,
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  relistButton: {
+    flex: 1,
     backgroundColor: Colors.light.primary,
-    justifyContent: 'center',
+    paddingVertical: 16,
+    borderRadius: 12,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: Colors.light.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  relistButtonText: {
+    color: Colors.light.background,
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  buttonIcon: {
+    marginRight: 4,
+  },
+  recommendationsContainer: {
+    marginTop: 16,
+    padding: 16,
+    backgroundColor: 'rgba(255,255,255,0.7)',
+    borderRadius: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.light.primary,
+  },
+  recommendationsTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.light.text,
+    marginBottom: 8,
+  },
+  recommendationItem: {
+    fontSize: 13,
+    color: Colors.light.textSecondary,
+    lineHeight: 18,
+    marginBottom: 6,
+    paddingLeft: 8,
+  },
+  marketInsights: {
+    marginTop: 16,
+    padding: 16,
+    backgroundColor: 'rgba(255,255,255,0.7)',
+    borderRadius: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.light.success,
+  },
+  marketTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.light.text,
+    marginBottom: 8,
+  },
+  marketText: {
+    fontSize: 13,
+    color: Colors.light.textSecondary,
+    lineHeight: 18,
+    marginBottom: 4,
+    paddingLeft: 8,
   },
 });
 

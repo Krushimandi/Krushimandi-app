@@ -100,7 +100,7 @@ const styles = StyleSheet.create({
   backgroundImage: {
     flex: 1,
     width: width,
-    height: height,
+    height: '100%',
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,

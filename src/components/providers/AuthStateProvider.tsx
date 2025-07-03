@@ -4,6 +4,7 @@
  */
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import auth from '@react-native-firebase/auth';
 import { AuthBootstrapState } from '../../utils/authBootstrap';
 import { useAuthStore } from '../../store/authStore';
 import { getUserRole } from '../../utils/userRoleStorage';
@@ -30,7 +31,19 @@ export const AuthStateProvider: React.FC<AuthStateProviderProps> = ({
 }) => {
   const [userRole, setUserRole] = useState<'farmer' | 'buyer' | null>(bootstrapState.userRole);
   const [isLoading, setIsLoading] = useState(false);
+  const [firebaseUser, setFirebaseUser] = useState(auth().currentUser);
   const authStore = useAuthStore();
+
+  // Listen to Firebase auth state changes
+  useEffect(() => {
+    console.log('🔥 Setting up Firebase auth state listener');
+    const unsubscribe = auth().onAuthStateChanged((user) => {
+      console.log('🔥 Firebase auth state changed:', user ? 'User logged in' : 'User logged out');
+      setFirebaseUser(user);
+    });
+
+    return unsubscribe;
+  }, []);
 
   // Sync with bootstrap state
   useEffect(() => {
@@ -66,13 +79,22 @@ export const AuthStateProvider: React.FC<AuthStateProviderProps> = ({
   };
 
   const contextValue: AuthStateContextType = {
-    isAuthenticated: bootstrapState.isAuthenticated || authStore.isAuthenticated,
+    // Use Firebase auth state as the primary source of truth
+    isAuthenticated: !!firebaseUser && (bootstrapState.isAuthenticated || authStore.isAuthenticated),
     userRole,
     user: authStore.user || bootstrapState.user,
     isLoading,
     error: bootstrapState.error,
     refreshUserRole,
   };
+
+  console.log('🔍 AuthStateProvider context value:', {
+    firebaseUser: !!firebaseUser,
+    bootstrapAuth: bootstrapState.isAuthenticated,
+    storeAuth: authStore.isAuthenticated,
+    finalAuth: contextValue.isAuthenticated,
+    userRole: contextValue.userRole
+  });
 
   return (
     <AuthStateContext.Provider value={contextValue}>
