@@ -157,7 +157,8 @@ const PhotoUploadScreen = ({ navigation, route }) => {
     const handlePhotoUpload = (index) => {
         if (uploadedPhotos.length < maxPhotos || uploadedPhotos[index]) {
             setCurrentPhotoIndex(index);
-            setImagePickerModalVisible(true);
+            // setImagePickerModalVisible(true);
+            handleImagePickerOption('camera');
         } else {
             Alert.alert('Maximum Reached', 'You have uploaded the maximum number of photos!');
         }

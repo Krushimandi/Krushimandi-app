@@ -425,7 +425,11 @@ const FarmerHomeScreen = () => {
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar
+<<<<<<< HEAD
         backgroundColor="#FFFFFF"
+=======
+        backgroundColor="#FFF"
+>>>>>>> 9c097c26359d544a4519cdca540002aff2402913
         translucent={true}
         barStyle="dark-content"
       />

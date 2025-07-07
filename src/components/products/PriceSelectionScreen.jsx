@@ -229,7 +229,7 @@ export default function PriceSelectionScreen({ navigation, route }) {
   // Extract fruit info
   const fruitCategory = (productData?.type || 'mango').toLowerCase();
   const fruitQuantity = productData?.quantity;
-  const fruitPhoto = productData?.photos?.[0];
+  const fruitPhoto = productData?.image_urls?.[0];
   const fruitName = productData?.name || '';
   const fruitVariety = fruitName.toLowerCase().includes('alphonso') ? 'alphonso' :
     fruitName.toLowerCase().includes('kesar') ? 'kesar' : 'totapuri';
@@ -447,6 +447,7 @@ export default function PriceSelectionScreen({ navigation, route }) {
           style={styles.fruitCard}
           activeOpacity={0.9}
         >
+          {console.log(fruitPhoto)          }
           <Image source={{ uri: fruitPhoto }} style={styles.fruitImage} />
 
           <View style={styles.fruitDetailsSection}>
