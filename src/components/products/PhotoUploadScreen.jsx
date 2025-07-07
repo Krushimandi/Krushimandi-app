@@ -598,7 +598,7 @@ const PhotoUploadScreen = ({ navigation, route }) => {
                                 </View>
                             </TouchableOpacity>
 
-                            <TouchableOpacity
+                            {/* <TouchableOpacity
                                 style={styles.modalOption}
                                 onPress={() => handleImagePickerOption('gallery')}
                             >
@@ -610,7 +610,7 @@ const PhotoUploadScreen = ({ navigation, route }) => {
                                     <Text style={styles.modalOptionText}>Gallery</Text>
                                     <Text style={styles.modalOptionSubtext}>Choose from gallery</Text>
                                 </View>
-                            </TouchableOpacity>
+                            </TouchableOpacity> */}
                         </View>
 
                         {uploadedPhotos[currentPhotoIndex] && (

@@ -3,6 +3,7 @@ import firestore from '@react-native-firebase/firestore';
 import storage from '@react-native-firebase/storage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert } from 'react-native';
+import { clearUserRole } from '../utils/userRoleStorage';
 
 /**
  * Firebase Service for User Management
@@ -53,6 +54,30 @@ const getStoragePaths = (userRole) => {
  * @param {function} onProgress - Progress callback function
  * @returns {Promise<string>} Download URL
  */
+
+export const clearAuthData = async () => {
+  try {
+    // Clear all auth-related AsyncStorage keys
+    await AsyncStorage.multiRemove([
+      'userData',
+      'user_role',
+      'auth_state',
+      'authStep',
+    ]);
+    
+    // Clear user role storage
+    await clearUserRole();
+    // Clear any other app-specific storage
+    // Add any other storage keys your app uses
+    
+    console.log('✅ All auth data cleared');
+  } catch (error) {
+    console.error('❌ Error clearing auth data:', error);
+    throw error;
+  }
+};
+
+
 export const uploadProfileAvatar = async (imageUri, userId, userRole, onProgress = null) => {
   try {
     console.log('📸 Uploading profile avatar...', { userId, userRole });

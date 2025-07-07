@@ -88,9 +88,15 @@ const FarmerHomeScreen = () => {
     extrapolate: 'clamp',
   });
 
+  const isVisible = scrollY.interpolate({
+    inputRange: [0, HEADER_SCROLL_DISTANCE],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
+
   const titleIndex = scrollY.interpolate({
     inputRange: [0, HEADER_SCROLL_DISTANCE / 2, HEADER_SCROLL_DISTANCE],
-    outputRange: [0, 10, 20],
+    outputRange: [0, 20, 40], // Higher values but still below normal header
     extrapolate: 'clamp',
   });
 
@@ -253,7 +259,7 @@ const FarmerHomeScreen = () => {
         'Error Loading Fruits',
         'Unable to load your fruit listings. Please check your internet connection and try again.',
         [
-          { text: 'OK', onPress: () => {} },
+          { text: 'OK', onPress: () => { } },
           { text: 'Retry', onPress: () => loadFarmerFruits() }
         ]
       );
@@ -309,7 +315,7 @@ const FarmerHomeScreen = () => {
       selectedCategory === 'all' ||
       fruit.type.toLowerCase() === selectedCategory.toLowerCase()
     ).length;
-    
+
     console.log('🔍 Category Filter Debug:', {
       selectedCategory,
       totalActiveFruits: activeFruits.length,
@@ -318,65 +324,22 @@ const FarmerHomeScreen = () => {
     });
   }, [selectedCategory, activeFruits]);
 
-  // Add a manual test function to load a sample fruit (for testing)
-  const addTestFruit = async () => {
-    try {
-      if (!userProfile?.uid) {
-        Alert.alert('Error', 'No user profile found');
-        return;
-      }
-      
-      console.log('🧪 Adding test fruit for development...');
-      const testFruit = {
-        name: 'Test Mango',
-        type: 'mango',
-        grade: 'A',
-        description: 'Fresh test mango for development',
-        quantity: [1, 2],
-        price_per_kg: 50,
-        availability_date: new Date().toISOString(),
-        image_urls: ['https://via.placeholder.com/300x200/FFB800/FFFFFF?text=Test+Mango'],
-        location: {
-          village: 'Test Village',
-          district: 'Test District',
-          state: 'Maharashtra',
-          pincode: '411001',
-          lat: 18.5204,
-          lng: 73.8567
-        },
-        farmer_id: userProfile.uid,
-        status: 'active',
-        views: 0,
-        likes: 0
-      };
-      
-      const fruitId = await createFruit(testFruit, []);
-      console.log('✅ Test fruit created:', fruitId);
-      
-      // Reload fruits
-      await loadFarmerFruits();
-      
-      Alert.alert('Success', 'Test fruit added successfully!');
-    } catch (error) {
-      console.error('❌ Error adding test fruit:', error);
-      Alert.alert('Error', 'Failed to add test fruit: ' + error.message);
-    }
-  };
+
 
   // Handle fruit status updates (mark as sold, inactive, etc.)
   const handleFruitStatusUpdate = async (fruitId, newStatus) => {
     try {
       console.log('🔄 Updating fruit status...', { fruitId, newStatus });
-      
+
       await updateFruitStatus(fruitId, newStatus);
-      
+
       // Reload fruits to reflect changes
       await loadFarmerFruits();
-      
-      const statusMessage = newStatus === 'sold' ? 'marked as sold' : 
-                           newStatus === 'inactive' ? 'deactivated' : 
-                           'updated';
-      
+
+      const statusMessage = newStatus === 'sold' ? 'marked as sold' :
+        newStatus === 'inactive' ? 'deactivated' :
+          'updated';
+
       Alert.alert('Success', `Fruit ${statusMessage} successfully!`);
     } catch (error) {
       console.error('❌ Error updating fruit status:', error);
@@ -391,8 +354,8 @@ const FarmerHomeScreen = () => {
       `Are you sure you want to mark "${fruit.name}" as sold?`,
       [
         { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Mark as Sold', 
+        {
+          text: 'Mark as Sold',
           style: 'destructive',
           onPress: () => handleFruitStatusUpdate(fruit.id, 'sold')
         }
@@ -407,8 +370,8 @@ const FarmerHomeScreen = () => {
       `Do you want to reactivate "${fruit.name}" listing?`,
       [
         { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Reactivate', 
+        {
+          text: 'Reactivate',
           onPress: () => handleFruitStatusUpdate(fruit.id, 'active')
         }
       ]
@@ -435,7 +398,7 @@ const FarmerHomeScreen = () => {
         const fruitDescription = (fruit.description || '').toLowerCase();
         const location = `${fruit.location?.village || ''} ${fruit.location?.district || ''} ${fruit.location?.state || ''}`.toLowerCase();
         const grade = (fruit.grade || '').toLowerCase();
-        
+
         return (
           fruitName.includes(query) ||
           fruitType.includes(query) ||
@@ -462,8 +425,8 @@ const FarmerHomeScreen = () => {
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar
-        backgroundColor="#FFF"
-        translucent={false}
+        backgroundColor="#FFFFFF"
+        translucent={true}
         barStyle="dark-content"
       />
 
@@ -503,12 +466,11 @@ const FarmerHomeScreen = () => {
                   activeOpacity={0.7}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
-                  <View style={styles.profileImage}>
-                    <Image
-                      source={{ uri: userProfile.profileImage }}
-                      style={{ width: '100%', height: '100%' }}
-                    />
-                  </View>
+                  <Image
+                    pointerEvents="none"
+                    source={{ uri: userProfile.profileImage }}
+                    style={styles.profileImage}
+                  />
                 </TouchableOpacity>
               ) : (
                 <TouchableOpacity
@@ -529,7 +491,6 @@ const FarmerHomeScreen = () => {
               <TouchableOpacity
                 style={styles.userInfo}
                 onPress={() => safeNavigate('ProfileScreen')}
-                onLongPress={addTestFruit}
                 activeOpacity={0.8}
                 hitSlop={{ top: 10, bottom: 10, left: 0, right: 10 }}
               >
@@ -568,7 +529,7 @@ const FarmerHomeScreen = () => {
                 autoCorrect={false}
               />
               {searchQuery.length > 0 && (
-                <TouchableOpacity 
+                <TouchableOpacity
                   onPress={clearSearch}
                   style={styles.clearSearchButton}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -711,7 +672,7 @@ const FarmerHomeScreen = () => {
                     >
                       <View style={styles.fruitImageContainer}>
                         <Image
-                          source={{ 
+                          source={{
                             uri: (item.image_urls && item.image_urls[0]) || 'https://via.placeholder.com/150'
                           }}
                           style={styles.fruitImage}
@@ -819,7 +780,7 @@ const FarmerHomeScreen = () => {
                       })}
                     >
                       <Image
-                        source={{ 
+                        source={{
                           uri: (item.image_urls && item.image_urls[0]) || 'https://via.placeholder.com/150'
                         }}
                         style={styles.historyImage}
@@ -865,7 +826,7 @@ const FarmerHomeScreen = () => {
                           </View>
                         </View>
                       </View>
-                      <TouchableOpacity 
+                      <TouchableOpacity
                         style={styles.relistButton}
                         onPress={() => reactivateFruit(item)}
                       >
@@ -880,13 +841,15 @@ const FarmerHomeScreen = () => {
         </View>
       </Animated.ScrollView>
 
-      {/* Fixed Header Title - Shows on scroll - Rendered last to ensure it's on top */}
+      {/* Fixed Header Title - Shows below normal header */}
       <Animated.View
         style={[
           styles.fixedHeaderTitle,
           {
             opacity: titleOpacity,
-          }
+            // zIndex: titleIndex, // Use opacity animation instead of z-index
+          },
+           pointerEvents={titleOpacity.__getValue() > 0.5 ? 'auto' : 'none'}, // prevent click-through
         ]}>
         <Image source={require('../../assets/icon.png')} style={styles.fixedHeaderImage} />
         <TouchableOpacity
@@ -905,15 +868,13 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: '#ffffff',
-    top: 0,
-    left: 0,
-    right: 0,
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   scrollViewContent: {
     paddingBottom: 80,
   },
   header: {
+    position: 'relative',
     backgroundColor: '#FFFFFF',
     paddingTop: 16,
     paddingHorizontal: 16,
@@ -923,7 +884,8 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 8,
-    elevation: 3,
+    elevation: 8,
+    zIndex: 100,
   },
   fixedHeaderTitle: {
     position: 'absolute',
@@ -938,15 +900,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderBottomWidth: 1,
     borderBottomColor: '#EFEFEF',
-    zIndex: 100,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
   },
   fixedHeaderImage: {
     width: 160,
     height: '100%',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
   headerRow: {
     flexDirection: 'row',
@@ -960,7 +918,7 @@ const styles = StyleSheet.create({
   },
   profileImageButton: {
     padding: 5,
-    borderRadius: 60,
+    borderRadius: 30,
   },
   profilePlaceholderButton: {
     padding: 5,
@@ -1166,6 +1124,7 @@ const styles = StyleSheet.create({
   },
   fruitCard: {
     width: '48%',
+    height: 2000,
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     shadowColor: '#000',
