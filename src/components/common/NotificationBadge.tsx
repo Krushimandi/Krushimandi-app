@@ -14,6 +14,9 @@ interface NotificationBadgeProps {
     color?: string;
     textColor?: string;
     showZero?: boolean;
+    count?: number; // Allow custom count override
+    useGlobalCount?: boolean; // Whether to use global notification count
+    borderWidth?: number; // Custom border width
 }
 
 const NotificationBadge: React.FC<NotificationBadgeProps> = ({
@@ -22,10 +25,18 @@ const NotificationBadge: React.FC<NotificationBadgeProps> = ({
     color = Colors.light.error,
     textColor = Colors.light.background,
     showZero = false,
+    count,
+    useGlobalCount = true,
+    borderWidth = 2,
 }) => {
     const { unreadCount, badgeText, shouldShowBadge } = useUnreadCount();
 
-    if (!shouldShowBadge && !showZero) {
+    // Use custom count if provided, otherwise use global count
+    const displayCount = count !== undefined ? count : unreadCount;
+    const displayText = count !== undefined ? (count > 99 ? '99+' : count.toString()) : badgeText;
+    const shouldShow = count !== undefined ? (count > 0 || showZero) : (shouldShowBadge || showZero);
+
+    if (!shouldShow) {
         return null;
     }
 
@@ -46,7 +57,10 @@ const NotificationBadge: React.FC<NotificationBadgeProps> = ({
             style={[
                 styles.badge,
                 sizeStyles[size],
-                { backgroundColor: color },
+                { 
+                    backgroundColor: color,
+                    borderWidth: borderWidth,
+                },
                 style
             ]}
         >
@@ -58,7 +72,7 @@ const NotificationBadge: React.FC<NotificationBadgeProps> = ({
                 ]}
                 numberOfLines={1}
             >
-                {badgeText}
+                {displayText}
             </Text>
         </View>
     );
@@ -66,53 +80,55 @@ const NotificationBadge: React.FC<NotificationBadgeProps> = ({
 
 const styles = StyleSheet.create({
     badge: {
-        borderRadius: 12,
         justifyContent: 'center',
         alignItems: 'center',
         position: 'absolute',
-        top: -6,
-        right: -6,
-        borderWidth: 2,
+        top: -8,
+        right: -8,
         borderColor: Colors.light.background,
         shadowColor: Colors.light.shadow,
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.2,
-        shadowRadius: 2,
-        elevation: 3,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 3,
+        elevation: 4,
     },
     badgeSmall: {
-        minWidth: 16,
-        height: 16,
-        borderRadius: 8,
-        paddingHorizontal: 4,
+        minWidth: 18,
+        height: 18,
+        borderRadius: 9,
+        paddingHorizontal: 2,
     },
     badgeMedium: {
-        minWidth: 20,
-        height: 20,
-        borderRadius: 10,
-        paddingHorizontal: 6,
+        minWidth: 22,
+        height: 22,
+        borderRadius: 11,
+        paddingHorizontal: 3,
     },
     badgeLarge: {
-        minWidth: 24,
-        height: 24,
-        borderRadius: 12,
-        paddingHorizontal: 8,
+        minWidth: 26,
+        height: 26,
+        borderRadius: 13,
+        paddingHorizontal: 4,
     },
     badgeText: {
-        fontWeight: 'bold',
+        fontWeight: '800',
         textAlign: 'center',
+        letterSpacing: -0.2,
     },
     textSmall: {
         fontSize: 10,
         lineHeight: 12,
+        fontWeight: '800',
     },
     textMedium: {
         fontSize: 11,
         lineHeight: 13,
+        fontWeight: '800',
     },
     textLarge: {
         fontSize: 12,
         lineHeight: 14,
+        fontWeight: '800',
     },
 });
 

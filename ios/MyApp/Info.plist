@@ -32,7 +32,11 @@
 		<true/>
 	</dict>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string></string>
+	<string>This app needs location access to auto-fill your farm location details when listing fruits. This helps buyers find your products and improves the accuracy of your listings.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>This app needs location access to auto-fill your farm location details when listing fruits. This helps buyers find your products and improves the accuracy of your listings.</string>
+	<key>NSLocationUsageDescription</key>
+	<string>This app needs location access to auto-fill your farm location details when listing fruits.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>BootSplash</string>
 	<key>UIRequiredDeviceCapabilities</key>

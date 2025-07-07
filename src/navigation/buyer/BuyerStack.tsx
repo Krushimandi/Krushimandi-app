@@ -9,7 +9,7 @@ import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { BlurView } from '@react-native-community/blur';
 
 // Screens
-import { BuyerHomeScreen, RequestsScreen} from '../../components/home';
+import { BuyerHomeScreen, RequestsScreen } from '../../components/home';
 import { MyOrdersScreen } from '../../components/orders';
 import { ProductDetailScreen } from '../../components/products';
 import NotificationBadge from '../../components/common/NotificationBadge';
@@ -102,10 +102,15 @@ const CustomTabBarIcon = ({ focused, color, size, route }: any) => {
       iconName = 'Home';
       break;
     case 'Orders':
-      iconComponent = focused ? (
-        <MaterialDesignIcons name="shopping" size={size - 2} color={color} />
-      ) : (
-        <MaterialDesignIcons name="shopping-outline" size={size} color={color} />
+      iconComponent = (
+        <View style={{ position: 'relative' }}>
+          {focused ? (
+            <MaterialDesignIcons name="shopping" size={size - 2} color={color} />
+          ) : (
+            <MaterialDesignIcons name="shopping-outline" size={size} color={color} />
+          )}
+          <NotificationBadge size="small" count={3} />
+        </View>
       );
       iconName = 'Orders';
       break;
@@ -117,7 +122,6 @@ const CustomTabBarIcon = ({ focused, color, size, route }: any) => {
           ) : (
             <Ionicons name="chatbox-ellipses-outline" size={size} color={color} />
           )}
-          <NotificationBadge size="small" />
         </View>
       );
       iconName = 'Requests';
@@ -258,7 +262,7 @@ const BuyerTabNavigator = () => {
           tabBarAccessibilityLabel: 'Requests Tab'
         }}
       />
-       <BuyerTab.Screen
+      <BuyerTab.Screen
         name="Orders"
         component={MyOrdersScreen}
         options={{

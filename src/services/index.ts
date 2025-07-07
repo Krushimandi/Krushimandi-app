@@ -5,3 +5,5 @@
 
 export * from './httpClient';
 export * from './authService';
+export * from './fruitService';
+export * from './wishlistService';

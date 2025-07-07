@@ -7,93 +7,40 @@ import {
   StyleSheet,
   TextInput,
   TouchableOpacity,
-  FlatList,
   Image,
   ScrollView,
-  Pressable,
   Alert,
   StatusBar,
   Animated,
   Platform,
   SafeAreaView,
   Modal,
+  RefreshControl,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Octicons from 'react-native-vector-icons/Octicons';
 import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
 import { getCompleteUserProfile, updateLastLogin, validateCurrentUser } from '../../services/firebaseService';
+import { getMarketplaceFruits } from '../../services/fruitService';
 import auth from '@react-native-firebase/auth';
-import { Colors, Typography, Layout } from '../../constants';
+import { Colors } from '../../constants';
 import FilterScreen from './FilterScreen';
 import Toast from 'react-native-toast-message';
-
+import { 
+  formatPrice, 
+  formatFruitQuantity, 
+  formatLocation, 
+  getRelativeTime,
+  getDaysSince 
+} from '../../utils/formatters';
 const categories = [
-  { name: 'Bananas', icon: require('../../assets/banana.png') },
-  { name: 'Apples', icon: require('../../assets/Apple.png') },
-  { name: 'Spinach', icon: require('../../assets/spinach.jpg') },
-];
-
-const fruits = [
-  {
-    id: 1,
-    name: 'Hapus Amba',
-    category: 'Mango',
-    price: '₹50/KG',
-    location: 'Ratnagiri, Maharashtra',
-    tons: '10–12 Tons',
-    rating: 4.8,
-    image: require('../../assets/hapus.jpeg'),
-  },
-  {
-    id: 2,
-    name: 'Kashmiri Apple',
-    category: 'Apple',
-    price: '₹50/KG',
-    location: 'Alshpur, Jammu',
-    tons: '10–12 Tons',
-    rating: 4.6,
-    image: require('../../assets/appleFruit.jpeg'),
-  },
-  {
-    id: 3,
-    name: 'Hapus Amba',
-    category: 'Mango',
-    price: '₹50/KG',
-    location: 'Nashik, Maharashtra',
-    tons: '10–12 Tons',
-    rating: 4.7,
-    image: require('../../assets/hapus.jpeg'),
-  },
-  {
-    id: 4,
-    name: 'Hapus Amba',
-    category: 'Mango',
-    price: '₹50/KG',
-    location: 'Ratnagiri, Maharashtra',
-    tons: '10–12 Tons',
-    rating: 4.8,
-    image: require('../../assets/hapus.jpeg'),
-  },
-  {
-    id: 5,
-    name: 'Hapus Amba',
-    category: 'Mango',
-    price: '₹50/KG',
-    location: 'Ratnagiri, Maharashtra',
-    tons: '10–12 Tons',
-    rating: 4.8,
-    image: require('../../assets/hapus.jpeg'),
-  },
-  {
-    id: 6,
-    name: 'Hapus Amba',
-    category: 'Mango',
-    price: '₹50/KG',
-    location: 'Ratnagiri, Maharashtra',
-    tons: '10–12 Tons',
-    rating: 4.8,
-    image: require('../../assets/hapus.jpeg'),
-  },
+  { name: 'All', type: 'all', icon: null },
+  { name: 'Mango', type: 'mango', icon: require('../../assets/Apple.png') },
+  { name: 'Orange', type: 'orange', icon: require('../../assets/Apple.png') },
+  { name: 'Apple', type: 'apple', icon: require('../../assets/Apple.png') },
+  { name: 'Banana', type: 'banana', icon: require('../../assets/banana.png') },
+  { name: 'Grapes', type: 'grapes', icon: require('../../assets/Apple.png') },
 ];
 
 const HEADER_MAX_HEIGHT = 158; // Maximum header height
@@ -103,9 +50,13 @@ const HEADER_SCROLL_DISTANCE = HEADER_MAX_HEIGHT - HEADER_MIN_HEIGHT;
 const BuyerHomeScreen = () => {
   const navigation = useNavigation();
   const [userProfile, setUserProfile] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [selectedCategory, setSelectedCategory] = useState('all');
   const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
+  const [fruits, setFruits] = useState([]);
+  const [allFruits, setAllFruits] = useState([]); // Store all fruits for filtering
+  const [loadingFruits, setLoadingFruits] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
   const scrollY = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(0)).current;
 
@@ -160,14 +111,63 @@ const BuyerHomeScreen = () => {
   };
 
   const handleApplyFilters = (filters) => {
-    console.log('Applied filters:', filters);
-    // Here you can handle the filter logic
+    let filtered = [...allFruits];
+    
+    // Apply price range filter
+    if (filters.priceRange && (filters.priceRange.min > 0 || filters.priceRange.max < 1000)) {
+      filtered = filtered.filter(fruit => {
+        const price = parseFloat(fruit.price_per_kg);
+        return price >= filters.priceRange.min && price <= filters.priceRange.max;
+      });
+    }
+    
+    // Apply grade filter
+    if (filters.grade && filters.grade.length > 0) {
+      filtered = filtered.filter(fruit => 
+        filters.grade.includes(fruit.grade)
+      );
+    }
+    
+    // Apply location filter
+    if (filters.location && filters.location.trim()) {
+      const locationLower = filters.location.toLowerCase();
+      filtered = filtered.filter(fruit =>
+        fruit.location?.village?.toLowerCase().includes(locationLower) ||
+        fruit.location?.district?.toLowerCase().includes(locationLower) ||
+        fruit.location?.state?.toLowerCase().includes(locationLower)
+      );
+    }
+    
+    // Apply quantity filter
+    if (filters.minQuantity && filters.minQuantity > 0) {
+      filtered = filtered.filter(fruit => {
+        const minQty = fruit.quantity?.[0] || 0;
+        return minQty >= filters.minQuantity;
+      });
+    }
+    
+    // Apply category filter if not 'all'
+    if (selectedCategory !== 'all') {
+      filtered = filtered.filter(fruit => 
+        fruit.type?.toLowerCase() === selectedCategory.toLowerCase()
+      );
+    }
+    
+    // Apply search query
+    if (searchQuery.trim()) {
+      const searchLower = searchQuery.toLowerCase();
+      filtered = filtered.filter(fruit =>
+        fruit.name?.toLowerCase().includes(searchLower) ||
+        fruit.type?.toLowerCase().includes(searchLower) ||
+        fruit.description?.toLowerCase().includes(searchLower)
+      );
+    }
+    
+    setFruits(filtered);
     closeFilterModal();
   };
   // Safe navigation function to prevent "route not defined" errors
   const safeNavigate = (routeName, params = {}) => {
-    console.log("clicked");
-
     try {
       navigation.navigate(routeName, params);
     } catch (error) {
@@ -178,21 +178,15 @@ const BuyerHomeScreen = () => {
 
   const loadUserProfile = async () => {
     try {
-      setIsLoading(true);
-
       const user = auth().currentUser;
       if (!user) {
-        console.log('❌ No authenticated user found in HomeScreen');
         handleUserValidationFailure();
         return;
       }
 
-      console.log('📱 Loading user profile for:', user.uid);
-
       // First validate if the user still exists on Firebase server
       const isValidUser = await validateCurrentUser();
       if (!isValidUser) {
-        console.log('❌ User validation failed, user may have been deleted');
         handleUserValidationFailure();
         return;
       }
@@ -202,26 +196,17 @@ const BuyerHomeScreen = () => {
 
       if (profile) {
         setUserProfile(profile);
-        console.log('✅ User profile loaded:', {
-          name: profile.firstName,
-          role: profile.userRole,
-          hasAvatar: !!profile.profileImage,
-          isComplete: profile.isProfileComplete
-        });
 
         // Update last login in background
         if (profile.uid && profile.userRole) {
           updateLastLogin(profile.uid, profile.userRole).catch(console.error);
         }
       } else {
-        console.log('❌ No user profile found, user may need to complete registration');
         handleUserValidationFailure();
       }
     } catch (error) {
       console.error('❌ Error loading user profile:', error);
       handleUserValidationFailure();
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -277,6 +262,130 @@ const BuyerHomeScreen = () => {
       </View>
     );
   };
+
+  // Load marketplace fruits from Firebase
+  const loadMarketplaceFruits = async () => {
+    try {
+      setLoadingFruits(true);
+      
+      const marketplaceFruits = await getMarketplaceFruits(100);
+      
+      if (marketplaceFruits && Array.isArray(marketplaceFruits) && marketplaceFruits.length > 0) {
+        setAllFruits(marketplaceFruits);
+        setFruits(marketplaceFruits);
+      } else {
+        setAllFruits([]);
+        setFruits([]);
+        
+        Toast.show({
+          type: 'info',
+          text1: '📋 No Data',
+          text2: 'No fruits found in database',
+          position: 'bottom',
+          visibilityTime: 3000,
+        });
+      }
+    } catch (error) {
+      console.error('❌ Error loading marketplace fruits:', error);
+      
+      setAllFruits([]);
+      setFruits([]);
+      
+      Toast.show({
+        type: 'error',
+        text1: '❌ Data Load Failed',
+        text2: 'Unable to load fruits. Check connection.',
+        position: 'bottom',
+        visibilityTime: 4000,
+      });
+    } finally {
+      setLoadingFruits(false);
+    }
+  };
+
+  // Filter fruits based on category and search query
+  const filterFruits = (category, search) => {
+    let filtered = [...allFruits];
+
+    // Filter by category
+    if (category !== 'all' && category !== 'All') {
+      filtered = filtered.filter(fruit => {
+        const fruitType = fruit.type?.toLowerCase();
+        const filterCategory = category.toLowerCase();
+        return fruitType === filterCategory;
+      });
+    }
+
+    // Filter by search query
+    if (search && search.trim()) {
+      const searchLower = search.toLowerCase().trim();
+      filtered = filtered.filter(fruit => {
+        const matchName = fruit.name?.toLowerCase().includes(searchLower);
+        const matchType = fruit.type?.toLowerCase().includes(searchLower);
+        const matchDescription = fruit.description?.toLowerCase().includes(searchLower);
+        const matchVillage = fruit.location?.village?.toLowerCase().includes(searchLower);
+        const matchDistrict = fruit.location?.district?.toLowerCase().includes(searchLower);
+        const matchState = fruit.location?.state?.toLowerCase().includes(searchLower);
+        
+        return matchName || matchType || matchDescription || matchVillage || matchDistrict || matchState;
+      });
+    }
+
+    setFruits(filtered);
+  };
+
+  // Handle category change
+  const handleCategoryChange = (categoryType) => {
+    setSelectedCategory(categoryType);
+    filterFruits(categoryType, searchQuery);
+  };
+
+  // Handle search query change
+  const handleSearchChange = (query) => {
+    setSearchQuery(query);
+    filterFruits(selectedCategory, query);
+  };
+
+  // Handle refresh
+  const handleRefresh = () => {
+    setSearchQuery('');
+    setSelectedCategory('all');
+    loadMarketplaceFruits();
+  };
+
+  // Handle pull to refresh
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadMarketplaceFruits();
+    setRefreshing(false);
+  };
+
+  // Clear all filters
+  const clearAllFilters = () => {
+    setSearchQuery('');
+    setSelectedCategory('all');
+    setFruits([...allFruits]);
+  };
+
+  // Load fruits when component mounts
+  useEffect(() => {
+    loadMarketplaceFruits();
+  }, []);
+
+  // Reload fruits when screen comes into focus (to show newly added fruits)
+  useFocusEffect(
+    React.useCallback(() => {
+      loadMarketplaceFruits();
+    }, [])
+  );
+
+  // Filter fruits whenever search or category changes
+  useEffect(() => {
+    if (allFruits.length > 0) {
+      filterFruits(selectedCategory, searchQuery);
+    }
+  }, [selectedCategory, searchQuery, allFruits]);
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar
@@ -297,8 +406,7 @@ const BuyerHomeScreen = () => {
         <Image source={require('../../assets/icon.png')} style={styles.fixedHeaderImage} />        <TouchableOpacity
           style={styles.notificationIconButton}
           onPress={() => {
-            console.log('Opening notifications from header');
-            navigation.navigate('Notification'); // Navigate to Notification screen
+            navigation.navigate('Notification');
           }}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
@@ -310,6 +418,16 @@ const BuyerHomeScreen = () => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollViewContent}
         scrollEventThrottle={16}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[Colors.light.primary]}
+            tintColor={Colors.light.primary}
+            title="Loading fresh fruits..."
+            titleColor={Colors.light.primary}
+          />
+        }
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { y: scrollY } } }],
           { useNativeDriver: false }
@@ -335,9 +453,6 @@ const BuyerHomeScreen = () => {
                 >
                   <View style={styles.profileImage}>
                     <Image
-                      onPress={() => {
-                        safeNavigate('ProfileScreen');
-                      }}
                       source={{ uri: userProfile.profileImage }}
                       style={{ width: '100%', height: '100%' }}
                     />
@@ -346,15 +461,12 @@ const BuyerHomeScreen = () => {
               ) : (
                 <TouchableOpacity
                   style={styles.profilePlaceholderButton} onPress={() => {
-                    console.log('Navigating to Profile from placeholder');
                     safeNavigate('ProfileScreen');
                   }}
                   activeOpacity={0.7}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
-                  <View style={styles.profilePlaceholder} onPress={() => {
-                    safeNavigate('ProfileScreen');
-                  }}>
+                  <View style={styles.profilePlaceholder}>
                     <Octicons
                       name="person"
                       size={24}
@@ -366,7 +478,7 @@ const BuyerHomeScreen = () => {
               <TouchableOpacity
                 style={styles.userInfo}
                 onPress={() => {
-                  // safeNavigate('ProfileScreen');
+                  safeNavigate('ProfileScreen');
                 }}
                 activeOpacity={0.8}
                 hitSlop={{ top: 10, bottom: 10, left: 0, right: 10 }}
@@ -401,12 +513,21 @@ const BuyerHomeScreen = () => {
                 placeholder="Search fruits, vegetables..."
                 placeholderTextColor="#939393"
                 style={styles.searchInput}
+                value={searchQuery}
+                onChangeText={handleSearchChange}
               />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity
+                  onPress={() => handleSearchChange('')}
+                  style={{ paddingRight: 12 }}
+                >
+                  <Icon name="close-circle" size={20} color="#939393" />
+                </TouchableOpacity>
+              )}
             </View>
 
             {/* Filter Model */}
             <TouchableOpacity style={styles.filterBtn} onPress={() => {
-              console.log('Opening filter Modal');
               openFilterModal();
             }}>
               <Icon name="options-outline" size={20} color={Colors.light.primaryDark} />
@@ -428,35 +549,28 @@ const BuyerHomeScreen = () => {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.categoriesContainer}
           >
-            <TouchableOpacity
-              style={[
-                styles.categoryCard,
-                selectedCategory === 'All' && styles.selectedCategoryCard
-              ]}
-              onPress={() => setSelectedCategory('All')}
-            >
-              <Icon name="apps-outline" size={22} color={"#505050"} style={[styles.categoryIcon, {
-                marginHorizontal: 6,
-              }]} />
-              <Text style={[
-                styles.categoryText, {
-                  marginHorizontal: 4
-                },
-                selectedCategory === 'All' && styles.selectedCategoryText
-              ]}>All</Text>
-            </TouchableOpacity>
-
             {categories.map((item, index) => (
               <TouchableOpacity
                 key={index}
                 style={[
                   styles.categoryCard,
-                  selectedCategory === item.name && styles.selectedCategoryCard
+                  selectedCategory === item.type && styles.selectedCategoryCard
                 ]}
-                onPress={() => setSelectedCategory(item.name)}
+                onPress={() => handleCategoryChange(item.type)}
               >
-                <Image source={item.icon} style={styles.categoryImage} />
-                <Text style={styles.categoryText}>{item.name}</Text>
+                {item.name === 'All' ? (
+                  <Icon name="apps-outline" size={22} color={"#505050"} style={[styles.categoryIcon, {
+                    marginHorizontal: 6,
+                  }]} />
+                ) : (
+                  <Image source={item.icon} style={styles.categoryImage} />
+                )}
+                <Text style={[
+                  styles.categoryText, {
+                    marginHorizontal: item.name === 'All' ? 4 : 0
+                  },
+                  selectedCategory === item.type && styles.selectedCategoryText
+                ]}>{item.name}</Text>
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -471,45 +585,91 @@ const BuyerHomeScreen = () => {
             </TouchableOpacity>
           </View>
           <View style={styles.fruitsContainer}>
-            {fruits.length > 0 ? (
+            {loadingFruits ? (
+              <View style={styles.emptyStateContainer}>
+                <View style={styles.emptyStateIcon}>
+                  <Icon name="refresh-outline" size={48} color="#CCCCCC" />
+                </View>
+                <Text style={styles.emptyStateTitle}>Loading Fruits...</Text>
+                <Text style={styles.emptyStateSubtitle}>
+                  Please wait while we fetch fresh fruits from farmers
+                </Text>
+              </View>
+            ) : fruits.length > 0 ? (
               fruits.map((item) => (
                 <TouchableOpacity
                   key={item.id}
-                  style={styles.fruitCard} activeOpacity={0.9}
+                  style={styles.fruitCard} 
+                  activeOpacity={0.9}
                   onPress={() => {
-                    // Navigate to the ProductDetail screen directly
+                    // Navigate to the ProductDetail screen with complete fruit data
+                    console.log('🔍 Navigating to ProductDetail with fruit data:', {
+                      id: item.id,
+                      name: item.name,
+                      imageCount: item.image_urls?.length || 0,
+                      images: item.image_urls,
+                      allFields: Object.keys(item),
+                      hasId: !!item.id,
+                      productObjectId: item.id // This should be included in the product object
+                    });
+                    
                     safeNavigate('ProductDetail', {
-                      productId: item.id,
                       product: {
+                        // Core fruit properties from fruit.ts schema
+                        id: item.id, // IMPORTANT: Include id in the product object
                         name: item.name,
-                        description: `Category: ${item.category}`,
-                        price: parseFloat(item.price.replace('₹', '').replace('/KG', '')),
-                        rating: item.rating,
-                        reviewCount: Math.floor(item.rating * 10),
-                        sizes: ['1 kg', '500 gm', '2 kg'],
+                        type: item.type,
+                        grade: item.grade,
+                        description: item.description,
+                        quantity: item.quantity,
+                        price_per_kg: item.price_per_kg,
+                        availability_date: item.availability_date,
+                        image_urls: item.image_urls || [],
+                        location: item.location,
+                        farmer_id: item.farmer_id,
+                        status: item.status || 'active',
+                        views: item.views || 0,
+                        likes: item.likes || 0,
+                        created_at: item.created_at,
+                        updated_at: item.updated_at || item.created_at,
+                        
+                        // Additional display properties for compatibility
+                        rating: 4.8, // Default rating for now
+                        reviewCount: Math.floor((item.likes || 0) * 2),
                         freshness: 'Fresh',
-                        details: `${item.name} from ${item.location}. Available quantity: ${item.tons}`,
-                        image: item.image,
-                        postedDate: '3 days ago'
+                        details: `${item.name} from ${formatLocation(item.location)}. Available quantity: ${formatFruitQuantity(item.quantity)}`,
+                        image: { uri: item.image_urls?.[0] || 'https://via.placeholder.com/150' }, // For backward compatibility
+                        postedDate: getRelativeTime(item.created_at),
+                        listedDate: getDaysSince(item.created_at)
                       }
                     });
                   }}
                 >
-                  <Image source={item.image} style={styles.fruitImage} />
+                  <Image 
+                    source={{ uri: item.image_urls?.[0] || 'https://via.placeholder.com/150' }} 
+                    style={styles.fruitImage}
+                    defaultSource={require('../../assets/fruit_placeholder.png')}
+                  />
                   <View style={styles.fruitDetailsSection}>
                     <Text style={styles.fruitName}>{item.name}</Text>
-                    <Text style={styles.fruitCategory}>Category: {item.category}</Text>
+                    <Text style={styles.fruitCategory}>Grade: {item.grade} • {item.type}</Text>
 
                     <View style={styles.locationRow}>
                       <Icon name="location-outline" size={12} color="#505050" />
-                      <Text style={styles.fruitLocation}>{item.location}</Text>
+                      <Text style={styles.fruitLocation}>
+                        {formatLocation(item.location)}
+                      </Text>
                     </View>
                   </View>
 
                   <View style={styles.priceContainer}>
-                    <Text style={styles.fruitPrice}>{item.price}</Text>
-                    <Text style={styles.fruitTons}>{item.tons}</Text>
-                    {renderStars(item.rating)}
+                    <Text style={styles.fruitPrice}>
+                      {formatPrice(item.price_per_kg)}
+                    </Text>
+                    <Text style={styles.fruitTons}>
+                      {formatFruitQuantity(item.quantity)}
+                    </Text>
+                    {renderStars(4.8)} {/* Default rating for now */}
                   </View>
                 </TouchableOpacity>
               ))
@@ -518,24 +678,28 @@ const BuyerHomeScreen = () => {
                 <View style={styles.emptyStateIcon}>
                   <Icon name="basket-outline" size={48} color="#CCCCCC" />
                 </View>
-                <Text style={styles.emptyStateTitle}>No Fruits Available</Text>
+                <Text style={styles.emptyStateTitle}>
+                  {searchQuery || selectedCategory !== 'all' ? 'No Matching Fruits' : 'No Fruits Available'}
+                </Text>
                 <Text style={styles.emptyStateSubtitle}>
-                  Fresh fruits will be listed here when farmers post them
+                  {searchQuery || selectedCategory !== 'all' 
+                    ? 'Try adjusting your search or category filter'
+                    : 'Fresh fruits will be listed here when farmers post them'
+                  }
                 </Text>
                 <TouchableOpacity
                   style={styles.refreshButton}
-                  onPress={() => {
-                    // Add refresh logic here if needed
-                    console.log('Refreshing fruits list...');
-                  }}
+                  onPress={handleRefresh}
                 >
                   <Icon name="refresh-outline" size={18} color={Colors.light.primary} />
-                  <Text style={styles.refreshButtonText}>Refresh</Text>
+                  <Text style={styles.refreshButtonText}>
+                    {searchQuery || selectedCategory !== 'all' ? 'Clear Filters' : 'Refresh'}
+                  </Text>
                 </TouchableOpacity>
               </View>
             )}
             {/* Add a spacer view to ensure the last item has padding at the bottom */}
-            <View styles={{ flex: 1, paddingBottom: 40, backgroundColor: '#F6F6F6' }}></View>
+            <View style={{ flex: 1, paddingBottom: 40, backgroundColor: 'transparent' }}></View>
           </View>
         </View>
       </Animated.ScrollView>
@@ -585,8 +749,8 @@ const BuyerHomeScreen = () => {
                 <TouchableOpacity
                   style={styles.modalClearButton}
                   onPress={() => {
-                    // Handle clear filters immediately
-                    console.log('Clear filters');
+                    clearAllFilters();
+                    closeFilterModal();
                   }}
                   activeOpacity={0.8}
                 >
@@ -703,8 +867,10 @@ const styles = StyleSheet.create({
     color: '#505050',
     marginRight: 4,
     fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
-  }, notificationIcon: {
-    padding: 10,
+  },
+  notificationIconButton: {
+    padding: 8,
+    borderRadius: 8,
   },
   searchRow: {
     flexDirection: 'row',

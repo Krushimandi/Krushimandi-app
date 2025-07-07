@@ -28,6 +28,7 @@ import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 import { useNavigation } from '@react-navigation/native';
 import { Colors } from '../../constants';
 import { useTabBarControl } from '../../utils/navigationControls.ts';
+import NotificationBadge from '../common/NotificationBadge.tsx';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -271,132 +272,61 @@ const MyOrdersScreen = () => {
     const statusInfo = getStatusBadge(item.status);
 
     return (
-      <View style={styles.orderItem}>
-        <View style={styles.orderCard}>
-          {/* Header Section */}
-          <View style={styles.cardHeader}>
-            <View style={styles.headerLeft}>
-              <Text style={styles.fruitName}>{item.productName}</Text>
-              {/* <Text style={styles.orderDate}>{item.dateOrdered}</Text> */}
-              <View style={styles.infoRow}>
-                <Icon name="calendar-outline" size={14} color="#8B5CF6" />
-                <Text style={styles.infoText}>{item.fruitInfo.harvestDate}</Text>
-              </View>
-            </View>
+      <View style={styles.orderCard}>
+        {/* Header Section */}
+        <View style={styles.cardHeader}>
+          <Text style={styles.productTitle}>{item.productName}</Text>
+          <View style={styles.dateRow}>
+            <Icon name="calendar-outline" size={16} color="#8B5CF6" />
+            <Text style={styles.harvestDate}>{item.fruitInfo.harvestDate}</Text>
+          </View>
+        </View>
 
-
-            {item.status === 'delivered' && (
-              <View style={styles.ratingContainer}>
-                <FontAwesome5 name="star" size={12} color="#FFD700" solid />
-                <Text style={styles.ratingText}>4.5</Text>
-              </View>
-            )}
-
+        {/* Main Content Row */}
+        <View style={styles.mainContent}>
+          {/* Product Image with Quantity Badge */}
+          <View style={styles.imageContainer}>
+            <Image source={item.image} style={styles.productImage} />
           </View>
 
-          {/* Main Content */}
-          <View style={styles.cardContent}>
-            {/* Left Side - Product Image */}
-            <View style={styles.imageSection}>
-              <Image source={item.image} style={styles.productImage} />
-              <View style={styles.quantityBadge}>
-                <Text style={styles.quantityText}>{item.quantity}</Text>
-              </View>
+          {/* Farmer Details */}
+          <View style={styles.farmerDetails}>
+            <Text style={styles.farmerName}>{item.seller}</Text>
+
+            <View style={styles.varietyRow}>
+              <Icon name="leaf-outline" size={14} color="#10B981" />
+              <Text style={styles.varietyText}>{item.fruitInfo.variety}</Text>
             </View>
 
-            {/* Right Side - Details */}
-            <View style={styles.detailsSection}>
-
-              {/* Farmer Name */}
-              <Text style={styles.farmerName}>{item.seller}</Text>
-
-              {/* Fruit Info */}
-              <View style={styles.infoSection}>
-                <View style={styles.infoRow}>
-                  <Icon name="leaf-outline" size={14} color="#10B981" />
-                  <Text style={styles.infoText}>{item.fruitInfo.variety}</Text>
-                </View>
-              </View>
-
-              {/* Location */}
-              <View style={styles.locationSection}>
-                <Icon name="location-outline" size={16} color="#EF4444" />
-                <Text style={styles.locationText}>{item.farmerLocation}</Text>
-              </View>
+            <View style={styles.locationRow}>
+              <Icon name="location-outline" size={16} color="#EF4444" />
+              <Text style={styles.locationText}>{item.farmerLocation}</Text>
             </View>
           </View>
+        </View>
 
-          {/* Action Buttons */}
-          <View style={styles.actionSection}>
-            {item.status === 'processing' && (
-              <View style={styles.actionRow}>
-                <TouchableOpacity
-                  style={[styles.actionButton, styles.primaryActionButton]}
-                  onPress={() => handleViewInquiries(item)}
-                >
-                  <Icon name="call" size={18} color="#FFFFFF" />
-                  <Text style={styles.actionButtonText}>Call Now</Text>
-                </TouchableOpacity>
+        {/* Action Buttons - Only Call and Message */}
+        <View style={styles.actionButtonsContainer}>
+          <TouchableOpacity
+            style={[styles.actionButton, styles.callButton]}
+            onPress={() => handleCallFarmer(item)}
+          >
+            <Icon name="call" size={18} color="#FFFFFF" />
+            <Text style={styles.actionButtonText}>Call Now</Text>
+          </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={[styles.actionButton, styles.secondaryActionButton]}
-                  onPress={() => handleContactSeller(item)}
-                >
-                  <Icon name="chatbubble-outline" size={18} color="#FFFFFF" />
-                  <Text style={styles.actionButtonText}>Message</Text>
-                </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.actionButton, styles.messageButton]}
+            onPress={() => handleContactSeller(item)}
+          >
+            <Icon name="chatbubble-outline" size={18} color="#FFFFFF" />
+            <Text style={styles.actionButtonText}>Message</Text>
+            {item.unreadMessages > 0 && (
+              <View style={styles.messageBadge}>
+                <Text style={styles.messageBadgeText}>{item.unreadMessages}</Text>
               </View>
             )}
-
-            {item.status === 'delivered' && (
-              <View style={styles.actionRow}>
-                <TouchableOpacity
-                  style={[styles.actionButton]}
-                  onPress={() => handleWriteReview(item)}
-                >
-                  <Text style={styles.price}>{item.price}</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.actionButton, styles.primaryActionButton]}
-                  onPress={() => handleReorder(item)}
-                >
-                  <Icon name="call" size={18} color="#FFFFFF" />
-                  <Text style={styles.actionButtonText}>Call</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {item.status === 'canceled' && (
-              <>
-                <View style={styles.cancellationInfo}>
-                  <Icon name="information-circle" size={20} color="#EF4444" />
-                  <View style={styles.cancellationTextContainer}>
-                    <Text style={styles.cancellationTitle}>Order Cancelled</Text>
-                    <Text style={styles.cancellationReason}>{item.cancellationReason}</Text>
-                  </View>
-                </View>
-
-                <View style={styles.actionRow}>
-                  <TouchableOpacity
-                    style={[styles.actionButton, styles.supportActionButton]}
-                    onPress={() => handleContactSupport(item)}
-                  >
-                    <Icon name="headset-outline" size={18} color="#FFFFFF" />
-                    <Text style={styles.actionButtonText}>Get Help</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.actionButton, styles.findSimilarActionButton]}
-                    onPress={() => handleFindSimilar(item)}
-                  >
-                    <Icon name="search-outline" size={18} color="#FFFFFF" />
-                    <Text style={styles.actionButtonText}>Find Similar</Text>
-                  </TouchableOpacity>
-                </View>
-              </>
-            )}
-          </View>
+          </TouchableOpacity>
         </View>
       </View>
     );
@@ -489,7 +419,7 @@ const MyOrdersScreen = () => {
             style={styles.notificationButton}>
             <Icon name="notifications-outline" size={24} color="#000000" />
             <View style={styles.notificationBadge}>
-              <Text style={styles.notificationBadgeText}>2</Text>
+              <NotificationBadge size="small" count={3}  borderWidth={0}/>
             </View>
           </TouchableOpacity>
         </View>
@@ -562,10 +492,10 @@ const styles = StyleSheet.create({
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 16 : 16,
     paddingBottom: 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 3,
   },
   headerTop: {
     flexDirection: 'row',
@@ -574,63 +504,72 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   headerTitle: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: '800',
     color: '#0F172A',
-    letterSpacing: -0.5,
+    letterSpacing: -0.7,
+    lineHeight: 36,
   },
   headerSubtitle: {
     fontSize: 15,
     color: '#64748B',
     marginTop: 4,
-    fontWeight: '500',
+    fontWeight: '600',
+    letterSpacing: -0.1,
   },
   notificationButton: {
     position: 'relative',
-    padding: 12,
-    borderRadius: 16,
+    padding: 14,
+    borderRadius: 20,
     backgroundColor: '#F1F5F9',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
   },
   notificationBadge: {
     position: 'absolute',
-    top: 4,
-    right: 4,
-    backgroundColor: '#EF4444',
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
+    top: 18,
+    right: 18,
+    minWidth: 24,
+    height: 24,
     justifyContent: 'center',
     alignItems: 'center',
   },
   notificationBadgeText: {
     color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '700',
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: -0.2,
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F1F5F9',
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginBottom: 8,
+    borderRadius: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
   },
   searchIcon: {
-    marginRight: 12,
+    marginRight: 14,
   },
   searchInput: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 17,
     color: '#0F172A',
     paddingVertical: 0,
-  },
-  clearButton: {
-    padding: 4,
+    fontWeight: '600',
+    letterSpacing: -0.2,
   },
   filtersContainer: {
     backgroundColor: '#FFFFFF',
-    paddingBottom: 20,
+    paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#E2E8F0',
   },
@@ -641,53 +580,56 @@ const styles = StyleSheet.create({
   filterButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 24,
     backgroundColor: '#F8FAFC',
-    marginRight: 12,
-    borderWidth: 1.5,
-    borderColor: 'transparent',
+    marginRight: 16,
+    borderWidth: 1,
+    borderColor: '#EFEFEF',
   },
   activeFilterButton: {
     backgroundColor: Colors.light.primary,
     borderColor: Colors.light.primary,
     shadowColor: Colors.light.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 8,
   },
   filterButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 15,
+    fontWeight: '700',
     color: '#64748B',
+    letterSpacing: -0.2,
   },
   activeFilterText: {
     color: '#FFFFFF',
   },
   filterBadge: {
     backgroundColor: '#E2E8F0',
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    marginLeft: 8,
+    borderRadius: 14,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    marginLeft: 10,
   },
   activeFilterBadge: {
     backgroundColor: 'rgba(255, 255, 255, 0.3)',
   },
   filterBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
+    fontSize: 12,
+    fontWeight: '800',
     color: '#64748B',
+    letterSpacing: -0.2,
   },
   activeFilterBadgeText: {
     color: '#FFFFFF',
   },
   listContainer: {
-    padding: 24,
+    paddingVertical: 16,
     paddingBottom: 120,
   },
+
   // New Modern Order Card Styles
   orderItem: {
     marginBottom: 16,
@@ -695,60 +637,54 @@ const styles = StyleSheet.create({
   orderCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
+    marginHorizontal: 16,
+    marginBottom: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    elevation: 8,
     overflow: 'hidden',
   },
 
-  // Header Section
+  // Refined Card Header
   cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
     padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    paddingBottom: 16,
   },
-  headerLeft: {
-    flex: 1,
-  },
-  fruitName: {
-    fontSize: 20,
+  productTitle: {
+    fontSize: 22,
     fontWeight: '800',
     color: '#0F172A',
-    marginBottom: 4,
-    letterSpacing: -0.3,
+    marginBottom: 10,
+    letterSpacing: -0.5,
+    lineHeight: 28,
   },
-  orderDate: {
-    fontSize: 14,
-    color: '#64748B',
-    fontWeight: '500',
-  },
-  statusBadge: {
+  dateRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
+    backgroundColor: '#F8F7FF',
+    paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 32,
-    marginLeft: 12,
+    borderRadius: 10,
+    alignSelf: 'flex-start',
   },
-  statusText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#FFFFFF',
+  harvestDate: {
+    fontSize: 13,
+    color: '#8B5CF6',
+    fontWeight: '600',
     marginLeft: 6,
+    letterSpacing: -0.1,
   },
 
-  // Main Content
-  cardContent: {
+  // Refined Main Content Section
+  mainContent: {
     flexDirection: 'row',
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
     alignItems: 'flex-start',
   },
-  imageSection: {
+  imageContainer: {
     position: 'relative',
     marginRight: 16,
   },
@@ -759,51 +695,121 @@ const styles = StyleSheet.create({
   },
   quantityBadge: {
     position: 'absolute',
-    top: -6,
-    right: -6,
-    backgroundColor: Colors.light.primary,
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    top: -8,
+    right: -8,
+    backgroundColor: '#10B981',
+    borderRadius: 14,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderWidth: 2,
     borderColor: '#FFFFFF',
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 4,
   },
   quantityText: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '800',
     color: '#FFFFFF',
+    letterSpacing: -0.2,
   },
 
-  // Details Section
-  detailsSection: {
+  // Refined Farmer Details Section
+  farmerDetails: {
     flex: 1,
+    justifyContent: 'space-between',
   },
   farmerName: {
     fontSize: 18,
     fontWeight: '700',
     color: '#0F172A',
-    marginBottom: 4,
+    marginBottom: 10,
+    letterSpacing: -0.3,
+    lineHeight: 22,
   },
-  callButton: {
+  varietyRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    marginBottom: 12,
+    backgroundColor: '#F0FDF4',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+    alignSelf: 'flex-start',
+  },
+  varietyText: {
+    fontSize: 12,
+    color: '#059669',
+    fontWeight: '600',
+    marginLeft: 6,
+    letterSpacing: -0.1,
+  },
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF2F2',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 14,
+    alignSelf: 'flex-start',
+    shadowColor: '#EF4444',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  locationText: {
+    fontSize: 13,
+    color: '#DC2626',
+    fontWeight: '600',
+    marginLeft: 5,
+    letterSpacing: -0.1,
+  },
+
+  // Refined Action Buttons
+  actionButtonsContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    gap: 12,
+  },
+
+  actionButtonText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginLeft: 8,
+    letterSpacing: -0.2,
+  },
+  messageButton: {
     backgroundColor: '#10B981',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
-    marginBottom: 16,
     shadowColor: '#10B981',
+  },
+  messageBadge: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    backgroundColor: '#EF4444',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    shadowColor: '#EF4444',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
-    shadowRadius: 4,
+    shadowRadius: 3,
     elevation: 3,
   },
-  callButtonText: {
+  messageBadgeText: {
     color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '700',
-    marginLeft: 6,
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: -0.1,
   },
 
   // Info Section
@@ -994,16 +1000,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     fontWeight: '500',
   },
-  orderCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
-    overflow: 'hidden',
-  },
+
   orderHeader: {
     paddingHorizontal: 24,
     paddingVertical: 20,
@@ -1117,17 +1114,8 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   callButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
     backgroundColor: '#10B981',
-    justifyContent: 'center',
-    alignItems: 'center',
     shadowColor: '#10B981',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 4,
   },
   callButtonLarge: {
     flexDirection: 'row',
@@ -1333,6 +1321,43 @@ const styles = StyleSheet.create({
     color: '#64748B',
     marginTop: 20,
     fontWeight: '500',
+  },
+
+  // Enhanced Cancellation styles
+  cancellationContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingHorizontal: 24,
+    paddingVertical: 18,
+    backgroundColor: '#FEF2F2',
+    marginHorizontal: 24,
+    borderRadius: 16,
+    marginBottom: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: '#EF4444',
+    shadowColor: '#EF4444',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  cancellationTextContainer: {
+    flex: 1,
+    marginLeft: 14,
+  },
+  cancellationTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#DC2626',
+    marginBottom: 6,
+    letterSpacing: -0.3,
+  },
+  cancellationReason: {
+    fontSize: 14,
+    color: '#991B1B',
+    lineHeight: 20,
+    fontWeight: '600',
+    letterSpacing: -0.1,
   },
 });
 

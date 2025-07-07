@@ -516,7 +516,7 @@ const RequestsScreen = () => {
           </View>
         }
       />
-      
+
     </View>
   );
 };
@@ -555,17 +555,19 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 28,
-    fontWeight: '700',
-    color: '#111827',
-    letterSpacing: -0.3,
-    lineHeight: 34,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: -0.7,
+    lineHeight: 36,
   },
   headerSubtitle: {
-    fontSize: 14,
-    color: '#6B7280',
-    fontWeight: '500',
+    fontSize: 15,
+    color: '#64748B',
+    fontWeight: '600',
     lineHeight: 20,
+    letterSpacing: -0.1,
   },
+
   sortButton: {
     padding: 10,
     borderRadius: 10,

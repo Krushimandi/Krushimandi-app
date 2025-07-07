@@ -51,7 +51,8 @@ export interface Product {
   updatedAt: string;
 }
 
-export type Fruit = {
+// Legacy Fruit type for backwards compatibility
+export type LegacyFruit = {
   id: number;
   name: string;
   price: string;
@@ -59,6 +60,9 @@ export type Fruit = {
   bgColor: string;
   description: string;
 };
+
+// Export the new Fruit schema types
+export type { Fruit, FruitLocation, FruitType, FruitStatus, FruitGrade } from './fruit';
 
 export interface Order {
   id: string;

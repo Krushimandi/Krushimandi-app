@@ -18,103 +18,30 @@ import {
 import Icon from 'react-native-vector-icons/Ionicons';
 import Octicons from 'react-native-vector-icons/Octicons';
 import Feather from 'react-native-vector-icons/Feather';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { getCompleteUserProfile, updateLastLogin, validateCurrentUser } from '../../services/firebaseService';
+import { getFruitsByFarmer, getFruitsByFarmerOptimized, createFruit, updateFruitStatus } from '../../services/fruitService';
 import auth from '@react-native-firebase/auth';
 import { Colors, Typography, Layout } from '../../constants';
 import { useTabBarControl } from '../../utils/navigationControls';
+import { Fruit } from '../../types/fruit';
+import { FruitType } from '../../types/fruit';
+import {
+  formatPrice,
+  formatFruitQuantity,
+  formatLocation,
+  getRelativeTime
+} from '../../utils/formatters';
+import { RefreshControl } from 'react-native-gesture-handler';
 
 const fruitCategories = [
-  { name: 'All Fruits', icon: require('../../assets/Apple.png') },
-  { name: 'Mangoes', icon: require('../../assets/hapus.jpeg') },
-  { name: 'Apples', icon: require('../../assets/appleFruit.jpeg') },
-  { name: 'Bananas', icon: require('../../assets/banana.png') },
-];
-
-// Current active listings by the farmer
-const myActiveFruits = [
-  {
-    id: 1,
-    name: 'Premium Hapus Mango',
-    category: 'Mango',
-    price: '₹120/KG',
-    originalPrice: '₹150/KG',
-    location: 'Ratnagiri, Maharashtra',
-    available: '40-60 tons',
-    rating: 4.8,
-    image: require('../../assets/hapus.jpeg'),
-    listedDate: '2 days ago',
-    status: 'active',
-    views: 127,
-    inquiries: 8,
-  },
-  {
-    id: 2,
-    name: 'Sweet Banana',
-    category: 'Banana',
-    price: '₹80/KG',
-    originalPrice: '₹95/KG',
-    location: 'Paithan, Maharashtra',
-    available: '25-35 tons',
-    rating: 4.7,
-    image: require('../../assets/banana.png'),
-    listedDate: '1 day ago',
-    status: 'active',
-    views: 89,
-    inquiries: 5,
-  },
-];
-
-// Previous listings history
-const myFruitHistory = [
-  {
-    id: 3,
-    name: 'Alphonso Mango',
-    category: 'Mango',
-    price: '₹200/KG',
-    originalPrice: '₹250/KG',
-    location: 'Ratnagiri, Maharashtra',
-    available: '0 tons',
-    rating: 4.9,
-    image: require('../../assets/hapus.jpeg'),
-    listedDate: '1 week ago',
-    status: 'sold_out',
-    views: 245,
-    inquiries: 15,
-    soldQuantity: '12-18 tons',
-  },
-  {
-    id: 4,
-    name: 'Red Apple',
-    category: 'Apple',
-    price: '₹160/KG',
-    originalPrice: '₹180/KG',
-    location: 'Paithan, Maharashtra',
-    available: '0 tons',
-    rating: 4.5,
-    image: require('../../assets/appleFruit.jpeg'),
-    listedDate: '2 weeks ago',
-    status: 'expired',
-    views: 98,
-    inquiries: 3,
-    soldQuantity: '3-7 tons',
-  },
-  {
-    id: 5,
-    name: 'Premium Banana',
-    category: 'Banana',
-    price: '₹75/KG',
-    originalPrice: '₹85/KG',
-    location: 'Paithan, Maharashtra',
-    available: '0 tons',
-    rating: 4.6,
-    image: require('../../assets/banana.png'),
-    listedDate: '3 weeks ago',
-    status: 'sold_out',
-    views: 156,
-    inquiries: 12,
-    soldQuantity: '15-25 tons',
-  },
+  { name: 'All Fruits', type: 'all', icon: require('../../assets/Apple.png') },
+  { name: 'Mango', type: 'mango', icon: require('../../assets/hapus.jpeg') },
+  { name: 'Apple', type: 'apple', icon: require('../../assets/appleFruit.jpeg') },
+  { name: 'Banana', type: 'banana', icon: require('../../assets/banana.png') },
+  { name: 'Orange', type: 'orange', icon: require('../../assets/fruits/orange.png') },
+  { name: 'Grapes', type: 'grapes', icon: require('../../assets/Apple.png') }, // Update with grapes image when available
+  { name: 'Pomegranate', type: 'pomegranate', icon: require('../../assets/Apple.png') }, // Update with pomegranate image when available
 ];
 
 const HEADER_MAX_HEIGHT = 158; // Maximum header height
@@ -126,15 +53,21 @@ const FarmerHomeScreen = () => {
   const { showTabBar } = useTabBarControl();
   const [userProfile, setUserProfile] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedCategory, setSelectedCategory] = useState('All Fruits');
+  const [selectedCategory, setSelectedCategory] = useState('all');
   const [watchlist, setWatchlist] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
+  const [activeFruits, setActiveFruits] = useState([]);
+  const [fruitHistory, setFruitHistory] = useState([]);
+  const [loadingFruits, setLoadingFruits] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const scrollY = useRef(new Animated.Value(0)).current;
 
-  // Make sure tab bar is visible
-  useEffect(() => {
-    showTabBar();
-  }, []);
+  // Make sure tab bar is visible when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      showTabBar();
+    }, [showTabBar])
+  );
 
   // Calculate header height and opacity based on scroll
   const headerHeight = scrollY.interpolate({
@@ -157,7 +90,7 @@ const FarmerHomeScreen = () => {
 
   const titleIndex = scrollY.interpolate({
     inputRange: [0, HEADER_SCROLL_DISTANCE / 2, HEADER_SCROLL_DISTANCE],
-    outputRange: [0, 50, 100],
+    outputRange: [0, 10, 20],
     extrapolate: 'clamp',
   });
 
@@ -286,41 +219,272 @@ const FarmerHomeScreen = () => {
     );
   };
 
+  // Load farmer's fruits from Firebase
+  const loadFarmerFruits = async () => {
+    try {
+      if (!userProfile?.uid) {
+        console.log('❌ No user profile available for loading fruits');
+        return;
+      }
+
+      setLoadingFruits(true);
+      console.log('🔄 Loading farmer fruits for user:', userProfile.uid);
+
+      // Load active fruits using optimized method
+      const activeData = await getFruitsByFarmerOptimized(userProfile.uid, 'active');
+      console.log('✅ Loaded active fruits:', activeData.length, activeData);
+      setActiveFruits(activeData || []);
+
+      // Load fruit history (sold/inactive fruits) using optimized method
+      const allFruitsData = await getFruitsByFarmerOptimized(userProfile.uid);
+      const history = (allFruitsData || []).filter(fruit => fruit.status !== 'active');
+      console.log('✅ Loaded fruit history:', history.length, history);
+      setFruitHistory(history);
+
+      console.log('✅ Farmer fruits loaded successfully:', {
+        active: activeData?.length || 0,
+        history: history?.length || 0,
+        total: allFruitsData?.length || 0
+      });
+    } catch (error) {
+      console.error('❌ Error loading farmer fruits:', error);
+      // Show error to user but don't fallback to dummy data
+      Alert.alert(
+        'Error Loading Fruits',
+        'Unable to load your fruit listings. Please check your internet connection and try again.',
+        [
+          { text: 'OK', onPress: () => {} },
+          { text: 'Retry', onPress: () => loadFarmerFruits() }
+        ]
+      );
+      // Set empty arrays instead of sample data
+      setActiveFruits([]);
+      setFruitHistory([]);
+    } finally {
+      setLoadingFruits(false);
+    }
+  };
+
+  // Refresh function for pull-to-refresh
+  const handleRefresh = async () => {
+    if (userProfile?.uid) {
+      await loadFarmerFruits();
+    }
+  };
+
+  // Add loading indicator component
+  const LoadingFruits = () => (
+    <View style={styles.loadingContainer}>
+      <View style={styles.loadingCard}>
+        <Icon name="leaf-outline" size={48} color={Colors.light.primary} />
+        <Text style={styles.loadingText}>Loading your fruits...</Text>
+      </View>
+    </View>
+  );
+
+  // Load fruits when user profile is loaded
+  useEffect(() => {
+    if (userProfile?.uid) {
+      console.log('👤 User profile loaded, loading fruits for:', userProfile.uid);
+      loadFarmerFruits();
+    } else {
+      console.log('👤 No user profile available yet');
+    }
+  }, [userProfile?.uid]);
+
+  // Debug log for fruits data
+  useEffect(() => {
+    console.log('📊 Fruits state updated:', {
+      activeFruits: activeFruits.length,
+      activeData: activeFruits,
+      fruitHistory: fruitHistory.length,
+      historyData: fruitHistory,
+      loadingFruits
+    });
+  }, [activeFruits, fruitHistory, loadingFruits]);
+
+  // Debug log for category filtering
+  useEffect(() => {
+    const filteredCount = activeFruits.filter(fruit =>
+      selectedCategory === 'all' ||
+      fruit.type.toLowerCase() === selectedCategory.toLowerCase()
+    ).length;
+    
+    console.log('🔍 Category Filter Debug:', {
+      selectedCategory,
+      totalActiveFruits: activeFruits.length,
+      filteredCount,
+      sampleFruitTypes: activeFruits.slice(0, 3).map(f => f.type)
+    });
+  }, [selectedCategory, activeFruits]);
+
+  // Add a manual test function to load a sample fruit (for testing)
+  const addTestFruit = async () => {
+    try {
+      if (!userProfile?.uid) {
+        Alert.alert('Error', 'No user profile found');
+        return;
+      }
+      
+      console.log('🧪 Adding test fruit for development...');
+      const testFruit = {
+        name: 'Test Mango',
+        type: 'mango',
+        grade: 'A',
+        description: 'Fresh test mango for development',
+        quantity: [1, 2],
+        price_per_kg: 50,
+        availability_date: new Date().toISOString(),
+        image_urls: ['https://via.placeholder.com/300x200/FFB800/FFFFFF?text=Test+Mango'],
+        location: {
+          village: 'Test Village',
+          district: 'Test District',
+          state: 'Maharashtra',
+          pincode: '411001',
+          lat: 18.5204,
+          lng: 73.8567
+        },
+        farmer_id: userProfile.uid,
+        status: 'active',
+        views: 0,
+        likes: 0
+      };
+      
+      const fruitId = await createFruit(testFruit, []);
+      console.log('✅ Test fruit created:', fruitId);
+      
+      // Reload fruits
+      await loadFarmerFruits();
+      
+      Alert.alert('Success', 'Test fruit added successfully!');
+    } catch (error) {
+      console.error('❌ Error adding test fruit:', error);
+      Alert.alert('Error', 'Failed to add test fruit: ' + error.message);
+    }
+  };
+
+  // Handle fruit status updates (mark as sold, inactive, etc.)
+  const handleFruitStatusUpdate = async (fruitId, newStatus) => {
+    try {
+      console.log('🔄 Updating fruit status...', { fruitId, newStatus });
+      
+      await updateFruitStatus(fruitId, newStatus);
+      
+      // Reload fruits to reflect changes
+      await loadFarmerFruits();
+      
+      const statusMessage = newStatus === 'sold' ? 'marked as sold' : 
+                           newStatus === 'inactive' ? 'deactivated' : 
+                           'updated';
+      
+      Alert.alert('Success', `Fruit ${statusMessage} successfully!`);
+    } catch (error) {
+      console.error('❌ Error updating fruit status:', error);
+      Alert.alert('Error', 'Failed to update fruit status: ' + error.message);
+    }
+  };
+
+  // Handle marking a fruit as sold
+  const markFruitAsSold = (fruit) => {
+    Alert.alert(
+      'Mark as Sold',
+      `Are you sure you want to mark "${fruit.name}" as sold?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Mark as Sold', 
+          style: 'destructive',
+          onPress: () => handleFruitStatusUpdate(fruit.id, 'sold')
+        }
+      ]
+    );
+  };
+
+  // Handle reactivating a fruit
+  const reactivateFruit = (fruit) => {
+    Alert.alert(
+      'Reactivate Listing',
+      `Do you want to reactivate "${fruit.name}" listing?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Reactivate', 
+          onPress: () => handleFruitStatusUpdate(fruit.id, 'active')
+        }
+      ]
+    );
+  };
+
+  // Filter fruits based on search query and category
+  const getFilteredFruits = (fruits) => {
+    let filtered = fruits;
+
+    // Filter by category
+    if (selectedCategory !== 'all') {
+      filtered = filtered.filter(fruit =>
+        fruit.type.toLowerCase() === selectedCategory.toLowerCase()
+      );
+    }
+
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      filtered = filtered.filter(fruit => {
+        const fruitName = (fruit.name || '').toLowerCase();
+        const fruitType = (fruit.type || '').toLowerCase();
+        const fruitDescription = (fruit.description || '').toLowerCase();
+        const location = `${fruit.location?.village || ''} ${fruit.location?.district || ''} ${fruit.location?.state || ''}`.toLowerCase();
+        const grade = (fruit.grade || '').toLowerCase();
+        
+        return (
+          fruitName.includes(query) ||
+          fruitType.includes(query) ||
+          fruitDescription.includes(query) ||
+          location.includes(query) ||
+          grade.includes(query)
+        );
+      });
+    }
+
+    return filtered;
+  };
+
+  // Clear search
+  const clearSearch = () => {
+    setSearchQuery('');
+  };
+
+  // Handle search input change
+  const handleSearchChange = (text) => {
+    setSearchQuery(text);
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar
-        backgroundColor="transparent"
-        translucent={true}
+        backgroundColor="#FFF"
+        translucent={false}
         barStyle="dark-content"
       />
-
-      {/* Fixed Header Title - Shows on scroll */}
-      <Animated.View
-        style={[
-          styles.fixedHeaderTitle,
-          {
-            opacity: titleOpacity,
-            zIndex: titleIndex,
-          }
-        ]}>
-        <Image source={require('../../assets/icon.png')} style={styles.fixedHeaderImage} />
-        <TouchableOpacity
-          style={styles.notificationIconButton}
-          onPress={() => safeNavigate('Notification')}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Icon name="notifications-outline" size={24} color="#000" />
-        </TouchableOpacity>
-      </Animated.View>
 
       <Animated.ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollViewContent}
         scrollEventThrottle={16}
+        refreshing={loadingFruits}
+        onRefresh={handleRefresh}
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { y: scrollY } } }],
           { useNativeDriver: false }
         )}
+        refreshControl={
+          <RefreshControl
+            refreshing={loadingFruits}
+            onRefresh={handleRefresh}
+            colors={[Colors.light.primary]}
+            progressBackgroundColor="#FFFFFF"
+          />
+        }
       >
         {/* Collapsible Header */}
         <Animated.View style={[
@@ -365,6 +529,7 @@ const FarmerHomeScreen = () => {
               <TouchableOpacity
                 style={styles.userInfo}
                 onPress={() => safeNavigate('ProfileScreen')}
+                onLongPress={addTestFruit}
                 activeOpacity={0.8}
                 hitSlop={{ top: 10, bottom: 10, left: 0, right: 10 }}
               >
@@ -393,10 +558,24 @@ const FarmerHomeScreen = () => {
             <View style={styles.searchBox}>
               <Icon name="search" size={20} color="#939393" style={{ marginLeft: 12 }} />
               <TextInput
-                placeholder="Search fruits, farmers..."
+                placeholder="Search fruits, location, grade..."
                 placeholderTextColor="#939393"
                 style={styles.searchInput}
+                value={searchQuery}
+                onChangeText={handleSearchChange}
+                returnKeyType="search"
+                autoCapitalize="none"
+                autoCorrect={false}
               />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity 
+                  onPress={clearSearch}
+                  style={styles.clearSearchButton}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Icon name="close-circle" size={18} color="#939393" />
+                </TouchableOpacity>
+              )}
             </View>
 
             <TouchableOpacity style={styles.filterBtn}>
@@ -421,14 +600,14 @@ const FarmerHomeScreen = () => {
                 key={index}
                 style={[
                   styles.categoryCard,
-                  selectedCategory === item.name && styles.selectedCategoryCard
+                  selectedCategory === item.type && styles.selectedCategoryCard
                 ]}
-                onPress={() => setSelectedCategory(item.name)}
+                onPress={() => setSelectedCategory(item.type)}
               >
                 <Image source={item.icon} style={styles.categoryImage} />
                 <Text style={[
                   styles.categoryText,
-                  selectedCategory === item.name && styles.selectedCategoryText
+                  selectedCategory === item.type && styles.selectedCategoryText
                 ]}>{item.name}</Text>
               </TouchableOpacity>
             ))}
@@ -438,14 +617,23 @@ const FarmerHomeScreen = () => {
         {/* My Listings Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>My Listings</Text>
+            <View>
+              <Text style={styles.sectionTitle}>My Listings</Text>
+              {(searchQuery || selectedCategory !== 'all') && (
+                <Text style={styles.searchResultsText}>
+                  {searchQuery && `"${searchQuery}" • `}
+                  {selectedCategory !== 'all' && `${selectedCategory} • `}
+                  {!showHistory ? getFilteredFruits(activeFruits).length : getFilteredFruits(fruitHistory).length} results
+                </Text>
+              )}
+            </View>
             <View style={styles.tabContainer}>
               <TouchableOpacity
                 style={[styles.tab, !showHistory && styles.activeTab]}
                 onPress={() => setShowHistory(false)}
               >
                 <Text style={[styles.tabText, !showHistory && styles.activeTabText]}>
-                  Active ({myActiveFruits.length})
+                  Active ({getFilteredFruits(activeFruits).length})
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -453,7 +641,7 @@ const FarmerHomeScreen = () => {
                 onPress={() => setShowHistory(true)}
               >
                 <Text style={[styles.tabText, showHistory && styles.activeTabText]}>
-                  History ({myFruitHistory.length})
+                  History ({getFilteredFruits(fruitHistory).length})
                 </Text>
               </TouchableOpacity>
             </View>
@@ -462,26 +650,55 @@ const FarmerHomeScreen = () => {
           {!showHistory ? (
             // Active Listings
             <View>
-              {myActiveFruits.length === 0 ? (
+              {loadingFruits ? (
+                <LoadingFruits />
+              ) : activeFruits.length === 0 ? (
                 <View style={styles.emptyState}>
                   <Icon name="leaf-outline" size={64} color="#E0E0E0" />
                   <Text style={styles.emptyStateText}>No Active Listings</Text>
                   <Text style={styles.emptyStateSubtext}>
                     You haven't listed any fruits yet.{'\n'}
-                    Contact admin to add your harvest.
+                    Start by adding your first fruit listing.
                   </Text>
+                  <TouchableOpacity
+                    style={styles.refreshButton}
+                    onPress={handleRefresh}
+                  >
+                    <Icon name="refresh-outline" size={20} color={Colors.light.primary} />
+                    <Text style={styles.refreshButtonText}>Refresh</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : getFilteredFruits(activeFruits).length === 0 ? (
+                <View style={styles.emptyState}>
+                  <Icon name="search-outline" size={64} color="#E0E0E0" />
+                  <Text style={styles.emptyStateText}>No Results Found</Text>
+                  <Text style={styles.emptyStateSubtext}>
+                    {searchQuery ? `No fruits match "${searchQuery}"` : `No ${selectedCategory === 'all' ? '' : selectedCategory + ' '}fruits found`}
+                    {'\n'}Try adjusting your search or filters.
+                  </Text>
+                  {(searchQuery || selectedCategory !== 'all') && (
+                    <TouchableOpacity
+                      style={styles.refreshButton}
+                      onPress={() => {
+                        setSearchQuery('');
+                        setSelectedCategory('all');
+                      }}
+                    >
+                      <Icon name="refresh-outline" size={20} color={Colors.light.primary} />
+                      <Text style={styles.refreshButtonText}>Clear Filters</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               ) : (
                 <FlatList
                   key={selectedCategory} // Force re-render when category changes
-                  data={myActiveFruits.filter(fruit => 
-                    selectedCategory === 'All Fruits' || 
-                    fruit.category.toLowerCase().includes(selectedCategory.toLowerCase().replace('s', ''))
-                  )}
-                  keyExtractor={(item) => item.id.toString()}
+                  data={getFilteredFruits(activeFruits)}
+                  keyExtractor={(item) => item.id || item._id || `fruit_${Math.random()}`}
                   numColumns={2}
                   showsVerticalScrollIndicator={false}
                   columnWrapperStyle={styles.fruitRow}
+                  refreshing={loadingFruits}
+                  onRefresh={handleRefresh}
                   renderItem={({ item }) => (
                     <TouchableOpacity
                       style={styles.fruitCard}
@@ -490,9 +707,19 @@ const FarmerHomeScreen = () => {
                         productId: item.id,
                         product: item
                       })}
+                      onLongPress={() => markFruitAsSold(item)}
                     >
                       <View style={styles.fruitImageContainer}>
-                        <Image source={item.image} style={styles.fruitImage} />
+                        <Image
+                          source={{ 
+                            uri: (item.image_urls && item.image_urls[0]) || 'https://via.placeholder.com/150'
+                          }}
+                          style={styles.fruitImage}
+                          defaultSource={require('../../assets/fruits/banana.png')}
+                          onError={(error) => {
+                            console.log('Image load error for fruit:', item.id, error);
+                          }}
+                        />
                         <View style={styles.statusBadge}>
                           <View style={[styles.statusDot, { backgroundColor: '#4CAF50' }]} />
                           <Text style={styles.statusText}>Live</Text>
@@ -500,24 +727,32 @@ const FarmerHomeScreen = () => {
                       </View>
 
                       <View style={styles.fruitDetails}>
-                        <Text style={styles.fruitName} numberOfLines={1}>{item.name}</Text>
-                        <Text style={styles.dateText}>{item.listedDate}</Text>
-                        
+                        <Text style={styles.fruitName} numberOfLines={1}>
+                          {item.name || 'Unnamed Fruit'}
+                        </Text>
+                        <Text style={styles.dateText}>
+                          {getRelativeTime(item.created_at || new Date().toISOString())}
+                        </Text>
+
                         <View style={styles.priceRow}>
-                          <Text style={styles.fruitPrice}>{item.price}</Text>
-                          <Text style={styles.originalPrice}>{item.originalPrice}</Text>
+                          <Text style={styles.fruitPrice}>
+                            {formatPrice(item.price_per_kg || 0)}
+                          </Text>
+                          <Text style={styles.gradeText}>Grade {item.grade || 'A'}</Text>
                         </View>
 
                         <View style={styles.statsRow}>
                           <View style={styles.statItem}>
                             <Icon name="eye-outline" size={12} color="#757575" />
-                            <Text style={styles.statText}>{item.views}</Text>
+                            <Text style={styles.statText}>{item.views || 0}</Text>
                           </View>
                           <View style={styles.statItem}>
-                            <Icon name="chatbubble-outline" size={12} color="#757575" />
-                            <Text style={styles.statText}>{item.inquiries}</Text>
+                            <Icon name="heart-outline" size={12} color="#757575" />
+                            <Text style={styles.statText}>{item.likes || 0}</Text>
                           </View>
-                          <Text style={styles.availableText}>{item.available}</Text>
+                          <Text style={styles.availableText}>
+                            {formatFruitQuantity(item.quantity || [0, 0])}
+                          </Text>
                         </View>
                       </View>
                     </TouchableOpacity>
@@ -528,7 +763,9 @@ const FarmerHomeScreen = () => {
           ) : (
             // History Listings
             <View>
-              {myFruitHistory.length === 0 ? (
+              {loadingFruits ? (
+                <LoadingFruits />
+              ) : fruitHistory.length === 0 ? (
                 <View style={styles.emptyState}>
                   <Icon name="time-outline" size={64} color="#E0E0E0" />
                   <Text style={styles.emptyStateText}>No History Yet</Text>
@@ -536,12 +773,42 @@ const FarmerHomeScreen = () => {
                     Your past listings will appear here.{'\n'}
                     Start listing fruits to build your history.
                   </Text>
+                  <TouchableOpacity
+                    style={styles.refreshButton}
+                    onPress={handleRefresh}
+                  >
+                    <Icon name="refresh-outline" size={20} color={Colors.light.primary} />
+                    <Text style={styles.refreshButtonText}>Refresh</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : getFilteredFruits(fruitHistory).length === 0 ? (
+                <View style={styles.emptyState}>
+                  <Icon name="search-outline" size={64} color="#E0E0E0" />
+                  <Text style={styles.emptyStateText}>No Results Found</Text>
+                  <Text style={styles.emptyStateSubtext}>
+                    {searchQuery ? `No history matches "${searchQuery}"` : `No ${selectedCategory === 'all' ? '' : selectedCategory + ' '}history found`}
+                    {'\n'}Try adjusting your search or filters.
+                  </Text>
+                  {(searchQuery || selectedCategory !== 'all') && (
+                    <TouchableOpacity
+                      style={styles.refreshButton}
+                      onPress={() => {
+                        setSearchQuery('');
+                        setSelectedCategory('all');
+                      }}
+                    >
+                      <Icon name="refresh-outline" size={20} color={Colors.light.primary} />
+                      <Text style={styles.refreshButtonText}>Clear Filters</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               ) : (
                 <FlatList
-                  data={myFruitHistory}
-                  keyExtractor={(item) => item.id.toString()}
+                  data={getFilteredFruits(fruitHistory)}
+                  keyExtractor={(item) => item.id || item._id || `history_${Math.random()}`}
                   showsVerticalScrollIndicator={false}
+                  refreshing={loadingFruits}
+                  onRefresh={handleRefresh}
                   renderItem={({ item }) => (
                     <TouchableOpacity
                       style={styles.historyCard}
@@ -551,39 +818,57 @@ const FarmerHomeScreen = () => {
                         product: item
                       })}
                     >
-                      <Image source={item.image} style={styles.historyImage} />
+                      <Image
+                        source={{ 
+                          uri: (item.image_urls && item.image_urls[0]) || 'https://via.placeholder.com/150'
+                        }}
+                        style={styles.historyImage}
+                        defaultSource={require('../../assets/fruits/banana.png')}
+                        onError={(error) => {
+                          console.log('History image load error for fruit:', item.id, error);
+                        }}
+                      />
                       <View style={styles.historyDetails}>
                         <View style={styles.historyHeader}>
-                          <Text style={styles.historyName} numberOfLines={1}>{item.name}</Text>
-                          <View style={[styles.historyStatusBadge, 
-                            item.status === 'sold_out' ? styles.soldOutBadge : styles.expiredBadge]}>
+                          <Text style={styles.historyName} numberOfLines={1}>
+                            {item.name || 'Unnamed Fruit'}
+                          </Text>
+                          <View style={[styles.historyStatusBadge,
+                          item.status === 'sold' ? styles.soldOutBadge : styles.expiredBadge]}>
                             <Text style={[styles.historyStatusText,
-                              item.status === 'sold_out' ? styles.soldOutText : styles.expiredText]}>
-                              {item.status === 'sold_out' ? 'Sold Out' : 'Expired'}
+                            item.status === 'sold' ? styles.soldOutText : styles.expiredText]}>
+                              {item.status === 'sold' ? 'Sold Out' : 'Expired'}
                             </Text>
                           </View>
                         </View>
-                        <Text style={styles.historyDate}>{item.listedDate}</Text>
-                        <Text style={styles.historyPrice}>{item.price}</Text>
-                        
+                        <Text style={styles.historyDate}>
+                          {getRelativeTime(item.created_at || new Date().toISOString())}
+                        </Text>
+                        <Text style={styles.historyPrice}>
+                          {formatPrice(item.price_per_kg || 0)}
+                        </Text>
+
                         <View style={styles.historyStats}>
                           <View style={styles.historyStat}>
                             <Icon name="eye-outline" size={12} color="#757575" />
-                            <Text style={styles.historyStatText}>{item.views} views</Text>
+                            <Text style={styles.historyStatText}>{item.views || 0} views</Text>
                           </View>
                           <View style={styles.historyStat}>
-                            <Icon name="chatbubble-outline" size={12} color="#757575" />
-                            <Text style={styles.historyStatText}>{item.inquiries} inquiries</Text>
+                            <Icon name="heart-outline" size={12} color="#757575" />
+                            <Text style={styles.historyStatText}>{item.likes || 0} likes</Text>
                           </View>
-                          {item.soldQuantity && (
-                            <View style={styles.historyStat}>
-                              <Icon name="checkmark-circle-outline" size={12} color="#4CAF50" />
-                              <Text style={styles.historyStatText}>Sold {item.soldQuantity}</Text>
-                            </View>
-                          )}
+                          <View style={styles.historyStat}>
+                            <Icon name="location-outline" size={12} color="#757575" />
+                            <Text style={styles.historyStatText}>
+                              {formatLocation(item.location || {})}
+                            </Text>
+                          </View>
                         </View>
                       </View>
-                      <TouchableOpacity style={styles.relistButton}>
+                      <TouchableOpacity 
+                        style={styles.relistButton}
+                        onPress={() => reactivateFruit(item)}
+                      >
                         <Icon name="refresh-outline" size={16} color={Colors.light.primary} />
                       </TouchableOpacity>
                     </TouchableOpacity>
@@ -594,6 +879,24 @@ const FarmerHomeScreen = () => {
           )}
         </View>
       </Animated.ScrollView>
+
+      {/* Fixed Header Title - Shows on scroll - Rendered last to ensure it's on top */}
+      <Animated.View
+        style={[
+          styles.fixedHeaderTitle,
+          {
+            opacity: titleOpacity,
+          }
+        ]}>
+        <Image source={require('../../assets/icon.png')} style={styles.fixedHeaderImage} />
+        <TouchableOpacity
+          style={styles.notificationIconButton}
+          onPress={() => safeNavigate('Notification')}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Icon name="notifications-outline" size={24} color="#000" />
+        </TouchableOpacity>
+      </Animated.View>
     </SafeAreaView>
   );
 };
@@ -602,6 +905,9 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: '#ffffff',
+    top: 0,
+    left: 0,
+    right: 0,
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   scrollViewContent: {
@@ -618,7 +924,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 8,
     elevation: 3,
-    zIndex: 10,
   },
   fixedHeaderTitle: {
     position: 'absolute',
@@ -633,7 +938,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderBottomWidth: 1,
     borderBottomColor: '#EFEFEF',
-    zIndex: 1000,
+    zIndex: 100,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   fixedHeaderImage: {
     width: 160,
@@ -720,6 +1029,11 @@ const styles = StyleSheet.create({
     color: '#505050',
     height: 48,
   },
+  clearSearchButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    marginRight: 8,
+  },
   filterBtn: {
     backgroundColor: '#E8F5E8',
     height: 48,
@@ -746,6 +1060,12 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: '#000000',
+  },
+  searchResultsText: {
+    fontSize: 12,
+    color: '#757575',
+    marginTop: 2,
+    fontStyle: 'italic',
   },
   viewAll: {
     fontSize: 14,
@@ -913,6 +1233,11 @@ const styles = StyleSheet.create({
     color: Colors.light.primaryDark,
     marginRight: 6,
   },
+  gradeText: {
+    fontSize: 11,
+    color: '#757575',
+    fontWeight: '500',
+  },
   originalPrice: {
     fontSize: 11,
     color: '#757575',
@@ -1023,6 +1348,44 @@ const styles = StyleSheet.create({
     padding: 8,
     backgroundColor: '#F0F9FF',
     borderRadius: 8,
+    marginLeft: 8,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  loadingCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#333333',
+    marginLeft: 12,
+  },
+  refreshButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.light.primaryLight,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginTop: 16,
+  },
+  refreshButtonText: {
+    fontSize: 14,
+    color: Colors.light.primary,
+    fontWeight: '600',
     marginLeft: 8,
   },
 });

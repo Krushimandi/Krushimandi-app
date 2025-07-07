@@ -56,6 +56,8 @@ MyApp is an innovative agricultural marketplace that eliminates middlemen by con
 - **React Native Device Info** - Device information
 - **React Native NetInfo** - Network connectivity
 - **React Native Push Notifications** - Local and remote notifications
+- **GPS Location Services** - Automatic location detection and auto-fill
+- **Google Geocoding API** - Accurate address resolution for Indian locations
 
 ### UI/UX
 - **Custom Design System** - Consistent theming and components
@@ -219,6 +221,7 @@ FACEBOOK_APP_ID=your-facebook-app-id
 
 # Maps & Location
 GOOGLE_MAPS_API_KEY=your-google-maps-key
+GOOGLE_GEOCODING_API_KEY=your-google-geocoding-key  # For accurate address resolution
 
 # Push Notifications
 FCM_SERVER_KEY=your-fcm-server-key
@@ -267,6 +270,8 @@ android {
 <uses-permission android:name="android.permission.CAMERA" />
 <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+<uses-permission android:name="android.permission.VIBRATE" />
+<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 ```
 
 ### iOS Configuration
@@ -285,7 +290,11 @@ android {
 <key>NSPhotoLibraryUsageDescription</key>
 <string>This app needs access to photo library to select product images</string>
 <key>NSLocationWhenInUseUsageDescription</key>
-<string>This app needs location access to find nearby farmers</string>
+<string>This app needs location access to auto-fill your farm location details when listing fruits. This helps buyers find your products and improves the accuracy of your listings.</string>
+<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+<string>This app needs location access to auto-fill your farm location details when listing fruits. This helps buyers find your products and improves the accuracy of your listings.</string>
+<key>NSLocationUsageDescription</key>
+<string>This app needs location access to auto-fill your farm location details when listing fruits.</string>
 ```
 
 ## 🧪 Testing

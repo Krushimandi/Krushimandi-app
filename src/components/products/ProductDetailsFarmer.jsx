@@ -16,26 +16,25 @@ import {
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { Colors } from '../../constants';
+import {
+  formatPrice,
+  formatFruitQuantity,
+  formatLocation
+} from '../../utils/formatters';
 
 const { width } = Dimensions.get('window');
 
 const ProductDetailsFarmer = ({ route, navigation }) => {
   // Get product from route params (passed from FarmerHomeScreen)
   const product = route?.params?.product;
-  
+
   // State for image carousel
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const scrollX = useRef(new Animated.Value(0)).current;
   const imageScrollRef = useRef(null);
 
-  // Mock multiple images - in real app, this would come from product data
-  const productImages = product?.images || [
-    product?.image,
-    // You can add fallback images or use the same image multiple times for demo
-    product?.image,
-    product?.image,
-    product?.image,
-  ].filter(Boolean);
+  // Use image URLs from the new schema
+  const productImages = product?.image_urls || [product?.image].filter(Boolean);
 
   const onImageScroll = Animated.event(
     [{ nativeEvent: { contentOffset: { x: scrollX } } }],
@@ -54,7 +53,7 @@ const ProductDetailsFarmer = ({ route, navigation }) => {
         <View style={styles.errorContainer}>
           <Ionicons name="alert-circle-outline" size={48} color="#E0E0E0" />
           <Text style={styles.errorText}>Product not found</Text>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.backButton}
             onPress={() => navigation.goBack()}
           >
@@ -98,8 +97,8 @@ const ProductDetailsFarmer = ({ route, navigation }) => {
       'This will hide your product from public view and move it to history. You can relist it later if needed.',
       [
         { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Remove', 
+        {
+          text: 'Remove',
           style: 'destructive',
           onPress: () => {
             // Here you would update the product status to 'unlisted' in your backend
@@ -120,8 +119,8 @@ const ProductDetailsFarmer = ({ route, navigation }) => {
       'Please provide details about the sale to help us improve the platform.',
       [
         { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Provide Details', 
+        {
+          text: 'Provide Details',
           onPress: () => showSoldDetailsModal()
         }
       ]
@@ -154,12 +153,12 @@ const ProductDetailsFarmer = ({ route, navigation }) => {
   };
 
   const handleSaleComplete = (saleType) => {
-    const saleTypeText = saleType === 'app_inquiry' 
-      ? '📱 through an app inquiry' 
+    const saleTypeText = saleType === 'app_inquiry'
+      ? '📱 through an app inquiry'
       : saleType === 'direct_sale'
-      ? '🤝 through direct/offline channels'
-      : '🏪 to local market';
-    
+        ? '🤝 through direct/offline channels'
+        : '🏪 to local market';
+
     Alert.alert(
       '📊 Sale Details',
       `You mentioned this was sold ${saleTypeText}.\n\nWhat quantity was sold? This helps us provide better market insights.`,
@@ -188,7 +187,7 @@ const ProductDetailsFarmer = ({ route, navigation }) => {
       { label: '75%', value: 0.75, color: '#45B7D1' },
       { label: '100%', value: 1.0, color: '#96CEB4' }
     ];
-    
+
     const quantityOptions = quantities.map(qty => ({
       text: `${qty.label} (${Math.round(qty.value * parseFloat(product.available.replace(/[^\d.]/g, '')))} kg)`,
       onPress: () => confirmSaleDetails(saleType, saleAmount, qty.label, qty.value)
@@ -209,9 +208,12 @@ const ProductDetailsFarmer = ({ route, navigation }) => {
   };
 
   const confirmSaleDetails = (saleType, saleAmount, quantity, quantityValue) => {
-    const soldAmount = Math.round(quantityValue * parseFloat(product.available.replace(/[^\d.]/g, '')));
-    const estimatedRevenue = soldAmount * parseFloat(product.price.replace(/[^\d.]/g, ''));
-    
+    // Use new schema fields
+    const availableQuantity = product.quantity ? product.quantity[1] : 0; // max quantity
+    const soldAmount = Math.round(quantityValue * availableQuantity);
+    const pricePerKg = product.price_per_kg || 0;
+    const estimatedRevenue = soldAmount * pricePerKg;
+
     const details = {
       productId: product.id,
       saleType,
@@ -219,10 +221,10 @@ const ProductDetailsFarmer = ({ route, navigation }) => {
       quantitySold: quantity,
       quantityValue,
       soldAmount: `${soldAmount} kg`,
-      originalQuantity: product.available,
+      originalQuantity: formatFruitQuantity(product.quantity || [0, 0]),
       estimatedRevenue: `₹${estimatedRevenue.toLocaleString()}`,
       saleDate: new Date().toISOString(),
-      finalPrice: product.price
+      finalPrice: formatPrice(pricePerKg)
     };
 
     // Here you would send this data to your backend for analytics
@@ -230,13 +232,13 @@ const ProductDetailsFarmer = ({ route, navigation }) => {
       '🎉 Sale Recorded Successfully!',
       `Thank you for the details!\n\n📈 ${quantity} of your ${product.name} (${soldAmount} kg) has been marked as sold.\n💰 Estimated revenue: ₹${estimatedRevenue.toLocaleString()}\n\n✨ This data helps improve our platform and provides better market insights for all farmers.`,
       [
-        { 
-          text: '✅ Done', 
+        {
+          text: '✅ Done',
           onPress: () => navigation.goBack()
         }
       ]
     );
-    
+
     // Enhanced analytics data
     console.log('Enhanced Sale Data:', details);
   };
@@ -248,27 +250,27 @@ const ProductDetailsFarmer = ({ route, navigation }) => {
         translucent={true}
         barStyle="dark-content"
       />
-      
+
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity 
+        <TouchableOpacity
           onPress={() => navigation.goBack()}
           style={styles.headerButton}
         >
           <Ionicons name="arrow-back" size={24} color={Colors.light.text} />
         </TouchableOpacity>
-        
+
         <Text style={styles.headerTitle}>Product Overview</Text>
-        
+
         {/* Quick Actions Overlay */}
-          <View style={styles.headerRight}>
-            <TouchableOpacity style={styles.headerButton} onPress={handleShare}>
-              <Ionicons name="share-outline" size={24} color={Colors.light.text} />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.headerButton} onPress={handleEdit}>
-              <Ionicons name="create-outline" size={24} color={Colors.light.text} />
-            </TouchableOpacity>
-          </View>
+        <View style={styles.headerRight}>
+          <TouchableOpacity style={styles.headerButton} onPress={handleShare}>
+            <Ionicons name="share-outline" size={24} color={Colors.light.text} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.headerButton} onPress={handleEdit}>
+            <Ionicons name="create-outline" size={24} color={Colors.light.text} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
@@ -285,9 +287,9 @@ const ProductDetailsFarmer = ({ route, navigation }) => {
             keyExtractor={(item, index) => index.toString()}
             renderItem={({ item, index }) => (
               <View style={styles.imageSlide}>
-                <Image 
-                  source={typeof item === 'string' ? { uri: item } : item} 
-                  style={styles.productImage} 
+                <Image
+                  source={typeof item === 'string' ? { uri: item } : item}
+                  style={styles.productImage}
                 />
                 {/* Image overlay with gradient */}
                 <View style={styles.imageOverlay}>
@@ -300,7 +302,7 @@ const ProductDetailsFarmer = ({ route, navigation }) => {
               </View>
             )}
           />
-          
+
           {/* Image Dots Indicator */}
           {productImages.length > 1 && (
             <View style={styles.dotsContainer}>
@@ -314,7 +316,7 @@ const ProductDetailsFarmer = ({ route, navigation }) => {
                   outputRange: [0.3, 1, 0.3],
                   extrapolate: 'clamp',
                 });
-                
+
                 const scale = scrollX.interpolate({
                   inputRange: [
                     (index - 1) * width,
@@ -324,7 +326,7 @@ const ProductDetailsFarmer = ({ route, navigation }) => {
                   outputRange: [0.8, 1.2, 0.8],
                   extrapolate: 'clamp',
                 });
-                
+
                 return (
                   <Animated.View
                     key={index}
@@ -340,14 +342,6 @@ const ProductDetailsFarmer = ({ route, navigation }) => {
               })}
             </View>
           )}
-          
-          {/* Status Badge */}
-          {product.status === 'active' && (
-            <View style={styles.statusBadge}>
-              {/* <View style={styles.statusIndicator} /> */}
-              <Text style={styles.statusText}>Active</Text>
-            </View>
-          )}
         </View>
 
         {/* Product Info */}
@@ -355,142 +349,274 @@ const ProductDetailsFarmer = ({ route, navigation }) => {
           <View style={styles.productHeader}>
             <View style={styles.productTitleContainer}>
               <Text style={styles.productName}>{product.name}</Text>
-              <View style={styles.categoryBadge}>
-                <Text style={styles.categoryText}>{product.category}</Text>
+
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <View style={styles.categoryBadge}>
+                  <Text style={styles.categoryText}>
+                    {product.type ? product.type.charAt(0).toUpperCase() + product.type.slice(1) : (product.category || 'Fruit')}
+                  </Text>
+                </View>
+                <View style={styles.categoryBadge}>
+                  {/* Status Badge */}
+                  <Text style={styles.statusText}>{product.status.charAt(0).toUpperCase() + product.status.slice(1)}</Text>
+                </View>
               </View>
             </View>
             
             <View style={styles.priceContainer}>
-              <Text style={styles.currentPrice}>{product.price}</Text>
-              {product.originalPrice && (
-                <Text style={styles.originalPrice}>{product.originalPrice}</Text>
-              )}
+              <Text style={styles.currentPrice}>{formatPrice(product.price_per_kg || 0)}</Text>
+              <Text style={styles.gradeText}>Grade {product.grade || 'A'}</Text>
             </View>
           </View>
 
-          {/* Enhanced Product Stats with better visuals */}
+          {/* Modern Square Product Stats Cards */}
           <View style={styles.statsContainer}>
-            <View style={[styles.statCard, { backgroundColor: '#E3F2FD' }]}>
-              <View style={styles.statIconContainer}>
-                <Ionicons name="eye-outline" size={20} color="#1976D2" />
+            {/* Views Card */}
+            <TouchableOpacity
+              style={[styles.statCard, styles.viewsCard]}
+              activeOpacity={0.8}
+              onPress={() => {
+                console.log('Views analytics pressed');
+              }}
+            >
+              <View style={[styles.statIconContainer, styles.viewsIconContainer]}>
+                <Ionicons name="eye" size={24} color="#1976D2" />
               </View>
               <Text style={styles.statNumber}>{product.views}</Text>
-              <Text style={styles.statLabel}>Views Today</Text>
-              <Text style={styles.statTrend}>+12% ↗️</Text>
-            </View>
-            <View style={[styles.statCard, { backgroundColor: '#E8F5E8' }]}>
-              <View style={styles.statIconContainer}>
-                <Ionicons name="mail-outline" size={20} color="#388E3C" />
-              </View>
-              <Text style={styles.statNumber}>{product.inquiries}</Text>
-              <Text style={styles.statLabel}>Inquiries</Text>
-              <Text style={styles.statTrend}>
-                {product.inquiries > 5 ? '🔥 Hot' : product.inquiries > 2 ? '📈 Good' : '🌱 Growing'}
-              </Text>
-            </View>
-            <View style={[styles.statCard, { backgroundColor: '#FFF3E0' }]}>
-              <View style={styles.statIconContainer}>
-                <Ionicons name="time-outline" size={20} color="#F57C00" />
-              </View>
-              <Text style={styles.statNumber}>{product.listedDate}</Text>
-              <Text style={styles.statLabel}>Days Active</Text>
-              <Text style={styles.statTrend}>⭐ Fresh</Text>
-            </View>
-          </View>
-        </View>
+              <Text style={styles.statLabel}>Views</Text>
+            </TouchableOpacity>
 
-        {/* Details Section */}
-        <View style={styles.detailsSection}>
-          <Text style={styles.sectionTitle}>Product Details</Text>
-          
-          <View style={styles.detailCard}>
-            <View style={styles.detailRow}>
-              <View style={styles.detailIcon}>
-                <Ionicons name="location" size={20} color={Colors.light.success} />
-              </View>
-              <View style={styles.detailContent}>
-                <Text style={styles.detailLabel}>Location</Text>
-                <Text style={styles.detailValue}>{product.location}</Text>
-              </View>
-            </View>
-            
-            <View style={styles.detailDivider} />
-            
-            <View style={styles.detailRow}>
-              <View style={styles.detailIcon}>
-                <Ionicons name="cube" size={20} color={Colors.light.primary} />
-              </View>
-              <View style={styles.detailContent}>
-                <Text style={styles.detailLabel}>Available Quantity</Text>
-                <Text style={styles.detailValue}>{product.available}</Text>
-              </View>
-            </View>
-
-            {product.rating && (
-              <>
-                <View style={styles.detailDivider} />
-                <View style={styles.detailRow}>
-                  <View style={styles.detailIcon}>
-                    <Ionicons name="star" size={20} color="#FFD700" />
-                  </View>
-                  <View style={styles.detailContent}>
-                    <Text style={styles.detailLabel}>Rating</Text>
-                    <Text style={styles.detailValue}>{product.rating}/5.0</Text>
-                  </View>
-                </View>
-              </>
-            )}
-          </View>
-        </View>
-
-        <View style={styles.bottomSpacing} />
-      </ScrollView>
-
-      {/* Bottom Actions */}
-      <View style={styles.bottomActions}>
-        {product.status === 'active' ? (
-          <>
-            <TouchableOpacity 
-              style={styles.inquiriesButton}
-              onPress={handleViewRequests}
+            {/* Inquiries Card */}
+            <TouchableOpacity
+              style={[styles.statCard, styles.inquiriesCard]}
+              activeOpacity={0.8}
+              onPress={() => {
+                console.log('Likes pressed');
+              }}
             >
-              {product.inquiries > 0 && (
+              <View style={[styles.statIconContainer, styles.inquiriesIconContainer]}>
+                <Ionicons name="heart" size={24} color="#388E3C" />
+              </View>
+              <Text style={styles.statNumber}>{product.likes || 0}</Text>
+              <Text style={styles.statLabel}>Likes</Text>
+            </TouchableOpacity>
+
+            {/* Days Active Card */}
+            <TouchableOpacity
+              style={[styles.statCard, styles.daysActiveCard]}
+              activeOpacity={0.8}
+              onPress={() => {
+                console.log('Days active history pressed');
+              }}
+            >
+              <View style={[styles.statIconContainer, styles.daysActiveIconContainer]}>
+                <Ionicons name="calendar" size={24} color="#F57C00" />
+              </View>
+              <Text style={[styles.statNumber, styles.daysActiveStatNumber]}>
+                {product.created_at ?
+                  Math.ceil((new Date() - new Date(product.created_at)) / (1000 * 60 * 60 * 24)) :
+                  (product.listedDate || '0')
+                }
+              </Text>
+              <Text style={styles.statLabel}>Days ago</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Details Section */ }
+  <View style={styles.detailsSection}>
+    <Text style={styles.sectionTitle}>Product Details</Text>
+
+    <View style={styles.detailCard}>
+      <View style={styles.detailRow}>
+        <View style={styles.detailIcon}>
+          <Ionicons name="location" size={20} color={Colors.light.success} />
+        </View>
+        <View style={styles.detailContent}>
+          <Text style={styles.detailLabel}>Location</Text>
+          <Text style={styles.detailValue}>
+            {product.location ? formatLocation(product.location) : 'Location not available'}
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.detailDivider} />
+
+      <View style={styles.detailRow}>
+        <View style={styles.detailIcon}>
+          <Ionicons name="cube" size={20} color={Colors.light.primary} />
+        </View>
+        <View style={styles.detailContent}>
+          <Text style={styles.detailLabel}>Available Quantity</Text>
+          <Text style={styles.detailValue}>
+            {product.quantity ? formatFruitQuantity(product.quantity) : (product.available || 'Not specified')}
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.detailDivider} />
+
+      <View style={styles.detailRow}>
+        <View style={styles.detailIcon}>
+          <Ionicons name="ribbon" size={20} color="#9C27B0" />
+        </View>
+        <View style={styles.detailContent}>
+          <Text style={styles.detailLabel}>Quality Grade</Text>
+          <Text style={styles.detailValue}>Grade {product.grade || 'A'}</Text>
+        </View>
+      </View>
+
+      <View style={styles.detailDivider} />
+
+      <View style={styles.detailRow}>
+        <View style={styles.detailIcon}>
+          <Ionicons name="leaf" size={20} color="#4CAF50" />
+        </View>
+        <View style={styles.detailContent}>
+          <Text style={styles.detailLabel}>Fruit Type</Text>
+          <Text style={styles.detailValue}>
+            {product.type ? product.type.charAt(0).toUpperCase() + product.type.slice(1) : (product.category || 'Not specified')}
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.detailDivider} />
+
+      <View style={styles.detailRow}>
+        <View style={styles.detailIcon}>
+          <Ionicons name="calendar" size={20} color="#2196F3" />
+        </View>
+        <View style={styles.detailContent}>
+          <Text style={styles.detailLabel}>Availability Date</Text>
+          <Text style={styles.detailValue}>
+            {product.availability_date ? new Date(product.availability_date).toLocaleDateString() : 'Available now'}
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.detailDivider} />
+
+      <View style={styles.detailRow}>
+        <View style={styles.detailIcon}>
+          <Ionicons name="time" size={20} color="#607D8B" />
+        </View>
+        <View style={styles.detailContent}>
+          <Text style={styles.detailLabel}>Listed Date</Text>
+          <Text style={styles.detailValue}>
+            {product.created_at ? 
+              `${Math.ceil((new Date() - new Date(product.created_at)) / (1000 * 60 * 60 * 24))} days ago` : 
+              'Unknown'
+            }
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.detailDivider} />
+
+      <View style={styles.detailRow}>
+        <View style={styles.detailIcon}>
+          <Ionicons name="checkmark-circle" size={20} color={
+            product.status === 'active' ? '#4CAF50' :
+              product.status === 'sold' ? '#2196F3' : '#FF9800'
+          } />
+        </View>
+        <View style={styles.detailContent}>
+          <Text style={styles.detailLabel}>Status</Text>
+          <Text style={[styles.detailValue, {
+            color: product.status === 'active' ? '#4CAF50' :
+              product.status === 'sold' ? '#2196F3' : '#FF9800'
+          }]}>
+            {product.status ? product.status.charAt(0).toUpperCase() + product.status.slice(1) : 'Unknown'}
+          </Text>
+        </View>
+      </View>
+    </View>
+  </View>
+
+  {/* Description Section */ }
+  {
+    product.description && (
+      <View style={styles.descriptionSection}>
+        <Text style={styles.sectionTitle}>Description</Text>
+        <View>
+          <Text style={styles.descriptionText}>{product.description}</Text>
+        </View>
+      </View>
+    )
+  }
+
+  <View style={styles.bottomSpacing} />
+      </ScrollView >
+
+  {/* Modern Bottom Actions */ }
+  < View style = { styles.bottomActions } >
+  {
+    product.status === 'active' ? (
+      <View style={styles.actionsRow}>
+        {/* Main Inquiries Button (3x width) */}
+        <TouchableOpacity
+          style={styles.inquiriesButton}
+          onPress={handleViewRequests}
+          activeOpacity={0.8}
+        >
+
+          {/* Badge */}
+          {/* {product.inquiries > 0 && (
                 <View style={styles.inquiriesBadge}>
                   <Text style={styles.inquiriesBadgeText}>{product.inquiries}</Text>
                 </View>
-              )}
-              <Ionicons name="mail-outline" size={20} color="#FFF" style={styles.buttonIcon} />
-              <Text style={styles.inquiriesButtonText}>
-                {product.inquiries > 0 ? 'View Inquiries' : 'No Inquiries'}
+              )} */}
+
+          <View style={styles.inquiriesButtonContent}>
+            <View style={styles.inquiriesIcon}>
+              <Ionicons name="mail-outline" size={20} color="#FFF" />
+            </View>
+            <View style={styles.inquiriesTextContainer}>
+              <Text style={styles.inquiriesButtonTitle}>
+                {(product.likes || 0) > 0 ? 'View Interest' : 'No Interest Yet'}
               </Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={styles.removeButton}
-              onPress={handleRemoveFromListing}
-            >
-              <Ionicons name="eye-off-outline" size={20} color="#FFF" />
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={styles.soldButton}
-              onPress={handleMarkSold}
-            >
-              <Ionicons name="checkmark-circle-outline" size={20} color="#FFF" style={styles.buttonIcon} />
-              <Text style={styles.soldButtonText}>Mark Sold</Text>
-            </TouchableOpacity>
-          </>
-        ) : (
-          <TouchableOpacity 
-            style={styles.relistButton}
-            onPress={() => Alert.alert('Relist Product', 'This feature would allow you to make the product active again.')}
-          >
-            <Ionicons name="refresh-outline" size={20} color="#FFF" style={styles.buttonIcon} />
-            <Text style={styles.relistButtonText}>Relist Product</Text>
-          </TouchableOpacity>
-        )}
+              <Text style={styles.inquiriesButtonSubtitle}>
+                {(product.likes || 0) > 0
+                  ? `${product.likes} buyer${(product.likes || 0) > 1 ? 's' : ''} interested`
+                  : 'Buyers will show interest here'
+                }
+              </Text>
+            </View>
+          </View>
+        </TouchableOpacity>
+
+        {/* Secondary Actions (1x width each) */}
+        <TouchableOpacity
+          style={styles.removeButton}
+          onPress={handleRemoveFromListing}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="eye-off-outline" size={20} color="#FFF" />
+          <Text style={styles.secondaryButtonText}>Hide</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.soldButton}
+          onPress={handleMarkSold}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="checkmark-circle-outline" size={20} color="#FFF" />
+          <Text style={styles.secondaryButtonText}>Sold</Text>
+        </TouchableOpacity>
       </View>
-    </SafeAreaView>
+    ) : (
+      <TouchableOpacity
+        style={styles.relistButton}
+        onPress={() => Alert.alert('Relist Product', 'This feature would allow you to make the product active again.')}
+        activeOpacity={0.8}
+      >
+        <Ionicons name="refresh-outline" size={22} color="#FFF" style={styles.buttonIcon} />
+        <Text style={styles.relistButtonText}>Relist Product</Text>
+      </TouchableOpacity>
+    )
+  }
+      </View >
+    </SafeAreaView >
   );
 };
 
@@ -538,7 +664,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
-    elevation: 2,
   },
   headerButton: {
     padding: 8,
@@ -633,7 +758,7 @@ const styles = StyleSheet.create({
     left: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.light.success ,
+    backgroundColor: Colors.light.success,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 24,
@@ -674,15 +799,21 @@ const styles = StyleSheet.create({
   },
   categoryBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: Colors.light.primaryLight,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
+    backgroundColor: Colors.light.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    borderRadius: 20,
+    shadowColor: Colors.light.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 3,
   },
   categoryText: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#FFF',
+    fontWeight: '700',
+    color: Colors.light.background,
+    letterSpacing: 0.5,
   },
   priceContainer: {
     flexDirection: 'row',
@@ -694,6 +825,11 @@ const styles = StyleSheet.create({
     color: Colors.light.success,
     marginRight: 12,
   },
+  gradeText: {
+    fontSize: 14,
+    color: Colors.light.textSecondary,
+    fontWeight: '500',
+  },
   originalPrice: {
     fontSize: 16,
     color: Colors.light.textSecondary,
@@ -703,51 +839,77 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginTop: 20,
+    marginHorizontal: -12,
   },
   statCard: {
     flex: 1,
     backgroundColor: '#F8F9FA',
     padding: 20,
-    borderRadius: 16,
+    borderRadius: 20,
     alignItems: 'center',
+    justifyContent: 'center',
     marginHorizontal: 6,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
     elevation: 3,
+    minHeight: 140,
+    aspectRatio: 1,
   },
   statIconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: Colors.light.background,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 3,
+    elevation: 1,
+    marginBottom: 16,
   },
   statNumber: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: '800',
     color: Colors.light.text,
-    marginBottom: 4,
+    marginBottom: 8,
   },
   statLabel: {
     fontSize: 12,
     color: Colors.light.textSecondary,
     fontWeight: '600',
-    marginBottom: 4,
+    textAlign: 'center',
+    lineHeight: 16,
   },
-  statTrend: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: Colors.light.success,
+
+  viewsCard: {
+    backgroundColor: '#F8F9FA',
+    borderColor: '#E3F2FD',
+    borderWidth: 1,
   },
+  inquiriesCard: {
+    backgroundColor: '#F8F9FA',
+    borderColor: '#E3F2FD',
+    borderWidth: 1,
+  },
+  daysActiveCard: {
+    backgroundColor: '#F8F9FA',
+    borderColor: '#E3F2FD',
+    borderWidth: 1,
+  },
+  viewsIconContainer: {
+    backgroundColor: '#F8F9FA',
+  },
+  inquiriesIconContainer: {
+    backgroundColor: '#F8F9FA',
+  },
+  daysActiveIconContainer: {
+    backgroundColor: '#FFF3C4',
+  },
+
   detailsSection: {
     padding: 20,
     backgroundColor: Colors.light.background,
@@ -796,6 +958,53 @@ const styles = StyleSheet.create({
     backgroundColor: '#E9ECEF',
     marginVertical: 8,
   },
+  descriptionSection: {
+    padding: 20,
+    backgroundColor: Colors.light.background,
+  },
+
+  descriptionText: {
+    fontSize: 16,
+    lineHeight: 24,
+    color: Colors.light.textSecondary,
+  },
+  analyticsSection: {
+    padding: 20,
+    backgroundColor: Colors.light.background,
+  },
+  analyticsGrid: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  analyticsCard: {
+    flex: 1,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+  },
+  analyticsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  analyticsTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.light.textSecondary,
+    marginLeft: 6,
+  },
+  analyticsValue: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: Colors.light.text,
+    marginBottom: 4,
+  },
+  analyticsLabel: {
+    fontSize: 11,
+    color: Colors.light.textSecondary,
+    textAlign: 'center',
+  },
   insightsSection: {
     padding: 20,
     backgroundColor: Colors.light.background,
@@ -834,33 +1043,69 @@ const styles = StyleSheet.create({
     height: 100,
   },
   bottomActions: {
-    flexDirection: 'row',
-    padding: 20,
+    paddingHorizontal: 12,
+    paddingBottom: 20,
+    paddingTop: 16,
     backgroundColor: Colors.light.background,
     borderTopWidth: 1,
     borderTopColor: Colors.light.borderLight,
-    gap: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    alignItems: 'stretch',
   },
   inquiriesButton: {
-    flex: 1,
+    flex: 3,
     backgroundColor: Colors.light.primary,
-    paddingVertical: 16,
-    borderRadius: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 16,
     position: 'relative',
     shadowColor: Colors.light.primary,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  inquiriesButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  inquiriesIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  inquiriesTextContainer: {
+    flex: 1,
+  },
+  inquiriesButtonTitle: {
+    color: Colors.light.background,
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 1,
+  },
+  inquiriesButtonSubtitle: {
+    color: 'rgba(255,255,255,0.8)',
+    fontSize: 11,
+    fontWeight: '500',
+    lineHeight: 14,
   },
   inquiriesBadge: {
     position: 'absolute',
-    top: -8,
-    right: 16,
-    backgroundColor: Colors.light.error,
+    top: -6,
+    right: 12,
+    backgroundColor: '#FF4444',
     borderRadius: 12,
     minWidth: 24,
     height: 24,
@@ -868,25 +1113,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 2,
     borderColor: Colors.light.background,
+    shadowColor: '#FF4444',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
   },
   inquiriesBadgeText: {
     color: Colors.light.background,
     fontSize: 12,
-    fontWeight: '700',
-  },
-  inquiriesButtonText: {
-    color: Colors.light.background,
-    fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 8,
+    fontWeight: '800',
   },
   removeButton: {
-    width: 56,
-    height: 56,
+    flex: 1,
     borderRadius: 16,
     backgroundColor: '#FF6B6B',
     justifyContent: 'center',
     alignItems: 'center',
+    paddingVertical: 10,
     shadowColor: '#FF6B6B',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
@@ -895,29 +1139,27 @@ const styles = StyleSheet.create({
   },
   soldButton: {
     flex: 1,
+    borderRadius: 16,
     backgroundColor: Colors.light.success,
-    paddingVertical: 16,
-    borderRadius: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 10,
     shadowColor: Colors.light.success,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 4,
   },
-  soldButtonText: {
+  secondaryButtonText: {
     color: Colors.light.background,
-    fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 8,
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 3,
   },
   relistButton: {
-    flex: 1,
     backgroundColor: Colors.light.primary,
-    paddingVertical: 16,
-    borderRadius: 12,
+    paddingVertical: 18,
+    borderRadius: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

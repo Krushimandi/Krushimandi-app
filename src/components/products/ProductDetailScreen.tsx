@@ -13,54 +13,448 @@ import {
   PanResponder,
   Animated,
   Alert,
+  FlatList,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Octicons from 'react-native-vector-icons/Octicons';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
 import { Colors } from '../../constants';
-import { ProductStackParamList } from '../../types';
+import { BuyerStackParamList } from '../../navigation/types';
+import { type Fruit } from '../../types/fruit';
+import { formatPrice, formatLocation, formatFruitQuantity, getRelativeTime, getDisplayParts } from '../../utils/formatters';
+import { toggleWishlist, isInWishlist, getFruitLikesCount, getFruitLikers } from '../../services/wishlistService';
+import Toast from 'react-native-toast-message';
+import firestore from '@react-native-firebase/firestore';
+import auth from '@react-native-firebase/auth';
 
 const { width, height } = Dimensions.get('window');
 
-interface Product {
-  name: string;
-  description: string;
-  price: number;
-  rating: number;
-  reviewCount: number;
-  sizes: string[];
-  freshness: string;
-  details: string;
-  image?: any;
+interface Product extends Fruit {
+  // Additional display properties for compatibility
+  rating?: number;
+  reviewCount?: number;
+  sizes?: string[];
+  freshness?: string;
+  details?: string;
+  image?: any; // For backward compatibility
   postedDate?: string;
+  listedDate?: number; // Number of days since listing
+  farmer_name?: string;
+  farmer_rating?: number;
 }
 
 type ProductDetailScreenProps = {
-  navigation: StackNavigationProp<ProductStackParamList, 'ProductDetail'>;
-  route: RouteProp<ProductStackParamList, 'ProductDetail'>;
+  navigation: StackNavigationProp<BuyerStackParamList, 'ProductDetail'>;
+  route: RouteProp<BuyerStackParamList, 'ProductDetail'>;
 };
 
 const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, route }) => {
-  const [selectedSize, setSelectedSize] = useState<string>('1 kg');
   const [isFavorite, setIsFavorite] = useState<boolean>(false);
+  const [selectedImageIndex, setSelectedImageIndex] = useState<number>(0);
+  const [isWishlistLoading, setIsWishlistLoading] = useState<boolean>(false);
+  const [currentLikes, setCurrentLikes] = useState<number>(0);
+  const [farmerData, setFarmerData] = useState<any>(null);
+  const [farmerReviews, setFarmerReviews] = useState<any[]>([]);
+  const [isFarmerDataLoading, setIsFarmerDataLoading] = useState<boolean>(true);
+ 
+  // Get raw product data from route params
+  const rawProduct = route?.params?.product;
+  // Debug the incoming product data
+  console.log('🔍 Raw product data received:', rawProduct);
+  console.log('🔍 Product ID from params:', rawProduct?.id);
+  console.log('🔍 Route params keys:', route?.params ? Object.keys(route.params) : 'No params');
+  console.log('🔍 All route params:', route?.params);
+
+  // Check if we have valid product data
+  if (!rawProduct) {
+    console.error('❌ No product data at all received.');
+    console.error('❌ Route params:', route?.params);
+    // Show error and navigate back
+    useEffect(() => {
+      Alert.alert(
+        'Error',
+        'Product information not found. Please try again.',
+        [{ text: 'OK', onPress: () => navigation.goBack() }]
+      );
+    }, []);
+    
+    // Return a minimal component while navigating back
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Ionicons name="arrow-back" size={24} color="#007E2F" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Product Details</Text>
+          <View style={{ width: 40 }} />
+        </View>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <Text>No product data found</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // If we have product data but no ID, let's still try to proceed with what we have
+  if (!rawProduct.id) {
+    console.warn('⚠️ Product data received but no ID found.');
+    console.warn('⚠️ Raw product:', rawProduct);
+    console.warn('⚠️ Will try to proceed with available data...');
+  }
+
+  // Product data with actual data (fallback ID if missing)
+  const product: Product = {
+    // Use actual data - these should come from navigation params
+    id: rawProduct.id || route?.params?.productId || 'unknown-id',
+    name: rawProduct.name || 'Unknown Product',
+    type: rawProduct.type || 'unknown',
+    grade: rawProduct.grade || 'N/A',
+    description: rawProduct.description || 'No description available',
+    quantity: rawProduct.quantity || [1, 1],
+    price_per_kg: rawProduct.price_per_kg || rawProduct.price || 0,
+    availability_date: rawProduct.availability_date || new Date().toISOString(),
+    image_urls: rawProduct.image_urls || [],
+    location: rawProduct.location || {
+      village: 'Unknown',
+      district: 'Unknown',
+      state: 'Unknown',
+      pincode: '000000',
+      lat: 0,
+      lng: 0
+    },
+    farmer_id: rawProduct.farmer_id || 'unknown-farmer',
+    status: rawProduct.status || 'active',
+    views: rawProduct.views || 0,
+    likes: rawProduct.likes || 0,
+    created_at: rawProduct.created_at || new Date().toISOString(),
+    updated_at: rawProduct.updated_at || new Date().toISOString(),
+    // Display properties with reasonable fallbacks
+    rating: rawProduct.rating || 4.0,
+    reviewCount: rawProduct.reviewCount || 0,
+    sizes: rawProduct.sizes || ['1 kg', '500 gm', '2 kg'],
+    freshness: rawProduct.freshness || 'Fresh',
+    details: rawProduct.details || `${rawProduct.name || 'Product'} from ${rawProduct.location ? formatLocation(rawProduct.location) : 'Unknown location'}`,
+    postedDate: rawProduct.postedDate || (rawProduct.created_at ? getRelativeTime(rawProduct.created_at) : 'Recently'),
+    farmer_name: rawProduct.farmer_name || 'Unknown Farmer',
+    farmer_rating: rawProduct.farmer_rating || 4.0
+  };
+
+  const relativeTime = getRelativeTime(product.created_at);
+  const [topText, bottomText] = getDisplayParts(relativeTime);
+
+
+  console.log('✅ Final product object:', {
+    id: product.id,
+    name: product.name,
+    imageCount: product.image_urls?.length || 0,
+    farmer_id: product.farmer_id,
+    farmer_name: product.farmer_name,
+    hasAllData: !!(product.id && product.name && product.farmer_id)
+  });
+
+  // Debug: Log farmer information
+  console.log('🔍 Farmer info debugging:', {
+    'rawProduct.farmer_id': rawProduct.farmer_id,
+    'rawProduct.farmer_name': rawProduct.farmer_name,
+    'product.farmer_id': product.farmer_id,
+    'product.farmer_name': product.farmer_name,
+    'farmer_id_type': typeof product.farmer_id,
+    'farmer_id_length': product.farmer_id?.length
+  });
+
+  // Initialize current likes from product data
+  useEffect(() => {
+    setCurrentLikes(product.likes || 0);
+    // Also sync with actual wishlists count
+    syncActualLikesCount();
+  }, [product.likes]);
+
+  // Sync the actual likes count from wishlists collection
+  const syncActualLikesCount = async () => {
+    try {
+      if (!product.id || product.id === 'unknown-id') return;
+      
+      console.log('🔄 Syncing actual likes count from wishlists collection...');
+      const actualLikesCount = await getFruitLikesCount(product.id);
+      console.log('📊 Actual likes count from wishlists:', actualLikesCount);
+      console.log('📊 Stored likes count in fruit doc:', product.likes);
+      
+      if (actualLikesCount !== currentLikes) {
+        console.log('📊 Updating local likes count to match actual:', actualLikesCount);
+        setCurrentLikes(actualLikesCount);
+      }
+    } catch (error) {
+      console.error('❌ Error syncing actual likes count:', error);
+    }
+  };
+
+  // Initialize selected quantity with minimum quantity (ensure it's valid)
+  const minQuantity = Array.isArray(product.quantity) ? product.quantity[0] : 1;
 
   // Animation values for the swipe-to-request button
   const pan = useRef(new Animated.Value(0)).current;
   const swipeThreshold = width * 0.3; // 30% of screen width
 
-  // Product data from route params
-  const product: Product = route?.params?.product || {
-    name: 'Hapus Mango',
-    description: 'Category: mango',
-    price: 50,
-    rating: 4.8,
-    reviewCount: 42,
-    sizes: ['1 kg', '500 gm', '2 kg'],
-    freshness: 'Fresh',
-    details: 'Hapus Mango from Ratnagiri, Maharashtra. Available quantity: 10–12 Tons',
-    image: null, // Will use icon instead
-    postedDate: '3 days ago'
+  // Check wishlist status on component mount and increment view count
+  useEffect(() => {
+    // Debug authentication
+    const user = auth().currentUser;
+    console.log('🔐 Current user:', user ? `${user.uid} (${user.email})` : 'Not authenticated');
+    console.log('📱 New Wishlist Structure Info:');
+    console.log('   📂 User likes are stored in: fruits/' + product.id + '/wishlists/' + (user?.uid || 'USER_ID'));
+    console.log('   📂 User wishlist is also in: buyers/' + (user?.uid || 'USER_ID') + '/wishlist/' + product.id);
+    console.log('   ❤️ When user likes: creates document in both locations');
+    console.log('   🗑️ When user unlikes: removes document from both locations');
+    
+    checkWishlistStatus();
+    incrementViewCount();
+    fetchFarmerData();
+  }, [product.id, product.farmer_id]);
+
+  const fetchFarmerData = async () => {
+    if (!product.farmer_id || product.farmer_id === 'unknown-farmer') {
+      console.log('⚠️ No valid farmer ID, skipping farmer data fetch');
+      console.log('⚠️ farmer_id value:', product.farmer_id);
+      setIsFarmerDataLoading(false);
+      return;
+    }
+
+    try {
+      console.log('🔍 Fetching farmer data for ID:', product.farmer_id);
+      console.log('🔍 farmer_id type:', typeof product.farmer_id);
+      console.log('🔍 farmer_id length:', product.farmer_id?.length);
+      setIsFarmerDataLoading(true);
+
+      // Fetch farmer profile
+      const farmerDoc = await firestore()
+        .collection('farmers')
+        .doc(product.farmer_id)
+        .get();
+
+      console.log('🔍 Farmer document exists:', farmerDoc.exists());
+      
+      if (farmerDoc.exists()) {
+        const farmer = farmerDoc.data();
+        console.log('✅ Farmer data fetched:', farmer);
+        console.log('✅ Farmer name field:', farmer?.displayName);
+        console.log('✅ All farmer fields:', Object.keys(farmer || {}));
+        setFarmerData(farmer);
+      } else {
+        console.log('⚠️ Farmer document not found for ID:', product.farmer_id);
+        console.log('⚠️ Checking if this is a valid Firestore document ID...');
+        
+        // Try to fetch all farmers to see what IDs exist (for debugging)
+        const allFarmersSnapshot = await firestore()
+          .collection('farmers')
+          .limit(5)
+          .get();
+        
+        console.log('🔍 Sample farmer IDs in collection:');
+        allFarmersSnapshot.docs.forEach(doc => {
+          console.log('  -', doc.id, '(data:', Object.keys(doc.data() || {}), ')');
+        });
+      }
+
+      // Fetch farmer reviews (if available)
+      const reviewsSnapshot = await firestore()
+        .collection('reviews')
+        .where('farmer_id', '==', product.farmer_id)
+        .orderBy('created_at', 'desc')
+        .limit(5)
+        .get();
+
+      const reviews = reviewsSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+
+      console.log(`✅ Found ${reviews.length} reviews for farmer:`, product.farmer_id);
+      setFarmerReviews(reviews);
+
+    } catch (error: any) {
+      console.error('❌ Error fetching farmer data:', error);
+      console.error('❌ Error details:', {
+        message: error?.message,
+        code: error?.code,
+        farmer_id: product.farmer_id
+      });
+      // Continue with default data on error
+    } finally {
+      setIsFarmerDataLoading(false);
+    }
+  };
+
+  const checkWishlistStatus = async () => {
+    try {
+      console.log('🔍 Checking wishlist status for product:', product.id);
+      console.log('🔍 Using new structure: fruits/{fruitId}/wishlists/{userId}');
+      
+      // Ensure we have a valid product ID before checking wishlist
+      if (!product.id || product.id === 'unknown-id') {
+        console.log('⚠️ Invalid product ID, skipping wishlist check:', product.id);
+        setIsFavorite(false);
+        return;
+      }
+
+      // Get current user
+      const user = auth().currentUser;
+      if (!user) {
+        console.log('⚠️ User not authenticated, cannot check wishlist');
+        setIsFavorite(false);
+        return;
+      }
+
+      console.log('🔍 Checking if user', user.uid, 'has liked fruit:', product.id);
+      
+      const isWishlisted = await isInWishlist(product.id);
+      console.log('✅ User like status for this fruit:', isWishlisted ? '❤️ LIKED' : '🤍 NOT_LIKED');
+      setIsFavorite(isWishlisted);
+    } catch (error) {
+      console.error('❌ Error checking wishlist status:', error);
+      // Default to false on error
+      setIsFavorite(false);
+    }
+  };
+
+  // Increment view count when product detail screen is opened
+  const incrementViewCount = async () => {
+    try {
+      console.log('📈 Incrementing view count for fruit:', product.id);
+      
+      // First check if the document exists
+      const fruitDoc = await firestore()
+        .collection('fruits')
+        .doc(product.id)
+        .get();
+      
+      if (!fruitDoc.exists) {
+        console.log('⚠️ Fruit document does not exist in Firestore:', product.id);
+        console.log('⚠️ This might be sample/test data. Skipping view count increment.');
+        return;
+      }
+      
+      await firestore()
+        .collection('fruits')
+        .doc(product.id)
+        .update({
+          views: firestore.FieldValue.increment(1)
+        });
+      console.log('✅ View count incremented for fruit:', product.id);
+    } catch (error: any) {
+      console.error('❌ Error incrementing view count:', error);
+      if (error?.code === 'firestore/not-found') {
+        console.log('⚠️ Document not found - this might be sample data:', product.id);
+      }
+      // Don't throw error for view count failures
+    }
+  };
+
+  const handleWishlistToggle = async () => {
+    if (isWishlistLoading) return;
+    
+    console.log('🔄 Starting wishlist toggle for fruit:', product.id);
+    console.log('🔄 Current wishlist status:', isFavorite ? 'LIKED ❤️' : 'UNLIKED 🤍');
+    console.log('🔄 Will update: fruits/' + product.id + '/wishlists/{currentUserId}');
+    
+    const previousWishlistStatus = isFavorite;
+    setIsWishlistLoading(true);
+    
+    try {
+      const newWishlistStatus = await toggleWishlist(product.id);
+      console.log('✅ Toggle completed. New wishlist status:', newWishlistStatus ? 'LIKED ❤️' : 'UNLIKED 🤍');
+      console.log('🔄 Previous status:', previousWishlistStatus, '-> New status:', newWishlistStatus);
+      
+      // Validation: Ensure the toggle worked as expected
+      if (previousWishlistStatus === true && newWishlistStatus !== false) {
+        throw new Error(`Toggle validation failed: was LIKED but should now be UNLIKED`);
+      }
+      if (previousWishlistStatus === false && newWishlistStatus !== true) {
+        throw new Error(`Toggle validation failed: was UNLIKED but should now be LIKED`);
+      }
+      
+      // Only update UI if the status actually changed
+      if (previousWishlistStatus !== newWishlistStatus) {
+        setIsFavorite(newWishlistStatus);
+        
+        // Update local like count immediately for better UX
+        const likeChange = newWishlistStatus ? 1 : -1;
+        const newLikeCount = Math.max(0, currentLikes + likeChange);
+        console.log(`💖 Updating like count: ${currentLikes} -> ${newLikeCount} (change: ${likeChange})`);
+        setCurrentLikes(newLikeCount);
+        
+        // Update like count in Firestore and sync with actual count
+        try {
+          // First check if the document exists
+          const fruitDoc = await firestore()
+            .collection('fruits')
+            .doc(product.id)
+            .get();
+          
+          if (!fruitDoc.exists) {
+            console.log('⚠️ Fruit document does not exist in Firestore:', product.id);
+            console.log('⚠️ This might be sample/test data. Skipping like count update.');
+          } else {
+            console.log(`📊 Updating fruit likes field by ${likeChange} for fruit:`, product.id);
+            
+            await firestore()
+              .collection('fruits')
+              .doc(product.id)
+              .update({
+                likes: firestore.FieldValue.increment(likeChange)
+              });
+            console.log(`✅ Fruit likes field ${newWishlistStatus ? 'incremented' : 'decremented'} successfully`);
+            
+            // Sync with actual count from wishlists collection for accuracy
+            setTimeout(async () => {
+              try {
+                const actualCount = await getFruitLikesCount(product.id);
+                console.log('📊 Final sync - actual likes count:', actualCount);
+                setCurrentLikes(actualCount);
+              } catch (syncError) {
+                console.error('❌ Error syncing final count:', syncError);
+              }
+            }, 1000); // Small delay to ensure Firestore consistency
+          }
+        } catch (likeError: any) {
+          console.error('❌ Error updating like count:', likeError);
+          if (likeError?.code === 'firestore/not-found') {
+            console.log('⚠️ Document not found - this might be sample data:', product.id);
+          }
+          // Revert local like count on Firestore error
+          setCurrentLikes(prevLikes => Math.max(0, prevLikes - likeChange));
+        }
+        
+        Toast.show({
+          type: 'success',
+          text1: newWishlistStatus ? '❤️ Added to Wishlist' : '💔 Removed from Wishlist',
+          text2: newWishlistStatus ? `${product.name} has been added to your wishlist` : `${product.name} has been removed from your wishlist`,
+          position: 'bottom',
+          visibilityTime: 3000,
+        });
+      } else {
+        console.log('ℹ️ Wishlist status unchanged, no updates needed');
+      }
+    } catch (error) {
+      console.error('❌ Error toggling wishlist:', error);
+      
+      // Revert the UI state on error
+      setIsFavorite(previousWishlistStatus);
+      setCurrentLikes(product.likes || 0); // Reset to original count
+      
+      Toast.show({
+        type: 'error',
+        text1: '❌ Wishlist Error',
+        text2: 'Unable to update wishlist. Please try again.',
+        position: 'bottom',
+        visibilityTime: 3000,
+      });
+    } finally {
+      setIsWishlistLoading(false);
+    }
   };
 
   // PanResponder for swipe gesture
@@ -109,7 +503,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
   const handleRequestProduct = () => {
     Alert.alert(
       "Request Sent!",
-      `Your request for ${selectedSize} of ${product.name} has been sent to the seller.`,
+      `Your request for ${product.name} (${formatFruitQuantity(product.quantity)}) has been sent to ${product.farmer_name}.`,
       [{ text: "OK" }]
     );
   };
@@ -148,149 +542,988 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
           <Ionicons name="arrow-back" size={24} color="#007E2F" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Product Details</Text>
-        <View style={{ width: 40 }} />  {/* Empty view for alignment */}
+        <TouchableOpacity
+          style={[
+            styles.favoriteButton, 
+            isWishlistLoading && { opacity: 0.6 },
+            isFavorite && styles.favoriteButtonActive
+          ]}
+          onPress={handleWishlistToggle}
+          disabled={isWishlistLoading}
+          activeOpacity={0.7}
+        >
+          {isWishlistLoading ? (
+            <Ionicons name="heart-outline" size={24} color="#999999" />
+          ) : (
+            <Ionicons
+              name={isFavorite ? "heart" : "heart-outline"}
+              size={24}
+              color={isFavorite ? "#FF6B6B" : "#007E2F"}
+            />
+          )}
+        </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Product Image Section with X Button Overlay and Posted Date Badge */}
-        <View style={styles.imageSection}>
-          <View style={styles.imageContainer}>
-            {product.image ? (
-              <Image
-                source={product.image}
-                style={styles.productImage}
-                resizeMode="stretch"
-              />
-            ) : (
-              <View style={styles.imagePlaceholder}>
-                <Ionicons name="leaf" size={80} color="#007E2F" />
-              </View>
-            )}
+      <ScrollView 
+        style={styles.content} 
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 120 }} // Ensure content is scrollable
+      >
+        {/* Modern Product Image Section */}
+        <View style={styles.modernImageSection}>
+          {product.image_urls && product.image_urls.length > 0 ? (
+            <>
+              {/* Main Image Container with Modern Design */}
+              <View style={styles.modernImageContainer}>
+                <Image
+                  source={{ uri: product.image_urls[selectedImageIndex] }}
+                  style={styles.modernProductImage}
+                  resizeMode="cover"
+                />
 
-            {/* Posted Date Badge */}
-            {/* <TouchableOpacity
-              style={styles.ButtonOverlay}
-              onPress={() => navigation.goBack()}
-            >
-              <Text style={styles.postedDateText}>3 Days ago</Text>
-            </TouchableOpacity> */}
+                {/* Status Badge - Modern Style */}
+                <View style={styles.modernStatusBadge}>
+                  <View style={styles.statusIndicator} />
+                  <Text style={styles.modernStatusText}>{product.status?.toUpperCase()}</Text>
+                </View>
 
-            {product.postedDate && (
-              <View style={styles.ButtonOverlay}>
-                <Text style={styles.postedDateText}>{product.postedDate}</Text>
+                {/* Image Counter - Modern Style */}
+                {product.image_urls.length > 1 && (
+                  <View style={styles.modernImageCounter}>
+                    <Text style={styles.modernImageCounterText}>
+                      {selectedImageIndex + 1}/{product.image_urls.length}
+                    </Text>
+                  </View>
+                )}
               </View>
-            )}
-          </View>
+
+              {/* Modern Thumbnail Carousel with Dots */}
+              {product.image_urls.length > 1 && (
+                <View style={styles.modernThumbnailSection}>
+                  <FlatList
+                    data={product.image_urls}
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.modernThumbnailContainer}
+                    keyExtractor={(item, index) => `image-${index}`}
+                    renderItem={({ item, index }) => (
+                      <TouchableOpacity
+                        style={[
+                          styles.modernThumbnailWrapper,
+                          selectedImageIndex === index && styles.modernSelectedThumbnail
+                        ]}
+                        onPress={() => setSelectedImageIndex(index)}
+                        activeOpacity={0.8}
+                      >
+                        <Image
+                          source={{ uri: item }}
+                          style={styles.modernThumbnailImage}
+                          resizeMode="cover"
+                        />
+                        {selectedImageIndex === index && (
+                          <View style={styles.thumbnailOverlay}>
+                            <Ionicons name="checkmark" size={16} color="#FFFFFF" />
+                          </View>
+                        )}
+                      </TouchableOpacity>
+                    )}
+                  />
+                  
+                  {/* Dots Indicator */}
+                  <View style={styles.dotsContainer}>
+                    {product.image_urls.map((_, index) => (
+                      <TouchableOpacity
+                        key={index}
+                        style={[
+                          styles.dot,
+                          selectedImageIndex === index && styles.activeDot
+                        ]}
+                        onPress={() => setSelectedImageIndex(index)}
+                      />
+                    ))}
+                  </View>
+                </View>
+              )}
+            </>
+          ) : (
+            <View style={styles.modernImageContainer}>
+              {/* Modern Fallback for no images */}
+              <View style={styles.modernImagePlaceholder}>
+                <View style={styles.placeholderIconContainer}>
+                  <Ionicons name="image-outline" size={60} color="#007E2F" />
+                </View>
+                <Text style={styles.placeholderText}>No images available</Text>
+              </View>
+
+              {/* Status Badge */}
+              <View style={styles.modernStatusBadge}>
+                <View style={styles.statusIndicator} />
+                <Text style={styles.modernStatusText}>{product.status?.toUpperCase()}</Text>
+              </View>
+            </View>
+          )}
         </View>
 
-        {/* Product Info Section */}
-        <View style={styles.productCard}>
-          {/* Product Name, Category, Price and Favorite Row */}
-          <View style={styles.productHeaderRow}>
-            <View style={styles.productTitleContainer}>
-              <Text style={styles.productName}>{product.name}</Text>
-              <Text style={styles.categoryText}>
-                {product.description.replace('Category: ', '')}
-              </Text>
-            </View>
-            <View style={styles.priceAndFavoriteContainer}>
-              <Text style={styles.price}>₹{product.price}/KG</Text>
-              <TouchableOpacity
-                style={styles.favoriteButton}
-                onPress={() => setIsFavorite(!isFavorite)}
-              >
-                <Ionicons
-                  name={isFavorite ? 'heart' : 'heart-outline'}
-                  size={24}
-                  color={isFavorite ? "#FF3B30" : "#666666"}
-                />
-              </TouchableOpacity>
+        {/* Modern Product Info Card */}
+        <View style={styles.modernProductCard}>
+          {/* Product Header - Name, Grade, Type */}
+          <View style={styles.modernProductHeaderSection}>
+            <Text style={styles.modernProductName}>{product.name}</Text>
+            <View style={styles.modernGradeTypeContainer}>
+              <View style={styles.modernGradeBadge}>
+                <Ionicons name="ribbon" size={14} color="#007E2F" />
+                <Text style={styles.modernGradeText}>Grade {product.grade}</Text>
+              </View>
+              <View style={styles.modernTypeBadge}>
+                <Ionicons name="leaf" size={14} color="#666666" />
+                <Text style={styles.modernTypeText}>{product.type}</Text>
+              </View>
             </View>
           </View>
 
-          {/* Rating and Review Count Row */}
-          <View style={styles.ratingContainer}>
-            <View style={styles.starsContainer}>
-              {renderStars(product.rating)}
+          {/* Modern Price Section */}
+          <View style={styles.modernPriceSection}>
+            <View style={styles.priceWithIcon}>
+              <Ionicons name="pricetag" size={20} color="#007E2F" />
+              <View style={styles.priceInfo}>
+                <Text style={styles.priceLabel}>Price per KG</Text>
+                <Text style={styles.modernPrice}>₹{product.price_per_kg}</Text>
+              </View>
             </View>
-            <Text style={styles.reviewCount}>
-              {product.rating} ({product.reviewCount} reviews)
-            </Text>
           </View>
 
-          <View style={styles.divider} />
-
-          {/* Product Description Section */}
-          <View style={styles.descriptionSection}>
-            <Text style={styles.sectionTitle}>Description</Text>
-            <Text style={styles.descriptionText}>{product.details}</Text>
-          </View>
-
-          <View style={styles.divider} />
-
-          {/* Size Selection */}
-          <View style={styles.sizesSection}>
-            <Text style={styles.sectionTitle}>Size Options</Text>
-            <View style={styles.sizesContainer}>
-              {product.sizes.map((size, index) => (
-                <TouchableOpacity
-                  key={index}
+          {/* Modern Engagement Stats */}
+          <View style={styles.modernEngagementContainer}>
+            <View style={styles.engagementStatsWrapper}>
+              <View style={styles.modernEngagementStat}>
+                <View style={styles.engagementIconContainer}>
+                  <Ionicons name="eye" size={18} color="#007E2F" />
+                </View>
+                <View style={styles.engagementTextContainer}>
+                  <Text style={styles.modernEngagementNumber}>{product.views || 0}</Text>
+                  <Text style={styles.engagementLabel}>views</Text>
+                </View>
+              </View>
+              
+              <View style={styles.statsDivider} />
+              
+              <View style={styles.modernEngagementStat}>
+                <TouchableOpacity 
                   style={[
-                    styles.sizeButton,
-                    selectedSize === size && styles.selectedSizeButton
+                    styles.engagementIconContainer,
+                    { backgroundColor: isFavorite ? '#FFE8E8' : '#E8F5E8' }
                   ]}
-                  onPress={() => setSelectedSize(size)}
+                  onPress={handleWishlistToggle}
+                  disabled={isWishlistLoading}
+                  activeOpacity={0.7}
                 >
-                  <Text style={[
-                    styles.sizeText,
-                    selectedSize === size && styles.selectedSizeText
-                  ]}>
-                    {size}
-                  </Text>
+                  <Ionicons 
+                    name={isFavorite ? "heart" : "heart-outline"} 
+                    size={18} 
+                    color={isFavorite ? "#FF6B6B" : "#007E2F"} 
+                  />
                 </TouchableOpacity>
-              ))}
+                <View style={styles.engagementTextContainer}>
+                  <Text style={[
+                    styles.modernEngagementNumber,
+                    isFavorite && { color: '#FF6B6B' }
+                  ]}>
+                    {currentLikes}
+                  </Text>
+                  <Text style={styles.engagementLabel}>likes</Text>
+                </View>
+              </View>
+              
+              <View style={styles.statsDivider} />
+              
+              <View style={styles.modernEngagementStat}>
+                <View style={styles.engagementIconContainer}>
+                  <Ionicons name="time" size={18} color="#007E2F" />
+                </View>
+                <View style={styles.engagementTextContainer}>
+                  <Text style={styles.modernEngagementNumber}>
+                    {topText}
+                  </Text>
+                  <Text style={styles.engagementLabel}>{bottomText}</Text>
+                </View>
+              </View>
+            </View>
+            
+            {isFavorite && (
+              <View style={styles.modernWishlistBadge}>
+                <Ionicons name="heart" size={14} color="#FF6B6B" />
+                <Text style={styles.modernWishlistText}>In Wishlist</Text>
+              </View>
+            )}
+          </View>
+
+          <View style={styles.modernDivider} />
+
+          {/* Description Section */}
+          {product.description && (
+            <>
+              <View style={styles.modernDetailSection}>
+                <Text style={styles.modernSectionTitle}>Description</Text>
+                <Text style={styles.descriptionText}>{product.description}</Text>
+              </View>
+              <View style={styles.modernDivider} />
+            </>
+          )}
+
+          {/* Modern Product Details Grid */}
+          <View style={styles.modernDetailSection}>
+            <Text style={styles.modernSectionTitle}>Product Details</Text>
+            <View style={styles.modernDetailsGrid}>
+              {/* Type and Grade */}
+              <View style={styles.modernDetailCard}>
+                <View style={styles.modernDetailIconContainer}>
+                  <Ionicons name="leaf-outline" size={22} color="#007E2F" />
+                </View>
+                <View style={styles.modernDetailContent}>
+                  <Text style={styles.modernDetailLabel}>Fruit Type</Text>
+                  <Text style={styles.modernDetailValue}>{product.type}</Text>
+                </View>
+              </View>
+
+              <View style={styles.modernDetailCard}>
+                <View style={styles.modernDetailIconContainer}>
+                  <Ionicons name="ribbon-outline" size={22} color="#007E2F" />
+                </View>
+                <View style={styles.modernDetailContent}>
+                  <Text style={styles.modernDetailLabel}>Quality Grade</Text>
+                  <Text style={styles.modernDetailValue}>Grade {product.grade}</Text>
+                </View>
+              </View>
+
+              {/* Status */}
+              <View style={[styles.modernDetailCard, styles.fullWidthCard]}>
+                <View style={[
+                  styles.modernDetailIconContainer,
+                  { backgroundColor: product.status === 'active' ? '#E8F5E8' : '#FFF3E0' }
+                ]}>
+                  <Ionicons 
+                    name="checkmark-circle-outline" 
+                    size={22} 
+                    color={product.status === 'active' ? '#4CAF50' : '#FF9800'} 
+                  />
+                </View>
+                <View style={styles.modernDetailContent}>
+                  <Text style={styles.modernDetailLabel}>Availability Status</Text>
+                  <Text style={[
+                    styles.modernDetailValue,
+                    { 
+                      color: product.status === 'active' ? '#4CAF50' : '#FF9800',
+                      fontWeight: '700'
+                    }
+                  ]}>
+                    {product.status?.charAt(0).toUpperCase() + product.status?.slice(1) || 'Active'}
+                  </Text>
+                </View>
+              </View>
             </View>
           </View>
 
-          <View style={styles.divider} />
+          <View style={styles.modernDivider} />
 
-          {/* Location and Availability */}
-          <View style={styles.locationSection}>
-            <Text style={styles.sectionTitle}>Location & Availability</Text>
-            <View style={styles.locationRow}>
-              <Ionicons name="location-outline" size={18} color="#007E2F" />
-              <Text style={styles.locationText}>{product.details.split('. Available quantity:')[0].split('from ')[1]}</Text>
+          {/* Quantity Information */}
+          <View style={styles.modernDetailSection}>
+            <Text style={styles.modernSectionTitle}>Available Quantity</Text>
+            <View style={styles.quantityCard}>
+              <View style={styles.quantityIconContainer}>
+                <Ionicons name="scale-outline" size={24} color="#007E2F" />
+              </View>
+              <View style={styles.quantityDetails}>
+                <Text style={styles.quantityText}>
+                  {formatFruitQuantity(product.quantity)}
+                </Text>
+                <Text style={styles.quantitySubtext}>Total available</Text>
+              </View>
             </View>
-            <View style={styles.availabilityRow}>
-              <Ionicons name="cube-outline" size={18} color="#007E2F" />
-              <Text style={styles.availabilityText}>
-                Available: {product.details.split('Available quantity: ')[1]}
+          </View>
+
+          <View style={styles.modernDivider} />
+
+          {/* Location Details - Modern with Privacy */}
+          <View style={styles.modernDetailSection}>
+            <Text style={styles.modernSectionTitle}>Location Details</Text>
+            <View style={styles.modernLocationCard}>
+              <View style={styles.locationIconContainer}>
+                <Ionicons name="location" size={24} color="#007E2F" />
+              </View>
+              <View style={styles.locationDetails}>
+                <Text style={styles.locationPrimary}>{product.location.village}</Text>
+                <Text style={styles.locationSecondary}>
+                  {product.location.district}, {product.location.state}
+                </Text>
+                <Text style={styles.locationTertiary}>
+                  PIN: {product.location.pincode}
+                </Text>
+                {/* Privacy: Don't show exact coordinates to buyers */}
+                <View style={styles.locationPrivacyNote}>
+                  <Ionicons name="shield-checkmark" size={14} color="#666666" />
+                  <Text style={styles.privacyText}>
+                    Exact location shared after order confirmation
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.modernDivider} />
+
+          {/* Availability Information */}
+          <View style={styles.modernDetailSection}>
+            <Text style={styles.modernSectionTitle}>Availability</Text>
+            <View style={styles.availabilityCard}>
+              <View style={styles.availabilityRow}>
+                <Ionicons name="calendar-outline" size={20} color="#007E2F" />
+                <View style={styles.availabilityTextContainer}>
+                  <Text style={styles.availabilityLabel}>Available from</Text>
+                  <Text style={styles.availabilityValue}>
+                    {new Date(product.availability_date).toLocaleDateString('en-IN', {
+                      weekday: 'long',
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric'
+                    })}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.modernDivider} />
+
+          {/* Timestamps */}
+          <View style={styles.modernDetailSection}>
+            <Text style={styles.modernSectionTitle}>Listing Information</Text>
+            <View style={styles.timestampCard}>
+              <View style={styles.timestampRow}>
+                <Ionicons name="add-circle-outline" size={20} color="#666666" />
+                <View style={styles.timestampTextContainer}>
+                  <Text style={styles.timestampLabel}>Created</Text>
+                  <Text style={styles.timestampValue}>
+                    {new Date(product.created_at).toLocaleDateString('en-IN')} at{' '}
+                    {new Date(product.created_at).toLocaleTimeString('en-IN', {
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.timestampRow}>
+                <Ionicons name="create-outline" size={20} color="#666666" />
+                <View style={styles.timestampTextContainer}>
+                  <Text style={styles.timestampLabel}>Last updated</Text>
+                  <Text style={styles.timestampValue}>
+                    {new Date(product.updated_at).toLocaleDateString('en-IN')} at{' '}
+                    {new Date(product.updated_at).toLocaleTimeString('en-IN', {
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.modernDivider} />
+
+          {/* Modern Farmer Details Section */}
+          <View style={styles.modernDetailSection}>
+            <Text style={styles.modernSectionTitle}>Farmer Information</Text>
+            
+            {isFarmerDataLoading ? (
+              <View style={styles.modernFarmerCard}>
+                <View style={styles.farmerLoadingContainer}>
+                  <View style={styles.loadingAvatar}>
+                    <View style={styles.loadingIndicator} />
+                  </View>
+                  <View style={styles.farmerLoadingInfo}>
+                    <View style={styles.loadingTextLine} />
+                    <View style={styles.loadingTextLineShort} />
+                    <View style={styles.loadingTextLineTiny} />
+                  </View>
+                </View>
+              </View>
+            ) : (
+              <>
+                <View style={styles.modernFarmerCard}>
+                  <View style={styles.modernFarmerHeader}>
+                    <View style={styles.farmerAvatarContainer}>
+                      <View style={[
+                        styles.modernFarmerAvatar,
+                        { backgroundColor: farmerData?.avatar_color || '#007E2F' }
+                      ]}>
+                        {farmerData?.profile_image_url ? (
+                          <Image
+                            source={{ uri: farmerData.profile_image_url }}
+                            style={styles.farmerProfileImage}
+                            resizeMode="cover"
+                          />
+                        ) : (
+                          <Text style={styles.modernFarmerAvatarText}>
+                            {(farmerData?.displayName || product.farmer_name || 'F').charAt(0).toUpperCase()
+                          }</Text>
+                        )}
+                      </View>
+                      {farmerData?.is_verified && (
+                        <View style={styles.verificationBadge}>
+                          <Ionicons name="checkmark-circle" size={16} color="#4CAF50" />
+                        </View>
+                      )}
+                    </View>
+                    
+                    <View style={styles.modernFarmerInfo}>
+                      <Text style={styles.modernFarmerName}>
+                        {(() => {
+                          const displayName = farmerData?.displayName || product.farmer_name || 'Unknown Farmer';
+                          console.log('🔍 Farmer name display logic:', {
+                            'farmerData?.displayName': farmerData?.displayName,
+                            'product.farmer_name': product.farmer_name,
+                            'final_display_name': displayName,
+                            'farmerData_exists': !!farmerData,
+                            'farmerData_keys': farmerData ? Object.keys(farmerData) : null
+                          });
+                          return displayName;
+                        })()}
+                      </Text>
+                      
+                      <View style={styles.farmerRatingContainer}>
+                        <View style={styles.modernStarsContainer}>
+                          {renderStars(farmerData?.average_rating || product.farmer_rating || 4.0)}
+                        </View>
+                        <Text style={styles.modernRatingText}>
+                          {(farmerData?.average_rating || product.farmer_rating || 4.0).toFixed(1)}
+                        </Text>
+                        <Text style={styles.reviewCountText}>
+                          ({farmerData?.total_reviews || farmerReviews.length || 0} reviews)
+                        </Text>
+                      </View>
+                      
+                      {/* Farmer Stats */}
+                      <View style={styles.farmerStatsRow}>
+                        {farmerData?.experience_years && (
+                          <View style={styles.statItem}>
+                            <Ionicons name="calendar-outline" size={14} color="#666666" />
+                            <Text style={styles.statText}>{farmerData.experience_years}y exp</Text>
+                          </View>
+                        )}
+                        {farmerData?.total_products && (
+                          <View style={styles.statItem}>
+                            <Ionicons name="leaf-outline" size={14} color="#666666" />
+                            <Text style={styles.statText}>{farmerData.total_products} products</Text>
+                          </View>
+                        )}
+                        {farmerData?.location && (
+                          <View style={styles.statItem}>
+                            <Ionicons name="location-outline" size={14} color="#666666" />
+                            <Text style={styles.statText}>
+                              {farmerData.location.village}, {farmerData.location.district}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                    </View>
+                  </View>
+                  
+                  {/* Farmer Description */}
+                  {farmerData?.description && (
+                    <View style={styles.farmerDescriptionContainer}>
+                      <Text style={styles.farmerDescription} numberOfLines={3}>
+                        {farmerData.description}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+                
+                {/* Modern Reviews Section */}
+                {farmerReviews.length > 0 && (
+                  <>
+                    <View style={styles.modernReviewsHeader}>
+                      <Text style={styles.modernReviewsTitle}>Recent Reviews</Text>
+                      <View style={styles.reviewsCountBadge}>
+                        <Text style={styles.reviewsCountText}>{farmerReviews.length}</Text>
+                      </View>
+                    </View>
+                    
+                    <View style={styles.modernReviewsList}>
+                      {farmerReviews.slice(0, 3).map((review, index) => (
+                        <View key={review.id || index} style={styles.modernReviewItem}>
+                          <View style={styles.reviewHeader}>
+                            <View style={styles.reviewerAvatar}>
+                              <Text style={styles.reviewerAvatarText}>
+                                {(review.buyer_name || 'A').charAt(0).toUpperCase()
+                              }</Text>
+                            </View>
+                            <View style={styles.reviewInfo}>
+                              <View style={styles.reviewTopRow}>
+                                <Text style={styles.reviewerName}>
+                                  {review.buyer_name || 'Anonymous'}
+                                </Text>
+                                <Text style={styles.reviewDate}>
+                                  {review.created_at ? getRelativeTime(review.created_at) : 'Recently'}
+                                </Text>
+                              </View>
+                              <View style={styles.reviewRatingContainer}>
+                                {renderStars(review.rating || 4)}
+                              </View>
+                            </View>
+                          </View>
+                          {review.comment && (
+                            <Text style={styles.modernReviewComment} numberOfLines={2}>
+                              "{review.comment}"
+                            </Text>
+                          )}
+                        </View>
+                      ))}
+                    </View>
+                    
+                    {farmerReviews.length > 3 && (
+                      <TouchableOpacity style={styles.modernViewMoreButton}>
+                        <Text style={styles.modernViewMoreText}>
+                          View all {farmerReviews.length} reviews
+                        </Text>
+                        <Ionicons name="chevron-forward" size={16} color="#007E2F" />
+                      </TouchableOpacity>
+                    )}
+                  </>
+                )}
+              </>
+            )}
+            
+            <View style={styles.modernContactNote}>
+              <Ionicons name="chatbubble-outline" size={20} color="#007E2F" />
+              <Text style={styles.modernContactText}>
+                Contact this farmer to place your order or ask questions about the product.
               </Text>
             </View>
           </View>
         </View>
       </ScrollView>
-      {/* Bottom "Swipe to Request" Action */}
-      <View style={styles.swipeToRequestContainer}>
-        <View style={styles.swipeTrack}>
+
+      {/* Modern Swipe to Request Action */}
+      <View style={styles.modernSwipeContainer}>
+        <View style={styles.modernSwipeTrack}>
           <Animated.View
             style={[
-              styles.swipeThumb,
+              styles.modernSwipeThumb,
               { transform: [{ translateX: pan }] }
             ]}
             {...panResponder.panHandlers}
           >
             <Ionicons name="arrow-forward" size={24} color="#FFFFFF" />
           </Animated.View>
-          <Text style={styles.swipeText}>Swipe to request</Text>
+          <Text style={styles.modernSwipeText}>Swipe to request</Text>
+          <View style={styles.swipeGradientOverlay} />
         </View>
-        <Text style={styles.swipeInstructionText}>Swipe right to send a request to the seller</Text>
+        <Text style={styles.modernSwipeInstruction}>
+          Swipe right to send a request to {farmerData?.displayName || product.farmer_name}
+        </Text>
       </View>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  // Modern Image Section Styles
+  modernImageSection: {
+    backgroundColor: '#FFFFFF',
+    paddingBottom: 20,
+  },
+  modernImageContainer: {
+    width: width - 40,
+    height: width * 0.75,
+    marginHorizontal: 20,
+    borderRadius: 24,
+    overflow: 'hidden',
+    position: 'relative',
+    backgroundColor: '#F8F9FA',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 8,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  modernProductImage: {
+    width: '100%',
+    height: '100%',
+  },
+  modernImagePlaceholder: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F8F9FA',
+  },
+  placeholderIconContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#E8F5E8',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  placeholderText: {
+    fontSize: 16,
+    color: '#666666',
+    fontWeight: '500',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  modernStatusBadge: {
+    position: 'absolute',
+    top: 20,
+    left: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  statusIndicator: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#4CAF50',
+    marginRight: 8,
+  },
+  modernStatusText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  modernImageCounter: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  modernImageCounterText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  modernThumbnailSection: {
+    paddingTop: 10,
+    paddingHorizontal: 20,
+  },
+  modernThumbnailContainer: {
+    paddingHorizontal: 8,
+    gap: 12,
+  },
+  modernThumbnailWrapper: {
+    width: 70,
+    height: 70,
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 3,
+    borderColor: 'transparent',
+    position: 'relative',
+  },
+  modernSelectedThumbnail: {
+    borderColor: '#007E2F',
+    shadowColor: '#007E2F',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  modernThumbnailImage: {
+    width: '100%',
+    height: '100%',
+  },
+  thumbnailOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 126, 47, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dotsContainer: {
+    flexDirection: 'row',
+    zIndex: 999,
+    justifyContent: 'center',
+    marginTop: 10,
+    marginBottom: 16,
+    gap: 8,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 4,
+    backgroundColor: '#E0E0E0',
+  },
+  activeDot: {
+    backgroundColor: '#007E2F',
+    width: 20,
+    borderRadius: 4,
+  },
+
+  // Modern Product Card Styles
+  modernProductCard: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    paddingTop: 24,
+    paddingBottom: 120,
+    marginTop: -24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  modernProductHeaderSection: {
+    marginBottom: 20,
+    paddingHorizontal: 24,
+  },
+  modernProductName: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#000000',
+    marginBottom: 12,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  modernGradeTypeContainer: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modernGradeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E8F5E8',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: '#007E2F',
+    gap: 6,
+  },
+  modernGradeText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#007E2F',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  modernTypeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8F9FA',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    gap: 6,
+  },
+  modernTypeText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#666666',
+    textTransform: 'capitalize',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  modernPriceSection: {
+    backgroundColor: '#F8F9FA',
+    padding: 20,
+    borderRadius: 20,
+    marginBottom: 20,
+    marginHorizontal: 24,
+    borderWidth: 1,
+    borderColor: '#E8F5E8',
+    shadowColor: '#007E2F',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  priceWithIcon: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  priceInfo: {
+    flex: 1,
+  },
+  modernPrice: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#007E2F',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  modernEngagementContainer: {
+    backgroundColor: '#F8F9FA',
+    marginHorizontal: 24,
+    marginBottom: 32,
+    paddingVertical: 20,
+    paddingHorizontal: 24,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#E8F5E8',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  engagementStatsWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+    paddingHorizontal: 4,
+  },
+  modernEngagementStat: {
+    alignItems: 'center',
+    flex: 1,
+    paddingVertical: 8,
+  },
+  engagementIconContainer: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#E8F5E8',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+    shadowColor: '#007E2F',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+  },
+  engagementTextContainer: {
+    alignItems: 'center',
+  },
+  modernEngagementNumber: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#000000',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+    marginBottom: 3,
+    letterSpacing: -0.3,
+  },
+  engagementLabel: {
+    fontSize: 13,
+    color: '#666666',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  statsDivider: {
+    width: 1,
+    height: 48,
+    backgroundColor: '#E8F5E8',
+    marginHorizontal: 12,
+    borderRadius: 0.5,
+  },
+  modernWishlistBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFE8E8',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: '#FF6B6B',
+    gap: 6,
+    alignSelf: 'center',
+  },
+  modernWishlistText: {
+    fontSize: 12,
+    color: '#FF6B6B',
+    fontWeight: '600',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+
+  // Enhanced Product Details Section
+  modernDetailSection: {
+    marginBottom: 32,
+    paddingHorizontal: 24,
+  },
+  modernSectionTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#000000',
+    marginBottom: 24,
+    letterSpacing: -0.5,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  modernDetailsGrid: {
+    gap: 16,
+  },
+  modernDetailCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 20,
+    paddingHorizontal: 24,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E8F5E8',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  fullWidthCard: {
+    width: '100%',
+  },
+  modernDetailIconContainer: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#E8F5E8',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 18,
+    shadowColor: '#007E2F',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  modernDetailContent: {
+    flex: 1,
+  },
+  modernDetailLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#666666',
+    marginBottom: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  modernDetailValue: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#000000',
+    letterSpacing: -0.2,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  modernDivider: {
+    height: 2,
+    backgroundColor: '#F0F0F0',
+    marginVertical: 24,
+    marginHorizontal: 24,
+    borderRadius: 1,
+  },
+  
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
@@ -328,6 +1561,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 12,
+  },
+  favoriteButtonActive: {
+    backgroundColor: '#FFE8E8',
+    borderWidth: 1,
+    borderColor: '#FF6B6B',
   },
   content: {
     flex: 1,
@@ -424,11 +1662,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  priceContainer: {
+    justifyContent: 'center',
+    alignItems: 'flex-end',
+  },
   price: {
     fontSize: 22,
     fontWeight: '700',
     color: '#007E2F',
     fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+
+  // Farmer section styles
+  farmerSection: {
+    backgroundColor: '#F8F9FA',
+    padding: 16,
+    borderRadius: 12,
+    marginTop: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E8F5E8',
+  },
+  farmerInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   // Ratings container
   ratingContainer: {
@@ -446,6 +1703,57 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#505050',
     marginLeft: 6,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  listingInfoContainer: {
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  listingInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  listingInfoText: {
+    fontSize: 13,
+    color: '#666666',
+    marginLeft: 6,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  engagementContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    marginTop: 8,
+    marginBottom: 4,
+    flexWrap: 'wrap',
+    gap: 16,
+  },
+  engagementStat: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  engagementText: {
+    fontSize: 13,
+    color: '#666666',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  engagementTextActive: {
+    color: '#FF6B6B',
+    fontWeight: '600',
+  },
+  wishlistBadge: {
+    backgroundColor: '#FFE8E8',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FF6B6B',
+  },
+  wishlistBadgeText: {
+    fontSize: 11,
+    color: '#FF6B6B',
+    fontWeight: '600',
     fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
   divider: {
@@ -471,13 +1779,6 @@ const styles = StyleSheet.create({
   },
   quantityContainer: {
     marginBottom: 20,
-  },
-  quantityLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#000000',
-    marginBottom: 12,
-    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
   quantityControls: {
     flexDirection: 'row',
@@ -553,7 +1854,72 @@ const styles = StyleSheet.create({
     marginLeft: 10,
     fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
-  // Swipe to request container (fixed at bottom)
+  // Modern Swipe to request styles
+  modernSwipeContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  modernSwipeTrack: {
+    height: 64,
+    backgroundColor: '#E8F5E8',
+    borderRadius: 32,
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#007E2F',
+    overflow: 'hidden',
+  },
+  modernSwipeThumb: {
+    position: 'absolute',
+    left: 4,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#007E2F',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#007E2F',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  modernSwipeText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#007E2F',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  swipeGradientOverlay: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    backgroundColor: 'transparent',
+  },
+  modernSwipeInstruction: {
+    fontSize: 12,
+    color: '#666666',
+    textAlign: 'center',
+    marginTop: 12,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+
+  // Swipe to request container (original - keep for fallback)
   swipeToRequestContainer: {
     position: 'absolute',
     bottom: 0,
@@ -596,7 +1962,658 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 8,
     fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
-  }
+  },
+
+  // Image carousel styles
+  imageCounterBadge: {
+    position: 'absolute',
+    bottom: 12,
+    right: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  imageCounterText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '600',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  thumbnailSection: {
+    paddingTop: 16,
+    paddingHorizontal: 20,
+    maxHeight: 80,
+  },
+  thumbnailContainer: {
+    gap: 12,
+    paddingHorizontal: 4,
+  },
+  thumbnailWrapper: {
+    width: 60,
+    height: 60,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    overflow: 'hidden',
+  },
+  selectedThumbnailWrapper: {
+    borderColor: '#007E2F',
+    shadowColor: '#007E2F',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  thumbnailImage: {
+    width: '100%',
+    height: '100%',
+  },
+
+  // Detailed fruit information styles
+  detailsSection: {
+    marginBottom: 20,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    paddingVertical: 4,
+  },
+  detailLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#505050',
+    marginLeft: 8,
+    minWidth: 100,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  detailValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#000000',
+    flex: 1,
+    textAlign: 'right',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+
+  // Quantity info section styles
+  quantityInfoSection: {
+    marginBottom: 20,
+  },
+  quantityDisplayContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8F9FA',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E8F5E8',
+  },
+  quantityDisplayText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#000000',
+    marginLeft: 10,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+
+  // Quantity selection styles
+  quantityInfoContainer: {
+    backgroundColor: '#F8F9FA',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E8F5E8',
+  },
+  quantityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  quantityLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#505050',
+    marginLeft: 8,
+    flex: 1,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  quantityValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#007E2F',
+    marginLeft: 'auto',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  customQuantitySection: {
+    marginTop: 8,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E8F5E8',
+  },
+  customQuantityLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#000000',
+    marginBottom: 12,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  quantityInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
+    paddingVertical: 8,
+  },
+  quantityInputText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#000000',
+    minWidth: 80,
+    textAlign: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E8F5E8',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+
+  // Modern Farmer Section Styles
+  modernFarmerCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: '#F0F0F0',
+  },
+  farmerLoadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  loadingAvatar: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#F0F0F0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  loadingIndicator: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#E0E0E0',
+  },
+  farmerLoadingInfo: {
+    flex: 1,
+    gap: 8,
+  },
+  loadingTextLine: {
+    height: 16,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 8,
+    width: '80%',
+  },
+  loadingTextLineShort: {
+    height: 14,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 7,
+    width: '60%',
+  },
+  loadingTextLineTiny: {
+    height: 12,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 6,
+    width: '40%',
+  },
+  modernFarmerHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
+  modernFarmerAvatar: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#007E2F',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+    shadowColor: '#007E2F',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  farmerProfileImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 30,
+  },
+  modernFarmerAvatarText: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  verificationBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 2,
+  },
+  modernFarmerInfo: {
+    flex: 1,
+  },
+  modernFarmerName: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#000000',
+    marginBottom: 8,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  farmerRatingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 8,
+  },
+  modernStarsContainer: {
+    flexDirection: 'row',
+  },
+  modernRatingText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#000000',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  reviewCountText: {
+    fontSize: 14,
+    color: '#666666',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  farmerStatsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 16,
+  },
+  statItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  statText: {
+    fontSize: 12,
+    color: '#666666',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  farmerDescriptionContainer: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+  },
+  farmerDescription: {
+    fontSize: 14,
+    color: '#666666',
+    lineHeight: 20,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  modernReviewsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modernReviewsTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#000000',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  reviewsCountBadge: {
+    backgroundColor: '#E8F5E8',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  reviewsCountText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#007E2F',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  modernReviewsList: {
+    gap: 12,
+  },
+  modernReviewItem: {
+    backgroundColor: '#F8F9FA',
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#F0F0F0',
+  },
+  reviewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  reviewerAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#007E2F',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  reviewerAvatarText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  reviewInfo: {
+    flex: 1,
+  },
+  reviewerName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#000000',
+    marginBottom: 2,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  reviewRatingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  reviewDate: {
+    fontSize: 12,
+    color: '#666666',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  reviewComment: {
+    fontSize: 13,
+    color: '#666666',
+    lineHeight: 18,
+    fontStyle: 'italic',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  viewMoreReviewsButton: {
+    backgroundColor: '#E8F5E8',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    alignSelf: 'center',
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#007E2F',
+  },
+  viewMoreReviewsText: {
+    fontSize: 13,
+    color: '#007E2F',
+    fontWeight: '600',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+
+  // Missing styles - Price and Info
+  priceLabel: {
+    fontSize: 14,
+    color: '#666666',
+    fontWeight: '500',
+    marginBottom: 4,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+
+  // Quantity section styles
+  quantityCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    padding: 20,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E8F5E8',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  quantityIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#E8F5E8',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+    shadowColor: '#007E2F',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  quantityDetails: {
+    flex: 1,
+  },
+  quantitySubtext: {
+    fontSize: 12,
+    color: '#666666',
+    fontWeight: '500',
+    marginTop: 4,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+
+  // Location section styles
+  modernLocationCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#FFFFFF',
+    padding: 20,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E8F5E8',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  locationIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#E8F5E8',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+    shadowColor: '#007E2F',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  locationDetails: {
+    flex: 1,
+  },
+  locationPrimary: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#000000',
+    marginBottom: 4,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  locationSecondary: {
+    fontSize: 14,
+    color: '#666666',
+    marginBottom: 4,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  locationTertiary: {
+    fontSize: 14,
+    color: '#666666',
+    marginBottom: 8,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  locationPrivacyNote: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F6F6F6',
+    padding: 8,
+    borderRadius: 8,
+    marginTop: 4,
+  },
+  privacyText: {
+    fontSize: 11,
+    color: '#666666',
+    marginLeft: 6,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+
+  // Availability section styles
+  availabilityCard: {
+    backgroundColor: '#FFFFFF',
+    padding: 20,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E8F5E8',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  availabilityTextContainer: {
+    marginLeft: 16,
+    flex: 1,
+  },
+  availabilityLabel: {
+    fontSize: 13,
+    color: '#666666',
+    fontWeight: '500',
+    marginBottom: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  availabilityValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#000000',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+
+  // Timestamp section styles
+  timestampCard: {
+    backgroundColor: '#FFFFFF',
+    padding: 20,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E8F5E8',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  timestampRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
+  timestampTextContainer: {
+    marginLeft: 16,
+    flex: 1,
+  },
+  timestampLabel: {
+    fontSize: 13,
+    color: '#666666',
+    fontWeight: '500',
+    marginBottom: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  timestampValue: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#000000',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+
+  // Farmer section styles
+  farmerAvatarContainer: {
+    position: 'relative',
+  },
+  reviewTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 4,
+  },
+  modernReviewComment: {
+    fontSize: 14,
+    color: '#333333',
+    fontStyle: 'italic',
+    lineHeight: 20,
+    marginTop: 8,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  modernViewMoreButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F6F6F6',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: '#E8F5E8',
+  },
+  modernViewMoreText: {
+    fontSize: 14,
+    color: '#007E2F',
+    fontWeight: '600',
+    marginRight: 6,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  modernContactNote: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#F0F9F0',
+    padding: 16,
+    borderRadius: 12,
+    marginTop: 20,
+    borderWidth: 1,
+    borderColor: '#E8F5E8',
+  },
+  modernContactText: {
+    fontSize: 14,
+    color: '#333333',
+    fontWeight: '500',
+    marginLeft: 12,
+    lineHeight: 20,
+    flex: 1,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
 });
 
 export default ProductDetailScreen;

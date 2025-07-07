@@ -21,7 +21,7 @@ let notifications: Notification[] = [
         message: 'Your order for 5 kg of organic fertilizer has been confirmed and will be delivered within 2 days.',
         date: '2025-06-23',
         time: '10:30 AM',
-        read: false,
+        read: true,
         type: 'transaction',
     },
     {
@@ -39,7 +39,7 @@ let notifications: Notification[] = [
         message: 'KrushiMandi v2.5 is now available with new features and improvements. Update now!',
         date: '2023-06-20',
         time: '03:45 PM',
-        read: false,
+        read: true,
         type: 'update',
     },
     {
@@ -57,7 +57,7 @@ let notifications: Notification[] = [
         message: 'Heavy rainfall expected in your area in the next 24 hours. Please secure your crops.',
         date: '2023-06-19',
         time: '09:00 AM',
-        read: false,
+        read: true,
         type: 'alert',
     },
     {

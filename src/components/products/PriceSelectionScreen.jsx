@@ -18,7 +18,11 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import Svg, { Path, Circle, G, Text as SvgText } from 'react-native-svg';
 import Icon from 'react-native-vector-icons/Ionicons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '../../constants';
+import { createFruit } from '../../services/fruitService';
+import { useTabBarControl } from '../../utils/navigationControls';
+import { useFocusEffect } from '@react-navigation/native';
 
 // Simple smart pricing - keep complex logic hidden
 const getSmartPrice = (fruitCategory, variety) => {
@@ -209,6 +213,7 @@ const PriceGauge = ({ currentPrice, minPrice, maxPrice, recommendedPrice }) => {
 };
 
 export default function PriceSelectionScreen({ navigation, route }) {
+  const { hideTabBar, showTabBar } = useTabBarControl();
   const [selectedPrice, setSelectedPrice] = useState(null);
   const [customPrice, setCustomPrice] = useState('');
   const [showCustomInput, setShowCustomInput] = useState(false);
@@ -222,10 +227,10 @@ export default function PriceSelectionScreen({ navigation, route }) {
   const { productData } = route.params || {};
 
   // Extract fruit info
-  const fruitCategory = (productData?.category || 'mango').toLowerCase();
+  const fruitCategory = (productData?.type || 'mango').toLowerCase();
   const fruitQuantity = productData?.quantity;
-  const fruitPhoto = productData?.photos[0];
-  const fruitName = productData?.fruitName || '';
+  const fruitPhoto = productData?.photos?.[0];
+  const fruitName = productData?.name || '';
   const fruitVariety = fruitName.toLowerCase().includes('alphonso') ? 'alphonso' :
     fruitName.toLowerCase().includes('kesar') ? 'kesar' : 'totapuri';
 
@@ -274,6 +279,23 @@ export default function PriceSelectionScreen({ navigation, route }) {
     }, 800); // Reduced loading time
   }, [smartPricing.recommended]);
 
+  // Tab bar control - hide when screen is focused
+  useFocusEffect(
+    React.useCallback(() => {
+      hideTabBar();
+      
+      // Show tab bar when leaving screen
+      return () => {
+        showTabBar();
+      };
+    }, [hideTabBar, showTabBar])
+  );
+
+  const handleBack = () => {
+    showTabBar(); // Ensure tab bar is shown when going back
+    navigation.goBack();
+  };
+
   const handlePriceSelect = (price) => {
     setSelectedPrice(price);
     setCustomPrice(price.toString()); // Sync with custom input
@@ -296,7 +318,7 @@ export default function PriceSelectionScreen({ navigation, route }) {
     }
   };
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     const finalPrice = selectedPrice;
 
     if (!finalPrice || finalPrice <= 0) {
@@ -304,12 +326,81 @@ export default function PriceSelectionScreen({ navigation, route }) {
       return;
     }
 
-    // Simple success message
-    Alert.alert(
-      '🎉 बधाई हो!',
-      `आपका ${productData?.fruitName} ₹${finalPrice}/किग्रा पर लिस्ट हो गया है!`,
-      [{ text: 'Great!', onPress: () => navigation.navigate('Home') }]
-    );
+    try {
+      // Show loading state
+      setIsLoading(true);
+
+      // Get current user data for farmer_id
+      const userData = await AsyncStorage.getItem('userData');
+      const user = userData ? JSON.parse(userData) : {};
+      
+      // Prepare final fruit data according to Fruit schema
+      const finalFruitData = {
+        // Basic fruit info
+        name: productData?.name || '',
+        type: productData?.type || '',
+        grade: productData?.grade || 'A',
+        description: productData?.description || '',
+        
+        // Quantity and pricing
+        quantity: productData?.quantity || [0, 0],
+        price_per_kg: finalPrice,
+        
+        // Availability and images - using Firebase URLs directly
+        availability_date: new Date().toISOString(),
+        image_urls: productData?.image_urls || [], // Already Firebase URLs from PhotoUploadScreen
+        
+        // Location info
+        location: {
+          village: productData?.location?.village || '',
+          district: productData?.location?.district || '',
+          state: productData?.location?.state || '',
+          pincode: productData?.location?.pincode || '',
+          lat: productData?.location?.lat || 0,
+          lng: productData?.location?.lng || 0
+        },
+        
+        // User reference
+        farmer_id: user.uid || user.id || 'anonymous',
+        
+        // Status and metadata
+        status: 'active',
+        views: 0,
+        likes: 0
+      };
+
+      console.log('📝 Final fruit data prepared:', finalFruitData);
+
+      // Save to Firebase (create fruit listing) - pass empty array for imageUris since we have Firebase URLs
+      const fruitId = await createFruit(finalFruitData, []);
+
+      console.log('✅ Fruit listing created with ID:', fruitId);
+
+      // Success message
+      Alert.alert(
+        '🎉 बधाई हो!',
+        `आपका ${productData?.name} ₹${finalPrice}/किग्रा पर लिस्ट हो गया है!`,
+        [{ 
+          text: 'Great!', 
+          onPress: () => {
+            // Navigate back to farmer home and refresh
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'Home' }],
+            });
+          }
+        }]
+      );
+    } catch (error) {
+      console.error('❌ Error creating fruit listing:', error);
+      Alert.alert(
+        'Error',
+        'Failed to create fruit listing. Please try again.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // Simple loading screen
@@ -339,7 +430,7 @@ export default function PriceSelectionScreen({ navigation, route }) {
 
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+        <TouchableOpacity style={styles.backButton} onPress={handleBack}>
           <Ionicons name="arrow-back" size={24} color="#333" />
         </TouchableOpacity>
         <Text style={styles.headerText}>Set Your Price</Text>
@@ -364,13 +455,17 @@ export default function PriceSelectionScreen({ navigation, route }) {
 
             <View style={styles.locationRow}>
               <Icon name="location-outline" size={12} color="#505050" />
-              <Text style={styles.fruitLocation}>Pune, Maharashtra</Text>
+              <Text style={styles.fruitLocation}>
+                {productData?.location?.village}, {productData?.location?.district}
+              </Text>
             </View>
           </View>
 
           <View style={styles.priceContainer}>
             <Text style={styles.fruitPrice}>₹{selectedPrice || smartPricing.recommended}/kg</Text>
-            <Text style={styles.fruitTons}>{fruitQuantity}</Text>
+            <Text style={styles.fruitTons}>
+              {fruitQuantity ? `${fruitQuantity[0]}-${fruitQuantity[1]} tons` : 'Grade ' + productData?.grade}
+            </Text>
           </View>
         </TouchableOpacity>
 
