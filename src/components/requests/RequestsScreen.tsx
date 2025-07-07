@@ -657,6 +657,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginTop: Layout.spacing.lg,
     marginBottom: Layout.spacing.xs,
+    textAlign:'center'
   },
   emptyMessage: {
     fontSize: Typography.fontSize.sm,

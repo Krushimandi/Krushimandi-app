@@ -1139,7 +1139,7 @@ const styles = StyleSheet.create({
   // Modern Button Styles
   modernButtonContainer: {
     position: 'absolute',
-    bottom: 0,
+    bottom: -60,
     left: 0,
     right: 0,
     backgroundColor: '#FFFFFF',
