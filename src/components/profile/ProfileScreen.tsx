@@ -72,15 +72,15 @@ const ProfileScreen = () => {
           onPress: async () => {
             try {
               setIsLoggingOut(true);
-              
+
               console.log('🚪 Starting logout process...');
-              
+
               // Clear auth data and user data (includes Firebase signOut)
               await clearAuthData();
               await clearUserData();
-              
+
               console.log('✅ Logout completed successfully');
-              
+
               // The auth state will update automatically and navigate to auth screen
             } catch (error) {
               console.error('❌ Error during logout:', error);
@@ -142,7 +142,7 @@ const ProfileScreen = () => {
           <Text style={styles.name}>{getDisplayName()}</Text>
           <Text style={styles.lastLogin}>{getLastLoginText()}</Text>
           {userProfile?.phoneNumber && (
-            <Text style={styles.phoneNumber}>+91 {userProfile.phoneNumber.slice(3,13)}</Text>
+            <Text style={styles.phoneNumber}>+91 {userProfile.phoneNumber.slice(3, 13)}</Text>
           )}
         </View>
       </View>
@@ -157,7 +157,7 @@ const ProfileScreen = () => {
             </Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.topBox}>
-           <Ionicons name="receipt-outline" size={24} color={Colors.light.primary} />
+            <Ionicons name="receipt-outline" size={24} color={Colors.light.primary} />
             <Text style={styles.topBoxText}>
               {userProfile?.userRole === 'farmer' ? 'My Orders' : 'Purchase History'}
             </Text>
@@ -358,9 +358,12 @@ const styles = StyleSheet.create({
   },
   iconWrapper: {
     backgroundColor: Colors.light.backgroundSecondary,
-    padding: 10,
+    width: 42,
+    height: 42,
     borderRadius: 20,
     marginRight: 16,
+    justifyContent: 'center', // centers vertically
+    alignItems: 'center',
   },
   optionText: {
     fontSize: 15,
@@ -381,7 +384,7 @@ const styles = StyleSheet.create({
   socialIcon: {
     backgroundColor: Colors.light.backgroundSecondary,
     borderRadius: 12,
-    minWidth:48,
+    minWidth: 48,
     padding: 12,
     marginHorizontal: 8,
     elevation: 1,

@@ -413,9 +413,9 @@ const RequestsScreen = () => {
             }
           }}
         >
-          <Text style={[styles.manageText, manageMode && styles.cancelText]}>
+          {filteredData.length != 0 && (<Text style={[styles.manageText, manageMode && styles.cancelText]}>
             {manageMode ? 'Cancel' : 'Manage'}
-          </Text>
+          </Text>)}
         </TouchableOpacity>
       </View>
 
@@ -474,7 +474,8 @@ const RequestsScreen = () => {
             />
           }
           ListEmptyComponent={
-            <View style={styles.emptyContainer}>              <Icon name="people-outline" size={60} color={Colors.light.textTertiary} />
+            <View style={styles.emptyContainer}>              
+            <Icon name="people-outline" size={60} color={Colors.light.textTertiary} />
               <Text style={styles.emptyTitle}>No buyer requests found</Text>
               <Text style={styles.emptyMessage}>
                 {searchText ? "Try a different search term" : "You don't have any buyer connection requests yet"}
