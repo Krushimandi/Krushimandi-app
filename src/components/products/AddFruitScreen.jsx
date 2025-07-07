@@ -522,6 +522,7 @@ const AddFruitScreen = ({ navigation }) => {
                       placeholderTextColor="#94A3B8"
                       autoCapitalize="words"
                       returnKeyType="next"
+                      editable={false}
                     />
                   </View>
 
@@ -540,6 +541,7 @@ const AddFruitScreen = ({ navigation }) => {
                       placeholderTextColor="#94A3B8"
                       autoCapitalize="words"
                       returnKeyType="next"
+                      editable={false}
                     />
                   </View>
                 </View>
@@ -560,6 +562,7 @@ const AddFruitScreen = ({ navigation }) => {
                       placeholderTextColor="#94A3B8"
                       autoCapitalize="words"
                       returnKeyType="next"
+                      editable={false}
                     />
                   </View>
 
@@ -579,6 +582,7 @@ const AddFruitScreen = ({ navigation }) => {
                       keyboardType="numeric"
                       maxLength={6}
                       returnKeyType="next"
+                      editable={false}
                     />
                   </View>
                 </View>

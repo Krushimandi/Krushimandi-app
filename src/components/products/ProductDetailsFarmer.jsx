@@ -13,6 +13,7 @@ import {
   Alert,
   FlatList,
   Animated,
+  Share,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { Colors } from '../../constants';
@@ -73,13 +74,51 @@ const ProductDetailsFarmer = ({ route, navigation }) => {
     );
   };
 
-  const handleShare = () => {
-    // Handle share product
-    Alert.alert(
-      'Share Product',
-      'Share functionality would be implemented here.',
-      [{ text: 'OK' }]
-    );
+  const handleShare = async () => {
+    try {
+      // Create a comprehensive product description for sharing
+      const productDescription = `🍎 ${product.name} for Sale!
+
+📍 Location: ${product.location ? formatLocation(product.location) : 'Available'}
+💰 Price: ${formatPrice(product.price_per_kg || 0)} per kg
+📦 Quantity: ${product.quantity ? formatFruitQuantity(product.quantity) : (product.available || 'Available')}
+⭐ Grade: ${product.grade || 'A'}
+🌱 Type: ${product.type ? product.type.charAt(0).toUpperCase() + product.type.slice(1) : (product.category || 'Fresh Fruit')}
+
+${product.description ? `📝 Description: ${product.description}\n` : ''}📅 Available: ${product.availability_date ? new Date(product.availability_date).toLocaleDateString() : 'Now'}
+
+Contact for more details and bulk orders!
+
+#FreshFruits #DirectFromFarmer #Krushimandi`;
+
+      const shareOptions = {
+        title: `${product.name} - Fresh from Farm`,
+        message: productDescription,
+        url: product.image_urls && product.image_urls.length > 0 ? product.image_urls[0] : undefined,
+      };
+
+      const result = await Share.share(shareOptions);
+      
+      if (result.action === Share.sharedAction) {
+        if (result.activityType) {
+          // Shared via specific activity type (iOS)
+          console.log('Shared via:', result.activityType);
+        } else {
+          // Shared successfully (Android)
+          console.log('Product shared successfully');
+        }
+      } else if (result.action === Share.dismissedAction) {
+        // Share dialog was dismissed
+        console.log('Share dialog dismissed');
+      }
+    } catch (error) {
+      console.error('Error sharing product:', error);
+      Alert.alert(
+        'Share Error',
+        'Unable to share the product at the moment. Please try again.',
+        [{ text: 'OK' }]
+      );
+    }
   };
 
   const handleViewRequests = () => {
