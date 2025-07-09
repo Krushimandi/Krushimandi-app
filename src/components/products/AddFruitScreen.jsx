@@ -31,11 +31,11 @@ const AddFruitScreen = ({ navigation }) => {
   const { width: screenWidth } = Dimensions.get('window');
   const { hideTabBar, showTabBar } = useTabBarControl();
   const [fruitName, setFruitName] = useState('');
-  const [category, setCategory] = useState('mango');
+  const [category, setCategory] = useState('banana');
   const [grade, setGrade] = useState('A');
   const [quantity, setQuantity] = useState('10-12');
   const [description, setDescription] = useState('');
-  const [village, setVillage] = useState('');
+  const [city, setCity] = useState('');
   const [district, setDistrict] = useState('');
   const [state, setState] = useState('');
   const [pincode, setPincode] = useState('');
@@ -49,7 +49,7 @@ const AddFruitScreen = ({ navigation }) => {
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [locationPermission, setLocationPermission] = useState(null);
   const [currentLocation, setCurrentLocation] = useState(null);
-  const [lastLocationData, setLastLocationData] = useState(null); // Cache location data in state
+
   const infoIconRef = useRef(null);
   const [progress, setProgress] = useState(0);
   const slideAnim = useRef(new Animated.Value(0)).current;
@@ -58,14 +58,13 @@ const AddFruitScreen = ({ navigation }) => {
   const scrollViewRef = useRef(null);
 
   const categories = [
-    { id: 'mango', name: 'Mango', icon: '🥭', color: '#FFD700' },
-    { id: 'apple', name: 'Apple', icon: '🍎', color: '#FF6B6B' },
-    { id: 'banana', name: 'Banana', icon: '🍌', color: '#FFE135' },
-    { id: 'orange', name: 'Orange', icon: '🍊', color: '#FF8C00' },
-    { id: 'grapes', name: 'Grapes', icon: '🍇', color: '#9370DB' },
-    { id: 'pomegranate', name: 'Pomegranate', icon: '🍇', color: '#DC143C' },
-    { id: 'guava', name: 'Guava', icon: '🍐', color: '#90EE90' },
-    { id: 'papaya', name: 'Papaya', icon: '🧡', color: '#FFA500' }
+    { id: 'banana', name: 'Banana', icon: '�', color: '#FFE135' },
+    { id: 'orange', name: 'Orange', icon: '�', color: '#FF8C00' },
+    { id: 'grape', name: 'Grape', icon: '�', color: '#9370DB' },
+    { id: 'pomegranate', name: 'Pomegranate', icon: '💎', color: '#DC143C' },
+    { id: 'sweet lemon', name: 'Sweet Lemon', icon: '�', color: '#FFD700' },
+    { id: 'apple', name: 'Apple', icon: '�', color: '#FF6B6B' },
+    { id: 'mango', name: 'Mango', icon: '�', color: '#FFB347' }
   ];
 
   const grades = [
@@ -87,14 +86,13 @@ const AddFruitScreen = ({ navigation }) => {
   // Auto-complete suggestions for common descriptions
   const getDescriptionSuggestion = (category) => {
     const suggestions = {
-      mango: "Fresh, sweet and juicy mangoes. Harvested at perfect ripeness with excellent taste and aroma.",
-      apple: "Crisp and fresh apples with natural sweetness. Premium quality with attractive color and texture.",
       banana: "Naturally ripened bananas with perfect sweetness. Rich in nutrients and great for all ages.",
       orange: "Sweet and tangy oranges bursting with vitamin C. Fresh from orchard with vibrant color.",
-      grapes: "Sweet and juicy grapes with perfect texture. Seedless variety with natural freshness.",
+      grape: "Sweet and juicy grapes with perfect texture. Rich in antioxidants and natural freshness.",
       pomegranate: "Ruby red pomegranates with sweet-tart flavor. Rich in antioxidants and nutrients.",
-      guava: "Aromatic guavas with sweet flesh. Rich in vitamin C and perfect for fresh consumption.",
-      papaya: "Sweet and soft papayas with orange flesh. Natural enzymes and rich tropical flavor."
+      "sweet lemon": "Sweet lemons with mild citrus flavor. Rich in vitamin C and perfect for juice.",
+      apple: "Crisp and fresh apples with natural sweetness. Premium quality with attractive color and texture.",
+      mango: "Fresh, sweet and juicy mangoes. Harvested at perfect ripeness with excellent taste and aroma."
     };
     return suggestions[category] || "";
   };
@@ -106,12 +104,12 @@ const AddFruitScreen = ({ navigation }) => {
       grade &&
       quantity &&
       description.trim() &&
-      village.trim() &&
+      city.trim() &&
       district.trim() &&
       state.trim() &&
       pincode.trim();
     setIsFormValid(isValid);
-  }, [fruitName, category, grade, quantity, description, village, district, state, pincode]);
+  }, [fruitName, category, grade, quantity, description, city, district, state, pincode]);
 
   React.useEffect(() => {
     const totalFields = 9;
@@ -122,7 +120,7 @@ const AddFruitScreen = ({ navigation }) => {
     if (grade) filled++;
     if (quantity) filled++;
     if (description.trim()) filled++;
-    if (village.trim()) filled++;
+    if (city.trim()) filled++;
     if (district.trim()) filled++;
     if (state.trim()) filled++;
     if (pincode.trim()) filled++;
@@ -136,7 +134,7 @@ const AddFruitScreen = ({ navigation }) => {
       duration: 300,
       useNativeDriver: false,
     }).start();
-  }, [fruitName, category, grade, quantity, description, village, district, state, pincode]);
+  }, [fruitName, category, grade, quantity, description, city, district, state, pincode]);
 
 
   const handleContinue = async () => {
@@ -167,7 +165,7 @@ const AddFruitScreen = ({ navigation }) => {
           quantity: quantityParts,
           description: description.trim(),
           location: {
-            village: village.trim(),
+            city: city.trim(),
             district: district.trim(),
             state: state.trim(),
             pincode: pincode.trim(),
@@ -217,29 +215,22 @@ const AddFruitScreen = ({ navigation }) => {
     setIsGettingLocation(true);
 
     try {
-      console.log('Getting location with Network/WiFi priority and caching...');
+      console.log('Getting location with Network/WiFi priority...');
       const location = await getCurrentLocation();
 
       if (location) {
         setCurrentLocation({ lat: location.latitude, lng: location.longitude });
 
-        // Use fast location method with caching
+        // Use fast location method
         const locationData = await getFastLocation(location.latitude, location.longitude);
         if (locationData) {
           console.log('Location data received:', locationData);
 
-          // Store in state cache for immediate re-use
-          setLastLocationData({
-            ...locationData,
-            coordinates: { lat: location.latitude, lng: location.longitude },
-            timestamp: Date.now()
-          });
+          // Always fill city (fallback to district if city is empty)
+          const cityToFill = locationData.city || locationData.district || 'Current Area';
 
-          // Always fill village (fallback to district if village is empty)
-          const villageToFill = locationData.village || locationData.district || 'Current Area';
-
-          setVillage(villageToFill);
-          setDistrict(locationData.district || villageToFill);
+          setCity(cityToFill);
+          setDistrict(locationData.district || cityToFill);
           setState(locationData.state || 'India');
           setPincode(locationData.pincode || '');
 
@@ -248,9 +239,6 @@ const AddFruitScreen = ({ navigation }) => {
           let dataSource = '';
 
           switch (locationData.source) {
-            case 'cache':
-              dataSource = ' ⚡ Cached data';
-              break;
             case 'google':
               dataSource = ' 🌐 Live data';
               break;
@@ -263,7 +251,7 @@ const AddFruitScreen = ({ navigation }) => {
 
           console.log(
             'Location Found!',
-            `Auto-filled: ${villageToFill}, ${locationData.district}, ${locationData.state}${locationData.pincode ? ' - ' + locationData.pincode : ''}${locationSource}${dataSource}`,
+            `Auto-filled: ${cityToFill}, ${locationData.district}, ${locationData.state}${locationData.pincode ? ' - ' + locationData.pincode : ''}${locationSource}${dataSource}`,
             [{ text: 'OK' }]
           );
         } else {
@@ -508,17 +496,17 @@ const AddFruitScreen = ({ navigation }) => {
 
                 <View style={styles.locationGrid}>
                   <View style={[styles.modernInputContainer, styles.halfWidth]}>
-                    <Text style={styles.modernLabel}>Village</Text>
+                    <Text style={styles.modernLabel}>City/Village</Text>
                     <TextInput
                       style={[
                         styles.modernInput,
-                        focusedInput === 'village' && styles.modernInputFocused
+                        focusedInput === 'city' && styles.modernInputFocused
                       ]}
-                      value={village}
-                      onChangeText={setVillage}
-                      onFocus={() => setFocusedInput('village')}
+                      value={city}
+                      onChangeText={setCity}
+                      onFocus={() => setFocusedInput('city')}
                       onBlur={() => setFocusedInput('')}
-                      placeholder="Village name"
+                      placeholder="City name"
                       placeholderTextColor="#94A3B8"
                       autoCapitalize="words"
                       returnKeyType="next"

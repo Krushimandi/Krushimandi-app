@@ -36,11 +36,13 @@ import {
 } from '../../utils/formatters';
 const categories = [
   { name: 'All', type: 'all', icon: null },
-  { name: 'Mango', type: 'mango', icon: require('../../assets/Apple.png') },
-  { name: 'Orange', type: 'orange', icon: require('../../assets/Apple.png') },
-  { name: 'Apple', type: 'apple', icon: require('../../assets/Apple.png') },
-  { name: 'Banana', type: 'banana', icon: require('../../assets/banana.png') },
-  { name: 'Grapes', type: 'grapes', icon: require('../../assets/Apple.png') },
+  { name: 'Banana', type: 'banana', icon: require('../../assets/fruits/banana.png') },
+  { name: 'Orange', type: 'orange', icon: require('../../assets/fruits/orange.png') },
+  { name: 'Grape', type: 'grape', icon: require('../../assets/fruits/grapes.png') },
+  { name: 'Pomegranate', type: 'pomegranate', icon: require('../../assets/fruits/pomegranate.png') },
+  { name: 'Sweet Lemon', type: 'sweet lemon', icon: require('../../assets/fruits/sweetlemon.png') },
+  { name: 'Apple', type: 'apple', icon: require('../../assets/fruits/Apple.png') },
+  { name: 'Mango', type: 'mango', icon: require('../../assets/fruits/mango.png') },
 ];
 
 const HEADER_MAX_HEIGHT = 158; // Maximum header height

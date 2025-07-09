@@ -1,5 +1,16 @@
 import auth from '@react-native-firebase/auth';
-import firestore from '@react-native-firebase/firestore';
+import firestore, { 
+  serverTimestamp as firestoreServerTimestamp,
+  collection,
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+  getDocs,
+  query,
+  where,
+  limit
+} from '@react-native-firebase/firestore';
 import storage from '@react-native-firebase/storage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert } from 'react-native';
@@ -153,9 +164,9 @@ export const saveUserToFirestore = async (userData) => {
       isProfileComplete: userData.isProfileComplete || false,
       isEmailVerified: userData.isEmailVerified || false,
       isPhoneVerified: userData.isPhoneVerified || true,
-      createdAt: firestore.FieldValue.serverTimestamp(),
-      updatedAt: firestore.FieldValue.serverTimestamp(),
-      lastLoginAt: firestore.FieldValue.serverTimestamp(),
+      createdAt: firestoreServerTimestamp(),
+      updatedAt: firestoreServerTimestamp(),
+      lastLoginAt: firestoreServerTimestamp(),
       status: 'active',
       // Role-specific fields
       ...(userData.userRole === 'farmer' && {
@@ -170,10 +181,11 @@ export const saveUserToFirestore = async (userData) => {
       }),
     };
 
-    await firestore()
-      .collection(collection)
-      .doc(userData.uid)
-      .set(userDoc, { merge: true });
+    const collectionName = getCollectionName(userData.userRole);
+    await ensureCollectionExists(collectionName);
+
+    const userDocRef = doc(firestore(), collectionName, userData.uid);
+    await setDoc(userDocRef, userDoc, { merge: true });
 
     console.log('✅ User saved to Firestore successfully');
   } catch (error) {
@@ -192,11 +204,9 @@ export const getUserFromFirestore = async (userId, userRole) => {
   try {
     console.log('📖 Getting user from Firestore...', { userId, userRole });
 
-    const collection = getCollectionName(userRole);
-    const userDoc = await firestore()
-      .collection(collection)
-      .doc(userId)
-      .get();
+    const collectionName = getCollectionName(userRole);
+    const userDocRef = doc(firestore(), collectionName, userId);
+    const userDoc = await getDoc(userDocRef);
 
     if (userDoc.exists) {
       const userData = userDoc.data();
@@ -223,16 +233,14 @@ export const updateUserInFirestore = async (userId, userRole, updateData) => {
   try {
     console.log('🔄 Updating user in Firestore...', { userId, userRole });
 
-    const collection = getCollectionName(userRole);
+    const collectionName = getCollectionName(userRole);
     const updates = {
       ...updateData,
-      updatedAt: firestore.FieldValue.serverTimestamp(),
+      updatedAt: firestoreServerTimestamp(),
     };
 
-    await firestore()
-      .collection(collection)
-      .doc(userId)
-      .update(updates);
+    const userDocRef = doc(firestore(), collectionName, userId);
+    await updateDoc(userDocRef, updates);
 
     console.log('✅ User updated in Firestore successfully');
   } catch (error) {
@@ -450,7 +458,7 @@ export const getCompleteUserProfile = async (forceRefresh = false) => {
 export const updateLastLogin = async (userId, userRole) => {
   try {
     await updateUserInFirestore(userId, userRole, {
-      lastLoginAt: firestore.FieldValue.serverTimestamp(),
+      lastLoginAt: firestoreServerTimestamp(),
     });
   } catch (error) {
     console.error('❌ Failed to update last login:', error);
@@ -651,11 +659,9 @@ export const checkUserExistsInFirestore = async (phoneNumber) => {
     console.log('🔍 Checking if user exists in Firestore by phone number:', phoneNumber);
     
     // Check in farmers collection
-    let snapshot = await firestore()
-      .collection(COLLECTIONS.FARMERS)
-      .where('phoneNumber', '==', phoneNumber)
-      .limit(1)
-      .get();
+    const farmersCollectionRef = collection(firestore(), COLLECTIONS.FARMERS);
+    const farmersQuery = query(farmersCollectionRef, where('phoneNumber', '==', phoneNumber), limit(1));
+    let snapshot = await getDocs(farmersQuery);
     
     if (!snapshot.empty) {
       const userData = snapshot.docs[0].data();
@@ -664,11 +670,9 @@ export const checkUserExistsInFirestore = async (phoneNumber) => {
     }
     
     // Check in buyers collection
-    snapshot = await firestore()
-      .collection(COLLECTIONS.BUYERS)
-      .where('phoneNumber', '==', phoneNumber)
-      .limit(1)
-      .get();
+    const buyersCollectionRef = collection(firestore(), COLLECTIONS.BUYERS);
+    const buyersQuery = query(buyersCollectionRef, where('phoneNumber', '==', phoneNumber), limit(1));
+    snapshot = await getDocs(buyersQuery);
     
     if (!snapshot.empty) {
       const userData = snapshot.docs[0].data();
@@ -691,17 +695,14 @@ export const checkUserExistsInFirestore = async (phoneNumber) => {
  */
 const ensureCollectionExists = async (collectionName) => {
   try {
-    const snapshot = await firestore()
-      .collection(collectionName)
-      .limit(1)
-      .get();
+    const collectionRef = collection(firestore(), collectionName);
+    const querySnapshot = query(collectionRef, limit(1));
+    const snapshot = await getDocs(querySnapshot);
 
     if (snapshot.empty) {
       // Collection is empty, create a dummy document
-      await firestore()
-        .collection(collectionName)
-        .doc('dummyDoc')
-        .set({ createdAt: firestore.FieldValue.serverTimestamp() });
+      const dummyDocRef = doc(firestore(), collectionName, 'dummyDoc');
+      await setDoc(dummyDocRef, { createdAt: firestoreServerTimestamp() });
       console.log(`✅ Dummy document created in ${collectionName} collection`);
     } else {
       console.log(`✅ ${collectionName} collection already exists`);

@@ -35,13 +35,14 @@ import {
 import { RefreshControl } from 'react-native-gesture-handler';
 
 const fruitCategories = [
-  { name: 'All Fruits', type: 'all', icon: require('../../assets/Apple.png') },
-  { name: 'Mango', type: 'mango', icon: require('../../assets/hapus.jpeg') },
-  { name: 'Apple', type: 'apple', icon: require('../../assets/appleFruit.jpeg') },
-  { name: 'Banana', type: 'banana', icon: require('../../assets/banana.png') },
+  { name: 'All Fruits', type: 'all', icon: null },
+  { name: 'Banana', type: 'banana', icon: require('../../assets/fruits/banana.png') },
   { name: 'Orange', type: 'orange', icon: require('../../assets/fruits/orange.png') },
-  { name: 'Grapes', type: 'grapes', icon: require('../../assets/Apple.png') }, // Update with grapes image when available
-  { name: 'Pomegranate', type: 'pomegranate', icon: require('../../assets/Apple.png') }, // Update with pomegranate image when available
+  { name: 'Grape', type: 'grape', icon: require('../../assets/fruits/grapes.png') },
+  { name: 'Pomegranate', type: 'pomegranate', icon: require('../../assets/fruits/pomegranate.png') },
+  { name: 'Sweet Lemon', type: 'sweet lemon', icon: require('../../assets/fruits/sweetlemon.png') },
+  { name: 'Apple', type: 'apple', icon: require('../../assets/fruits/Apple.png') },
+  { name: 'Mango', type: 'mango', icon: require('../../assets/fruits/mango.png') },
 ];
 
 const HEADER_MAX_HEIGHT = 158; // Maximum header height
@@ -83,8 +84,8 @@ const FarmerHomeScreen = () => {
   });
 
   const titleOpacity = scrollY.interpolate({
-    inputRange: [0, HEADER_SCROLL_DISTANCE / 2, HEADER_SCROLL_DISTANCE],
-    outputRange: [0, 0.5, 1],
+    inputRange: [0, HEADER_SCROLL_DISTANCE * 0.7, HEADER_SCROLL_DISTANCE],
+    outputRange: [0, 0, 1], // Hidden until 70% of scroll, then fade in quickly
     extrapolate: 'clamp',
   });
 
@@ -425,11 +426,7 @@ const FarmerHomeScreen = () => {
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar
-<<<<<<< HEAD
         backgroundColor="#FFFFFF"
-=======
-        backgroundColor="#FFF"
->>>>>>> 9c097c26359d544a4519cdca540002aff2402913
         translucent={true}
         barStyle="dark-content"
       />
@@ -569,7 +566,13 @@ const FarmerHomeScreen = () => {
                 ]}
                 onPress={() => setSelectedCategory(item.type)}
               >
-                <Image source={item.icon} style={styles.categoryImage} />
+                {item.name === 'All' ? (
+                  <Icon name="apps-outline" size={22} color={"#505050"} style={[styles.categoryIcon, {
+                    marginHorizontal: 6,
+                  }]} />
+                ) : (
+                  <Image source={item.icon} style={styles.categoryImage} />
+                )}
                 <Text style={[
                   styles.categoryText,
                   selectedCategory === item.type && styles.selectedCategoryText
@@ -845,15 +848,24 @@ const FarmerHomeScreen = () => {
         </View>
       </Animated.ScrollView>
 
-      {/* Fixed Header Title - Shows below normal header */}
+      {/* Fixed Header Title - Initially hidden, shows only when user scrolls significantly */}
       <Animated.View
         style={[
           styles.fixedHeaderTitle,
           {
-            opacity: titleOpacity,
-            // zIndex: titleIndex, // Use opacity animation instead of z-index
+            opacity: titleOpacity, // Will be 0 initially, becomes visible on scroll
+            transform: [
+              {
+                translateY: titleOpacity.interpolate({
+                  inputRange: [0, 0.1, 1],
+                  outputRange: [-56, -56, 0], // Slide down from hidden position
+                  extrapolate: 'clamp',
+                })
+              }
+            ],
           },
-           pointerEvents={titleOpacity.__getValue() > 0.5 ? 'auto' : 'none'}, // prevent click-through
+          // Only enable pointer events when significantly visible
+          titleOpacity.__getValue() > 0.3 ? {} : { pointerEvents: 'none' },
         ]}>
         <Image source={require('../../assets/icon.png')} style={styles.fixedHeaderImage} />
         <TouchableOpacity
@@ -1128,7 +1140,6 @@ const styles = StyleSheet.create({
   },
   fruitCard: {
     width: '48%',
-    height: 2000,
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     shadowColor: '#000',

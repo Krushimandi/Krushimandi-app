@@ -18,14 +18,16 @@ import {
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Octicons from 'react-native-vector-icons/Octicons';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { RouteProp } from '@react-navigation/native';
+import { RouteProp, useFocusEffect } from '@react-navigation/native';
 import { Colors } from '../../constants';
 import { BuyerStackParamList } from '../../navigation/types';
 import { type Fruit } from '../../types/fruit';
 import { formatPrice, formatLocation, formatFruitQuantity, getRelativeTime, getDisplayParts } from '../../utils/formatters';
-import { toggleWishlist, isInWishlist, getFruitLikesCount, getFruitLikers } from '../../services/wishlistService';
+import { toggleWishlist, isInWishlist, getFruitLikesCount, getFruitLikers, syncFruitLikesCount, addToWishlist, removeFromWishlist, cleanupWishlistInconsistencies } from '../../services/wishlistService';
 import Toast from 'react-native-toast-message';
-import firestore from '@react-native-firebase/firestore';
+import firestore, { 
+  increment as firestoreIncrement 
+} from '@react-native-firebase/firestore';
 import auth from '@react-native-firebase/auth';
 
 const { width, height } = Dimensions.get('window');
@@ -166,29 +168,30 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
     'farmer_id_length': product.farmer_id?.length
   });
 
-  // Initialize current likes from product data
+  // Initialize fresh data from Firestore on each screen load
   useEffect(() => {
-    setCurrentLikes(product.likes || 0);
-    // Also sync with actual wishlists count
-    syncActualLikesCount();
-  }, [product.likes]);
+    // Always fetch fresh data from Firestore on screen load
+    syncFreshDataFromFirestore();
+  }, [product.id]);
 
-  // Sync the actual likes count from wishlists collection
-  const syncActualLikesCount = async () => {
+  // Sync fresh wishlist status and likes count from Firestore - OPTIMIZED
+  const syncFreshDataFromFirestore = async () => {
     try {
-      if (!product.id || product.id === 'unknown-id') return;
-      
-      console.log('🔄 Syncing actual likes count from wishlists collection...');
-      const actualLikesCount = await getFruitLikesCount(product.id);
-      console.log('📊 Actual likes count from wishlists:', actualLikesCount);
-      console.log('📊 Stored likes count in fruit doc:', product.likes);
-      
-      if (actualLikesCount !== currentLikes) {
-        console.log('📊 Updating local likes count to match actual:', actualLikesCount);
-        setCurrentLikes(actualLikesCount);
+      if (!product.id || product.id === 'unknown-id') {
+        setCurrentLikes(Math.max(0, product.likes || 0));
+        return;
       }
+      
+      console.log('🔄 Quick sync for product:', product.id);
+      
+      // Fast, single read from fruit document
+      const likesCount = await syncFruitLikesCount(product.id);
+      setCurrentLikes(Math.max(0, likesCount));
+      
     } catch (error) {
-      console.error('❌ Error syncing actual likes count:', error);
+      console.error('❌ Error syncing data:', error);
+      // Use product data as fallback
+      setCurrentLikes(Math.max(0, product.likes || 0));
     }
   };
 
@@ -214,6 +217,36 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
     incrementViewCount();
     fetchFarmerData();
   }, [product.id, product.farmer_id]);
+
+  // Refresh data when screen comes into focus to handle stale state - OPTIMIZED
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('📱 Screen focused, quick refresh...');
+      // Simple, fast refresh without complex cleanup operations
+      const refreshData = async () => {
+        try {
+          // Small delay to ensure any pending operations complete
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
+          // Fast parallel operations
+          const [freshWishlistStatus, freshLikesCount] = await Promise.all([
+            isInWishlist(product.id),
+            syncFruitLikesCount(product.id)
+          ]);
+          
+          // Update UI with fresh data
+          setIsFavorite(freshWishlistStatus);
+          setCurrentLikes(Math.max(0, freshLikesCount));
+          
+          console.log('✅ Quick refresh complete:', freshWishlistStatus ? '❤️' : '🤍', 'likes:', freshLikesCount);
+        } catch (error) {
+          console.error('❌ Error during focus refresh:', error);
+        }
+      };
+      
+      refreshData();
+    }, [product.id])
+  );
 
   const fetchFarmerData = async () => {
     if (!product.farmer_id || product.farmer_id === 'unknown-farmer') {
@@ -290,9 +323,6 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
 
   const checkWishlistStatus = async () => {
     try {
-      console.log('🔍 Checking wishlist status for product:', product.id);
-      console.log('🔍 Using new structure: fruits/{fruitId}/wishlists/{userId}');
-      
       // Ensure we have a valid product ID before checking wishlist
       if (!product.id || product.id === 'unknown-id') {
         console.log('⚠️ Invalid product ID, skipping wishlist check:', product.id);
@@ -308,15 +338,24 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
         return;
       }
 
-      console.log('🔍 Checking if user', user.uid, 'has liked fruit:', product.id);
+      console.log('🔍 Getting wishlist status (optimized) for:', product.id);
       
-      const isWishlisted = await isInWishlist(product.id);
-      console.log('✅ User like status for this fruit:', isWishlisted ? '❤️ LIKED' : '🤍 NOT_LIKED');
+      // Fast parallel operations
+      const [isWishlisted, likesCount] = await Promise.all([
+        isInWishlist(product.id),
+        syncFruitLikesCount(product.id)
+      ]);
+      
       setIsFavorite(isWishlisted);
+      setCurrentLikes(Math.max(0, likesCount));
+      
+      console.log('✅ Wishlist data loaded:', isWishlisted ? '❤️ LIKED' : '🤍 NOT_LIKED', 'likes:', likesCount);
+      
     } catch (error) {
       console.error('❌ Error checking wishlist status:', error);
       // Default to false on error
       setIsFavorite(false);
+      setCurrentLikes(Math.max(0, product.likes || 0));
     }
   };
 
@@ -341,7 +380,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
         .collection('fruits')
         .doc(product.id)
         .update({
-          views: firestore.FieldValue.increment(1)
+          views: firestoreIncrement(1)
         });
       console.log('✅ View count incremented for fruit:', product.id);
     } catch (error: any) {
@@ -357,93 +396,75 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
     if (isWishlistLoading) return;
     
     console.log('🔄 Starting wishlist toggle for fruit:', product.id);
-    console.log('🔄 Current wishlist status:', isFavorite ? 'LIKED ❤️' : 'UNLIKED 🤍');
-    console.log('🔄 Will update: fruits/' + product.id + '/wishlists/{currentUserId}');
+    console.log('🔄 Current UI state - wishlist:', isFavorite ? 'LIKED ❤️' : 'UNLIKED 🤍', 'likes:', currentLikes);
     
+    // Store previous state for reverting on error
     const previousWishlistStatus = isFavorite;
+    const previousLikeCount = currentLikes;
+    
     setIsWishlistLoading(true);
     
     try {
-      const newWishlistStatus = await toggleWishlist(product.id);
-      console.log('✅ Toggle completed. New wishlist status:', newWishlistStatus ? 'LIKED ❤️' : 'UNLIKED 🤍');
-      console.log('🔄 Previous status:', previousWishlistStatus, '-> New status:', newWishlistStatus);
+      // First, get the ACTUAL current state from Firestore (not UI state)
+      console.log('🔍 Getting actual current state from Firestore...');
+      const actualCurrentStatus = await isInWishlist(product.id);
+      const actualCurrentLikesCount = await getFruitLikesCount(product.id);
       
-      // Validation: Ensure the toggle worked as expected
-      if (previousWishlistStatus === true && newWishlistStatus !== false) {
-        throw new Error(`Toggle validation failed: was LIKED but should now be UNLIKED`);
-      }
-      if (previousWishlistStatus === false && newWishlistStatus !== true) {
-        throw new Error(`Toggle validation failed: was UNLIKED but should now be LIKED`);
-      }
+      console.log('� Actual Firestore state - wishlist:', actualCurrentStatus ? 'LIKED ❤️' : 'UNLIKED 🤍', 'likes:', actualCurrentLikesCount);
       
-      // Only update UI if the status actually changed
-      if (previousWishlistStatus !== newWishlistStatus) {
-        setIsFavorite(newWishlistStatus);
-        
-        // Update local like count immediately for better UX
-        const likeChange = newWishlistStatus ? 1 : -1;
-        const newLikeCount = Math.max(0, currentLikes + likeChange);
-        console.log(`💖 Updating like count: ${currentLikes} -> ${newLikeCount} (change: ${likeChange})`);
-        setCurrentLikes(newLikeCount);
-        
-        // Update like count in Firestore and sync with actual count
-        try {
-          // First check if the document exists
-          const fruitDoc = await firestore()
-            .collection('fruits')
-            .doc(product.id)
-            .get();
-          
-          if (!fruitDoc.exists) {
-            console.log('⚠️ Fruit document does not exist in Firestore:', product.id);
-            console.log('⚠️ This might be sample/test data. Skipping like count update.');
-          } else {
-            console.log(`📊 Updating fruit likes field by ${likeChange} for fruit:`, product.id);
-            
-            await firestore()
-              .collection('fruits')
-              .doc(product.id)
-              .update({
-                likes: firestore.FieldValue.increment(likeChange)
-              });
-            console.log(`✅ Fruit likes field ${newWishlistStatus ? 'incremented' : 'decremented'} successfully`);
-            
-            // Sync with actual count from wishlists collection for accuracy
-            setTimeout(async () => {
-              try {
-                const actualCount = await getFruitLikesCount(product.id);
-                console.log('📊 Final sync - actual likes count:', actualCount);
-                setCurrentLikes(actualCount);
-              } catch (syncError) {
-                console.error('❌ Error syncing final count:', syncError);
-              }
-            }, 1000); // Small delay to ensure Firestore consistency
-          }
-        } catch (likeError: any) {
-          console.error('❌ Error updating like count:', likeError);
-          if (likeError?.code === 'firestore/not-found') {
-            console.log('⚠️ Document not found - this might be sample data:', product.id);
-          }
-          // Revert local like count on Firestore error
-          setCurrentLikes(prevLikes => Math.max(0, prevLikes - likeChange));
-        }
-        
-        Toast.show({
-          type: 'success',
-          text1: newWishlistStatus ? '❤️ Added to Wishlist' : '💔 Removed from Wishlist',
-          text2: newWishlistStatus ? `${product.name} has been added to your wishlist` : `${product.name} has been removed from your wishlist`,
-          position: 'bottom',
-          visibilityTime: 3000,
-        });
+      // Determine what action to take based on ACTUAL state, not UI state
+      const shouldAddToWishlist = !actualCurrentStatus;
+      
+      console.log('🔄 Action to take:', shouldAddToWishlist ? 'ADD to wishlist' : 'REMOVE from wishlist');
+      
+      // Perform the toggle operation
+      let newStatus;
+      if (shouldAddToWishlist) {
+        await addToWishlist(product.id);
+        newStatus = true;
+        console.log('✅ Added to wishlist');
       } else {
-        console.log('ℹ️ Wishlist status unchanged, no updates needed');
+        await removeFromWishlist(product.id);
+        newStatus = false;
+        console.log('✅ Removed from wishlist');
       }
+      
+      // Wait a bit for Firestore consistency
+      console.log('⏳ Waiting for Firestore consistency...');
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Get the fresh count from Firestore (single read)
+      const freshLikesCount = await syncFruitLikesCount(product.id);
+      console.log('📊 Fresh likes count after toggle:', freshLikesCount);
+      
+      // Update UI with final state
+      setIsFavorite(newStatus);
+      setCurrentLikes(Math.max(0, freshLikesCount));
+      
+      console.log('✅ UI updated - wishlist:', newStatus ? 'LIKED ❤️' : 'UNLIKED 🤍', 'likes:', freshLikesCount);
+      
+     
+      
     } catch (error) {
       console.error('❌ Error toggling wishlist:', error);
       
-      // Revert the UI state on error
-      setIsFavorite(previousWishlistStatus);
-      setCurrentLikes(product.likes || 0); // Reset to original count
+      // On error, refresh the actual state from Firestore instead of reverting to old UI state
+      try {
+        console.log('🔄 Error occurred, refreshing actual state from Firestore...');
+        await new Promise(resolve => setTimeout(resolve, 300)); // Small delay for Firestore
+        const actualStatus = await isInWishlist(product.id);
+        const actualCount = await syncFruitLikesCount(product.id);
+        
+        setIsFavorite(actualStatus);
+        setCurrentLikes(Math.max(0, actualCount));
+        
+        console.log('✅ Refreshed to actual Firestore state - wishlist:', actualStatus ? 'LIKED ❤️' : 'UNLIKED 🤍', 'likes:', actualCount);
+      } catch (refreshError) {
+        console.error('❌ Error refreshing state:', refreshError);
+        // As last resort, revert to previous UI state
+        setIsFavorite(previousWishlistStatus);
+        setCurrentLikes(previousLikeCount);
+      }
       
       Toast.show({
         type: 'error',
@@ -711,26 +732,44 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                 <TouchableOpacity 
                   style={[
                     styles.engagementIconContainer,
-                    { backgroundColor: isFavorite ? '#FFE8E8' : '#E8F5E8' }
+                    { 
+                      backgroundColor: isFavorite ? '#FFE8E8' : '#E8F5E8',
+                      opacity: isWishlistLoading ? 0.6 : 1.0,
+                      transform: [{ scale: isWishlistLoading ? 0.95 : 1.0 }]
+                    }
                   ]}
                   onPress={handleWishlistToggle}
                   disabled={isWishlistLoading}
                   activeOpacity={0.7}
                 >
-                  <Ionicons 
-                    name={isFavorite ? "heart" : "heart-outline"} 
-                    size={18} 
-                    color={isFavorite ? "#FF6B6B" : "#007E2F"} 
-                  />
+                  {isWishlistLoading ? (
+                    <Ionicons 
+                      name="heart-outline" 
+                      size={18} 
+                      color="#999999" 
+                    />
+                  ) : (
+                    <Ionicons 
+                      name={isFavorite ? "heart" : "heart-outline"} 
+                      size={18} 
+                      color={isFavorite ? "#FF6B6B" : "#007E2F"} 
+                    />
+                  )}
                 </TouchableOpacity>
                 <View style={styles.engagementTextContainer}>
                   <Text style={[
                     styles.modernEngagementNumber,
-                    isFavorite && { color: '#FF6B6B' }
+                    isFavorite && { color: '#FF6B6B' },
+                    isWishlistLoading && { opacity: 0.6 }
                   ]}>
                     {currentLikes}
                   </Text>
-                  <Text style={styles.engagementLabel}>likes</Text>
+                  <Text style={[
+                    styles.engagementLabel,
+                    isWishlistLoading && { opacity: 0.6 }
+                  ]}>
+                    likes
+                  </Text>
                 </View>
               </View>
               

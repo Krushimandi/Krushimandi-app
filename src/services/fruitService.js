@@ -3,14 +3,51 @@
  * Handles fruit data operations with Firestore and Storage
  */
 
-import firestore from '@react-native-firebase/firestore';
+import firestore, { 
+  increment as firestoreIncrement, 
+  arrayUnion as firestoreArrayUnion, 
+  arrayRemove as firestoreArrayRemove, 
+  serverTimestamp as firestoreServerTimestamp,
+  collection,
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+  deleteDoc,
+  getDocs,
+  query,
+  where,
+  limit,
+  orderBy
+} from '@react-native-firebase/firestore';
 import storage from '@react-native-firebase/storage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Fruit } from '../types/fruit';
+import { SUPPORTED_FRUIT_TYPES, isValidFruitType } from '../constants/Fruits';
 
 const FRUITS_COLLECTION = 'fruits';
 const FARMERS_COLLECTION = 'farmers';
 const BUYERS_COLLECTION = 'buyers';
+
+/**
+ * Validate fruit type against supported fruits
+ * @param {string} fruitType - Fruit type to validate
+ * @returns {boolean} Whether the fruit type is supported
+ */
+export const validateFruitType = (fruitType) => {
+  if (!fruitType || typeof fruitType !== 'string') {
+    return false;
+  }
+  return isValidFruitType(fruitType);
+};
+
+/**
+ * Get list of supported fruit types
+ * @returns {string[]} Array of supported fruit types
+ */
+export const getSupportedFruitTypes = () => {
+  return [...SUPPORTED_FRUIT_TYPES];
+};
 
 /**
  * Upload images to Firebase Storage
@@ -54,7 +91,9 @@ export const uploadFruitImages = async (imageUris, fruitId) => {
  * @returns {string} Unique fruit ID
  */
 const generateFruitId = () => {
-  return firestore().collection(FRUITS_COLLECTION).doc().id;
+  const collectionRef = collection(firestore(), FRUITS_COLLECTION);
+  const docRef = doc(collectionRef);
+  return docRef.id;
 };
 
 /**
@@ -66,6 +105,11 @@ const generateFruitId = () => {
 export const createFruit = async (fruitData, imageUris = []) => {
   try {
     console.log('🍎 Creating new fruit listing...');
+    
+    // Validate fruit type first
+    if (!validateFruitType(fruitData.type)) {
+      throw new Error(`Unsupported fruit type: ${fruitData.type}. Supported types: ${getSupportedFruitTypes().join(', ')}`);
+    }
     
     // Generate unique ID
     const fruitId = generateFruitId();
@@ -110,11 +154,10 @@ export const createFruit = async (fruitData, imageUris = []) => {
       updated_at: now
     };
     
-    // Save to Firestore
-    await firestore()
-      .collection(FRUITS_COLLECTION)
-      .doc(fruitId)
-      .set(fruitDoc);
+    // Save to Firestore using modular API
+    const fruitsCollectionRef = collection(firestore(), FRUITS_COLLECTION);
+    const fruitDocRef = doc(fruitsCollectionRef, fruitId);
+    await setDoc(fruitDocRef, fruitDoc);
     
     // Add fruit ID to farmer's fruit list
     await addFruitToFarmer(fruitDoc.farmer_id, fruitId);
@@ -142,10 +185,9 @@ export const updateFruit = async (fruitId, updateData) => {
       updated_at: new Date().toISOString()
     };
     
-    await firestore()
-      .collection(FRUITS_COLLECTION)
-      .doc(fruitId)
-      .update(updateDoc);
+    const fruitsCollectionRef = collection(firestore(), FRUITS_COLLECTION);
+    const fruitDocRef = doc(fruitsCollectionRef, fruitId);
+    await updateDoc(fruitDocRef, updateDoc);
     
     console.log('✅ Fruit updated successfully');
   } catch (error) {
@@ -161,13 +203,12 @@ export const updateFruit = async (fruitId, updateData) => {
  */
 export const getFruitById = async (fruitId) => {
   try {
-    const doc = await firestore()
-      .collection(FRUITS_COLLECTION)
-      .doc(fruitId)
-      .get();
+    const fruitsCollectionRef = collection(firestore(), FRUITS_COLLECTION);
+    const fruitDocRef = doc(fruitsCollectionRef, fruitId);
+    const docSnapshot = await getDoc(fruitDocRef);
     
-    if (doc.exists) {
-      return { id: doc.id, ...doc.data() };
+    if (docSnapshot.exists()) {
+      return { id: docSnapshot.id, ...docSnapshot.data() };
     }
     
     return null;
@@ -185,16 +226,23 @@ export const getFruitById = async (fruitId) => {
  */
 export const getFruitsByFarmer = async (farmerId, status = null) => {
   try {
-    let query = firestore()
-      .collection(FRUITS_COLLECTION)
-      .where('farmer_id', '==', farmerId)
-      .orderBy('created_at', 'desc');
+    const fruitsCollectionRef = collection(firestore(), FRUITS_COLLECTION);
+    let fruitQuery = query(
+      fruitsCollectionRef,
+      where('farmer_id', '==', farmerId),
+      orderBy('created_at', 'desc')
+    );
     
     if (status) {
-      query = query.where('status', '==', status);
+      fruitQuery = query(
+        fruitsCollectionRef,
+        where('farmer_id', '==', farmerId),
+        where('status', '==', status),
+        orderBy('created_at', 'desc')
+      );
     }
     
-    const snapshot = await query.get();
+    const snapshot = await getDocs(fruitQuery);
     
     const fruits = [];
     snapshot.forEach(doc => {
@@ -210,19 +258,21 @@ export const getFruitsByFarmer = async (farmerId, status = null) => {
 
 /**
  * Get all active fruits for marketplace
- * @param {number} limit - Number of fruits to fetch
+ * @param {number} limitCount - Number of fruits to fetch
  * @returns {Promise<Object[]>} Array of fruit objects
  */
-export const getMarketplaceFruits = async (limit = 20) => {
+export const getMarketplaceFruits = async (limitCount = 20) => {
   try {
-    console.log('🔍 getMarketplaceFruits: Starting query...', { limit });
+    console.log('🔍 getMarketplaceFruits: Starting query...', { limitCount });
     
-    const snapshot = await firestore()
-      .collection(FRUITS_COLLECTION)
-      .where('status', '==', 'active')
-      .orderBy('created_at', 'desc')
-      .limit(limit)
-      .get();
+    const fruitsCollectionRef = collection(firestore(), FRUITS_COLLECTION);
+    const fruitsQuery = query(
+      fruitsCollectionRef,
+      where('status', '==', 'active'),
+      orderBy('created_at', 'desc'),
+      limit(limitCount)
+    );
+    const snapshot = await getDocs(fruitsQuery);
     
     console.log('📊 Firestore query result:', {
       size: snapshot.size,
@@ -285,10 +335,9 @@ export const deleteFruit = async (fruitId) => {
     }
     
     // Delete document
-    await firestore()
-      .collection(FRUITS_COLLECTION)
-      .doc(fruitId)
-      .delete();
+    const fruitsCollectionRef = collection(firestore(), FRUITS_COLLECTION);
+    const fruitDocRef = doc(fruitsCollectionRef, fruitId);
+    await deleteDoc(fruitDocRef);
     
     // Remove fruit ID from farmer's fruit list
     await removeFruitFromFarmer(fruitDoc.farmer_id, fruitId);
@@ -307,13 +356,12 @@ export const deleteFruit = async (fruitId) => {
  */
 export const incrementFruitViews = async (fruitId) => {
   try {
-    await firestore()
-      .collection(FRUITS_COLLECTION)
-      .doc(fruitId)
-      .update({
-        views: firestore.FieldValue.increment(1),
-        updated_at: new Date().toISOString()
-      });
+    const fruitsCollectionRef = collection(firestore(), FRUITS_COLLECTION);
+    const fruitDocRef = doc(fruitsCollectionRef, fruitId);
+    await updateDoc(fruitDocRef, {
+      views: firestoreIncrement(1),
+      updated_at: new Date().toISOString()
+    });
   } catch (error) {
     console.error('❌ Error incrementing views:', error);
     // Don't throw error for views increment failure
@@ -328,13 +376,12 @@ export const incrementFruitViews = async (fruitId) => {
  */
 export const toggleFruitLike = async (fruitId, isLiked) => {
   try {
-    await firestore()
-      .collection(FRUITS_COLLECTION)
-      .doc(fruitId)
-      .update({
-        likes: firestore.FieldValue.increment(isLiked ? 1 : -1),
-        updated_at: new Date().toISOString()
-      });
+    const fruitsCollectionRef = collection(firestore(), FRUITS_COLLECTION);
+    const fruitDocRef = doc(fruitsCollectionRef, fruitId);
+    await updateDoc(fruitDocRef, {
+      likes: firestoreIncrement(isLiked ? 1 : -1),
+      updated_at: new Date().toISOString()
+    });
   } catch (error) {
     console.error('❌ Error toggling like:', error);
     throw new Error('Failed to update like: ' + error.message);
@@ -351,14 +398,13 @@ export const addFruitToFarmer = async (farmerId, fruitId) => {
   try {
     console.log('🔗 Adding fruit to farmer\'s list...', { farmerId, fruitId });
     
-    await firestore()
-      .collection(FARMERS_COLLECTION)
-      .doc(farmerId)
-      .update({
-        fruit_ids: firestore.FieldValue.arrayUnion(fruitId),
-        total_fruits: firestore.FieldValue.increment(1),
-        updatedAt: firestore.FieldValue.serverTimestamp()
-      });
+    const farmersCollectionRef = collection(firestore(), FARMERS_COLLECTION);
+    const farmerDocRef = doc(farmersCollectionRef, farmerId);
+    await updateDoc(farmerDocRef, {
+      fruit_ids: firestoreArrayUnion(fruitId),
+      total_fruits: firestoreIncrement(1),
+      updatedAt: firestoreServerTimestamp()
+    });
     
     console.log('✅ Fruit added to farmer\'s list successfully');
   } catch (error) {
@@ -378,14 +424,13 @@ export const removeFruitFromFarmer = async (farmerId, fruitId) => {
   try {
     console.log('🔗 Removing fruit from farmer\'s list...', { farmerId, fruitId });
     
-    await firestore()
-      .collection(FARMERS_COLLECTION)
-      .doc(farmerId)
-      .update({
-        fruit_ids: firestore.FieldValue.arrayRemove(fruitId),
-        total_fruits: firestore.FieldValue.increment(-1),
-        updatedAt: firestore.FieldValue.serverTimestamp()
-      });
+    const farmersCollectionRef = collection(firestore(), FARMERS_COLLECTION);
+    const farmerDocRef = doc(farmersCollectionRef, farmerId);
+    await updateDoc(farmerDocRef, {
+      fruit_ids: firestoreArrayRemove(fruitId),
+      total_fruits: firestoreIncrement(-1),
+      updatedAt: firestoreServerTimestamp()
+    });
     
     console.log('✅ Fruit removed from farmer\'s list successfully');
   } catch (error) {
@@ -407,10 +452,9 @@ export const getFruitsByFarmerOptimized = async (farmerId, status = null) => {
     console.log('🔍 Getting farmer fruits (optimized)...', { farmerId, status });
     
     // First get farmer's fruit IDs
-    const farmerDoc = await firestore()
-      .collection(FARMERS_COLLECTION)
-      .doc(farmerId)
-      .get();
+    const farmersCollectionRef = collection(firestore(), FARMERS_COLLECTION);
+    const farmerDocRef = doc(farmersCollectionRef, farmerId);
+    const farmerDoc = await getDoc(farmerDocRef);
     
     if (!farmerDoc.exists) {
       console.warn('⚠️ Farmer document not found:', farmerId);
@@ -428,10 +472,9 @@ export const getFruitsByFarmerOptimized = async (farmerId, status = null) => {
     // Batch get all fruits by ID
     const fruitPromises = fruitIds.map(async (fruitId) => {
       try {
-        const fruitDoc = await firestore()
-          .collection(FRUITS_COLLECTION)
-          .doc(fruitId)
-          .get();
+        const fruitsCollectionRef = collection(firestore(), FRUITS_COLLECTION);
+        const fruitDocRef = doc(fruitsCollectionRef, fruitId);
+        const fruitDoc = await getDoc(fruitDocRef);
         
         if (fruitDoc.exists) {
           const fruitData = { id: fruitDoc.id, ...fruitDoc.data() };
@@ -481,13 +524,12 @@ export const updateFruitStatus = async (fruitId, newStatus) => {
   try {
     console.log('🔄 Updating fruit status...', { fruitId, newStatus });
     
-    await firestore()
-      .collection(FRUITS_COLLECTION)
-      .doc(fruitId)
-      .update({
-        status: newStatus,
-        updated_at: new Date().toISOString()
-      });
+    const fruitsCollectionRef = collection(firestore(), FRUITS_COLLECTION);
+    const fruitDocRef = doc(fruitsCollectionRef, fruitId);
+    await updateDoc(fruitDocRef, {
+      status: newStatus,
+      updated_at: new Date().toISOString()
+    });
     
     console.log('✅ Fruit status updated successfully');
   } catch (error) {
@@ -506,10 +548,9 @@ export const getFarmerPublicProfile = async (farmerId) => {
     console.log('👤 Getting farmer public profile...', farmerId);
     
     // Get farmer's basic info
-    const farmerDoc = await firestore()
-      .collection(FARMERS_COLLECTION)
-      .doc(farmerId)
-      .get();
+    const farmersCollectionRef = collection(firestore(), FARMERS_COLLECTION);
+    const farmerDocRef = doc(farmersCollectionRef, farmerId);
+    const farmerDoc = await getDoc(farmerDocRef);
     
     if (!farmerDoc.exists) {
       throw new Error('Farmer not found');
@@ -549,21 +590,31 @@ export const getFarmerPublicProfile = async (farmerId) => {
  */
 export const getFilteredMarketplaceFruits = async (filters = {}) => {
   try {
-    const { type, limit = 100 } = filters;
+    const { type, limit: queryLimit = 100 } = filters;
     
-    let query = firestore()
-      .collection(FRUITS_COLLECTION)
-      .where('status', '==', 'active');
+    const fruitsCollectionRef = collection(firestore(), FRUITS_COLLECTION);
+    let fruitQuery = query(
+      fruitsCollectionRef,
+      where('status', '==', 'active')
+    );
     
     // Add type filter if specified
     if (type && type !== 'all') {
-      query = query.where('type', '==', type);
+      fruitQuery = query(
+        fruitsCollectionRef,
+        where('status', '==', 'active'),
+        where('type', '==', type)
+      );
     }
     
     // Order by creation date and limit
-    query = query.orderBy('created_at', 'desc').limit(limit);
+    fruitQuery = query(
+      fruitQuery,
+      orderBy('created_at', 'desc'),
+      limit(queryLimit)
+    );
     
-    const snapshot = await query.get();
+    const snapshot = await getDocs(fruitQuery);
     
     const fruits = [];
     snapshot.forEach(doc => {
@@ -616,23 +667,23 @@ export const addTestFruitsToFirebase = async () => {
         updated_at: new Date().toISOString()
       },
       {
-        name: "Organic Kesar Mango",
-        type: "mango", 
-        grade: "A+",
-        description: "Certified organic Kesar mangoes from Gujarat",
+        name: "Sweet Oranges",
+        type: "orange", 
+        grade: "A",
+        description: "Fresh and juicy sweet oranges from Nagpur",
         quantity: [5, 25],
-        price_per_kg: 220,
+        price_per_kg: 60,
         availability_date: new Date().toISOString(),
         image_urls: [
-          "https://images.unsplash.com/photo-1605027990121-3b2c3dfd5ea3?w=300"
+          "https://images.unsplash.com/photo-1580052614034-c55d20bfee3b?w=300"
         ],
         location: {
-          village: "Junagadh",
-          district: "Junagadh", 
-          state: "Gujarat",
-          pincode: "362001",
-          lat: 21.5222,
-          lng: 70.4579
+          village: "Nagpur",
+          district: "Nagpur", 
+          state: "Maharashtra",
+          pincode: "440001",
+          lat: 21.1458,
+          lng: 79.0882
         },
         farmer_id: "test_farmer_002",
         status: "active",
@@ -666,6 +717,58 @@ export const addTestFruitsToFirebase = async () => {
         likes: 0,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
+      },
+      {
+        name: "Premium Grapes",
+        type: "grape",
+        grade: "A+",
+        description: "Premium quality grapes from Nashik vineyards",
+        quantity: [15, 75],
+        price_per_kg: 120,
+        availability_date: new Date().toISOString(),
+        image_urls: [
+          "https://images.unsplash.com/photo-1537640538966-79f369143919?w=300"
+        ],
+        location: {
+          village: "Nashik",
+          district: "Nashik",
+          state: "Maharashtra",
+          pincode: "422001",
+          lat: 19.9975,
+          lng: 73.7898
+        },
+        farmer_id: "test_farmer_004",
+        status: "active",
+        views: 0,
+        likes: 0,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      },
+      {
+        name: "Fresh Red Apples",
+        type: "apple",
+        grade: "A",
+        description: "Crisp and sweet red apples from Himachal Pradesh",
+        quantity: [8, 40],
+        price_per_kg: 150,
+        availability_date: new Date().toISOString(),
+        image_urls: [
+          "https://images.unsplash.com/photo-1568702846914-96b305d2aaeb?w=300"
+        ],
+        location: {
+          village: "Shimla",
+          district: "Shimla",
+          state: "Himachal Pradesh",
+          pincode: "171001",
+          lat: 31.1048,
+          lng: 77.1734
+        },
+        farmer_id: "test_farmer_005",
+        status: "active",
+        views: 0,
+        likes: 0,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       }
     ];
 
@@ -677,10 +780,9 @@ export const addTestFruitsToFirebase = async () => {
         ...fruitData
       };
       
-      await firestore()
-        .collection(FRUITS_COLLECTION)
-        .doc(fruitId)
-        .set(finalFruitData);
+      const fruitsCollectionRef = collection(firestore(), FRUITS_COLLECTION);
+      const fruitDocRef = doc(fruitsCollectionRef, fruitId);
+      await setDoc(fruitDocRef, finalFruitData);
       
       console.log('✅ Added test fruit:', fruitData.name, 'with ID:', fruitId);
     }

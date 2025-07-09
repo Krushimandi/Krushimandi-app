@@ -12,14 +12,16 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
+import { SUPPORTED_FRUIT_TYPES } from '../../constants/Fruits';
 
 const fruitTypes = [
-  { name: 'Apple', icon: 'https://img.icons8.com/color/48/apple.png' },
-  { name: 'Banana', icon: 'https://img.icons8.com/color/48/banana.png' },
-  { name: 'Grapes', icon: 'https://img.icons8.com/color/48/grapes.png' },
-  { name: 'Watermelon', icon: 'https://img.icons8.com/color/48/watermelon.png' },
-  { name: 'Orange', icon: 'https://img.icons8.com/color/48/orange.png' },
-  { name: 'Pineapple', icon: 'https://img.icons8.com/color/48/pineapple.png' },
+  { name: 'Apple', image: require('../../assets/fruits/Apple.png') },
+  { name: 'Banana', image: require('../../assets/fruits/banana.png') },
+  { name: 'Grape', image: require('../../assets/fruits/grapes.png') },
+  { name: 'Orange', image: require('../../assets/fruits/orange.png') },
+  { name: 'Mango', image: require('../../assets/fruits/mango.png') },
+  { name: 'Pomegranate', image: require('../../assets/fruits/pomegranate.png') },
+  { name: 'Sweet Lemon', image: require('../../assets/fruits/sweetlemon.png') },
 ];
 
 const additionalFeatures = [
@@ -140,7 +142,7 @@ const FilterScreen = ({ onApplyFilters, onClose, isModal = false }) => {
                 styles.fruitIconContainer,
                 selectedFruit === fruit.name && styles.fruitIconContainerSelected
               ]}>
-                <Image source={{ uri: fruit.icon }} style={styles.fruitIcon} />
+                <Image source={fruit.image} style={styles.fruitIcon} />
               </View>
               <Text style={[
                 styles.fruitText,

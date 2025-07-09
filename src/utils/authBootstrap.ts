@@ -10,6 +10,7 @@ import { useAuthStore } from '../store/authStore';
 import { getCompleteUserProfile } from '../services/firebaseService';
 import { getUserRole, syncUserRole, initializeUserRoleFromUserData } from './userRoleStorage';
 import { StorageKeys } from '../constants';
+import { authService } from '../services/authService';
 
 export interface AuthBootstrapState {
   isReady: boolean;
@@ -55,8 +56,8 @@ class AuthBootstrap {
       // Step 1: Wait for Zustand persist to hydrate
       await this.waitForZustandHydration(maxWaitTime, log);
       
-      // Step 2: Wait for Firebase auth to restore
-      await this.waitForFirebaseAuth(maxWaitTime, log);
+      // Step 2: Initialize Firebase Auth and wait for state restoration
+      await this.initializeFirebaseAuth(maxWaitTime, log);
       
       // Step 3: Validate and sync auth state
       const authState = await this.validateAndSyncAuthState(log);
@@ -137,23 +138,70 @@ class AuthBootstrap {
   }
 
   /**
-   * Wait for Firebase auth to restore user session
+   * Initialize Firebase Auth and check current auth state
    */
+  private async initializeFirebaseAuth(maxWaitTime: number, log: Function): Promise<void> {
+    log('⏳ Initializing Firebase Auth...');
+    
+    try {
+      const authState = await authService.initializeAuth();
+      log('🔐 Firebase Auth initialized:', authState.isAuthenticated ? 'User authenticated' : 'No user');
+      
+      if (authState.isAuthenticated && authState.user) {
+        log('🔐 Firebase user available:', authState.user.uid);
+      }
+    } catch (error) {
+      log('❌ Firebase Auth initialization failed:', error);
+    }
+  }
   private async waitForFirebaseAuth(maxWaitTime: number, log: Function): Promise<void> {
     log('⏳ Waiting for Firebase auth restoration...');
     
     return new Promise((resolve) => {
+      let resolved = false;
+      
       const timeout = setTimeout(() => {
-        log('⚠️ Firebase auth restoration timeout');
-        resolve();
+        if (!resolved) {
+          log('⚠️ Firebase auth restoration timeout');
+          resolved = true;
+          resolve();
+        }
       }, maxWaitTime);
 
-      const unsubscribe = auth().onAuthStateChanged((user) => {
-        log('🔐 Firebase auth state changed:', user ? user.uid : 'No user');
+      // Check if user is already available (for immediate cases)
+      const currentUser = auth().currentUser;
+      if (currentUser) {
+        log('🔐 Firebase user already available:', currentUser.uid);
         clearTimeout(timeout);
-        unsubscribe();
-        resolve();
+        if (!resolved) {
+          resolved = true;
+          resolve();
+        }
+        return;
+      }
+
+      // Listen for auth state changes
+      const unsubscribe = auth().onAuthStateChanged((user) => {
+        if (!resolved) {
+          log('🔐 Firebase auth state changed:', user ? `User: ${user.uid}` : 'No user');
+          clearTimeout(timeout);
+          unsubscribe();
+          resolved = true;
+          resolve();
+        }
       });
+      
+      // Also set a minimum wait time to ensure Firebase has time to restore
+      setTimeout(() => {
+        if (!resolved) {
+          const currentUser = auth().currentUser;
+          log('🔐 Firebase auth check after wait:', currentUser ? `User: ${currentUser.uid}` : 'No user');
+          clearTimeout(timeout);
+          unsubscribe();
+          resolved = true;
+          resolve();
+        }
+      }, 1000); // Wait at least 1 second for Firebase to restore
     });
   }
 
@@ -177,6 +225,7 @@ class AuthBootstrap {
       zustandUser: !!authStore.user,
       zustandToken: !!authStore.token,
       firebaseUser: !!firebaseUser,
+      firebaseUID: firebaseUser?.uid,
       asyncStorageUserData: !!userData,
       authStep
     });
@@ -186,23 +235,42 @@ class AuthBootstrap {
     let finalUser = null;
     let finalToken = null;
 
-    // Priority order: Firebase User > Zustand > AsyncStorage
+    // Priority: Firebase User is the source of truth for authentication
     if (firebaseUser) {
       isAuthenticated = true;
-      finalUser = authStore.user || (userData ? JSON.parse(userData) : null);
-      finalToken = authStore.token;
-      log('✅ Auth state based on Firebase user');
-    } else if (authStore.isAuthenticated && authStore.user) {
-      isAuthenticated = true;
-      finalUser = authStore.user;
-      finalToken = authStore.token;
-      log('✅ Auth state based on Zustand store');
-    } else if (userData && authStep === 'Complete') {
-      const userProfile = JSON.parse(userData);
-      if (userProfile.uid) {
-        isAuthenticated = true;
-        finalUser = userProfile;
-        log('⚠️ Auth state based on AsyncStorage (Firebase missing)');
+      
+      // Use Zustand user data if available, otherwise try AsyncStorage
+      if (authStore.user) {
+        finalUser = authStore.user;
+        finalToken = authStore.token;
+        log('✅ Auth state: Firebase user + Zustand data');
+      } else if (userData) {
+        try {
+          finalUser = JSON.parse(userData);
+          finalToken = authStore.token;
+          log('✅ Auth state: Firebase user + AsyncStorage data');
+        } catch (error) {
+          log('⚠️ Failed to parse AsyncStorage userData');
+          // We'll fetch user profile later
+        }
+      } else {
+        log('✅ Auth state: Firebase user only (will fetch profile)');
+      }
+    } else {
+      // No Firebase user - check if we have stale Zustand/AsyncStorage data
+      if (authStore.isAuthenticated || (userData && authStep === 'Complete')) {
+        log('⚠️ Found stale auth data without Firebase user - cleaning up');
+        
+        // Clear stale data
+        authStore.logout();
+        await AsyncStorage.removeItem('userData');
+        await AsyncStorage.removeItem('authStep');
+        
+        isAuthenticated = false;
+        finalUser = null;
+        finalToken = null;
+      } else {
+        log('✅ No authentication data found - user is logged out');
       }
     }
 
@@ -212,11 +280,16 @@ class AuthBootstrap {
     this.currentState.token = finalToken;
 
     // Sync Zustand store if needed
-    if (isAuthenticated && !authStore.isAuthenticated) {
+    if (isAuthenticated && (!authStore.isAuthenticated || !authStore.user)) {
       log('🔄 Syncing auth state to Zustand store');
-      authStore.updateUser(finalUser);
-      // Note: We don't set isAuthenticated here to avoid side effects
-      // The store will be updated through normal auth flow
+      if (finalUser) {
+        authStore.updateUser(finalUser);
+      }
+      // Set authenticated state
+      authStore.setTempAuth(true);
+    } else if (!isAuthenticated && authStore.isAuthenticated) {
+      log('🔄 Clearing stale Zustand auth state');
+      authStore.logout();
     }
 
     return { isAuthenticated };

@@ -37,9 +37,19 @@ export const AuthStateProvider: React.FC<AuthStateProviderProps> = ({
   // Listen to Firebase auth state changes
   useEffect(() => {
     console.log('🔥 Setting up Firebase auth state listener');
-    const unsubscribe = auth().onAuthStateChanged((user) => {
-      console.log('🔥 Firebase auth state changed:', user ? 'User logged in' : 'User logged out');
+    const unsubscribe = auth().onAuthStateChanged(async (user) => {
+      console.log('🔥 Firebase auth state changed:', user ? `User logged in: ${user.uid}` : 'User logged out');
       setFirebaseUser(user);
+      
+      // If user is logged out in Firebase, ensure local state is also cleared
+      if (!user) {
+        console.log('🔥 Firebase user logged out, clearing local auth state');
+        setUserRole(null);
+        // Clear auth store
+        authStore.logout();
+      } else {
+        console.log('🔥 Firebase user available, auth state should be preserved');
+      }
     });
 
     return unsubscribe;
