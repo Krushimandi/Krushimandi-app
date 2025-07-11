@@ -58,13 +58,13 @@ const AddFruitScreen = ({ navigation }) => {
   const scrollViewRef = useRef(null);
 
   const categories = [
-    { id: 'banana', name: 'Banana', icon: '�', color: '#FFE135' },
-    { id: 'orange', name: 'Orange', icon: '�', color: '#FF8C00' },
-    { id: 'grape', name: 'Grape', icon: '�', color: '#9370DB' },
-    { id: 'pomegranate', name: 'Pomegranate', icon: '💎', color: '#DC143C' },
-    { id: 'sweet lemon', name: 'Sweet Lemon', icon: '�', color: '#FFD700' },
-    { id: 'apple', name: 'Apple', icon: '�', color: '#FF6B6B' },
-    { id: 'mango', name: 'Mango', icon: '�', color: '#FFB347' }
+    { id: 'banana', name: 'Banana' },
+    { id: 'orange', name: 'Orange' },
+    { id: 'grape', name: 'Grape' },
+    { id: 'pomegranate', name: 'Pomegranate' },
+    { id: 'sweet lemon', name: 'Sweet Lemon' },
+    { id: 'apple', name: 'Apple' },
+    { id: 'mango', name: 'Mango' }
   ];
 
   const grades = [
@@ -318,7 +318,7 @@ const AddFruitScreen = ({ navigation }) => {
   );
 
   return (
-   <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea}>
       <StatusBar
         backgroundColor="transparent"
         translucent={true}
@@ -416,9 +416,9 @@ const AddFruitScreen = ({ navigation }) => {
                   onPress={() => setShowCategoryModal(true)}
                 >
                   <View style={styles.dropdownContent}>
-                    <Text style={styles.categoryEmoji}>
+                    {/* <Text style={styles.categoryEmoji}>
                       {categories.find(cat => cat.id === category)?.icon || '🍎'}
-                    </Text>
+                    </Text> */}
                     <Text style={styles.modernDropdownText}>
                       {categories.find(cat => cat.id === category)?.name || category}
                     </Text>
@@ -677,7 +677,7 @@ const AddFruitScreen = ({ navigation }) => {
                       setShowCategoryModal(false);
                     }}
                   >
-                    <Text style={styles.categoryEmojiLarge}>{cat.icon}</Text>
+                    {/* <Text style={styles.categoryEmojiLarge}>{cat.icon}</Text> */}
                     <View style={styles.optionTextContainer}>
                       <Text style={[
                         styles.modernOptionText,

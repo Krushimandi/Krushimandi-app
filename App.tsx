@@ -15,6 +15,8 @@ import { AppBootstrapScreen } from './src/components/common/AppBootstrapScreen';
 import { AuthStateProvider } from './src/components/providers/AuthStateProvider';
 import { AuthBootstrapState } from './src/utils/authBootstrap';
 import { usePushNotifications } from './src/hooks/usePushNotifications';
+import { initializeNetworkMonitoring } from './src/services/firebaseService';
+import NetworkStatusIndicator from './src/components/common/NetworkStatusIndicator';
 
 // In App.js or index.js
 import { LogBox } from 'react-native';
@@ -33,6 +35,12 @@ const App: React.FC = () => {
         permissionStatus,
         requestPermission: requestPushPermission
     } = usePushNotifications();
+
+    // Initialize network monitoring on app start
+    useEffect(() => {
+        console.log('📶 Initializing network monitoring...');
+        initializeNetworkMonitoring();
+    }, []);
 
     useEffect(() => {
         // Hide splash screen after bootstrap is complete
@@ -95,6 +103,7 @@ const App: React.FC = () => {
                 backgroundColor={isDark ? Colors.dark.background : Colors.light.background}
                 translucent
             />
+            <NetworkStatusIndicator />
             <AuthStateProvider bootstrapState={bootstrapState}>
                 <AppNavigator bootstrapState={bootstrapState} />
             </AuthStateProvider>

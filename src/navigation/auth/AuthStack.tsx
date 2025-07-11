@@ -15,6 +15,7 @@ import {
   IntroduceYourselfScreen,
 } from '../../components/auth';
 import { FruitsScreen } from '../../components/fruitIntrest';
+import { AuthProvider } from '../../contexts/AuthContext';
 
 // Types
 import { AuthStackParamList } from '../../types';
@@ -24,18 +25,20 @@ const AuthStack = createStackNavigator<AuthStackParamList>();
 // Auth Navigator
 const AuthNavigator = () => {
   return (
-    <AuthStack.Navigator
-      initialRouteName="Welcome"
-      screenOptions={{
-        headerShown: false,
-      }}>
-      <AuthStack.Screen name="Welcome" component={WelcomeScreen} />
-      <AuthStack.Screen name="MobileScreen" component={MobileScreen} />
-      <AuthStack.Screen name="OTPVerification" component={OTPVerificationScreen} />
-      <AuthStack.Screen name="RoleSelection" component={RoleSelectionScreen} />
-      <AuthStack.Screen name="IntroduceYourself" component={IntroduceYourselfScreen} />
-      <AuthStack.Screen name="FruitsScreen" component={FruitsScreen} />
-    </AuthStack.Navigator>
+    <AuthProvider>
+      <AuthStack.Navigator
+        initialRouteName="Welcome"
+        screenOptions={{
+          headerShown: false,
+        }}>
+        <AuthStack.Screen name="Welcome" component={WelcomeScreen} />
+        <AuthStack.Screen name="MobileScreen" component={MobileScreen} />
+        <AuthStack.Screen name="OTPVerification" component={OTPVerificationScreen} />
+        <AuthStack.Screen name="RoleSelection" component={RoleSelectionScreen} />
+        <AuthStack.Screen name="IntroduceYourself" component={IntroduceYourselfScreen} />
+        <AuthStack.Screen name="FruitsScreen" component={FruitsScreen} />
+      </AuthStack.Navigator>
+    </AuthProvider>
   );
 };
 

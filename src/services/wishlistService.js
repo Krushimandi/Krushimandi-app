@@ -3,8 +3,7 @@
  * Handles wishlist functionality for buyers
  * Uses new structure: fruits/{fruitId}/wishlists/{userId}
  */
-import firestore, { 
-  serverTimestamp as firestoreServerTimestamp,
+import { 
   collection,
   doc,
   getDoc,
@@ -17,9 +16,10 @@ import firestore, {
   limit,
   orderBy,
   writeBatch,
+  serverTimestamp as firestoreServerTimestamp,
   increment as firestoreIncrement
 } from '@react-native-firebase/firestore';
-import auth from '@react-native-firebase/auth';
+import { auth, firestore } from '../config/firebase';
 
 /**
  * Add fruit to user's wishlist - OPTIMIZED VERSION
@@ -29,7 +29,7 @@ import auth from '@react-native-firebase/auth';
  */
 export const addToWishlist = async (fruitId) => {
   try {
-    const user = auth().currentUser;
+    const user = auth.currentUser;
     if (!user) {
       throw new Error('User not authenticated');
     }
@@ -37,15 +37,15 @@ export const addToWishlist = async (fruitId) => {
     console.log('➕ Adding fruit to wishlist (optimized):', fruitId, 'user:', user.uid);
 
     // Create batch for atomic operations
-    const batch = writeBatch(firestore());
+    const batch = writeBatch(firestore);
 
     // Prepare document references
-    const fruitsCollectionRef = collection(firestore(), 'fruits');
+    const fruitsCollectionRef = collection(firestore, 'fruits');
     const fruitDocRef = doc(fruitsCollectionRef, fruitId);
     const wishlistsCollectionRef = collection(fruitDocRef, 'wishlists');
     const fruitWishlistDocRef = doc(wishlistsCollectionRef, user.uid);
 
-    const buyersCollectionRef = collection(firestore(), 'buyers');
+    const buyersCollectionRef = collection(firestore, 'buyers');
     const userDocRef = doc(buyersCollectionRef, user.uid);
     const userWishlistCollectionRef = collection(userDocRef, 'wishlist');
     const userWishlistDocRef = doc(userWishlistCollectionRef, fruitId);
@@ -91,7 +91,7 @@ export const addToWishlist = async (fruitId) => {
  */
 export const removeFromWishlist = async (fruitId) => {
   try {
-    const user = auth().currentUser;
+    const user = auth.currentUser;
     if (!user) {
       throw new Error('User not authenticated');
     }
@@ -99,15 +99,15 @@ export const removeFromWishlist = async (fruitId) => {
     console.log('➖ Removing fruit from wishlist (optimized):', fruitId, 'user:', user.uid);
 
     // Create batch for atomic operations
-    const batch = writeBatch(firestore());
+    const batch = writeBatch(firestore);
 
     // Prepare document references
-    const fruitsCollectionRef = collection(firestore(), 'fruits');
+    const fruitsCollectionRef = collection(firestore, 'fruits');
     const fruitDocRef = doc(fruitsCollectionRef, fruitId);
     const wishlistsCollectionRef = collection(fruitDocRef, 'wishlists');
     const fruitWishlistDocRef = doc(wishlistsCollectionRef, user.uid);
 
-    const buyersCollectionRef = collection(firestore(), 'buyers');
+    const buyersCollectionRef = collection(firestore, 'buyers');
     const userDocRef = doc(buyersCollectionRef, user.uid);
     const userWishlistCollectionRef = collection(userDocRef, 'wishlist');
     const userWishlistDocRef = doc(userWishlistCollectionRef, fruitId);
@@ -141,13 +141,13 @@ export const removeFromWishlist = async (fruitId) => {
  */
 export const isInWishlist = async (fruitId) => {
   try {
-    const user = auth().currentUser;
+    const user = auth.currentUser;
     if (!user) {
       return false;
     }
 
     // Fast, direct check - no verbose logging for better performance
-    const fruitsCollectionRef = collection(firestore(), 'fruits');
+    const fruitsCollectionRef = collection(firestore, 'fruits');
     const fruitDocRef = doc(fruitsCollectionRef, fruitId);
     const wishlistsCollectionRef = collection(fruitDocRef, 'wishlists');
     const fruitWishlistDocRef = doc(wishlistsCollectionRef, user.uid);
@@ -166,14 +166,14 @@ export const isInWishlist = async (fruitId) => {
  */
 export const getUserWishlist = async () => {
   try {
-    const user = auth().currentUser;
+    const user = auth.currentUser;
     if (!user) {
       throw new Error('User not authenticated');
     }
 
     console.log('📋 Getting user wishlist for:', user.uid);
 
-    const buyersCollectionRef = collection(firestore(), 'buyers');
+    const buyersCollectionRef = collection(firestore, 'buyers');
     const userDocRef = doc(buyersCollectionRef, user.uid);
     const userWishlistCollectionRef = collection(userDocRef, 'wishlist');
     const wishlistQuery = query(userWishlistCollectionRef, orderBy('added_at', 'desc'));
@@ -205,7 +205,7 @@ export const getFruitLikers = async (fruitId) => {
   try {
     console.log('👥 Getting users who liked fruit:', fruitId);
 
-    const fruitsCollectionRef = collection(firestore(), 'fruits');
+    const fruitsCollectionRef = collection(firestore, 'fruits');
     const fruitDocRef = doc(fruitsCollectionRef, fruitId);
     const wishlistsCollectionRef = collection(fruitDocRef, 'wishlists');
     const likersQuery = query(wishlistsCollectionRef, orderBy('added_at', 'desc'));
@@ -237,7 +237,7 @@ export const getFruitLikesCount = async (fruitId) => {
   try {
     console.log('🔢 Getting likes count for fruit:', fruitId);
 
-    const fruitsCollectionRef = collection(firestore(), 'fruits');
+    const fruitsCollectionRef = collection(firestore, 'fruits');
     const fruitDocRef = doc(fruitsCollectionRef, fruitId);
     const wishlistsCollectionRef = collection(fruitDocRef, 'wishlists');
     const likersSnapshot = await getDocs(wishlistsCollectionRef);
@@ -291,7 +291,7 @@ export const syncFruitLikesCount = async (fruitId) => {
   try {
     // Simplified: just return the current likes count from fruit document
     // The likes field is kept in sync by batch operations in add/remove functions
-    const fruitsCollectionRef = collection(firestore(), 'fruits');
+    const fruitsCollectionRef = collection(firestore, 'fruits');
     const fruitDocRef = doc(fruitsCollectionRef, fruitId);
     const fruitDoc = await getDoc(fruitDocRef);
     
@@ -315,7 +315,7 @@ export const syncFruitLikesCount = async (fruitId) => {
  */
 export const cleanupWishlistInconsistencies = async (fruitId) => {
   try {
-    const user = auth().currentUser;
+    const user = auth.currentUser;
     if (!user) {
       console.log('❌ User not authenticated for cleanup');
       return false;
@@ -324,13 +324,13 @@ export const cleanupWishlistInconsistencies = async (fruitId) => {
     console.log('🧹 Cleaning up wishlist inconsistencies for fruit:', fruitId, 'user:', user.uid);
 
     // Check both locations using modular API
-    const fruitsCollectionRef = collection(firestore(), 'fruits');
+    const fruitsCollectionRef = collection(firestore, 'fruits');
     const fruitDocRef = doc(fruitsCollectionRef, fruitId);
     const wishlistsCollectionRef = collection(fruitDocRef, 'wishlists');
     const fruitWishlistDocRef = doc(wishlistsCollectionRef, user.uid);
     const fruitWishlistDoc = await getDoc(fruitWishlistDocRef);
 
-    const buyersCollectionRef = collection(firestore(), 'buyers');
+    const buyersCollectionRef = collection(firestore, 'buyers');
     const userDocRef = doc(buyersCollectionRef, user.uid);
     const userWishlistCollectionRef = collection(userDocRef, 'wishlist');
     const userWishlistDocRef = doc(userWishlistCollectionRef, fruitId);

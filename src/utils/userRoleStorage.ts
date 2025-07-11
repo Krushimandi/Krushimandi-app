@@ -6,7 +6,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StorageKeys } from '../constants';
 import { getCompleteUserProfile, updateUserInFirestore } from '../services/firebaseService';
-import auth from '@react-native-firebase/auth';
+import { auth } from '../config/firebase';
 
 export type UserRole = 'farmer' | 'buyer';
 
@@ -57,7 +57,7 @@ export const clearUserRole = async (): Promise<void> => {
  */
 export const syncUserRole = async (): Promise<UserRole | null> => {
   try {
-    const user = auth().currentUser;
+    const user = auth.currentUser;
     if (!user) {
       console.log('❌ No authenticated user for role sync');
       return null;

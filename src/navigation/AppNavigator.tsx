@@ -72,7 +72,6 @@ const AppNavigator: React.FC<AppNavigatorProps> = ({ bootstrapState }) => {
   // Choose the appropriate stack based on user role
   const getMainComponent = () => {
     console.log('🎯 getMainComponent called with userRole:', userRole);
-    // return FarmerStack; // Default to BuyerStack for now
     switch (userRole) {
       case 'buyer':
         console.log('📱 Routing to BuyerStack for buyer role');

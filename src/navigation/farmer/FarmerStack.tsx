@@ -14,7 +14,7 @@ import { BlurView } from '@react-native-community/blur';
 
 // Components  
 import { FarmerHomeScreen } from '../../components/home';
-import { RequestsScreen } from '../../components/requests';
+import { FarmerRequestsScreen, RequestsScreen } from '../../components/requests';
 import { AddFruitScreen, PhotoUploadScreen, PriceSelectionScreen, ProductDetailScreen, ProductDetailsFarmer } from '../../components/products';
 import NotificationBadge from '../../components/common/NotificationBadge';
 
@@ -266,7 +266,7 @@ const FarmerTabNavigator = () => {
       />
       <MainTab.Screen
         name="Requests"
-        component={RequestsScreen}
+        component={FarmerRequestsScreen}
         options={{
           tabBarLabel: 'Requests',
           tabBarAccessibilityLabel: 'Requests Tab'

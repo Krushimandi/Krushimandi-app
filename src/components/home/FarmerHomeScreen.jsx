@@ -566,7 +566,8 @@ const FarmerHomeScreen = () => {
                 ]}
                 onPress={() => setSelectedCategory(item.type)}
               >
-                {item.name === 'All' ? (
+
+                {item.name === 'All Fruits' ? (
                   <Icon name="apps-outline" size={22} color={"#505050"} style={[styles.categoryIcon, {
                     marginHorizontal: 6,
                   }]} />
@@ -632,7 +633,7 @@ const FarmerHomeScreen = () => {
                     style={styles.refreshButton}
                     onPress={handleRefresh}
                   >
-                    <Icon name="refresh-outline" size={20} color={Colors.light.primary} />
+                    <Icon name="refresh-outline" size={20} color='#505050' />
                     <Text style={styles.refreshButtonText}>Refresh</Text>
                   </TouchableOpacity>
                 </View>
@@ -652,7 +653,7 @@ const FarmerHomeScreen = () => {
                         setSelectedCategory('all');
                       }}
                     >
-                      <Icon name="refresh-outline" size={20} color={Colors.light.primary} />
+                      <Icon name="refresh-outline" size={20} color='#505050' />
                       <Text style={styles.refreshButtonText}>Clear Filters</Text>
                     </TouchableOpacity>
                   )}
@@ -745,7 +746,7 @@ const FarmerHomeScreen = () => {
                     style={styles.refreshButton}
                     onPress={handleRefresh}
                   >
-                    <Icon name="refresh-outline" size={20} color={Colors.light.primary} />
+                    <Icon name="refresh-outline" size={20} color='#505050' />
                     <Text style={styles.refreshButtonText}>Refresh</Text>
                   </TouchableOpacity>
                 </View>
@@ -765,7 +766,7 @@ const FarmerHomeScreen = () => {
                         setSelectedCategory('all');
                       }}
                     >
-                      <Icon name="refresh-outline" size={20} color={Colors.light.primary} />
+                      <Icon name="refresh-outline" size={20} color='#505050' />
                       <Text style={styles.refreshButtonText}>Clear Filters</Text>
                     </TouchableOpacity>
                   )}
@@ -1358,7 +1359,7 @@ const styles = StyleSheet.create({
   },
   refreshButtonText: {
     fontSize: 14,
-    color: Colors.light.primary,
+    color: '#505050',
     fontWeight: '600',
     marginLeft: 8,
   },

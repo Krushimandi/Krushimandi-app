@@ -21,8 +21,10 @@ import {
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import auth from '@react-native-firebase/auth';
+import { useAuth } from '../../contexts/AuthContext';
 
 const MobileScreen = ({ navigation }) => {
+  const { setPhoneNumber, setConfirmation } = useAuth();
   const [mobile, setMobile] = useState('');  const [modalVisible, setModalVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -125,8 +127,15 @@ const MobileScreen = ({ navigation }) => {
 
     try {
       // Send OTP using Firebase
-      const confirmation = await auth().signInWithPhoneNumber(`+91${mobile}`);
-      navigation.navigate('OTPVerification', { phone: `+91${mobile}`, confirmation });
+      const phoneNumberWithCode = `+91${mobile}`;
+      const confirmation = await auth().signInWithPhoneNumber(phoneNumberWithCode);
+      
+      // Store phone number and confirmation in context
+      setPhoneNumber(phoneNumberWithCode);
+      setConfirmation(confirmation);
+      
+      // Navigate without passing confirmation
+      navigation.navigate('OTPVerification', { phoneNumber: phoneNumberWithCode });
     } catch (err) {
       setError('Failed to send OTP. Please try again.' + err);
     } finally {

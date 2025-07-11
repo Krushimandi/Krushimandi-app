@@ -1,4 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
+// Request Screen for Buyer 
+// In this screen requests are displayed sended by  buyer only
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -16,79 +18,40 @@ import {
   Linking,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Colors } from '../../constants/Colors';
 import { useTabBarControl } from '../../utils/navigationControls.ts';
-
-// Enhanced request data with more details
-const REQUESTS_DATA = [
-  {
-    id: 'r1',
-    fruitName: 'Premium Hapus Mango',
-    price: '₹120/KG',
-    farmerName: 'Kishor Patil',
-    requestDate: '2025-06-28',
-    status: 'pending',
-    priority: 'high',
-    quantity: '50 KG',
-    location: 'Ratnagiri, MH',
-    estimatedResponse: '2 hours',
-    category: 'Fruits',
-    organic: true,
-    rating: 4.8,
-  },
-  {
-    id: 'r2',
-    fruitName: 'Kashmiri Apple',
-    price: '₹180/KG',
-    farmerName: 'Ramesh Kumar',
-    requestDate: '2025-06-27',
-    status: 'accepted',
-    farmerContact: '+91 98765 43210',
-    priority: 'medium',
-    quantity: '25 KG',
-    location: 'Srinagar, JK',
-    category: 'Fruits',
-    organic: false,
-    rating: 4.6,
-    responseTime: '1 hour',
-  },
-  {
-    id: 'r3',
-    fruitName: 'Organic Spinach',
-    price: '₹40/KG',
-    farmerName: 'Anita Patil',
-    requestDate: '2025-06-25',
-    status: 'rejected',
-    priority: 'low',
-    quantity: '10 KG',
-    location: 'Pune, MH',
-    category: 'Vegetables',
-    organic: true,
-    rating: 4.4,
-    rejectionReason: 'Out of stock',
-  },
-  {
-    id: 'r4',
-    fruitName: 'Basmati Rice',
-    price: '₹85/KG',
-    farmerName: 'Singh Farms',
-    requestDate: '2025-06-29',
-    status: 'expired',
-    priority: 'high',
-    quantity: '100 KG',
-    location: 'Punjab',
-    category: 'Grains',
-    organic: false,
-    rating: 4.7,
-  },
-];
+import { useRequests } from '../../hooks/useRequests';
+import { useAuthState } from '../providers/AuthStateProvider';
+import { Request, RequestStatus } from '../../types/Request';
+import Toast from 'react-native-toast-message';
 
 const RequestsScreen = () => {
   const navigation = useNavigation();
   const { showTabBar } = useTabBarControl();
-  const [requests, setRequests] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { user } = useAuthState();
+  const {
+    requests,
+    loading,
+    loadBuyerRequests,
+    cancelRequest: cancelRequestService,
+    resendRequest: resendRequestService
+  } = useRequests();
+
+  // Debug: Log requests state changes
+  useEffect(() => {
+    console.log('📊 Requests state updated:', {
+      count: requests.length,
+      loading,
+      userRole: user?.role,
+      requestsPreview: requests.slice(0, 2).map(r => ({
+        id: r.id,
+        productName: r.productSnapshot?.name,
+        status: r.status
+      }))
+    });
+  }, [requests, loading, user?.role]);
+
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('All');
@@ -96,15 +59,21 @@ const RequestsScreen = () => {
   const [showFilters, setShowFilters] = useState(false);
   const fadeAnim = useState(new Animated.Value(0))[0];
 
-  const filters = ['All', 'Pending', 'Accepted', 'Rejected', 'Expired'];
+  // const filters = ['All', 'Pending', 'Accepted', 'Rejected', 'Expired'];
+  const filters = ['All', 'Pending', 'Accepted', 'Rejected', 'Cancelled', 'Expired'];
   const sortOptions = [
     { key: 'date', label: 'Date', icon: 'calendar-outline' },
-    { key: 'priority', label: 'Priority', icon: 'flag-outline' },
     { key: 'status', label: 'Status', icon: 'checkmark-circle-outline' },
     { key: 'price', label: 'Price', icon: 'pricetag-outline' },
   ];
 
   useEffect(() => {
+    console.log('🔄 RequestsScreen useEffect triggered, user:', {
+      uid: user?.uid,
+      role: user?.role,
+      userExists: !!user
+    });
+
     showTabBar();
     loadRequests();
 
@@ -113,19 +82,44 @@ const RequestsScreen = () => {
       duration: 300,
       useNativeDriver: true,
     }).start();
-  }, []);
+  }, [user]);
+
+  // Refresh data when screen comes into focus (to see updates from farmers)
+  useFocusEffect(
+    useCallback(() => {
+      console.log('🔍 Screen focused, refreshing requests...');
+      loadRequests();
+    }, [user])
+  );
 
   const loadRequests = async () => {
     try {
-      setLoading(true);
-      // Simulate API call
-      setTimeout(() => {
-        setRequests(REQUESTS_DATA);
-        setLoading(false);
-      }, 800);
+      console.log('🔍 Loading requests for user:', {
+        uid: user?.uid,
+        role: user?.role,
+        userExists: !!user
+      });
+
+      if (!user?.uid) {
+        console.log('❌ No user UID found, returning');
+        return;
+      }
+
+      if (user.role === 'buyer') {
+        console.log('👤 Loading buyer requests...');
+        await loadBuyerRequests();
+        console.log('✅ Buyer requests loaded, count:', requests.length);
+      } else {
+        console.log('⚠️ This is a buyer-only screen. User role:', user.role);
+      }
     } catch (error) {
-      setLoading(false);
-      Alert.alert('Error', 'Failed to load requests');
+      console.error('❌ Error loading requests:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Failed to load requests. Please try again.',
+        position: 'bottom',
+      });
     }
   };
 
@@ -138,10 +132,16 @@ const RequestsScreen = () => {
   // Advanced filtering and sorting
   const filteredAndSortedRequests = useMemo(() => {
     let filtered = requests.filter(item => {
-      const matchesSearch = item.fruitName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.farmerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.category.toLowerCase().includes(searchQuery.toLowerCase());
+      const productName = item.productSnapshot?.name || '';
+      const buyerName = item.buyerDetails?.name || '';
+      const farmerName = item.productSnapshot?.farmerName || '';
+      const location = item.productSnapshot?.farmerLocation || '';
+
+      const matchesSearch =
+        productName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        buyerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        farmerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        location.toLowerCase().includes(searchQuery.toLowerCase());
 
       const matchesFilter = selectedFilter === 'All' ||
         item.status.toLowerCase() === selectedFilter.toLowerCase();
@@ -152,18 +152,24 @@ const RequestsScreen = () => {
     // Sort requests
     filtered.sort((a, b) => {
       switch (sortBy) {
-        case 'priority':
-          const priorityOrder = { high: 3, medium: 2, low: 1 };
-          return priorityOrder[b.priority] - priorityOrder[a.priority];
         case 'status':
-          const statusOrder = { pending: 1, accepted: 2, rejected: 3, expired: 4 };
+          const statusOrder = { pending: 1, accepted: 2, cancelled: 3, rejected: 4, expired: 5 };
           return statusOrder[a.status] - statusOrder[b.status];
         case 'price':
-          const priceA = parseFloat(a.price.replace(/[^\d.]/g, ''));
-          const priceB = parseFloat(b.price.replace(/[^\d.]/g, ''));
+          const priceA = parseFloat(a.productSnapshot?.price?.toString().replace(/[^\d.]/g, '') || '0');
+          const priceB = parseFloat(b.productSnapshot?.price?.toString().replace(/[^\d.]/g, '') || '0');
           return priceB - priceA;
         default: // date
-          return new Date(b.requestDate) - new Date(a.requestDate);
+          // Handle both Firestore Timestamp and string dates
+          const getDateFromTimestamp = (timestamp) => {
+            if (!timestamp) return new Date(0);
+            if (typeof timestamp === 'string') return new Date(timestamp);
+            if (timestamp.toDate && typeof timestamp.toDate === 'function') return timestamp.toDate();
+            if (timestamp.seconds) return new Date(timestamp.seconds * 1000);
+            return new Date(timestamp);
+          };
+
+          return getDateFromTimestamp(b.createdAt).getTime() - getDateFromTimestamp(a.createdAt).getTime();
       }
     });
 
@@ -173,178 +179,268 @@ const RequestsScreen = () => {
   // Get statistics
   const stats = useMemo(() => {
     const total = requests.length;
-    const pending = requests.filter(r => r.status === 'pending').length;
-    const accepted = requests.filter(r => r.status === 'accepted').length;
-    const rejected = requests.filter(r => r.status === 'rejected').length;
-    const expired = requests.filter(r => r.status === 'expired').length;
+    const pending = requests.filter(r => r.status === RequestStatus.PENDING).length;
+    const accepted = requests.filter(r => r.status === RequestStatus.ACCEPTED).length;
+    const cancelled = requests.filter(r => r.status === RequestStatus.CANCELLED).length;
+    const rejected = requests.filter(r => r.status === RequestStatus.REJECTED).length;
+    const expired = requests.filter(r => r.status === RequestStatus.EXPIRED).length;
 
-    return { total, pending, accepted, rejected, expired };
+    return { total, pending, accepted, cancelled, rejected, expired };
   }, [requests]);
 
   // Enhanced request tap handler
   const handleRequestTap = (item) => {
-    if (item.status === 'accepted' && item.farmerContact) {
-      Alert.alert(
-        'Farmer Contact',
-        `${item.farmerName}\n📱 ${item.farmerContact}\n📍 ${item.location}\n⭐ ${item.rating}/5`,
-        [
-          { text: 'Call', onPress: () => Linking.openURL(`tel:${item.farmerContact}`) },
-          { text: 'Message', onPress: () => Linking.openURL(`sms:${item.farmerContact}`) },
-          { text: 'Close', style: 'cancel' }
-        ]
-      );
-    } else {
-      const statusInfo = getStatusInfo(item);
-      Alert.alert(
-        'Request Details',
-        `${item.fruitName}\n\nFarmer: ${item.farmerName}\nLocation: ${item.location}\nQuantity: ${item.quantity}\nStatus: ${item.status}\nPriority: ${item.priority}\n${item.organic ? '🌱 Organic' : ''}${statusInfo}`,
-        [
-          { text: 'OK' },
-          ...(item.status === 'rejected' || item.status === 'expired' ?
-            [{ text: 'Resend', onPress: () => resendRequest(item.id) }] : [])
-        ]
-      );
+    const isBuyer = user?.role === 'buyer';
+    const farmerName = item.productSnapshot?.farmerName || 'Unknown Farmer';
+    const buyerName = item.buyerDetails?.name || 'Unknown Buyer';
+    const productName = item.productSnapshot?.name || 'Unknown Product';
+    const location = item.productSnapshot?.farmerLocation || 'Unknown Location';
+    const quantity = Array.isArray(item.quantity) ?
+      `${item.quantity[0]}-${item.quantity[1]} ${item.quantityUnit || 'ton'}` :
+      `${item.quantity} ${item.quantityUnit || 'ton'}`;
+
+    if (item.status === RequestStatus.ACCEPTED && item.buyerDetails?.phone) {
+      const contactName = isBuyer ? farmerName : buyerName;
+      const contactPhone = isBuyer ? item.buyerDetails.phone : item.buyerDetails?.phone;
+
+      if (contactPhone) {
+        Alert.alert(
+          'Contact Details',
+          `${contactName}\n📱 ${contactPhone}\n📍 ${location}\n⭐ N/A/5`,
+          [
+            { text: 'Call', onPress: () => Linking.openURL(`tel:${contactPhone}`) },
+            { text: 'Message', onPress: () => Linking.openURL(`sms:${contactPhone}`) },
+            { text: 'Close', style: 'cancel' }
+          ]
+        );
+        return;
+      }
     }
+
+    const statusInfo = getStatusInfo(item);
+    const roleSpecificName = isBuyer ? `Farmer: ${farmerName}` : `Buyer: ${buyerName}`;
+
+    const actions = [{ text: 'OK' }];
+
+    // Buyer actions only
+    if (isBuyer) {
+      // Add resend option for cancelled and rejected requests
+      if (item.status === RequestStatus.CANCELLED || item.status === RequestStatus.REJECTED || item.status === RequestStatus.EXPIRED) {
+        actions.unshift({ text: 'Resend', onPress: () => handleResendRequest(item.id) });
+      }
+      // Add delete option for all requests
+      actions.unshift({ text: 'Delete', onPress: () => handleCancelRequest(item.id), style: 'destructive' });
+    }
+
+    // Alert.alert(
+    //   'Request Details',
+    //   `${productName}\n\n${roleSpecificName}\nLocation: ${location}\nQuantity: ${quantity}\nStatus: ${item.status}\n${statusInfo}`,
+    //   actions
+    // );
   };
 
   // Get additional status info
   const getStatusInfo = (item) => {
     switch (item.status) {
-      case 'pending':
-        return `\nExpected response: ${item.estimatedResponse}`;
-      case 'accepted':
-        return `\nResponse time: ${item.responseTime}`;
-      case 'rejected':
-        return `\nReason: ${item.rejectionReason}`;
+      case RequestStatus.PENDING:
+        return '\nExpected response: 24-48 hours';
+      case RequestStatus.ACCEPTED:
+        const getDateFromTimestamp = (timestamp) => {
+          if (!timestamp) return new Date(0);
+          if (typeof timestamp === 'string') return new Date(timestamp);
+          if (timestamp.toDate && typeof timestamp.toDate === 'function') return timestamp.toDate();
+          if (timestamp.seconds) return new Date(timestamp.seconds * 1000);
+          return new Date(timestamp);
+        };
+
+        const responseTime = item.respondedAt ?
+          Math.round((getDateFromTimestamp(item.respondedAt) - getDateFromTimestamp(item.createdAt)) / (1000 * 60 * 60)) + ' hours' :
+          'Recently';
+        return `\nResponse time: ${responseTime}`;
+      case RequestStatus.CANCELLED:
+        return '\nRequest was cancelled by buyer';
+      case RequestStatus.REJECTED:
+        return item.rejectionReason ? `\nReason: ${item.rejectionReason}` : '';
       default:
         return '';
     }
   };
 
-  // Resend request
-  const resendRequest = (id) => {
-    const updatedRequests = requests.map(item =>
-      item.id === id ? { ...item, status: 'pending', requestDate: new Date().toISOString().split('T')[0] } : item
-    );
-    setRequests(updatedRequests);
-    Alert.alert('Success', 'Request has been resent!');
-  };
-
-  // Cancel request
-  const cancelRequest = (id) => {
+  // Cancel request (buyer action)
+  const handleCancelRequest = (requestId) => {
     Alert.alert(
-      'Cancel Request',
-      'Remove this request?',
+      'Delete Request',
+      'Are you sure you want to delete this request?',
       [
-        { text: 'No', style: 'cancel' },
+        { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Yes',
-          onPress: () => setRequests(requests.filter(item => item.id !== id))
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await cancelRequestService(requestId);
+              Toast.show({
+                type: 'error',
+                text1: 'Request Deleted',
+                text2: 'Your request has been deleted successfully.',
+                position: 'bottom',
+              });
+            } catch (error) {
+              Toast.show({
+                type: 'error',
+                text1: 'Error',
+                text2: 'Failed to delete request. Please try again.',
+                position: 'bottom',
+              });
+            }
+          }
         }
       ]
     );
   };
 
+  // Resend request (buyer action)
+  const handleResendRequest = async (requestId) => {
+    try {
+      await resendRequestService(requestId);
+      Toast.show({
+        type: 'success',
+        text1: 'Request Resent',
+        text2: 'Your request has been resent successfully.',
+        position: 'bottom',
+      });
+    } catch (error) {
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Failed to resend request. Please try again.',
+        position: 'bottom',
+      });
+    }
+  };
+
   // Enhanced request item rendering
-  const renderRequestItem = ({ item, index }) => (
-    <Animated.View
-      style={[
-        styles.requestItem,
-        {
-          opacity: fadeAnim,
-          transform: [{
-            translateY: fadeAnim.interpolate({
-              inputRange: [0, 1],
-              outputRange: [50, 0]
-            })
-          }]
-        }
-      ]}
-    >
-      <TouchableOpacity
-        style={styles.requestContent}
-        onPress={() => handleRequestTap(item)}
-        activeOpacity={0.7}
+  const renderRequestItem = ({ item, index }) => {
+    const isBuyer = user?.role === 'buyer';
+    const productName = item.productSnapshot?.name || 'Unknown Product';
+    const farmerName = item.productSnapshot?.farmerName || 'Unknown Farmer';
+    const buyerName = item.buyerDetails?.name || 'Unknown Buyer';
+    const displayName = isBuyer ? farmerName : buyerName;
+    const location = item.productSnapshot?.farmerLocation || 'Unknown Location';
+    const price = item.productSnapshot?.price ? `₹${item.productSnapshot.price}/${item.productSnapshot.priceUnit || 'TON'}` : 'Price not available';
+    const quantity = Array.isArray(item.quantity) ?
+      `${item.quantity[0]}-${item.quantity[1]} ${item.quantityUnit || 'ton'}` :
+      `${item.quantity} ${item.quantityUnit || 'ton'}`;
+    const rating = 0; // Rating not available in current structure
+
+    // Helper function to safely convert timestamp to Date
+    const getDateFromTimestamp = (timestamp) => {
+      if (!timestamp) return new Date();
+      if (typeof timestamp === 'string') return new Date(timestamp);
+      if (timestamp.toDate && typeof timestamp.toDate === 'function') return timestamp.toDate();
+      if (timestamp.seconds) return new Date(timestamp.seconds * 1000);
+      return new Date(timestamp);
+    };
+
+    const requestDate = getDateFromTimestamp(item.createdAt);
+
+    return (
+      <Animated.View
+        style={[
+          styles.requestItem,
+          {
+            opacity: fadeAnim,
+            transform: [{
+              translateY: fadeAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [50, 0]
+              })
+            }]
+          }
+        ]}
       >
-        <View style={styles.requestHeader}>
-          <View style={styles.titleSection}>
-            <Text style={styles.productName}>{item.fruitName}</Text>
-            <View style={styles.badgeRow}>
-              <View style={[styles.statusBadge, { backgroundColor: getStatusBg(item.status) }]}>
-                <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>
-                  {item.status}
-                </Text>
-              </View>
-              <View style={[styles.priorityBadge, { backgroundColor: getPriorityColor(item.priority) }]}>
-                <Text style={styles.priorityText}>{item.priority}</Text>
-              </View>
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.detailsRow}>
-          <View style={styles.farmerInfo}>
-            <Icon name="person-outline" size={14} color="#6B7280" />
-            <Text style={styles.farmerName}>{item.farmerName}</Text>
-            <View style={styles.ratingContainer}>
-              <Icon name="star" size={12} color="#F59E0B" />
-              <Text style={styles.rating}>{item.rating}</Text>
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.locationRow}>
-          <Icon name="location-outline" size={14} color="#6B7280" />
-          <Text style={styles.location}>{item.location}</Text>
-          {item.organic && (
-            <View style={styles.organicBadge}>
-              <Text style={styles.organicText}>🌱 Organic</Text>
-            </View>
-          )}
-        </View>
-
-        <View style={styles.bottomRow}>
-          <View style={styles.priceSection}>
-            <Text style={styles.price}>{item.price}</Text>
-            <Text style={styles.quantity}>{item.quantity}</Text>
-          </View>
-          <Text style={styles.date}>
-            {new Date(item.requestDate).toLocaleDateString('en-US', {
-              month: 'short',
-              day: 'numeric',
-              year: new Date(item.requestDate).getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined
-            })}
-          </Text>
-        </View>
-      </TouchableOpacity>
-
-      <View style={styles.actionButtons}>
         <TouchableOpacity
-          style={styles.cancelButton}
-          onPress={() => cancelRequest(item.id)}
+          style={styles.requestContent}
+          // onPress={() => handleRequestTap(item)}
+          onPress={() => { }}
+          activeOpacity={0.7}
         >
-          <Icon name="close" size={16} color="#EF4444" />
+          <View style={styles.requestHeader}>
+            <View style={styles.titleSection}>
+              <Text style={styles.productName}>{productName}</Text>
+              <View style={styles.badgeRow}>
+                <View style={[styles.statusBadge, { backgroundColor: getStatusBg(item.status) }]}>
+                  <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>
+                    {item.status}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.detailsRow}>
+            <View style={styles.farmerInfo}>
+              <Icon name="person-outline" size={14} color="#6B7280" />
+              <Text style={styles.farmerName}>{displayName}</Text>
+              {rating > 0 && (
+                <View style={styles.ratingContainer}>
+                  <Icon name="star" size={12} color="#F59E0B" />
+                  <Text style={styles.rating}>{rating.toFixed(1)}</Text>
+                </View>
+              )}
+            </View>
+          </View>
+
+          <View style={styles.locationRow}>
+            <Icon name="location-outline" size={14} color="#6B7280" />
+            <Text style={styles.location}>{location}</Text>
+          </View>
+
+          <View style={styles.bottomRow}>
+            <View style={styles.priceSection}>
+              <Text style={styles.price}>{price}</Text>
+              <Text style={styles.quantity}>{quantity}</Text>
+            </View>
+            <Text style={styles.date}>
+              {requestDate.toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: requestDate.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined
+              })}
+            </Text>
+          </View>
         </TouchableOpacity>
 
-        {(item.status === 'rejected' || item.status === 'expired') && (
+        <View style={styles.actionButtons}>
+          {/* Buyer actions only */}
           <TouchableOpacity
-            style={styles.resendButton}
-            onPress={() => resendRequest(item.id)}
+            style={styles.cancelButton}
+            onPress={() => handleCancelRequest(item.id)}
           >
-            <Icon name="refresh" size={16} color="#10B981" />
+            <Icon name="trash-outline" size={16} color="#EF4444" />
           </TouchableOpacity>
-        )}
-      </View>
-    </Animated.View>
-  );
+
+          {(item.status === RequestStatus.CANCELLED || item.status === RequestStatus.REJECTED || item.status === RequestStatus.EXPIRED) && (
+            <TouchableOpacity
+              style={styles.resendButton}
+              onPress={() => handleResendRequest(item.id)}
+            >
+              <Icon name="refresh" size={16} color="#10B981" />
+            </TouchableOpacity>
+          )}
+        </View>
+      </Animated.View>
+    );
+  };
 
   // Enhanced color functions
   const getStatusColor = (status) => {
     switch (status.toLowerCase()) {
       case 'pending': return '#F59E0B';
       case 'accepted': return '#10B981';
+      case 'cancelled': return '#6B7280';
       case 'rejected': return '#EF4444';
-      case 'expired': return '#6B7280';
+      case 'expired': return '#9CA3AF';
       default: return '#6B7280';
     }
   };
@@ -353,18 +449,10 @@ const RequestsScreen = () => {
     switch (status.toLowerCase()) {
       case 'pending': return '#FEF3C7';
       case 'accepted': return '#D1FAE5';
+      case 'cancelled': return '#F3F4F6';
       case 'rejected': return '#FEE2E2';
-      case 'expired': return '#F3F4F6';
+      case 'expired': return '#F9FAFB';
       default: return '#F3F4F6';
-    }
-  };
-
-  const getPriorityColor = (priority) => {
-    switch (priority.toLowerCase()) {
-      case 'high': return '#EF4444';
-      case 'medium': return '#F59E0B';
-      case 'low': return '#10B981';
-      default: return '#6B7280';
     }
   };
 
@@ -423,7 +511,9 @@ const RequestsScreen = () => {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerTop}>
-          <Text style={styles.headerTitle}>My Requests</Text>
+          <Text style={styles.headerTitle}>
+            {user?.role === 'buyer' ? 'My Requests' : 'Received Requests'}
+          </Text>
           <TouchableOpacity
             style={styles.sortButton}
             onPress={() => setShowFilters(!showFilters)}
@@ -511,7 +601,9 @@ const RequestsScreen = () => {
             <Text style={styles.emptySubtext}>
               {searchQuery || selectedFilter !== 'All'
                 ? 'Try adjusting your search or filters'
-                : 'Start by sending requests to farmers'}
+                : user?.role === 'buyer'
+                  ? 'Start by sending requests to farmers'
+                  : 'Buyers will send requests for your products'}
             </Text>
           </View>
         }
@@ -767,18 +859,6 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 10,
     fontWeight: '600',
-    textTransform: 'capitalize',
-    lineHeight: 14,
-  },
-  priorityBadge: {
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: 10,
-  },
-  priorityText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#FFFFFF',
     textTransform: 'capitalize',
     lineHeight: 14,
   },

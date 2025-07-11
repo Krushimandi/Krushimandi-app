@@ -1,28 +1,36 @@
 /**
- * Requests Screen
- * Displays all pending buyer connection requests for farmers
- * Farmers can view, filter, and manage connection requests from various buyer types
+ * Requests Screen for Farmer
+ * Displays all received buyer requests for farmers
+ * Farmers can view, filter, and manage requests from buyers
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   FlatList,
   TouchableOpacity,
-  Image,
-  SafeAreaView,
   TextInput,
   StatusBar,
-  ActivityIndicator,
   RefreshControl,
+  Alert,
   ScrollView,
+  Modal,
+  ActivityIndicator,
+  Platform,
+  Dimensions,
+  Image
 } from 'react-native';
+import { useFocusEffect, useNavigation, NavigationProp, ParamListBase } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
+import { useAuthState } from '../providers/AuthStateProvider';
+import { useRequests } from '../../hooks/useRequests';
 import { useTabBarControl } from '../../utils/navigationControls';
-import { useNavigation, NavigationProp, ParamListBase, useFocusEffect } from '@react-navigation/native';
-import { Colors, Typography, Layout } from '../../constants';
+import { Request, RequestStatus } from '../../types/Request';
+import { Colors, Layout, Typography } from '../../constants';
+import { formatPrice, formatQuantity, getRelativeTime } from '../../utils/formatters';
+import Toast from 'react-native-toast-message';
 
 // Helper function to format category names for display
 const formatCategoryName = (category: string): string => {

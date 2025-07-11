@@ -1,12 +1,11 @@
-// Firebase initialization for React Native
+// Firebase initialization for React Native with modular SDK
 import { firebase } from '@react-native-firebase/app';
 import auth from '@react-native-firebase/auth';
-
-// Configure Firebase Auth persistence (this should be the default, but let's ensure it)
-// Firebase Auth automatically persists authentication state in React Native
-
-// Enable network persistence for Firestore (optional but recommended)
 import firestore from '@react-native-firebase/firestore';
+
+// Get Firebase service instances
+const firebaseAuth = auth();
+const firebaseFirestore = firestore();
 
 // Initialize Firebase services
 const initializeFirebase = async () => {
@@ -17,7 +16,7 @@ const initializeFirebase = async () => {
     console.log('🔥 Firebase Auth initialized with persistence enabled');
     
     // Optional: Configure Firestore settings
-    await firestore().settings({
+    await firebaseFirestore.settings({
       persistence: true, // Enable offline persistence
       cacheSizeBytes: firestore.CACHE_SIZE_UNLIMITED,
     });
@@ -33,4 +32,4 @@ initializeFirebase();
 
 // Export Firebase instance and services
 export default firebase;
-export { auth, firestore };
+export { firebaseAuth as auth, firebaseFirestore as firestore };

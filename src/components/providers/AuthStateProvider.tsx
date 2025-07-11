@@ -4,7 +4,7 @@
  */
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import auth from '@react-native-firebase/auth';
+import { auth } from '../../config/firebase';
 import { AuthBootstrapState } from '../../utils/authBootstrap';
 import { useAuthStore } from '../../store/authStore';
 import { getUserRole } from '../../utils/userRoleStorage';
@@ -31,13 +31,13 @@ export const AuthStateProvider: React.FC<AuthStateProviderProps> = ({
 }) => {
   const [userRole, setUserRole] = useState<'farmer' | 'buyer' | null>(bootstrapState.userRole);
   const [isLoading, setIsLoading] = useState(false);
-  const [firebaseUser, setFirebaseUser] = useState(auth().currentUser);
+  const [firebaseUser, setFirebaseUser] = useState(auth.currentUser);
   const authStore = useAuthStore();
 
   // Listen to Firebase auth state changes
   useEffect(() => {
     console.log('🔥 Setting up Firebase auth state listener');
-    const unsubscribe = auth().onAuthStateChanged(async (user) => {
+    const unsubscribe = auth.onAuthStateChanged(async (user: any) => {
       console.log('🔥 Firebase auth state changed:', user ? `User logged in: ${user.uid}` : 'User logged out');
       setFirebaseUser(user);
       
@@ -88,11 +88,21 @@ export const AuthStateProvider: React.FC<AuthStateProviderProps> = ({
     }
   };
 
+  // Create a proper user object with uid and role
+  const userObject = firebaseUser ? {
+    ...authStore.user,
+    ...bootstrapState.user,
+    uid: firebaseUser.uid,
+    role: userRole,
+    email: firebaseUser.email,
+    displayName: firebaseUser.displayName,
+  } : null;
+
   const contextValue: AuthStateContextType = {
     // Use Firebase auth state as the primary source of truth
     isAuthenticated: !!firebaseUser && (bootstrapState.isAuthenticated || authStore.isAuthenticated),
     userRole,
-    user: authStore.user || bootstrapState.user,
+    user: userObject,
     isLoading,
     error: bootstrapState.error,
     refreshUserRole,
@@ -100,10 +110,14 @@ export const AuthStateProvider: React.FC<AuthStateProviderProps> = ({
 
   console.log('🔍 AuthStateProvider context value:', {
     firebaseUser: !!firebaseUser,
+    firebaseUid: firebaseUser?.uid,
     bootstrapAuth: bootstrapState.isAuthenticated,
     storeAuth: authStore.isAuthenticated,
     finalAuth: contextValue.isAuthenticated,
-    userRole: contextValue.userRole
+    userRole: contextValue.userRole,
+    userObject: userObject,
+    userHasUid: !!userObject?.uid,
+    userHasRole: !!userObject?.role
   });
 
   return (

@@ -27,12 +27,12 @@ import auth from '@react-native-firebase/auth';
 import { Colors } from '../../constants';
 import FilterScreen from './FilterScreen';
 import Toast from 'react-native-toast-message';
-import { 
-  formatPrice, 
-  formatFruitQuantity, 
-  formatLocation, 
+import {
+  formatPrice,
+  formatFruitQuantity,
+  formatLocation,
   getRelativeTime,
-  getDaysSince 
+  getDaysSince
 } from '../../utils/formatters';
 const categories = [
   { name: 'All', type: 'all', icon: null },
@@ -114,7 +114,7 @@ const BuyerHomeScreen = () => {
 
   const handleApplyFilters = (filters) => {
     let filtered = [...allFruits];
-    
+
     // Apply price range filter
     if (filters.priceRange && (filters.priceRange.min > 0 || filters.priceRange.max < 1000)) {
       filtered = filtered.filter(fruit => {
@@ -122,14 +122,14 @@ const BuyerHomeScreen = () => {
         return price >= filters.priceRange.min && price <= filters.priceRange.max;
       });
     }
-    
+
     // Apply grade filter
     if (filters.grade && filters.grade.length > 0) {
-      filtered = filtered.filter(fruit => 
+      filtered = filtered.filter(fruit =>
         filters.grade.includes(fruit.grade)
       );
     }
-    
+
     // Apply location filter
     if (filters.location && filters.location.trim()) {
       const locationLower = filters.location.toLowerCase();
@@ -139,7 +139,7 @@ const BuyerHomeScreen = () => {
         fruit.location?.state?.toLowerCase().includes(locationLower)
       );
     }
-    
+
     // Apply quantity filter
     if (filters.minQuantity && filters.minQuantity > 0) {
       filtered = filtered.filter(fruit => {
@@ -147,14 +147,14 @@ const BuyerHomeScreen = () => {
         return minQty >= filters.minQuantity;
       });
     }
-    
+
     // Apply category filter if not 'all'
     if (selectedCategory !== 'all') {
-      filtered = filtered.filter(fruit => 
+      filtered = filtered.filter(fruit =>
         fruit.type?.toLowerCase() === selectedCategory.toLowerCase()
       );
     }
-    
+
     // Apply search query
     if (searchQuery.trim()) {
       const searchLower = searchQuery.toLowerCase();
@@ -164,7 +164,7 @@ const BuyerHomeScreen = () => {
         fruit.description?.toLowerCase().includes(searchLower)
       );
     }
-    
+
     setFruits(filtered);
     closeFilterModal();
   };
@@ -213,21 +213,16 @@ const BuyerHomeScreen = () => {
   };
 
   const handleUserValidationFailure = () => {
-    Alert.alert(
-      'Authentication Error',
-      'Your session has expired or your account is no longer valid. Please sign in again.',
-      [
-        {
-          text: 'OK',
-          onPress: () => {
-            // Navigate back to auth flow using our utility function
-            import('../../utils/navigationUtils').then(
-              ({ navigateToAuth }) => navigateToAuth()
-            );
-          }
-        }
-      ],
-      { cancelable: false }
+    Toast.show({
+      type: 'error',
+      text1: 'Authentication Error',
+      text2: 'Your session has expired or your account is no longer valid. Please sign in again.',
+      position: 'bottom',
+    });
+
+    // Navigate back to auth flow using our utility function
+    import('../../utils/navigationUtils').then(
+      ({ navigateToAuth }) => navigateToAuth()
     );
   };
 
@@ -269,16 +264,16 @@ const BuyerHomeScreen = () => {
   const loadMarketplaceFruits = async () => {
     try {
       setLoadingFruits(true);
-      
+
       const marketplaceFruits = await getMarketplaceFruits(100);
-      
+
       if (marketplaceFruits && Array.isArray(marketplaceFruits) && marketplaceFruits.length > 0) {
         setAllFruits(marketplaceFruits);
         setFruits(marketplaceFruits);
       } else {
         setAllFruits([]);
         setFruits([]);
-        
+
         Toast.show({
           type: 'info',
           text1: '📋 No Data',
@@ -289,10 +284,10 @@ const BuyerHomeScreen = () => {
       }
     } catch (error) {
       console.error('❌ Error loading marketplace fruits:', error);
-      
+
       setAllFruits([]);
       setFruits([]);
-      
+
       Toast.show({
         type: 'error',
         text1: '❌ Data Load Failed',
@@ -328,7 +323,7 @@ const BuyerHomeScreen = () => {
         const matchVillage = fruit.location?.village?.toLowerCase().includes(searchLower);
         const matchDistrict = fruit.location?.district?.toLowerCase().includes(searchLower);
         const matchState = fruit.location?.state?.toLowerCase().includes(searchLower);
-        
+
         return matchName || matchType || matchDescription || matchVillage || matchDistrict || matchState;
       });
     }
@@ -601,7 +596,7 @@ const BuyerHomeScreen = () => {
               fruits.map((item) => (
                 <TouchableOpacity
                   key={item.id}
-                  style={styles.fruitCard} 
+                  style={styles.fruitCard}
                   activeOpacity={0.9}
                   onPress={() => {
                     // Navigate to the ProductDetail screen with complete fruit data
@@ -614,7 +609,7 @@ const BuyerHomeScreen = () => {
                       hasId: !!item.id,
                       productObjectId: item.id // This should be included in the product object
                     });
-                    
+
                     safeNavigate('ProductDetail', {
                       product: {
                         // Core fruit properties from fruit.ts schema
@@ -634,7 +629,7 @@ const BuyerHomeScreen = () => {
                         likes: item.likes || 0,
                         created_at: item.created_at,
                         updated_at: item.updated_at || item.created_at,
-                        
+
                         // Additional display properties for compatibility
                         rating: 4.8, // Default rating for now
                         reviewCount: Math.floor((item.likes || 0) * 2),
@@ -647,8 +642,8 @@ const BuyerHomeScreen = () => {
                     });
                   }}
                 >
-                  <Image 
-                    source={{ uri: item.image_urls?.[0] || 'https://via.placeholder.com/150' }} 
+                  <Image
+                    source={{ uri: item.image_urls?.[0] || 'https://via.placeholder.com/150' }}
                     style={styles.fruitImage}
                     defaultSource={require('../../assets/fruit_placeholder.png')}
                   />
@@ -684,7 +679,7 @@ const BuyerHomeScreen = () => {
                   {searchQuery || selectedCategory !== 'all' ? 'No Matching Fruits' : 'No Fruits Available'}
                 </Text>
                 <Text style={styles.emptyStateSubtitle}>
-                  {searchQuery || selectedCategory !== 'all' 
+                  {searchQuery || selectedCategory !== 'all'
                     ? 'Try adjusting your search or category filter'
                     : 'Fresh fruits will be listed here when farmers post them'
                   }

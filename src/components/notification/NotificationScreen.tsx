@@ -76,11 +76,11 @@ const getNotificationColor = (type: string, theme: 'light' | 'dark' = 'light'): 
     const colors = Colors[theme];
     switch (type) {
         case 'unread':
-            return Colors.light.tabBarInactive;
+            return Colors.light.secondary;
         case 'transaction':
             return colors.info;
         case 'promotion':
-            return colors.secondary;
+            return colors.tabBarInactive;
         case 'update':
             return colors.primary;
         case 'alert':
@@ -199,10 +199,10 @@ const FilterChip: React.FC<{
             style={[
                 styles.filterButton,
                 {
-                    borderColor: getNotificationColor(type),
+                    borderColor: Colors.light.primary,
                 },
                 selected && {
-                    backgroundColor: getNotificationColor(type)+'40',
+                    backgroundColor: Colors.light.primary + '40',
                 },
                 isPressed && {
                     opacity: 0.9,
@@ -218,7 +218,7 @@ const FilterChip: React.FC<{
                 <Icon
                     name={icon}
                     size={16}
-                    color={getNotificationColor(type)}
+                    color={Colors.light.primary}
                     style={{ marginRight: 6 }}
                 />
             )}
@@ -226,7 +226,7 @@ const FilterChip: React.FC<{
                 style={[
                     styles.filterButtonText,
                     {
-                        color: getNotificationColor(type),
+                        color: Colors.light.primary,
                         fontWeight: '600',
                     }
                 ]}
@@ -239,7 +239,7 @@ const FilterChip: React.FC<{
 
 const NotificationScreen: React.FC<NotificationScreenProps> = ({ navigation }) => {
     const { showTabBar, hideTabBar } = useTabBarControl();
-    const { 
+    const {
         notifications,
         unreadCount,
         markAsRead: markNotificationAsRead,
@@ -248,7 +248,7 @@ const NotificationScreen: React.FC<NotificationScreenProps> = ({ navigation }) =
         getFilteredNotifications,
         refreshNotifications
     } = useNotifications();
-    
+
     const [showSettings, setShowSettings] = useState<boolean>(false);
     const [refreshing, setRefreshing] = useState<boolean>(false);
     const [loading, setLoading] = useState<boolean>(true);
@@ -358,7 +358,7 @@ const NotificationScreen: React.FC<NotificationScreenProps> = ({ navigation }) =
     const markAsRead = (id: string) => {
         // Mark as read using hook function
         markNotificationAsRead(id);
-        
+
         // Update filtered data
         filterNotifications(selectedFilter);
 
@@ -593,23 +593,22 @@ const NotificationScreen: React.FC<NotificationScreenProps> = ({ navigation }) =
                 barStyle="light-content"
             />
 
-            {/* Header - Updated to match design */}
+            {/* Header - Matching MyOrdersScreen/RequestsScreen design */}
             <View style={styles.header}>
-                <TouchableOpacity
-                    style={styles.backButton}
-                    onPress={() => navigation.goBack()}
-                >
-                    <Icon name="arrow-back" size={24} color={Colors.light.background} />
-                </TouchableOpacity>
-
-                <Text style={styles.headerTitle}>Notifications</Text>
-
-                <TouchableOpacity
-                    style={styles.settingsButton}
-                    onPress={() => setShowSettings(true)}
-                >
-                    <Icon name="settings-outline" size={22} color={Colors.light.background} />
-                </TouchableOpacity>
+                <View style={styles.headerTop}>
+                    <View>
+                        <Text style={styles.headerTitle}>Notifications</Text>
+                        <Text style={styles.headerSubtitle}>
+                            {sections.reduce((total, section) => total + section.data.length, 0)} notifications • {unreadCount} unread
+                        </Text>
+                    </View>
+                    <TouchableOpacity
+                        style={styles.settingsButton}
+                        onPress={() => setShowSettings(true)}
+                    >
+                        <Icon name="settings-outline" size={24} color="#000000" />
+                    </TouchableOpacity>
+                </View>
             </View>
             {/* Filter Tabs */}
             <View style={styles.filterOuterContainer}>
@@ -790,39 +789,47 @@ const NotificationScreen: React.FC<NotificationScreenProps> = ({ navigation }) =
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#F5F5F5', // Light gray background matching screenshot
-    }, header: {
-        backgroundColor: Colors.light.primary,
-        paddingTop: Platform.OS === 'ios' ? 50 : StatusBar.currentHeight! + 10,
-        paddingBottom: 15,
-        paddingHorizontal: 16,
+        backgroundColor: '#F5F5F5',
+    },
+    header: {
+        backgroundColor: '#FFFFFF',
+        paddingHorizontal: 24,
+        paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight! + 10 : 16,
+        paddingBottom: 20,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.05,
+        shadowRadius: 10,
+        elevation: 3,
+    },
+    headerTop: {
         flexDirection: 'row',
+        justifyContent: 'space-between',
         alignItems: 'center',
-        elevation: 0,
-        shadowColor: 'transparent',
-        borderBottomWidth: 0,
-        zIndex: 10,
     },
     headerTitle: {
-        fontSize: 20,
-        fontWeight: '600',
-        color: 'white',
-        flex: 1,
-        textAlign: 'center',
+        fontSize: 28,
+        fontWeight: '800',
+        color: '#0F172A',
+        letterSpacing: -0.7,
+        lineHeight: 36,
     },
-    backButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        justifyContent: 'center',
-        alignItems: 'center',
+    headerSubtitle: {
+        fontSize: 15,
+        color: '#64748B',
+        marginTop: 4,
+        fontWeight: '600',
+        letterSpacing: -0.1,
     },
     settingsButton: {
-        width: 40,
-        height: 40,
+        padding: 14,
         borderRadius: 20,
-        justifyContent: 'center',
-        alignItems: 'center',
+        backgroundColor: '#F1F5F9',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.06,
+        shadowRadius: 8,
+        elevation: 3,
     },
     filterOuterContainer: {
         backgroundColor: 'white',

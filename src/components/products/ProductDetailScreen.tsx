@@ -25,10 +25,12 @@ import { type Fruit } from '../../types/fruit';
 import { formatPrice, formatLocation, formatFruitQuantity, getRelativeTime, getDisplayParts } from '../../utils/formatters';
 import { toggleWishlist, isInWishlist, getFruitLikesCount, getFruitLikers, syncFruitLikesCount, addToWishlist, removeFromWishlist, cleanupWishlistInconsistencies } from '../../services/wishlistService';
 import Toast from 'react-native-toast-message';
-import firestore, { 
-  increment as firestoreIncrement 
-} from '@react-native-firebase/firestore';
-import auth from '@react-native-firebase/auth';
+import { auth, firestore } from '../../config/firebase';
+import { increment } from '@react-native-firebase/firestore';
+import { useRequests } from '../../hooks/useRequests';
+import { useAuthState } from '../providers/AuthStateProvider';
+import SendRequestModal from '../requests/SendRequestModal';
+import { CreateRequestInput } from '../../types/Request';
 
 const { width, height } = Dimensions.get('window');
 
@@ -59,6 +61,12 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
   const [farmerData, setFarmerData] = useState<any>(null);
   const [farmerReviews, setFarmerReviews] = useState<any[]>([]);
   const [isFarmerDataLoading, setIsFarmerDataLoading] = useState<boolean>(true);
+  
+  // Request-related states
+  const [showRequestModal, setShowRequestModal] = useState<boolean>(false);
+  const [requestCount, setRequestCount] = useState<number>(0);
+  const { user, userRole } = useAuthState();
+  const { createRequest, getProductRequestCounts } = useRequests();
  
   // Get raw product data from route params
   const rawProduct = route?.params?.product;
@@ -141,7 +149,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
     freshness: rawProduct.freshness || 'Fresh',
     details: rawProduct.details || `${rawProduct.name || 'Product'} from ${rawProduct.location ? formatLocation(rawProduct.location) : 'Unknown location'}`,
     postedDate: rawProduct.postedDate || (rawProduct.created_at ? getRelativeTime(rawProduct.created_at) : 'Recently'),
-    farmer_name: rawProduct.farmer_name || 'Unknown Farmer',
+    farmer_name: 'Unknown Farmer', // Will be updated with farmerData later
     farmer_rating: rawProduct.farmer_rating || 4.0
   };
 
@@ -205,8 +213,8 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
   // Check wishlist status on component mount and increment view count
   useEffect(() => {
     // Debug authentication
-    const user = auth().currentUser;
-    console.log('🔐 Current user:', user ? `${user.uid} (${user.email})` : 'Not authenticated');
+    const user = auth.currentUser;
+    console.log('🔐 Current user:', user ? `${user.uid}` : 'Not authenticated');
     console.log('📱 New Wishlist Structure Info:');
     console.log('   📂 User likes are stored in: fruits/' + product.id + '/wishlists/' + (user?.uid || 'USER_ID'));
     console.log('   📂 User wishlist is also in: buyers/' + (user?.uid || 'USER_ID') + '/wishlist/' + product.id);
@@ -217,6 +225,23 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
     incrementViewCount();
     fetchFarmerData();
   }, [product.id, product.farmer_id]);
+
+  // Load request counts for farmers (only if user is a farmer viewing their own product)
+  useEffect(() => {
+    const loadRequestCount = async () => {
+      if (userRole === 'farmer' && user?.uid === product.farmer_id && product.id) {
+        try {
+          const counts = await getProductRequestCounts([product.id]);
+          const productCount = counts.find(c => c.productId === product.id);
+          setRequestCount(productCount?.count || 0);
+        } catch (error) {
+          console.error('Error loading request count:', error);
+        }
+      }
+    };
+
+    loadRequestCount();
+  }, [product.id, product.farmer_id, userRole, user?.uid]);
 
   // Refresh data when screen comes into focus to handle stale state - OPTIMIZED
   useFocusEffect(
@@ -263,7 +288,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
       setIsFarmerDataLoading(true);
 
       // Fetch farmer profile
-      const farmerDoc = await firestore()
+      const farmerDoc = await firestore
         .collection('farmers')
         .doc(product.farmer_id)
         .get();
@@ -281,26 +306,26 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
         console.log('⚠️ Checking if this is a valid Firestore document ID...');
         
         // Try to fetch all farmers to see what IDs exist (for debugging)
-        const allFarmersSnapshot = await firestore()
+        const allFarmersSnapshot = await firestore
           .collection('farmers')
           .limit(5)
           .get();
         
         console.log('🔍 Sample farmer IDs in collection:');
-        allFarmersSnapshot.docs.forEach(doc => {
+        allFarmersSnapshot.docs.forEach((doc: any) => {
           console.log('  -', doc.id, '(data:', Object.keys(doc.data() || {}), ')');
         });
       }
 
       // Fetch farmer reviews (if available)
-      const reviewsSnapshot = await firestore()
+      const reviewsSnapshot = await firestore
         .collection('reviews')
         .where('farmer_id', '==', product.farmer_id)
         .orderBy('created_at', 'desc')
         .limit(5)
         .get();
 
-      const reviews = reviewsSnapshot.docs.map(doc => ({
+      const reviews = reviewsSnapshot.docs.map((doc: any) => ({
         id: doc.id,
         ...doc.data()
       }));
@@ -331,7 +356,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
       }
 
       // Get current user
-      const user = auth().currentUser;
+      const user = auth.currentUser;
       if (!user) {
         console.log('⚠️ User not authenticated, cannot check wishlist');
         setIsFavorite(false);
@@ -365,7 +390,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
       console.log('📈 Incrementing view count for fruit:', product.id);
       
       // First check if the document exists
-      const fruitDoc = await firestore()
+      const fruitDoc = await firestore
         .collection('fruits')
         .doc(product.id)
         .get();
@@ -376,11 +401,11 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
         return;
       }
       
-      await firestore()
+      await firestore
         .collection('fruits')
         .doc(product.id)
         .update({
-          views: firestoreIncrement(1)
+          views: increment(1)
         });
       console.log('✅ View count incremented for fruit:', product.id);
     } catch (error: any) {
@@ -522,11 +547,63 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
 
   // Function to handle the product request
   const handleRequestProduct = () => {
-    Alert.alert(
-      "Request Sent!",
-      `Your request for ${product.name} (${formatFruitQuantity(product.quantity)}) has been sent to ${product.farmer_name}.`,
-      [{ text: "OK" }]
-    );
+    // Check if user is authenticated and is a buyer
+    if (!user) {
+      Alert.alert(
+        "Login Required",
+        "Please login to send requests to farmers.",
+        [{ text: "OK" }]
+      );
+      return;
+    }
+
+    if (userRole !== 'buyer') {
+      Alert.alert(
+        "Access Denied",
+        "Only buyers can send requests to farmers.",
+        [{ text: "OK" }]
+      );
+      return;
+    }
+
+    // Check if user is trying to request their own product
+    if (user.uid === product.farmer_id) {
+      Alert.alert(
+        "Invalid Request",
+        "You cannot send a request for your own product.",
+        [{ text: "OK" }]
+      );
+      return;
+    }
+
+    // Show the request modal
+    setShowRequestModal(true);
+  };
+
+  // Handle sending the request
+  const handleSendRequest = async (requestData: CreateRequestInput) => {
+    try {
+      const requestId = await createRequest(requestData);
+      if (requestId) {
+        // Update local request count
+        setRequestCount(prev => prev + 1);
+        
+        Toast.show({
+          type: 'success',
+          text1: 'Request Sent!',
+          position: 'bottom',
+          text2: `Your request has been sent to ${product.farmer_name || 'the farmer'}.`,
+          visibilityTime: 3000,
+        });
+      }
+    } catch (error) {
+      console.error('Error sending request:', error);
+      Alert.alert(
+        'Error',
+        'Failed to send request. Please try again.',
+        [{ text: 'OK' }]
+      );
+    }
   };
 
   const renderStars = (rating: number): ReactElement[] => {
@@ -772,6 +849,27 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                   </Text>
                 </View>
               </View>
+
+              {/* Request Count - Only visible to farmers for their own products */}
+              {userRole === 'farmer' && user?.uid === product.farmer_id && (
+                <>
+                  <View style={styles.statsDivider} />
+                  <View style={styles.modernEngagementStat}>
+                    <View style={[
+                      styles.engagementIconContainer,
+                      { backgroundColor: '#FFF3E0' }
+                    ]}>
+                      <Ionicons name="mail-outline" size={18} color="#FF9800" />
+                    </View>
+                    <View style={styles.engagementTextContainer}>
+                      <Text style={[styles.modernEngagementNumber, { color: '#FF9800' }]}>
+                        {requestCount}
+                      </Text>
+                      <Text style={styles.engagementLabel}>requests</Text>
+                    </View>
+                  </View>
+                </>
+              )}
               
               <View style={styles.statsDivider} />
               
@@ -1002,7 +1100,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                           />
                         ) : (
                           <Text style={styles.modernFarmerAvatarText}>
-                            {(farmerData?.displayName || product.farmer_name || 'F').charAt(0).toUpperCase()
+                            {(farmerData?.displayName || 'F').charAt(0).toUpperCase()
                           }</Text>
                         )}
                       </View>
@@ -1016,7 +1114,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                     <View style={styles.modernFarmerInfo}>
                       <Text style={styles.modernFarmerName}>
                         {(() => {
-                          const displayName = farmerData?.displayName || product.farmer_name || 'Unknown Farmer';
+                          const displayName = farmerData?.displayName|| 'Unknown Farmer';
                           console.log('🔍 Farmer name display logic:', {
                             'farmerData?.displayName': farmerData?.displayName,
                             'product.farmer_name': product.farmer_name,
@@ -1157,9 +1255,24 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
           <View style={styles.swipeGradientOverlay} />
         </View>
         <Text style={styles.modernSwipeInstruction}>
-          Swipe right to send a request to {farmerData?.displayName || product.farmer_name}
+          Swipe right to send a request to {farmerData?.displayName || 'the farmer'}
         </Text>
       </View>
+
+      {/* Send Request Modal */}
+      <SendRequestModal
+        visible={showRequestModal}
+        onClose={() => setShowRequestModal(false)}
+        onSend={handleSendRequest}
+        product={{
+          id: product.id,
+          name: product.name,
+          price: product.price_per_kg,
+          priceUnit: 'kg',
+          farmerName: farmerData?.displayName || 'Unknown Farmer',
+          quantity: product.quantity,
+        }}
+      />
     </SafeAreaView>
   );
 };

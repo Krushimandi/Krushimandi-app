@@ -23,8 +23,10 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import auth from '@react-native-firebase/auth';
 import { saveUserRole } from '../../utils/userRoleStorage';
 import Toast from 'react-native-toast-message';
+import { useAuth } from '../../contexts/AuthContext';
 
 const OTPVerificationScreen = ({ navigation, route }) => {
+  const { phoneNumber, confirmation, setConfirmation, clearConfirmation } = useAuth();
   const [otp, setOtp] = useState(''); // Single string for OTP
   const [timer, setTimer] = useState(60);
   const [canResend, setCanResend] = useState(false);
@@ -38,9 +40,9 @@ const OTPVerificationScreen = ({ navigation, route }) => {
   const cursorAnimation = useRef(new Animated.Value(1)).current;
   const modalAnimation = useRef(new Animated.Value(0)).current;
   const lastTapTime = useRef(0);
-  // Get phone number from navigation params
-  const phoneNumber = route?.params?.phone || '+91 XXXXXXXXXX';
-  const confirmation = route?.params?.confirmation;
+  
+  // Use phone number from context, fallback to route params, then default
+  const displayPhoneNumber = phoneNumber || route?.params?.phoneNumber || '+91 XXXXXXXXXX';
 
   // Keyboard listeners
   useEffect(() => {
@@ -109,6 +111,13 @@ const OTPVerificationScreen = ({ navigation, route }) => {
     }, 800); // Give time for animation to complete
 
     return () => clearTimeout(focusTimer);
+  }, []);
+
+  // Cleanup confirmation on unmount
+  useEffect(() => {
+    return () => {
+      clearConfirmation();
+    };
   }, []); const handleOtpChange = (value) => {
     // Only allow digits and limit to 6 characters
     const cleanedValue = value.replace(/[^0-9]/g, '').slice(0, 6);
@@ -201,7 +210,7 @@ const OTPVerificationScreen = ({ navigation, route }) => {
         const { checkUserExistsInFirestore, saveUserToAsyncStorage } = require('../../services/firebaseService');
 
         // Check if user data exists in Firestore using phone number
-        const result = await checkUserExistsInFirestore(phoneNumber);
+        const result = await checkUserExistsInFirestore(phoneNumber || displayPhoneNumber);
 
         if (result.exists && result.userData) {
           console.log('✅ User data found in Firestore, restoring session', result.userData);
@@ -304,7 +313,7 @@ const OTPVerificationScreen = ({ navigation, route }) => {
       setError('');
       try {
         const newConfirmation = await auth().signInWithPhoneNumber(phoneNumber);
-        route.params.confirmation = newConfirmation;
+        setConfirmation(newConfirmation);
         Alert.alert('OTP Sent', 'A new OTP has been sent to your phone.');
       } catch (err) {
         setError('Failed to resend OTP. Try again.');
@@ -429,7 +438,7 @@ const OTPVerificationScreen = ({ navigation, route }) => {
               <Text style={styles.subtitle}>Enter the 6-digit code we sent to</Text>
 
               <View style={styles.phoneContainer}>
-                <Text style={styles.phoneNumber}>{phoneNumber}</Text>
+                <Text style={styles.phoneNumber}>{displayPhoneNumber}</Text>
                 <TouchableOpacity onPress={handleEditPhone} style={styles.editButton}>
                   <Ionicons name="pencil" size={18} color="#007E2F" />
                 </TouchableOpacity>
