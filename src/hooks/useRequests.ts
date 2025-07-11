@@ -191,6 +191,20 @@ export const useRequests = () => {
     setError(null);
   }, []);
 
+  // Check if buyer has existing request for a product
+  const hasExistingRequest = useCallback(async (productId: string): Promise<boolean> => {
+    if (!user?.uid) {
+      return false;
+    }
+
+    try {
+      return await requestService.hasExistingRequest(user.uid, productId);
+    } catch (error) {
+      console.error('Error checking existing request:', error);
+      return false;
+    }
+  }, [user?.uid]);
+
   return {
     requests,
     loading,
@@ -203,6 +217,7 @@ export const useRequests = () => {
     resendRequest,
     getProductRequestCounts,
     getRequestStats,
+    hasExistingRequest,
     clearError,
   };
 };

@@ -175,6 +175,13 @@ const FarmerRequestsScreen = () => {
                 loadRequests();
             }
             showTabBar();
+            
+            // Reset manage mode when screen comes into focus
+            return () => {
+                // This cleanup function runs when the screen loses focus
+                setIsManageMode(false);
+                setSelectedRequests([]);
+            };
         }, [user, showTabBar])
     );
 
@@ -492,7 +499,7 @@ const FarmerRequestsScreen = () => {
                             <View style={styles.priceSection}>
                                 <Text style={styles.priceLabel}>Your Price:</Text>
                                 <Text style={styles.priceValue}>
-                                    {formatPrice(item.productSnapshot.price)}/{item.productSnapshot.priceUnit}
+                                    {formatPrice(item.productSnapshot.price)}
                                 </Text>
                             </View>
                         </View>
@@ -759,7 +766,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#FFFFFF',
         paddingTop: 40,
         paddingBottom: 16,
-        paddingHorizontal: 20,
+        paddingLeft: 20,
         borderBottomWidth: 1,
         borderBottomColor: '#E5E7EB',
         shadowColor: '#000',
@@ -820,7 +827,7 @@ const styles = StyleSheet.create({
         marginTop: 16,
         marginBottom: 12,
         paddingHorizontal: 16,
-        paddingVertical: 14,
+        paddingVertical: 6,
         borderRadius: 12,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
@@ -839,12 +846,11 @@ const styles = StyleSheet.create({
         lineHeight: 20,
     },
     filterContainer: {
-        paddingLeft: 16,
-        marginBottom: 12,
+        marginBottom: 10,
+        marginHorizontal: 12,
     },
     filterContent: {
-        paddingRight: 16,
-        paddingVertical: 0,
+        padding: 6,
     },
     filterButton: {
         flexDirection: 'row',
@@ -902,6 +908,7 @@ const styles = StyleSheet.create({
     },
     listContent: {
         paddingBottom: 100,
+        paddingTop: 2,
     },
     requestItemContainer: {
         flexDirection: 'row',

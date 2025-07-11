@@ -1,4 +1,4 @@
-import React, { useState, ReactElement, useRef, useEffect } from 'react';
+import React, { useState, ReactElement, useRef, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -65,8 +65,10 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
   // Request-related states
   const [showRequestModal, setShowRequestModal] = useState<boolean>(false);
   const [requestCount, setRequestCount] = useState<number>(0);
+  const [hasExistingRequestForProduct, setHasExistingRequestForProduct] = useState<boolean>(false);
+  const [isCheckingExistingRequest, setIsCheckingExistingRequest] = useState<boolean>(true);
   const { user, userRole } = useAuthState();
-  const { createRequest, getProductRequestCounts } = useRequests();
+  const { createRequest, getProductRequestCounts, hasExistingRequest } = useRequests();
  
   // Get raw product data from route params
   const rawProduct = route?.params?.product;
@@ -243,6 +245,28 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
     loadRequestCount();
   }, [product.id, product.farmer_id, userRole, user?.uid]);
 
+  // Check for existing requests when component loads
+  useEffect(() => {
+    const checkExistingRequest = async () => {
+      if (userRole === 'buyer' && user?.uid && product.id) {
+        try {
+          console.log('🔍 Checking for existing request...');
+          const hasExisting = await hasExistingRequest(product.id);
+          setHasExistingRequestForProduct(hasExisting);
+          console.log('✅ Existing request check complete:', hasExisting);
+        } catch (error) {
+          console.error('❌ Error checking existing request:', error);
+        } finally {
+          setIsCheckingExistingRequest(false);
+        }
+      } else {
+        setIsCheckingExistingRequest(false);
+      }
+    };
+
+    checkExistingRequest();
+  }, [product.id, userRole, user?.uid, hasExistingRequest]);
+
   // Refresh data when screen comes into focus to handle stale state - OPTIMIZED
   useFocusEffect(
     React.useCallback(() => {
@@ -263,14 +287,25 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
           setIsFavorite(freshWishlistStatus);
           setCurrentLikes(Math.max(0, freshLikesCount));
           
-          console.log('✅ Quick refresh complete:', freshWishlistStatus ? '❤️' : '🤍', 'likes:', freshLikesCount);
+          // Check existing request status for buyers
+          if (userRole === 'buyer' && user?.uid) {
+            try {
+              const freshExistingRequest = await hasExistingRequest(product.id);
+              setHasExistingRequestForProduct(freshExistingRequest);
+              console.log('✅ Quick refresh complete:', freshWishlistStatus ? '❤️' : '🤍', 'likes:', freshLikesCount, 'existing request:', freshExistingRequest);
+            } catch (error) {
+              console.error('❌ Error checking existing request during refresh:', error);
+            }
+          } else {
+            console.log('✅ Quick refresh complete:', freshWishlistStatus ? '❤️' : '🤍', 'likes:', freshLikesCount);
+          }
         } catch (error) {
           console.error('❌ Error during focus refresh:', error);
         }
       };
       
       refreshData();
-    }, [product.id])
+    }, [product.id, userRole, user?.uid])
   );
 
   const fetchFarmerData = async () => {
@@ -504,12 +539,12 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
   };
 
   // PanResponder for swipe gesture
-  const panResponder = useRef(
+  const panResponder = useMemo(() =>
     PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
+      onStartShouldSetPanResponder: () => !hasExistingRequestForProduct && !isCheckingExistingRequest,
       onPanResponderMove: (_, gesture) => {
-        // Only allow movement to the right (positive x direction)
-        if (gesture.dx > 0) {
+        // Only allow movement to the right (positive x direction) if no existing request
+        if (gesture.dx > 0 && !hasExistingRequestForProduct) {
           // Limit max swipe distance to 70% of container width
           const maxDistance = width * 0.85 - 60;
           const dx = Math.min(gesture.dx, maxDistance);
@@ -517,8 +552,8 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
         }
       },
       onPanResponderRelease: (_, gesture) => {
-        // If swiped far enough, trigger the request action
-        if (gesture.dx >= swipeThreshold) {
+        // If swiped far enough and no existing request, trigger the request action
+        if (gesture.dx >= swipeThreshold && !hasExistingRequestForProduct) {
           // Animate to the end position
           Animated.spring(pan, {
             toValue: width * 0.85 - 60,
@@ -542,11 +577,10 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
           }).start();
         }
       },
-    })
-  ).current;
+    }), [hasExistingRequestForProduct, isCheckingExistingRequest, pan, width, swipeThreshold]);
 
   // Function to handle the product request
-  const handleRequestProduct = () => {
+  const handleRequestProduct = async () => {
     // Check if user is authenticated and is a buyer
     if (!user) {
       Alert.alert(
@@ -576,6 +610,31 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
       return;
     }
 
+    // Check for existing requests
+    try {
+      console.log('🔍 Checking for existing requests for product:', product.id);
+      const hasExisting = await hasExistingRequest(product.id);
+      
+      if (hasExisting) {
+        Alert.alert(
+          "Request Already Sent",
+          "You have already sent a request for this product. Please wait for the farmer to respond or check your requests in the Orders section.",
+          [{ text: "OK" }]
+        );
+        return;
+      }
+      
+      console.log('✅ No existing request found, showing request modal');
+    } catch (error) {
+      console.error('❌ Error checking existing requests:', error);
+      Alert.alert(
+        "Error",
+        "Unable to check existing requests. Please try again.",
+        [{ text: "OK" }]
+      );
+      return;
+    }
+
     // Show the request modal
     setShowRequestModal(true);
   };
@@ -587,6 +646,9 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
       if (requestId) {
         // Update local request count
         setRequestCount(prev => prev + 1);
+        
+        // Update existing request status
+        setHasExistingRequestForProduct(true);
         
         Toast.show({
           type: 'success',
@@ -1245,17 +1307,37 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
           <Animated.View
             style={[
               styles.modernSwipeThumb,
-              { transform: [{ translateX: pan }] }
+              { 
+                transform: [{ translateX: pan }],
+                backgroundColor: hasExistingRequestForProduct ? '#6B7280' : '#10B981'
+              }
             ]}
             {...panResponder.panHandlers}
           >
-            <Ionicons name="arrow-forward" size={24} color="#FFFFFF" />
+            <Ionicons 
+              name={hasExistingRequestForProduct ? "checkmark" : "arrow-forward"} 
+              size={24} 
+              color="#FFFFFF" 
+            />
           </Animated.View>
-          <Text style={styles.modernSwipeText}>Swipe to request</Text>
+          <Text style={[
+            styles.modernSwipeText,
+            hasExistingRequestForProduct && { color: '#6B7280' }
+          ]}>
+            {isCheckingExistingRequest 
+              ? 'Checking...' 
+              : hasExistingRequestForProduct 
+                ? 'Request already sent' 
+                : 'Swipe to request'
+            }
+          </Text>
           <View style={styles.swipeGradientOverlay} />
         </View>
         <Text style={styles.modernSwipeInstruction}>
-          Swipe right to send a request to {farmerData?.displayName || 'the farmer'}
+          {hasExistingRequestForProduct 
+            ? 'You have already sent a request for this product'
+            : `Swipe right to send a request to ${farmerData?.displayName || 'the farmer'}`
+          }
         </Text>
       </View>
 

@@ -23,6 +23,29 @@ class RequestService {
     // Create a new request
     async createRequest(buyerId: string, input: CreateRequestInput): Promise<string> {
         try {
+            // Check for existing requests from this buyer for this product
+            console.log('🔍 Checking for existing requests from buyer:', buyerId, 'for product:', input.productId);
+            
+            const existingRequestsQuery = await this.db
+                .collection('requests')
+                .where('buyerId', '==', buyerId)
+                .where('productId', '==', input.productId)
+                .where('status', 'in', ['pending', 'accepted']) // Only check active requests
+                .get();
+
+            if (!existingRequestsQuery.empty) {
+                const existingRequest = existingRequestsQuery.docs[0].data();
+                console.log('❌ Duplicate request found:', {
+                    requestId: existingRequestsQuery.docs[0].id,
+                    status: existingRequest.status,
+                    createdAt: existingRequest.createdAt
+                });
+                
+                throw new Error('You have already sent a request for this product. Please wait for the farmer to respond.');
+            }
+
+            console.log('✅ No existing requests found, proceeding with creation...');
+
             // First get the fruit details from fruits collection
             const fruitDoc = await this.db.collection('fruits').doc(input.productId).get();
             if (!fruitDoc.exists) {
@@ -424,6 +447,24 @@ class RequestService {
         }
         
         return cleaned;
+    }
+
+    // Check if buyer has already sent a request for a specific product
+    async hasExistingRequest(buyerId: string, productId: string): Promise<boolean> {
+        try {
+            const existingRequestsQuery = await this.db
+                .collection('requests')
+                .where('buyerId', '==', buyerId)
+                .where('productId', '==', productId)
+                .where('status', 'in', ['pending', 'accepted'])
+                .limit(1)
+                .get();
+
+            return !existingRequestsQuery.empty;
+        } catch (error) {
+            console.error('Error checking existing requests:', error);
+            throw error;
+        }
     }
 }
 
