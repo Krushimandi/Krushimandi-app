@@ -413,12 +413,14 @@ const RequestsScreen = () => {
 
         <View style={styles.actionButtons}>
           {/* Buyer actions only */}
-          <TouchableOpacity
-            style={styles.cancelButton}
-            onPress={() => handleCancelRequest(item.id)}
-          >
-            <Icon name="trash-outline" size={16} color="#EF4444" />
-          </TouchableOpacity>
+          {item.status !== RequestStatus.CANCELLED && (
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={() => handleCancelRequest(item.id)}
+            >
+              <Icon name="trash-outline" size={16} color="#EF4444" />
+            </TouchableOpacity>
+          )}
 
           {(item.status === RequestStatus.CANCELLED || item.status === RequestStatus.REJECTED || item.status === RequestStatus.EXPIRED) && (
             <TouchableOpacity

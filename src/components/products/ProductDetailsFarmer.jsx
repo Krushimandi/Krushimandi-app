@@ -13,7 +13,6 @@ import {
   Alert,
   FlatList,
   Animated,
-  Share,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { Colors } from '../../constants';

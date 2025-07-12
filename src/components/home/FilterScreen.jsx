@@ -1,80 +1,129 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
   ScrollView,
-  Image,
   SafeAreaView,
   StatusBar,
   Platform,
+  Dimensions,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
-import { SUPPORTED_FRUIT_TYPES } from '../../constants/Fruits';
 
-const fruitTypes = [
-  { name: 'Apple', image: require('../../assets/fruits/Apple.png') },
-  { name: 'Banana', image: require('../../assets/fruits/banana.png') },
-  { name: 'Grape', image: require('../../assets/fruits/grapes.png') },
-  { name: 'Orange', image: require('../../assets/fruits/orange.png') },
-  { name: 'Mango', image: require('../../assets/fruits/mango.png') },
-  { name: 'Pomegranate', image: require('../../assets/fruits/pomegranate.png') },
-  { name: 'Sweet Lemon', image: require('../../assets/fruits/sweetlemon.png') },
-];
+const { width } = Dimensions.get('window');
 
 const additionalFeatures = [
-  'Organic',
-  'Top Rated',
-  'Fresh Stock',
-  'On Discount',
-  'In season',
-  'Off season',
-  'In Stock',
-  'Out of Stock',
+  { name: 'Top Rated', icon: 'star', color: '#F39C12' },
+  { name: 'Fresh Stock', icon: 'time-outline', color: '#3498DB' },
+  { name: 'In Season', icon: 'sunny-outline', color: '#F39C12' },
+  { name: 'Off Season', icon: 'snow-outline', color: '#95A5A6' },
 ];
 
-const FilterScreen = ({ onApplyFilters, onClose, isModal = false }) => {
-  const navigation = useNavigation();
-  const [selectedFruit, setSelectedFruit] = useState('Apple');
-  const [selectedFeatures, setSelectedFeatures] = useState(['Top Rated']);
-  const [minPrice, setMinPrice] = useState(30);
-  const [maxPrice, setMaxPrice] = useState(250);
-  const [minRating, setMinRating] = useState(4);
+const priceRanges = [
+  { label: '₹0 - ₹50', min: 0, max: 50 },
+  { label: '₹50 - ₹100', min: 50, max: 100 },
+  { label: '₹100 - ₹200', min: 100, max: 200 },
+  { label: '₹200+', min: 200, max: 500 },
+];
 
-  const toggleFeature = (feature) => {
+const FilterScreen = ({ onApplyFilters, onClose, isModal = false, currentFilters = {}, onClearFilters }) => {
+  const navigation = useNavigation();
+  
+  // Debug props on component mount
+  console.log('🎯 FilterScreen mounted with props:', {
+    onApplyFilters: typeof onApplyFilters,
+    onClose: typeof onClose,
+    onClearFilters: typeof onClearFilters,
+    isModal,
+    currentFilters
+  });
+  
+  // Initialize state with current filters or defaults
+  const [selectedFeatures, setSelectedFeatures] = useState(currentFilters.selectedFeatures || []);
+  const [selectedPriceRange, setSelectedPriceRange] = useState(currentFilters.priceRange || null);
+  const [minPrice, setMinPrice] = useState(currentFilters.minPrice || 0);
+  const [maxPrice, setMaxPrice] = useState(currentFilters.maxPrice || 500);
+  const [minRating, setMinRating] = useState(currentFilters.minRating || 0);
+
+  // Update state when currentFilters prop changes
+  useEffect(() => {
+    console.log('📥 FilterScreen received currentFilters:', currentFilters);
+    setSelectedFeatures(currentFilters.selectedFeatures || []);
+    setSelectedPriceRange(currentFilters.priceRange || null);
+    setMinPrice(currentFilters.minPrice || 0);
+    setMaxPrice(currentFilters.maxPrice || 500);
+    setMinRating(currentFilters.minRating || 0);
+  }, [currentFilters]);
+
+  const toggleFeature = useCallback((featureName) => {
     setSelectedFeatures((prev) =>
-      prev.includes(feature)
-        ? prev.filter((f) => f !== feature)
-        : [...prev, feature]
+      prev.includes(featureName)
+        ? prev.filter((f) => f !== featureName)
+        : [...prev, featureName]
     );
+  }, []);
+
+  const handlePriceRangeSelect = useCallback((range) => {
+    console.log('💰 Price range selected:', range);
+    setSelectedPriceRange(range.label);
+    setMinPrice(range.min);
+    setMaxPrice(range.max);
+  }, []);
+
+  const getActiveFiltersCount = () => {
+    let count = 0;
+    if (selectedFeatures.length > 0) count += selectedFeatures.length;
+    if (selectedPriceRange) count++;
+    if (minRating > 0) count++;
+    return count;
   };
 
   const handleApplyFilters = () => {
-    // Apply filters logic here
     const filters = {
-      selectedFruit,
       selectedFeatures,
+      priceRange: selectedPriceRange,
       minPrice,
       maxPrice,
       minRating
     };
-    console.log('Applying filters:', filters);
     
-    if (isModal && onApplyFilters) {
+    console.log('🎯 FilterScreen applying filters:', filters);
+    console.log('🔍 onApplyFilters prop exists:', typeof onApplyFilters);
+    console.log('🔍 onClose prop exists:', typeof onClose);
+    
+    if (onApplyFilters && typeof onApplyFilters === 'function') {
       onApplyFilters(filters);
     } else {
-      navigation.goBack();
+      console.error('❌ onApplyFilters prop is not a function or is missing');
+      console.error('❌ Available props:', { onApplyFilters, onClose, isModal, currentFilters, onClearFilters });
+    }
+    
+    if (onClose && typeof onClose === 'function') {
+      onClose();
+    } else {
+      console.warn('⚠️ onClose prop is not a function or is missing');
     }
   };
 
   const handleClearFilters = () => {
-    setSelectedFruit('Apple');
+    console.log('🧹 FilterScreen clearing filters');
+    
+    // Clear all filter states
     setSelectedFeatures([]);
+    setSelectedPriceRange(null);
     setMinPrice(0);
-    setMaxPrice(250);
-    setMinRating(1);
+    setMaxPrice(500);
+    setMinRating(0);
+    
+    // Call parent clear function if provided
+    if (onClearFilters) {
+      onClearFilters();
+    }
+    
+    console.log('✅ FilterScreen filters cleared');
   };
 
   return (
@@ -87,7 +136,7 @@ const FilterScreen = ({ onApplyFilters, onClose, isModal = false }) => {
             barStyle="dark-content"
           />
           
-          {/* Header with Back Button */}
+          {/* Enhanced Header */}
           <View style={styles.header}>
             <TouchableOpacity
               style={styles.backButton}
@@ -95,143 +144,180 @@ const FilterScreen = ({ onApplyFilters, onClose, isModal = false }) => {
             >
               <Icon name="arrow-back" size={24} color="#007E2F" />
             </TouchableOpacity>
-            <Text style={styles.headerText}>Filters</Text>
+            
+            <View style={styles.headerCenter}>
+              <Text style={styles.headerText}>Filters</Text>
+              {getActiveFiltersCount() > 0 && (
+                <View style={styles.filterBadge}>
+                  <Text style={styles.filterBadgeText}>{getActiveFiltersCount()}</Text>
+                </View>
+              )}
+            </View>
+            
             <TouchableOpacity
-              style={styles.clearButton}
+              style={[
+                styles.clearButton,
+                getActiveFiltersCount() === 0 && styles.clearButtonDisabled
+              ]}
               onPress={handleClearFilters}
+              disabled={getActiveFiltersCount() === 0}
+              activeOpacity={0.8}
             >
-              <Text style={styles.clearButtonText}>Clear</Text>
+              <Icon 
+                name="refresh" 
+                size={16} 
+                color={getActiveFiltersCount() === 0 ? '#9CA3AF' : '#FFFFFF'} 
+                style={styles.clearButtonIcon} 
+              />
+              <Text style={[
+                styles.clearButtonText,
+                getActiveFiltersCount() === 0 && styles.clearButtonTextDisabled
+              ]}>
+                Clear
+              </Text>
             </TouchableOpacity>
           </View>
         </>
       )}
 
-      <ScrollView style={styles.scrollContent}>
+      <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
-      {/* Selected Tags */}
-      <View style={styles.selectedTags}>
-        {[`₹${minPrice} - ₹${maxPrice}`, selectedFruit, ...selectedFeatures].map((tag) => (
-          <View key={tag} style={styles.tag}>
-            <Text style={styles.tagText}>{tag}</Text>
-            <TouchableOpacity onPress={() => {
-              // Handle tag removal
-              if (selectedFeatures.includes(tag)) {
-                toggleFeature(tag);
-              }
-            }}>
-              <Icon name="close" size={16} color="#6B7280" />
-            </TouchableOpacity>
-          </View>
-        ))}
-      </View>
-
-      {/* Fruit Type Section */}
-      <Text style={styles.sectionTitle}>Fruit type</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
-        <View style={styles.fruitOptionsRow}>
-          {fruitTypes.map((fruit) => (
-            <TouchableOpacity
-              key={fruit.name}
-              style={[
-                styles.fruitOption,
-                selectedFruit === fruit.name && styles.fruitOptionSelected,
-              ]}
-              onPress={() => setSelectedFruit(fruit.name)}
-            >
-              <View style={[
-                styles.fruitIconContainer,
-                selectedFruit === fruit.name && styles.fruitIconContainerSelected
-              ]}>
-                <Image source={fruit.image} style={styles.fruitIcon} />
+        {/* Quick Filter Tags */}
+        {(selectedFeatures.length > 0 || selectedPriceRange || minRating > 0) && (
+          <View style={styles.selectedTags}>
+            {selectedPriceRange && (
+              <View style={styles.tag}>
+                <Text style={styles.tagText}>{selectedPriceRange}</Text>
+                <TouchableOpacity onPress={() => setSelectedPriceRange(null)}>
+                  <Icon name="close" size={16} color="#6B7280" />
+                </TouchableOpacity>
               </View>
-              <Text style={[
-                styles.fruitText,
-                selectedFruit === fruit.name && styles.fruitTextSelected
-              ]}>{fruit.name}</Text>
-            </TouchableOpacity>
-          ))}
+            )}
+            {selectedFeatures.map((feature) => (
+              <View key={feature} style={styles.tag}>
+                <Text style={styles.tagText}>{feature}</Text>
+                <TouchableOpacity onPress={() => toggleFeature(feature)}>
+                  <Icon name="close" size={16} color="#6B7280" />
+                </TouchableOpacity>
+              </View>
+            ))}
+            {minRating > 0 && (
+              <View style={styles.tag}>
+                <Text style={styles.tagText}>⭐ {minRating}+ Stars</Text>
+                <TouchableOpacity onPress={() => setMinRating(0)}>
+                  <Icon name="close" size={16} color="#6B7280" />
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Price Range Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Price Range</Text>
+          <View style={styles.priceGrid}>
+            {priceRanges.map((range) => (
+              <TouchableOpacity
+                key={range.label}
+                style={[
+                  styles.priceRangeCard,
+                  selectedPriceRange === range.label && styles.priceRangeCardSelected,
+                ]}
+                onPress={() => handlePriceRangeSelect(range)}
+                activeOpacity={0.7}
+              >
+                <Icon 
+                  name="pricetag" 
+                  size={20} 
+                  color={selectedPriceRange === range.label ? '#FFFFFF' : '#007E2F'} 
+                />
+                <Text style={[
+                  styles.priceRangeText,
+                  selectedPriceRange === range.label && styles.priceRangeTextSelected,
+                ]}>
+                  {range.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
+
+        {/* Features Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Features</Text>
+          <View style={styles.featuresGrid}>
+            {additionalFeatures.map((feature) => (
+              <TouchableOpacity
+                key={feature.name}
+                style={[
+                  styles.featureCard,
+                  selectedFeatures.includes(feature.name) && styles.featureCardSelected,
+                ]}
+                onPress={() => toggleFeature(feature.name)}
+                activeOpacity={0.7}
+              >
+                <Icon 
+                  name={feature.icon} 
+                  size={18} 
+                  color={selectedFeatures.includes(feature.name) ? '#FFFFFF' : feature.color} 
+                />
+                <Text style={[
+                  styles.featureCardText,
+                  selectedFeatures.includes(feature.name) && styles.featureCardTextSelected,
+                ]}>
+                  {feature.name}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* Customer Rating Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Customer Rating</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
+            <View style={styles.ratingHorizontalGrid}>
+              {[4, 3, 2, 0].map((rating) => (
+                <TouchableOpacity
+                  key={rating}
+                  style={[
+                    styles.ratingHorizontalCard,
+                    minRating === rating && styles.ratingHorizontalCardSelected,
+                  ]}
+                  onPress={() => setMinRating(rating)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[
+                    styles.ratingHorizontalCardText,
+                    minRating === rating && styles.ratingHorizontalCardTextSelected,
+                  ]}>
+                    {rating === 0 ? '🌟 All' : `⭐ ${rating}+`}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </ScrollView>
+        </View>
+
+        <View style={styles.bottomSpacing} />
       </ScrollView>
 
-      {/* Price Range */}
-      <Text style={styles.sectionTitle}>Price per kg</Text>
-      <View style={styles.priceRangeContainer}>
-        <View style={styles.priceSliderContainer}>
-          <View style={styles.priceSlider}>
-            <View style={styles.priceTrack} />
-            <View style={styles.priceRange} />
-            <View style={[styles.priceThumb, styles.priceThumbLeft]} />
-            <View style={[styles.priceThumb, styles.priceThumbRight]} />
-          </View>
-        </View>
-        <View style={styles.priceLabelsContainer}>
-          <View style={styles.priceLabel}>
-            <Text style={styles.priceLabelText}>₹{minPrice}</Text>
-          </View>
-          <View style={styles.priceLabel}>
-            <Text style={styles.priceLabelText}>₹{maxPrice}</Text>
-          </View>
-        </View>
-      </View>
-
-      {/* Additional Features */}
-      <Text style={styles.sectionTitle}>Additional features</Text>
-      <View style={styles.featuresContainer}>
-        {additionalFeatures.map((feature) => (
-          <TouchableOpacity
-            key={feature}
-            style={[
-              styles.featureTag,
-              selectedFeatures.includes(feature) && styles.featureTagSelected,
-            ]}
-            onPress={() => toggleFeature(feature)}
-          >
-            <Text
-              style={[
-                styles.featureText,
-                selectedFeatures.includes(feature) && styles.featureTextSelected,
-              ]}
-            >
-              {feature}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-
-
-            {/* Customer Rating Filter */}
-      <Text style={styles.sectionTitle}>Customer rating</Text>
-      <View style={styles.ratingContainer}>
-        {[4, 3, 0].map((rating) => (
-          <TouchableOpacity
-            key={rating}
-            style={[
-              styles.ratingOption,
-              minRating === rating && styles.ratingOptionSelected,
-            ]}
-            onPress={() => setMinRating(rating)}
-          >
-            <Text
-              style={[
-                styles.ratingText,
-                minRating === rating && styles.ratingTextSelected,
-              ]}
-            >
-              {rating === 0 ? 'All Ratings' : `⭐ ${rating} & above`}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      </ScrollView>
-
-      {/* Bottom Action Buttons */}
+      {/* Enhanced Bottom Actions */}
       <View style={[styles.bottomActions, isModal && styles.modalBottomActions]}>
+        <View style={styles.filtersInfo}>
+          <Text style={styles.filtersInfoText}>
+            {getActiveFiltersCount() > 0 
+              ? `${getActiveFiltersCount()} filter${getActiveFiltersCount() > 1 ? 's' : ''} applied`
+              : 'No filters applied'
+            }
+          </Text>
+        </View>
         <TouchableOpacity
-          style={styles.applyButton}
+          style={[styles.applyButton, getActiveFiltersCount() === 0 && styles.applyButtonDisabled]}
           onPress={handleApplyFilters}
+          activeOpacity={0.8}
         >
+          <Icon name="checkmark-circle" size={20} color="#FFFFFF" style={styles.applyButtonIcon} />
           <Text style={styles.applyButtonText}>Apply Filters</Text>
         </TouchableOpacity>
       </View>
@@ -247,8 +333,8 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flex: 1,
-    padding: 20,
-    paddingBottom: 100,
+    paddingHorizontal: 20,
+    paddingBottom: 120,
   },
   header: {
     flexDirection: 'row',
@@ -256,16 +342,43 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 16,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
-  close: {
-    fontSize: 20,
-    color: '#555',
+  headerCenter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'center',
   },
   headerText: {
     fontSize: 20,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#111827',
     fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  filterBadge: {
+    backgroundColor: '#007E2F',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    marginLeft: 8,
+    minWidth: 24,
+    alignItems: 'center',
+  },
+  filterBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  section: {
+    marginBottom: 28,
   },
   selectedTags: {
     flexDirection: 'row',
@@ -276,76 +389,310 @@ const styles = StyleSheet.create({
   tag: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#E0F2FE',
+    backgroundColor: '#E0F7FA',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#BAE6FD',
+    borderColor: '#B2EBF2',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   tagText: {
-    color: '#0369A1',
+    color: '#00695C',
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
     marginRight: 6,
     fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
-  tagClose: {
-    color: '#6B7280',
-    fontWeight: 'bold',
-  },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 20,
+    fontWeight: '700',
     marginBottom: 16,
     color: '#111827',
     fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
+  
+  // Horizontal Scroll
   horizontalScroll: {
-    marginBottom: 32,
+    marginBottom: 8,
   },
-  fruitOptionsRow: {
+
+  // Price Range Styles
+  priceGrid: {
     flexDirection: 'row',
-    paddingRight: 20,
+    flexWrap: 'wrap',
+    gap: 12,
   },
-  fruitOption: {
+  priceRangeCard: {
+    flex: 1,
+    minWidth: (width - 64) / 2,
+    flexDirection: 'row',
     alignItems: 'center',
-    marginRight: 20,
-    minWidth: 80,
-  },
-  fruitOptionSelected: {
-    // Selected state handled by individual elements
-  },
-  fruitIconContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    justifyContent: 'center',
     backgroundColor: '#F8FAFC',
     borderWidth: 2,
     borderColor: '#E2E8F0',
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  priceRangeCardSelected: {
+    backgroundColor: '#007E2F',
+    borderColor: '#007E2F',
+    transform: [{ scale: 1.02 }],
+  },
+  priceRangeText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+    marginLeft: 8,
+  },
+  priceRangeTextSelected: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+
+  // Features Styles
+  featuresGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  featureCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 2,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    minWidth: (width - 64) / 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  featureCardSelected: {
+    backgroundColor: '#007E2F',
+    borderColor: '#007E2F',
+    transform: [{ scale: 1.02 }],
+  },
+  featureCardText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+    marginLeft: 8,
+    flex: 1,
+  },
+  featureCardTextSelected: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+
+  // Rating Styles - Horizontal
+  ratingHorizontalGrid: {
+    flexDirection: 'row',
+    paddingRight: 20,
+    gap: 12,
+  },
+  ratingHorizontalCard: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 2,
+    borderColor: '#E2E8F0',
+    borderRadius: 24,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 100,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  ratingHorizontalCardSelected: {
+    backgroundColor: '#007E2F',
+    borderColor: '#007E2F',
+    transform: [{ scale: 1.05 }],
+  },
+  ratingHorizontalCardText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  ratingHorizontalCardTextSelected: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+
+  // Legacy Rating Styles (kept for backwards compatibility)
+  ratingGrid: {
+    gap: 12,
+  },
+  ratingCard: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 2,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  ratingCardSelected: {
+    backgroundColor: '#007E2F',
+    borderColor: '#007E2F',
+    transform: [{ scale: 1.02 }],
+  },
+  ratingCardText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  ratingCardTextSelected: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+
+  bottomSpacing: {
+    height: 20,
+  },
+
+  // Bottom Actions
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#ffffff',
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+  },
+  modalSafeArea: {
+    paddingTop: 0,
+  },
+  backButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#F3F4F6',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  fruitIconContainerSelected: {
-    backgroundColor: '#E0F7FA',
-    borderColor: '#007E2F',
-    borderWidth: 2,
+  clearButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 24,
+    backgroundColor: '#EF4444',
+    shadowColor: '#EF4444',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+    minWidth: 80,
+    justifyContent: 'center',
   },
-  fruitIcon: {
-    width: 36,
-    height: 36,
+  clearButtonDisabled: {
+    backgroundColor: '#F3F4F6',
+    shadowOpacity: 0,
+    elevation: 0,
   },
-  fruitText: {
-    fontSize: 12,
-    color: '#6B7280',
-    fontWeight: '500',
-    textAlign: 'center',
+  clearButtonIcon: {
+    marginRight: 4,
+  },
+  clearButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
     fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
-  fruitTextSelected: {
-    color: '#007E2F',
-    fontWeight: '600',
+  clearButtonTextDisabled: {
+    color: '#9CA3AF',
+  },
+  bottomActions: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  modalBottomActions: {
+    position: 'relative',
+    bottom: 'auto',
+    shadowOpacity: 0,
+    elevation: 0,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+  },
+  filtersInfo: {
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  filtersInfoText: {
+    fontSize: 14,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  applyButton: {
+    backgroundColor: '#007E2F',
+    borderRadius: 16,
+    height: 56,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#007E2F',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  applyButtonDisabled: {
+    backgroundColor: '#9CA3AF',
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  applyButtonIcon: {
+    marginRight: 8,
+  },
+  applyButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+
+  // Legacy styles for backwards compatibility
+  close: {
+    fontSize: 20,
+    color: '#555',
   },
   priceRangeContainer: {
     marginBottom: 32,
@@ -464,79 +811,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '600',
   },
-    safeArea: {
-      flex: 1,
-      backgroundColor: '#ffffff',
-      paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
-    },
-    modalSafeArea: {
-      paddingTop: 0,
-    },
-    backButton: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      backgroundColor: '#F3F4F6',
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    clearButton: {
-      paddingHorizontal: 16,
-      paddingVertical: 8,
-      borderRadius: 20,
-      backgroundColor: '#EF4444',
-    },
-    clearButtonText: {
-      color: '#FFFFFF',
-      fontSize: 14,
-      fontWeight: '600',
-      fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
-    },
-    bottomActions: {
-      backgroundColor: '#FFFFFF',
-      paddingHorizontal: 20,
-      paddingVertical: 20,
-      borderTopWidth: 1,
-      borderTopColor: '#E5E7EB',
-      shadowColor: '#000000',
-      shadowOffset: {
-        width: 0,
-        height: -2,
-      },
-      shadowOpacity: 0.05,
-      shadowRadius: 8,
-      elevation: 4,
-    },
-    modalBottomActions: {
-      position: 'relative',
-      bottom: 'auto',
-      shadowOpacity: 0,
-      elevation: 0,
-      borderTopWidth: 1,
-      borderTopColor: '#E5E7EB',
-    },
-    applyButton: {
-      backgroundColor: '#007E2F',
-      borderRadius: 12,
-      height: 52,
-      justifyContent: 'center',
-      alignItems: 'center',
-      shadowColor: '#000000',
-      shadowOffset: {
-        width: 0,
-        height: 2,
-      },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-      elevation: 3,
-    },
-    applyButtonText: {
-      color: '#FFFFFF',
-      fontSize: 16,
-      fontWeight: '600',
-      fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
-    },
-    });
+});
 
 export default FilterScreen;
 
