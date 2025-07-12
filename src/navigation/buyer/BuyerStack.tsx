@@ -12,6 +12,7 @@ import { BlurView } from '@react-native-community/blur';
 import { BuyerHomeScreen, RequestsScreen } from '../../components/home';
 import { MyOrdersScreen } from '../../components/orders';
 import { ProductDetailScreen } from '../../components/products';
+import EditProfileScreen from '../../components/profile/EditProfileScreen';
 import NotificationBadge from '../../components/common/NotificationBadge';
 
 // Hooks
@@ -280,6 +281,7 @@ const BuyerStack = () => {
     <BuyerMainStack.Navigator screenOptions={{ headerShown: false }}>
       <BuyerMainStack.Screen name="BuyerTabs" component={BuyerTabNavigator} />
       <BuyerMainStack.Screen name="ProductDetail" component={ProductDetailScreen as React.ComponentType<any>} />
+      <BuyerMainStack.Screen name="EditProfile" component={EditProfileScreen} />
     </BuyerMainStack.Navigator>
   );
 };

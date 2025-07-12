@@ -14,10 +14,18 @@ import {
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
+import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { useAuthBootstrap } from '../../hooks/useAuthBootstrap';
 import { getCompleteUserProfile, clearUserData } from '../../services/firebaseService';
 import { Colors } from '../../constants/Colors';
 import { clearAuthData } from '../../utils/authFlow';
+
+interface MenuItem {
+  icon: string;
+  text: string;
+  iconType: 'FontAwesome' | 'FontAwesome5';
+  route?: string;
+}
 
 interface UserProfile {
   uid: string;
@@ -35,6 +43,7 @@ interface UserProfile {
 
 const ProfileScreen = () => {
   const { user } = useAuthBootstrap(); // Remove logout from here
+  const navigation = useNavigation<NavigationProp<any>>();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -119,6 +128,15 @@ const ProfileScreen = () => {
     return require('../../assets/images/logo.png');
   };
 
+  const handleMenuItemPress = (item: MenuItem) => {
+    if (item.route) {
+      navigation.navigate(item.route as never);
+    } else {
+      // Handle other menu items that don't have routes yet
+      Alert.alert('Coming Soon', `${item.text} feature is coming soon!`);
+    }
+  };
+
   if (isLoading) {
     return (
       <View style={[styles.container, styles.loadingContainer]}>
@@ -165,16 +183,20 @@ const ProfileScreen = () => {
         </View>
 
 
-        {[
-          { icon: 'user-edit', text: 'Edit Profile', iconType: 'FontAwesome5' },
+        {([
+          { icon: 'user-edit', text: 'Edit Profile', iconType: 'FontAwesome5', route: 'EditProfile' },
           { icon: 'cog', text: 'Settings', iconType: 'FontAwesome' },
           { icon: 'question-circle', text: 'Help & Support', iconType: 'FontAwesome' },
           { icon: 'star', text: 'Rate KrushiMandi', iconType: 'FontAwesome' },
           { icon: 'file-text-o', text: 'Terms & Conditions', iconType: 'FontAwesome' },
           { icon: 'shield', text: 'Privacy Policy', iconType: 'FontAwesome' },
           { icon: 'phone', text: 'Contact Us', iconType: 'FontAwesome' },
-        ].map((item, index) => (
-          <TouchableOpacity key={index} style={styles.optionRow}>
+        ] as MenuItem[]).map((item, index) => (
+          <TouchableOpacity 
+            key={index} 
+            style={styles.optionRow}
+            onPress={() => handleMenuItemPress(item)}
+          >
             <View style={styles.iconWrapper}>
               {item.iconType === 'FontAwesome5' ? (
                 <FontAwesome5 name={item.icon} size={20} color={Colors.light.primary} />
