@@ -136,7 +136,7 @@ interface FilterButtonProps {
     onPress: (value: FilterCategory) => void;
 }
 
-const FarmerRequestsScreen = () => {
+const FarmerRequestsScreen = ({ route }: { route?: any }) => {
     const navigation = useNavigation<NavigationProp<ParamListBase>>();
     const { showTabBar } = useTabBarControl();
     const { user } = useAuthState();
@@ -152,6 +152,17 @@ const FarmerRequestsScreen = () => {
     const [selectedFilter, setSelectedFilter] = useState<FilterCategory>('pending');
     const [selectedRequests, setSelectedRequests] = useState<string[]>([]);
     const [isManageMode, setIsManageMode] = useState(false);
+
+    // Get filter parameters from route
+    const filterByProduct = route?.params?.filterByProduct;
+    const productName = route?.params?.productName;
+
+    // State to track if filter is manually cleared
+    const [isFilterCleared, setIsFilterCleared] = useState(false);
+
+    // Computed effective filter values
+    const effectiveFilterByProduct = isFilterCleared ? null : filterByProduct;
+    const effectiveProductName = isFilterCleared ? null : productName;
 
     const filters = [
         // { label: 'All', value: 'all' as FilterCategory },
@@ -175,7 +186,7 @@ const FarmerRequestsScreen = () => {
                 loadRequests();
             }
             showTabBar();
-            
+
             // Reset manage mode when screen comes into focus
             return () => {
                 // This cleanup function runs when the screen loses focus
@@ -197,6 +208,11 @@ const FarmerRequestsScreen = () => {
         setRefreshing(true);
         await loadRequests();
         setRefreshing(false);
+    };
+
+    // Clear product filter
+    const clearProductFilter = () => {
+        setIsFilterCleared(true);
     };
 
     // Bulk management functions
@@ -377,9 +393,12 @@ const FarmerRequestsScreen = () => {
 
             const matchesFilter = selectedFilter === 'all' || item.status === selectedFilter;
 
-            return matchesSearch && matchesFilter;
+            // Filter by specific product if effectiveFilterByProduct is provided
+            const matchesProduct = !effectiveFilterByProduct || item.productId === effectiveFilterByProduct;
+
+            return matchesSearch && matchesFilter && matchesProduct;
         });
-    }, [requests, searchQuery, selectedFilter]);
+    }, [requests, searchQuery, selectedFilter, effectiveFilterByProduct]);
 
     // Get statistics
     const stats = useMemo(() => {
@@ -504,22 +523,15 @@ const FarmerRequestsScreen = () => {
                             </View>
                         </View>
 
-                        {/* Message */}
+                        {/* Buyer Message */}
                         {item.message && (
-                            <View style={styles.messageRow}>
-                                <Icon name="mail-outline" size={14} color="#6B7280" />
-                                <Text style={styles.messageText}>{item.message}</Text>
-                            </View>
-                        )}
-
-                        {/* Farmer Response */}
-                        {item.farmerResponse && (
                             <View style={styles.responseSection}>
-                                <Text style={styles.responseLabel}>Your Response:</Text>
-                                {item.farmerResponse.message ? (
-                                    <Text style={styles.responseText}>
-                                        Message: {item.farmerResponse.message}
-                                    </Text>
+                                <Text style={styles.responseLabel}>Message :</Text>
+                                {item.message ? (
+                                    <View style={styles.messageRow}>
+                                        <Icon name="mail-outline" size={14} color="#6B7280" />
+                                        <Text style={styles.responseText}>{item.message}</Text>
+                                    </View>
                                 ) : (
                                     <Text style={styles.responseText}>
                                         No message provided
@@ -527,13 +539,6 @@ const FarmerRequestsScreen = () => {
                                 )}
                             </View>
                         )}
-
-                        {/* Footer */}
-                        <View style={styles.bottomRow}>
-                            <Text style={styles.date}>
-                                {formatTimestamp(item.createdAt)}
-                            </Text>
-                        </View>
                     </View>
 
                     {/* Action Buttons */}
@@ -579,7 +584,15 @@ const FarmerRequestsScreen = () => {
                                 <Text style={styles.actionButtonText}>Contact</Text>
                             </TouchableOpacity>
                         )}
+
+                        {/* Footer */}
+                        <View style={styles.bottomRow}>
+                            <Text style={styles.date}>
+                                {formatTimestamp(item.createdAt)}
+                            </Text>
+                        </View>
                     </View>
+
                 </TouchableOpacity>
             </View>
         );
@@ -630,8 +643,27 @@ const FarmerRequestsScreen = () => {
                     <View style={styles.headerTitleSection}>
                         <Text style={styles.headerTitle}>Requests</Text>
                         <Text style={styles.headerSubtitle}>
-                            {filteredRequests.length} of {stats.total} requests
+                            {effectiveFilterByProduct
+                                ? `${filteredRequests.length} requests for ${effectiveProductName}`
+                                : `${filteredRequests.length} of ${stats.total} requests`
+                            }
                         </Text>
+
+                        {/* Show filter badge when filtering by product */}
+                        {effectiveFilterByProduct && effectiveProductName && (
+                            <View style={styles.filterBadge}>
+                                <Icon name="filter" size={12} color={Colors.light.primary} />
+                                <Text style={styles.filterBadgeText}>
+                                    {effectiveProductName}
+                                </Text>
+                                <TouchableOpacity
+                                    onPress={clearProductFilter}
+                                    style={styles.filterBadgeClose}
+                                >
+                                    <Icon name="close" size={12} color={Colors.light.primary} />
+                                </TouchableOpacity>
+                            </View>
+                        )}
                     </View>
                     <TouchableOpacity
                         style={[styles.manageButton]}
@@ -689,6 +721,22 @@ const FarmerRequestsScreen = () => {
                 )}
             </View>
 
+            {/* Clear Product Filter Button */}
+            {effectiveFilterByProduct && (
+                <View style={styles.clearFilterContainer}>
+                    <TouchableOpacity
+                        style={styles.clearFilterButton}
+                        onPress={clearProductFilter}
+                    >
+                        <Icon name="close-circle" size={16} color={Colors.light.primary} />
+                        <Text style={styles.clearFilterText}>
+                            Clear filter for "{effectiveProductName}"{' '}
+                            <Text style={styles.showAllText}>• Show all requests</Text>
+                        </Text>
+                    </TouchableOpacity>
+                </View>
+            )}
+
             {/* Filter Chips */}
             <View style={styles.filterContainer}>
                 <ScrollView
@@ -728,13 +776,30 @@ const FarmerRequestsScreen = () => {
                     <View style={styles.emptyState}>
                         <Icon name="document-text-outline" size={64} color="#D1D5DB" />
                         <Text style={styles.emptyText}>
-                            {searchQuery || selectedFilter !== 'all' ? 'No matching requests' : 'No requests received'}
+                            {effectiveFilterByProduct
+                                ? `No requests for ${effectiveProductName}`
+                                : searchQuery || selectedFilter !== 'all'
+                                    ? 'No matching requests'
+                                    : 'No requests received'
+                            }
                         </Text>
                         <Text style={styles.emptySubtext}>
-                            {searchQuery || selectedFilter !== 'all'
-                                ? 'Try adjusting your search or filters'
-                                : 'Buyers will send requests for your products'}
+                            {effectiveFilterByProduct
+                                ? 'This product hasn\'t received any requests yet'
+                                : searchQuery || selectedFilter !== 'all'
+                                    ? 'Try adjusting your search or filters'
+                                    : 'Buyers will send requests for your products'
+                            }
                         </Text>
+                        {effectiveFilterByProduct && (
+                            <TouchableOpacity
+                                style={styles.showAllButton}
+                                onPress={clearProductFilter}
+                            >
+                                <Icon name="eye" size={16} color={Colors.light.primary} />
+                                <Text style={styles.showAllButtonText}>Show all requests</Text>
+                            </TouchableOpacity>
+                        )}
                     </View>
                 }
             />
@@ -1045,10 +1110,7 @@ const styles = StyleSheet.create({
     messageRow: {
         flexDirection: 'row',
         alignItems: 'flex-start',
-        marginBottom: 10,
-        backgroundColor: '#F8FAFC',
-        padding: 8,
-        borderRadius: 8,
+        gap: 5,
     },
     messageText: {
         fontSize: 12,
@@ -1075,9 +1137,9 @@ const styles = StyleSheet.create({
         marginBottom: 2,
     },
     bottomRow: {
-        flexDirection: 'row',
+        flex: 1,
         justifyContent: 'space-between',
-        alignItems: 'center',
+        alignItems: 'flex-end',
     },
     date: {
         fontSize: 12,
@@ -1236,6 +1298,87 @@ const styles = StyleSheet.create({
         backgroundColor: '#F3F4F6',
         borderWidth: 1,
         borderColor: '#E5E7EB',
+    },
+    filterBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 10,
+        paddingVertical: 5,
+        borderRadius: 16,
+        marginTop: 4,
+        backgroundColor: `${Colors.light.primary}15`,
+        borderWidth: 1,
+        borderColor: `${Colors.light.primary}30`,
+        gap: 6,
+        alignSelf: 'flex-start',
+        maxWidth: '80%',
+        shadowColor: Colors.light.primary,
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+        elevation: 1,
+    },
+    filterBadgeText: {
+        fontSize: 11,
+        fontWeight: '600',
+        flexShrink: 1,
+        color: Colors.light.primary,
+        lineHeight: 16,
+    },
+    filterBadgeClose: {
+        padding: 3,
+        borderRadius: 8,
+        backgroundColor: `${Colors.light.primary}20`,
+    },
+    clearFilterContainer: {
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+    },
+    clearFilterButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: `${Colors.light.primary}15`,
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: `${Colors.light.primary}30`,
+        gap: 6,
+        alignSelf: 'flex-start',
+        maxWidth: '85%',
+        shadowColor: Colors.light.primary,
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+        elevation: 1,
+    },
+    clearFilterText: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: Colors.light.primary,
+        flexShrink: 1,
+        backgroundColor: 'transparent',
+    },
+    showAllText: {
+        fontSize: 11,
+        color: '#6B7280',
+        fontWeight: '500',
+        backgroundColor: 'transparent',
+    },
+    showAllButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: Colors.light.primary,
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        borderRadius: 8,
+        marginTop: 16,
+        gap: 6,
+    },
+    showAllButtonText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#FFFFFF',
     },
 });
 

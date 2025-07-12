@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -22,6 +22,7 @@ import {
   formatFruitQuantity,
   formatLocation
 } from '../../utils/formatters';
+import { useRequests } from '../../hooks/useRequests';
 
 const { width } = Dimensions.get('window');
 
@@ -29,13 +30,43 @@ const ProductDetailsFarmer = ({ route, navigation }) => {
   // Get product from route params (passed from FarmerHomeScreen)
   const product = route?.params?.product;
 
+  // Get request management functions
+  const { getProductRequestCounts } = useRequests();
+
   // State for image carousel
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const scrollX = useRef(new Animated.Value(0)).current;
   const imageScrollRef = useRef(null);
 
+  // State for request count
+  const [requestCount, setRequestCount] = useState(0);
+  const [isLoadingRequests, setIsLoadingRequests] = useState(true);
+
   // Use image URLs from the new schema
   const productImages = product?.image_urls || [product?.image].filter(Boolean);
+
+  // Load request counts when component mounts
+  useEffect(() => {
+    const loadRequestCounts = async () => {
+      if (product?.id) {
+        try {
+          setIsLoadingRequests(true);
+          const counts = await getProductRequestCounts([product.id]);
+          const productCount = counts.find(c => c.productId === product.id);
+          setRequestCount(productCount?.count || 0);
+        } catch (error) {
+          console.error('Error loading request counts:', error);
+          setRequestCount(0);
+        } finally {
+          setIsLoadingRequests(false);
+        }
+      } else {
+        setIsLoadingRequests(false);
+      }
+    };
+
+    loadRequestCounts();
+  }, [product?.id, getProductRequestCounts]);
 
   const onImageScroll = Animated.event(
     [{ nativeEvent: { contentOffset: { x: scrollX } } }],
@@ -98,7 +129,7 @@ Contact for more details and bulk orders!
       };
 
       const result = await Share.share(shareOptions);
-      
+
       if (result.action === Share.sharedAction) {
         if (result.activityType) {
           // Shared via specific activity type (iOS)
@@ -122,12 +153,14 @@ Contact for more details and bulk orders!
   };
 
   const handleViewRequests = () => {
-    // Navigate to requests/inquiries screen
-    Alert.alert(
-      'View Inquiries',
-      `You have ${product.inquiries} inquiries for this product.`,
-      [{ text: 'OK' }]
-    );
+    // Navigate back to the tabs and then to the Requests tab with filter parameters
+    navigation.navigate('FarmerTabs', {
+      screen: 'Requests',
+      params: {
+        filterByProduct: product.id,
+        productName: product.name
+      }
+    });
   };
 
   const handleRemoveFromListing = () => {
@@ -401,7 +434,7 @@ Contact for more details and bulk orders!
                 </View>
               </View>
             </View>
-            
+
             <View style={styles.priceContainer}>
               <Text style={styles.currentPrice}>{formatPrice(product.price_per_kg || 0)}</Text>
               <Text style={styles.gradeText}>Grade {product.grade || 'A'}</Text>
@@ -425,19 +458,19 @@ Contact for more details and bulk orders!
               <Text style={styles.statLabel}>Views</Text>
             </TouchableOpacity>
 
-            {/* Inquiries Card */}
+            {/* Requests Card */}
             <TouchableOpacity
               style={[styles.statCard, styles.inquiriesCard]}
               activeOpacity={0.8}
-              onPress={() => {
-                console.log('Likes pressed');
-              }}
+              onPress={handleViewRequests}
             >
               <View style={[styles.statIconContainer, styles.inquiriesIconContainer]}>
-                <Ionicons name="heart" size={24} color="#388E3C" />
+                <Ionicons name="mail" size={24} color="#388E3C" />
               </View>
-              <Text style={styles.statNumber}>{product.likes || 0}</Text>
-              <Text style={styles.statLabel}>Likes</Text>
+              <Text style={styles.statNumber}>
+                {isLoadingRequests ? '...' : requestCount}
+              </Text>
+              <Text style={styles.statLabel}>Requests</Text>
             </TouchableOpacity>
 
             {/* Days Active Card */}
@@ -462,198 +495,201 @@ Contact for more details and bulk orders!
           </View>
         </View>
 
-        {/* Details Section */ }
-  <View style={styles.detailsSection}>
-    <Text style={styles.sectionTitle}>Product Details</Text>
+        {/* Details Section */}
+        <View style={styles.detailsSection}>
+          <Text style={styles.sectionTitle}>Product Details</Text>
 
-    <View style={styles.detailCard}>
-      <View style={styles.detailRow}>
-        <View style={styles.detailIcon}>
-          <Ionicons name="location" size={20} color={Colors.light.success} />
-        </View>
-        <View style={styles.detailContent}>
-          <Text style={styles.detailLabel}>Location</Text>
-          <Text style={styles.detailValue}>
-            {product.location ? formatLocation(product.location) : 'Location not available'}
-          </Text>
-        </View>
-      </View>
+          <View style={styles.detailCard}>
+            <View style={styles.detailRow}>
+              <View style={styles.detailIcon}>
+                <Ionicons name="location" size={20} color={Colors.light.success} />
+              </View>
+              <View style={styles.detailContent}>
+                <Text style={styles.detailLabel}>Location</Text>
+                <Text style={styles.detailValue}>
+                  {product.location ? formatLocation(product.location) : 'Location not available'}
+                </Text>
+              </View>
+            </View>
 
-      <View style={styles.detailDivider} />
+            <View style={styles.detailDivider} />
 
-      <View style={styles.detailRow}>
-        <View style={styles.detailIcon}>
-          <Ionicons name="cube" size={20} color={Colors.light.primary} />
-        </View>
-        <View style={styles.detailContent}>
-          <Text style={styles.detailLabel}>Available Quantity</Text>
-          <Text style={styles.detailValue}>
-            {product.quantity ? formatFruitQuantity(product.quantity) : (product.available || 'Not specified')}
-          </Text>
-        </View>
-      </View>
+            <View style={styles.detailRow}>
+              <View style={styles.detailIcon}>
+                <Ionicons name="cube" size={20} color={Colors.light.primary} />
+              </View>
+              <View style={styles.detailContent}>
+                <Text style={styles.detailLabel}>Available Quantity</Text>
+                <Text style={styles.detailValue}>
+                  {product.quantity ? formatFruitQuantity(product.quantity) : (product.available || 'Not specified')}
+                </Text>
+              </View>
+            </View>
 
-      <View style={styles.detailDivider} />
+            <View style={styles.detailDivider} />
 
-      <View style={styles.detailRow}>
-        <View style={styles.detailIcon}>
-          <Ionicons name="ribbon" size={20} color="#9C27B0" />
-        </View>
-        <View style={styles.detailContent}>
-          <Text style={styles.detailLabel}>Quality Grade</Text>
-          <Text style={styles.detailValue}>Grade {product.grade || 'A'}</Text>
-        </View>
-      </View>
+            <View style={styles.detailRow}>
+              <View style={styles.detailIcon}>
+                <Ionicons name="ribbon" size={20} color="#9C27B0" />
+              </View>
+              <View style={styles.detailContent}>
+                <Text style={styles.detailLabel}>Quality Grade</Text>
+                <Text style={styles.detailValue}>Grade {product.grade || 'A'}</Text>
+              </View>
+            </View>
 
-      <View style={styles.detailDivider} />
+            <View style={styles.detailDivider} />
 
-      <View style={styles.detailRow}>
-        <View style={styles.detailIcon}>
-          <Ionicons name="leaf" size={20} color="#4CAF50" />
-        </View>
-        <View style={styles.detailContent}>
-          <Text style={styles.detailLabel}>Fruit Type</Text>
-          <Text style={styles.detailValue}>
-            {product.type ? product.type.charAt(0).toUpperCase() + product.type.slice(1) : (product.category || 'Not specified')}
-          </Text>
-        </View>
-      </View>
+            <View style={styles.detailRow}>
+              <View style={styles.detailIcon}>
+                <Ionicons name="leaf" size={20} color="#4CAF50" />
+              </View>
+              <View style={styles.detailContent}>
+                <Text style={styles.detailLabel}>Fruit Type</Text>
+                <Text style={styles.detailValue}>
+                  {product.type ? product.type.charAt(0).toUpperCase() + product.type.slice(1) : (product.category || 'Not specified')}
+                </Text>
+              </View>
+            </View>
 
-      <View style={styles.detailDivider} />
+            <View style={styles.detailDivider} />
 
-      <View style={styles.detailRow}>
-        <View style={styles.detailIcon}>
-          <Ionicons name="calendar" size={20} color="#2196F3" />
-        </View>
-        <View style={styles.detailContent}>
-          <Text style={styles.detailLabel}>Availability Date</Text>
-          <Text style={styles.detailValue}>
-            {product.availability_date ? new Date(product.availability_date).toLocaleDateString() : 'Available now'}
-          </Text>
-        </View>
-      </View>
+            <View style={styles.detailRow}>
+              <View style={styles.detailIcon}>
+                <Ionicons name="calendar" size={20} color="#2196F3" />
+              </View>
+              <View style={styles.detailContent}>
+                <Text style={styles.detailLabel}>Availability Date</Text>
+                <Text style={styles.detailValue}>
+                  {product.availability_date ? new Date(product.availability_date).toLocaleDateString() : 'Available now'}
+                </Text>
+              </View>
+            </View>
 
-      <View style={styles.detailDivider} />
+            <View style={styles.detailDivider} />
 
-      <View style={styles.detailRow}>
-        <View style={styles.detailIcon}>
-          <Ionicons name="time" size={20} color="#607D8B" />
-        </View>
-        <View style={styles.detailContent}>
-          <Text style={styles.detailLabel}>Listed Date</Text>
-          <Text style={styles.detailValue}>
-            {product.created_at ? 
-              `${Math.ceil((new Date() - new Date(product.created_at)) / (1000 * 60 * 60 * 24))} days ago` : 
-              'Unknown'
-            }
-          </Text>
-        </View>
-      </View>
+            <View style={styles.detailRow}>
+              <View style={styles.detailIcon}>
+                <Ionicons name="time" size={20} color="#607D8B" />
+              </View>
+              <View style={styles.detailContent}>
+                <Text style={styles.detailLabel}>Listed Date</Text>
+                <Text style={styles.detailValue}>
+                  {product.created_at ?
+                    `${Math.ceil((new Date() - new Date(product.created_at)) / (1000 * 60 * 60 * 24))} days ago` :
+                    'Unknown'
+                  }
+                </Text>
+              </View>
+            </View>
 
-      <View style={styles.detailDivider} />
+            <View style={styles.detailDivider} />
 
-      <View style={styles.detailRow}>
-        <View style={styles.detailIcon}>
-          <Ionicons name="checkmark-circle" size={20} color={
-            product.status === 'active' ? '#4CAF50' :
-              product.status === 'sold' ? '#2196F3' : '#FF9800'
-          } />
+            <View style={styles.detailRow}>
+              <View style={styles.detailIcon}>
+                <Ionicons name="checkmark-circle" size={20} color={
+                  product.status === 'active' ? '#4CAF50' :
+                    product.status === 'sold' ? '#2196F3' : '#FF9800'
+                } />
+              </View>
+              <View style={styles.detailContent}>
+                <Text style={styles.detailLabel}>Status</Text>
+                <Text style={[styles.detailValue, {
+                  color: product.status === 'active' ? '#4CAF50' :
+                    product.status === 'sold' ? '#2196F3' : '#FF9800'
+                }]}>
+                  {product.status ? product.status.charAt(0).toUpperCase() + product.status.slice(1) : 'Unknown'}
+                </Text>
+              </View>
+            </View>
+          </View>
         </View>
-        <View style={styles.detailContent}>
-          <Text style={styles.detailLabel}>Status</Text>
-          <Text style={[styles.detailValue, {
-            color: product.status === 'active' ? '#4CAF50' :
-              product.status === 'sold' ? '#2196F3' : '#FF9800'
-          }]}>
-            {product.status ? product.status.charAt(0).toUpperCase() + product.status.slice(1) : 'Unknown'}
-          </Text>
-        </View>
-      </View>
-    </View>
-  </View>
 
-  {/* Description Section */ }
-  {
-    product.description && (
-      <View style={styles.descriptionSection}>
-        <Text style={styles.sectionTitle}>Description</Text>
-        <View>
-          <Text style={styles.descriptionText}>{product.description}</Text>
-        </View>
-      </View>
-    )
-  }
+        {/* Description Section */}
+        {
+          product.description && (
+            <View style={styles.descriptionSection}>
+              <Text style={styles.sectionTitle}>Description</Text>
+              <View>
+                <Text style={styles.descriptionText}>{product.description}</Text>
+              </View>
+            </View>
+          )
+        }
 
-  <View style={styles.bottomSpacing} />
+        <View style={styles.bottomSpacing} />
       </ScrollView >
 
-  {/* Modern Bottom Actions */ }
-  < View style = { styles.bottomActions } >
-  {
-    product.status === 'active' ? (
-      <View style={styles.actionsRow}>
-        {/* Main Inquiries Button (3x width) */}
-        <TouchableOpacity
-          style={styles.inquiriesButton}
-          onPress={handleViewRequests}
-          activeOpacity={0.8}
-        >
+      {/* Modern Bottom Actions */}
+      < View style={styles.bottomActions} >
+        {
+          product.status === 'active' ? (
+            <View style={styles.actionsRow}>
+              {/* Main Inquiries Button (3x width) */}
+              <TouchableOpacity
+                style={styles.inquiriesButton}
+                onPress={handleViewRequests}
+                activeOpacity={0.8}
+              >
 
-          {/* Badge */}
-          {/* {product.inquiries > 0 && (
+                {/* Badge */}
+                {/* {product.inquiries > 0 && (
                 <View style={styles.inquiriesBadge}>
                   <Text style={styles.inquiriesBadgeText}>{product.inquiries}</Text>
                 </View>
               )} */}
 
-          <View style={styles.inquiriesButtonContent}>
-            <View style={styles.inquiriesIcon}>
-              <Ionicons name="mail-outline" size={20} color="#FFF" />
-            </View>
-            <View style={styles.inquiriesTextContainer}>
-              <Text style={styles.inquiriesButtonTitle}>
-                {(product.likes || 0) > 0 ? 'View Interest' : 'No Interest Yet'}
-              </Text>
-              <Text style={styles.inquiriesButtonSubtitle}>
-                {(product.likes || 0) > 0
-                  ? `${product.likes} buyer${(product.likes || 0) > 1 ? 's' : ''} interested`
-                  : 'Buyers will show interest here'
-                }
-              </Text>
-            </View>
-          </View>
-        </TouchableOpacity>
+                <View style={styles.inquiriesButtonContent}>
+                  <View style={styles.inquiriesIcon}>
+                    <Ionicons name="mail-outline" size={20} color="#FFF" />
+                  </View>
+                  <View style={styles.inquiriesTextContainer}>
+                    <Text style={styles.inquiriesButtonTitle}>
+                      {isLoadingRequests
+                        ? 'Loading...'
+                        : "View Requests"
+                      }
+                    </Text>
+                    <Text style={styles.inquiriesButtonSubtitle}>
+                      {isLoadingRequests
+                        ? 'Checking requests...'
+                        : `${requestCount} request${requestCount > 1 ? 's' : ''} received`
+                      }
+                    </Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
 
-        {/* Secondary Actions (1x width each) */}
-        <TouchableOpacity
-          style={styles.removeButton}
-          onPress={handleRemoveFromListing}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="eye-off-outline" size={20} color="#FFF" />
-          <Text style={styles.secondaryButtonText}>Hide</Text>
-        </TouchableOpacity>
+              {/* Secondary Actions (1x width each) */}
+              <TouchableOpacity
+                style={styles.removeButton}
+                onPress={handleRemoveFromListing}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="eye-off-outline" size={20} color="#FFF" />
+                <Text style={styles.secondaryButtonText}>Hide</Text>
+              </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.soldButton}
-          onPress={handleMarkSold}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="checkmark-circle-outline" size={20} color="#FFF" />
-          <Text style={styles.secondaryButtonText}>Sold</Text>
-        </TouchableOpacity>
-      </View>
-    ) : (
-      <TouchableOpacity
-        style={styles.relistButton}
-        onPress={() => Alert.alert('Relist Product', 'This feature would allow you to make the product active again.')}
-        activeOpacity={0.8}
-      >
-        <Ionicons name="refresh-outline" size={22} color="#FFF" style={styles.buttonIcon} />
-        <Text style={styles.relistButtonText}>Relist Product</Text>
-      </TouchableOpacity>
-    )
-  }
+              <TouchableOpacity
+                style={styles.soldButton}
+                onPress={handleMarkSold}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="checkmark-circle-outline" size={20} color="#FFF" />
+                <Text style={styles.secondaryButtonText}>Sold</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={styles.relistButton}
+              onPress={() => Alert.alert('Relist Product', 'This feature would allow you to make the product active again.')}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="refresh-outline" size={22} color="#FFF" style={styles.buttonIcon} />
+              <Text style={styles.relistButtonText}>Relist Product</Text>
+            </TouchableOpacity>
+          )
+        }
       </View >
     </SafeAreaView >
   );
