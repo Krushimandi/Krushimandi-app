@@ -59,6 +59,13 @@ const BuyerHomeScreen = () => {
   const [loadingFruits, setLoadingFruits] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  const [appliedFilters, setAppliedFilters] = useState({
+    selectedFeatures: [],
+    priceRange: null,
+    minPrice: 0,
+    maxPrice: 500,
+    minRating: 0
+  });
   const scrollY = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(0)).current;
 
@@ -93,6 +100,11 @@ const BuyerHomeScreen = () => {
 
   // Filter modal functions
   const openFilterModal = () => {
+    console.log('🔓 Opening filter modal');
+    console.log('🔍 handleApplyFilters function exists:', typeof handleApplyFilters);
+    console.log('🔍 closeFilterModal function exists:', typeof closeFilterModal);
+    console.log('🔍 clearAllFilters function exists:', typeof clearAllFilters);
+    
     setIsFilterModalVisible(true);
     slideAnim.setValue(0);
     Animated.timing(slideAnim, {
@@ -113,38 +125,70 @@ const BuyerHomeScreen = () => {
   };
 
   const handleApplyFilters = (filters) => {
+    console.log('🎯 BuyerHomeScreen applying filters:', filters);
+    console.log('📊 Current fruits before filtering:', allFruits.length);
+    console.log('🔍 Sample fruit prices:', allFruits.slice(0, 3).map(f => ({ name: f.name, price: f.price_per_kg })));
+    
+    // Store applied filters for state management
+    setAppliedFilters(filters);
+    
     let filtered = [...allFruits];
 
-    // Apply price range filter
-    if (filters.priceRange && (filters.priceRange.min > 0 || filters.priceRange.max < 1000)) {
+    // Apply price range filter with new format
+    if (filters.minPrice > 0 || filters.maxPrice < 500) {
+      console.log('💰 Applying price filter:', filters.minPrice, 'to', filters.maxPrice);
       filtered = filtered.filter(fruit => {
-        const price = parseFloat(fruit.price_per_kg);
-        return price >= filters.priceRange.min && price <= filters.priceRange.max;
+        const price = parseFloat(fruit.price_per_kg || 0);
+        return price >= filters.minPrice && price <= filters.maxPrice;
       });
     }
 
-    // Apply grade filter
-    if (filters.grade && filters.grade.length > 0) {
-      filtered = filtered.filter(fruit =>
-        filters.grade.includes(fruit.grade)
-      );
+    // Apply features filter
+    if (filters.selectedFeatures && filters.selectedFeatures.length > 0) {
+      filters.selectedFeatures.forEach(feature => {
+        switch (feature) {
+          case 'Top Rated':
+            filtered = filtered.filter(fruit => {
+              const rating = parseFloat(fruit.avg_rating || fruit.rating || 0);
+              return rating >= 4;
+            });
+            break;
+          case 'Fresh Stock':
+            filtered = filtered.filter(fruit => {
+              if (!fruit.dateCreated) return true;
+              const daysAgo = getDaysSince(fruit.dateCreated);
+              return daysAgo <= 3;
+            });
+            break;
+          case 'In Season':
+            filtered = filtered.filter(fruit => {
+              const currentMonth = new Date().getMonth() + 1;
+              const fruitType = fruit.type?.toLowerCase();
+              if (fruitType === 'mango') return currentMonth >= 3 && currentMonth <= 6;
+              if (fruitType === 'apple') return currentMonth >= 9 && currentMonth <= 2;
+              if (fruitType === 'orange') return currentMonth >= 11 || currentMonth <= 3;
+              return true;
+            });
+            break;
+          case 'Off Season':
+            filtered = filtered.filter(fruit => {
+              const currentMonth = new Date().getMonth() + 1;
+              const fruitType = fruit.type?.toLowerCase();
+              if (fruitType === 'mango') return !(currentMonth >= 3 && currentMonth <= 6);
+              if (fruitType === 'apple') return !(currentMonth >= 9 && currentMonth <= 2);
+              if (fruitType === 'orange') return !(currentMonth >= 11 || currentMonth <= 3);
+              return true;
+            });
+            break;
+        }
+      });
     }
 
-    // Apply location filter
-    if (filters.location && filters.location.trim()) {
-      const locationLower = filters.location.toLowerCase();
-      filtered = filtered.filter(fruit =>
-        fruit.location?.village?.toLowerCase().includes(locationLower) ||
-        fruit.location?.district?.toLowerCase().includes(locationLower) ||
-        fruit.location?.state?.toLowerCase().includes(locationLower)
-      );
-    }
-
-    // Apply quantity filter
-    if (filters.minQuantity && filters.minQuantity > 0) {
+    // Apply minimum rating filter
+    if (filters.minRating > 0) {
       filtered = filtered.filter(fruit => {
-        const minQty = fruit.quantity?.[0] || 0;
-        return minQty >= filters.minQuantity;
+        const rating = parseFloat(fruit.avg_rating || fruit.rating || 0);
+        return rating >= filters.minRating;
       });
     }
 
@@ -165,6 +209,7 @@ const BuyerHomeScreen = () => {
       );
     }
 
+    console.log(`📊 Filtered ${filtered.length} fruits from ${allFruits.length} total`);
     setFruits(filtered);
     closeFilterModal();
   };
@@ -359,9 +404,23 @@ const BuyerHomeScreen = () => {
 
   // Clear all filters
   const clearAllFilters = () => {
+    console.log('🧹 BuyerHomeScreen clearing all filters');
+    
     setSearchQuery('');
     setSelectedCategory('all');
+    
+    const defaultFilters = {
+      selectedFeatures: [],
+      priceRange: null,
+      minPrice: 0,
+      maxPrice: 500,
+      minRating: 0
+    };
+    
+    setAppliedFilters(defaultFilters);
     setFruits([...allFruits]);
+    
+    console.log('✅ All filters cleared, showing', allFruits.length, 'fruits');
   };
 
   // Load fruits when component mounts
@@ -747,7 +806,8 @@ const BuyerHomeScreen = () => {
                   style={styles.modalClearButton}
                   onPress={() => {
                     clearAllFilters();
-                    closeFilterModal();
+                    // Don't close modal - let user see the cleared state
+                    // closeFilterModal();
                   }}
                   activeOpacity={0.8}
                 >
@@ -758,6 +818,8 @@ const BuyerHomeScreen = () => {
             <FilterScreen
               onApplyFilters={handleApplyFilters}
               onClose={closeFilterModal}
+              onClearFilters={clearAllFilters}
+              currentFilters={appliedFilters}
               isModal={true}
             />
           </Animated.View>
