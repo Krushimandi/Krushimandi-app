@@ -13,6 +13,7 @@ import LoadingScreen from '../components/common/LoadingScreen';
 import { NotificationScreen, NotificationDetail } from '../components/notification';
 import { SettingsScreen } from '../components/settings';
 import { ProfileScreen } from '../components/profile';
+import BuyerProfileScreen from '../components/profile/BuyerProfileScreen';
 
 // Navigation provider
 import { NavigationProvider } from './NavigationProvider';
@@ -129,6 +130,7 @@ const AppNavigator: React.FC<AppNavigatorProps> = ({ bootstrapState }) => {
           <RootStack.Screen name="NotificationDetail" component={NotificationDetail as React.ComponentType<any>} />
           <RootStack.Screen name="ProfileScreen" component={ProfileScreen} />
           <RootStack.Screen name="Settings" component={SettingsScreen} options={{ presentation: 'modal' }} />
+          <RootStack.Screen name="BuyerProfile" component={BuyerProfileScreen} />
         </RootStack.Navigator>
       </NavigationContainer>
     </NavigationProvider>

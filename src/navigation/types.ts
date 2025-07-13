@@ -20,6 +20,10 @@ export type RootStackParamList = {
   };
   ProfileScreen: undefined;
   Settings: undefined;
+  BuyerProfile: {
+    buyerId: string;
+    buyerName?: string;
+  };
 };
 
 // Auth Stack
@@ -43,6 +47,10 @@ export type CommonScreensParamList = {
   };
   ProfileScreen: undefined;
   Settings: undefined;
+  BuyerProfile: {
+    buyerId: string;
+    buyerName?: string;
+  };
 };
 
 // Main Tab Navigator (Farmer)

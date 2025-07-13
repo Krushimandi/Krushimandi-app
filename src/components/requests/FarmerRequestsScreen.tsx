@@ -18,7 +18,8 @@ import {
     ScrollView,
     ActivityIndicator,
     Platform,
-    Dimensions
+    Dimensions,
+    Linking
 } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NavigationProp, ParamListBase } from '@react-navigation/native';
@@ -367,12 +368,11 @@ const FarmerRequestsScreen = ({ route }: { route?: any }) => {
     };
 
     // View functions
-    const handleViewBuyerProfile = (buyerDetails: any) => {
-        Alert.alert(
-            'Buyer Profile',
-            `Name: ${buyerDetails.name}\nPhone: ${buyerDetails.phone}\nLocation: ${buyerDetails.location}`,
-            [{ text: 'OK' }]
-        );
+    const handleViewBuyerProfile = (request: Request) => {
+        navigation.navigate('BuyerProfile', {
+            buyerId: request.buyerId,
+            buyerName: request.buyerDetails.name,
+        });
     };
 
     const handleViewMessage = (message: string) => {
@@ -436,19 +436,9 @@ const FarmerRequestsScreen = ({ route }: { route?: any }) => {
 
     // Handle response to request (removed - using direct actions now)
     const handleContactBuyer = (request: Request) => {
-        Alert.alert(
-            'Contact Buyer',
-            `Name: ${request.buyerDetails.name}\nPhone: ${request.buyerDetails.phone}`,
-            [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'Call', onPress: () => {
-                        // TODO: Implement phone call functionality
-                        console.log('Calling buyer:', request.buyerDetails.phone);
-                    }
-                }
-            ]
-        );
+        if (request?.buyerDetails?.phone) {
+            Linking.openURL(`tel:${request.buyerDetails.phone}`);
+        }
     };
 
     // Enhanced request item rendering
@@ -476,7 +466,7 @@ const FarmerRequestsScreen = ({ route }: { route?: any }) => {
 
                 <TouchableOpacity style={styles.requestItem}
                     activeOpacity={0.8}
-                    onPress={() => handleViewBuyerProfile(item.buyerDetails)}>
+                    onPress={() => handleViewBuyerProfile(item)}>
                     <View style={styles.requestContent}>
                         {/* Header */}
                         <View style={styles.requestHeader}>
@@ -729,10 +719,12 @@ const FarmerRequestsScreen = ({ route }: { route?: any }) => {
                         onPress={clearProductFilter}
                     >
                         <Icon name="close-circle" size={16} color={Colors.light.primary} />
-                        <Text style={styles.clearFilterText}>
-                            Clear filter for "{effectiveProductName}"{' '}
-                            <Text style={styles.showAllText}>• Show all requests</Text>
-                        </Text>
+                        <View style={styles.clearFilterTextContainer}>
+                            <Text style={styles.clearFilterText}>
+                                Clear filter for "{effectiveProductName}"
+                            </Text>
+                            <Text style={styles.showAllText}>Show all requests</Text>
+                        </View>
                     </TouchableOpacity>
                 </View>
             )}
@@ -1312,11 +1304,6 @@ const styles = StyleSheet.create({
         gap: 6,
         alignSelf: 'flex-start',
         maxWidth: '80%',
-        shadowColor: Colors.light.primary,
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-        elevation: 1,
     },
     filterBadgeText: {
         fontSize: 11,
@@ -1345,12 +1332,15 @@ const styles = StyleSheet.create({
         borderColor: `${Colors.light.primary}30`,
         gap: 6,
         alignSelf: 'flex-start',
-        maxWidth: '85%',
         shadowColor: Colors.light.primary,
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.1,
         shadowRadius: 2,
-        elevation: 1,
+
+    },
+    clearFilterTextContainer: {
+        flex: 1,
+        backgroundColor: 'transparent',
     },
     clearFilterText: {
         fontSize: 13,
