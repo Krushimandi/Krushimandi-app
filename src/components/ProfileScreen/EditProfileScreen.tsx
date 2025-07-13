@@ -7,11 +7,14 @@ import {
   TouchableOpacity,
   Image,
   ScrollView,
+  SafeAreaView,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { launchImageLibrary } from 'react-native-image-picker';
+import { useNavigation } from '@react-navigation/native';
 
 const EditProfileScreen = () => {
+  const navigation = useNavigation();
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -28,25 +31,36 @@ const EditProfileScreen = () => {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.heading}>Edit Profile</Text>
-
-      {/* Profile Image Section */}
-      <View style={styles.profileSection}>
-        <View style={styles.imageWrapper}>
-          <Image
-            source={
-              profileImage
-                ? { uri: profileImage }
-                : require('../../../assets/profile.jpg')
-            }
-            style={styles.profileImage}
-          />
-          <TouchableOpacity style={styles.editIcon} onPress={pickImage}>
-            <Ionicons name="camera" size={18} color="#333" />
-          </TouchableOpacity>
-        </View>
+    <SafeAreaView style={styles.safeArea}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Ionicons name="arrow-back" size={24} color="#333" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Edit Profile</Text>
+        <View style={styles.headerRight} />
       </View>
+
+      <ScrollView contentContainerStyle={styles.container}>
+        {/* Profile Image Section */}
+        <View style={styles.profileSection}>
+          <View style={styles.imageWrapper}>
+            <Image
+              // source={
+              //   profileImage
+              //     ? { uri: profileImage }
+              //     : require('../../../assets/profile.jpg')
+              // }
+              style={styles.profileImage}
+            />
+            <TouchableOpacity style={styles.editIcon} onPress={pickImage}>
+              <Ionicons name="camera" size={18} color="#333" />
+            </TouchableOpacity>
+          </View>
+        </View>
 
       {/* White Background Form Box */}
       <View style={styles.whiteBox}>
@@ -114,12 +128,38 @@ const EditProfileScreen = () => {
         </TouchableOpacity>
       </View>
     </ScrollView>
+    </SafeAreaView>
   );
 };
 
 export default EditProfileScreen;
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  backButton: {
+    padding: 5,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1D1D1D',
+  },
+  headerRight: {
+    width: 34, // Same width as back button to center title
+  },
   container: {
     padding: 20,
     backgroundColor: '#f5f5f5',

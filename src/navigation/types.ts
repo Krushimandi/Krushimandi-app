@@ -19,6 +19,13 @@ export type RootStackParamList = {
     type?: 'transaction' | 'promotion' | 'update' | 'alert';
   };
   ProfileScreen: undefined;
+  EditProfile: undefined;
+  AboutKrushimandi: undefined;
+  ChangePassword: undefined;
+  HelpGuide: undefined;
+  Languages: undefined;
+  PrivacyPolicy: undefined;
+  ProfileSettings: undefined;
   Settings: undefined;
 };
 
@@ -64,7 +71,6 @@ export type BuyerTabParamList = {
 export type BuyerStackParamList = {
   BuyerTabs: undefined;
   ProductDetail: { productId: string; product?: any };
-  EditProfile: undefined;
 };
 
 // Product Stack (for buyers)

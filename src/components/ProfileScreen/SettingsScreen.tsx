@@ -11,11 +11,9 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
 
 import { useNavigation } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { RootStackParamList } from '../../../App'; // adjust the path if needed
 
 const SettingsScreen = () => {
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const navigation = useNavigation();
 
   const [isNotificationEnabled, setIsNotificationEnabled] = useState(true);
   const [isDarkTheme, setIsDarkTheme] = useState(false);
@@ -27,7 +25,7 @@ const SettingsScreen = () => {
       {/* Account Section */}
       <Text style={styles.sectionTitle}>Account</Text>
       <View style={styles.card}>
-        <TouchableOpacity style={styles.row} onPress={() => navigation.navigate('EditProfile')}>
+        <TouchableOpacity style={styles.row} onPress={() => navigation.navigate('EditProfile' as never)}>
           <View style={styles.left}>
             <FontAwesome name="pencil" size={20} color="#2E7D32" />
             <Text style={styles.rowText}>Edit Profile</Text>
@@ -35,7 +33,7 @@ const SettingsScreen = () => {
           <Ionicons name="chevron-forward" size={20} color="#444" />
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.row} onPress={() => navigation.navigate('ChangePassword')}>
+        <TouchableOpacity style={styles.row} onPress={() => navigation.navigate('ChangePassword' as never)}>
           <View style={styles.left}>
             <FontAwesome name="lock" size={20} color="#2E7D32" />
             <Text style={styles.rowText}>Change Password</Text>
@@ -60,7 +58,7 @@ const SettingsScreen = () => {
           />
         </View>
 
-        <TouchableOpacity style={styles.row} onPress={() => navigation.navigate('Languages')}>
+        <TouchableOpacity style={styles.row} onPress={() => navigation.navigate('Languages' as never)}>
           <View style={styles.left}>
             <FontAwesome name="globe" size={20} color="#2E7D32" />
             <Text style={styles.rowText}>Language</Text>
@@ -96,7 +94,7 @@ const SettingsScreen = () => {
 
         <TouchableOpacity
           style={styles.row}
-          onPress={() => navigation.navigate('AboutKrushimandi')}
+          onPress={() => navigation.navigate('AboutKrushimandi' as never)}
         >
           <View style={styles.left}>
             <FontAwesome name="info" size={20} color="#2E7D32" />

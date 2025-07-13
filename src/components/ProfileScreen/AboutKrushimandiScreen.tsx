@@ -6,11 +6,11 @@ const AboutKrushimandiScreen = () => {
     <ScrollView style={styles.container}>
       <Text style={styles.heading}> </Text>
 
-      <Image
+      {/* <Image
         source={require('../../../assets/krushimandi_logo.png')} 
         style={styles.logo}
         resizeMode="contain"
-      />
+      /> */}
 
       <Text style={styles.description}>
         Krushimandi is a leading agricultural platform built to connect farmers, traders,

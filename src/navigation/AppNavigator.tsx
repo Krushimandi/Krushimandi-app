@@ -13,6 +13,13 @@ import LoadingScreen from '../components/common/LoadingScreen';
 import { NotificationScreen, NotificationDetail } from '../components/notification';
 import { SettingsScreen } from '../components/settings';
 import { ProfileScreen } from '../components/profile';
+import EditProfileScreen from '../components/ProfileScreen/EditProfileScreen';
+import AboutKrushimandiScreen from '../components/ProfileScreen/AboutKrushimandiScreen';
+import ChangePasswordScreen from '../components/ProfileScreen/ChangePasswordScreen';
+import HelpGuideScreen from '../components/ProfileScreen/HelpGuideScreen';
+import LanguagesScreen from '../components/ProfileScreen/LanguagesScreen';
+import PrivacyPolicyScreen from '../components/ProfileScreen/PrivacyPolicyScreen';
+import ProfileSettingsScreen from '../components/ProfileScreen/SettingsScreen';
 
 // Navigation provider
 import { NavigationProvider } from './NavigationProvider';
@@ -128,6 +135,13 @@ const AppNavigator: React.FC<AppNavigatorProps> = ({ bootstrapState }) => {
           <RootStack.Screen name="Notification" component={NotificationScreen} />
           <RootStack.Screen name="NotificationDetail" component={NotificationDetail as React.ComponentType<any>} />
           <RootStack.Screen name="ProfileScreen" component={ProfileScreen} />
+          <RootStack.Screen name="EditProfile" component={EditProfileScreen} />
+          <RootStack.Screen name="AboutKrushimandi" component={AboutKrushimandiScreen} />
+          <RootStack.Screen name="ChangePassword" component={ChangePasswordScreen} />
+          <RootStack.Screen name="HelpGuide" component={HelpGuideScreen} />
+          <RootStack.Screen name="Languages" component={LanguagesScreen} />
+          <RootStack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
+          <RootStack.Screen name="ProfileSettings" component={ProfileSettingsScreen} />
           <RootStack.Screen name="Settings" component={SettingsScreen} options={{ presentation: 'modal' }} />
         </RootStack.Navigator>
       </NavigationContainer>

@@ -129,8 +129,16 @@ const ProfileScreen = () => {
   };
 
   const handleMenuItemPress = (item: MenuItem) => {
+    console.log('🔍 Menu item pressed:', item.text, 'Route:', item.route);
+    
     if (item.route) {
-      navigation.navigate(item.route as never);
+      try {
+        navigation.navigate(item.route as never);
+        console.log('✅ Navigation successful to:', item.route);
+      } catch (error) {
+        console.error('❌ Navigation error:', error);
+        Alert.alert('Navigation Error', `Failed to navigate to ${item.text}: ${error}`);
+      }
     } else {
       // Handle other menu items that don't have routes yet
       Alert.alert('Coming Soon', `${item.text} feature is coming soon!`);
@@ -185,11 +193,12 @@ const ProfileScreen = () => {
 
         {([
           { icon: 'user-edit', text: 'Edit Profile', iconType: 'FontAwesome5', route: 'EditProfile' },
-          { icon: 'cog', text: 'Settings', iconType: 'FontAwesome' },
-          { icon: 'question-circle', text: 'Help & Support', iconType: 'FontAwesome' },
+          { icon: 'cog', text: 'Settings', iconType: 'FontAwesome', route: 'ProfileSettings' },
+          { icon: 'question-circle', text: 'Help & Support', iconType: 'FontAwesome', route: 'HelpGuide' },
           { icon: 'star', text: 'Rate KrushiMandi', iconType: 'FontAwesome' },
           { icon: 'file-text-o', text: 'Terms & Conditions', iconType: 'FontAwesome' },
-          { icon: 'shield', text: 'Privacy Policy', iconType: 'FontAwesome' },
+          { icon: 'shield', text: 'Privacy Policy', iconType: 'FontAwesome', route: 'PrivacyPolicy' },
+          { icon: 'info-circle', text: 'About KrushiMandi', iconType: 'FontAwesome', route: 'AboutKrushimandi' },
           { icon: 'phone', text: 'Contact Us', iconType: 'FontAwesome' },
         ] as MenuItem[]).map((item, index) => (
           <TouchableOpacity 
