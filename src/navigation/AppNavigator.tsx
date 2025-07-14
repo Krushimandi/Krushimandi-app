@@ -16,7 +16,9 @@ import BuyerProfileScreen from '../components/profile/BuyerProfileScreen';
 import EditProfileScreen from '../components/ProfileScreen/EditProfileScreen';
 import AboutScreen from '../components/ProfileScreen/AboutScreen';
 import ChangePasswordScreen from '../components/ProfileScreen/ChangePasswordScreen';
-import HelpGuideScreen from '../components/ProfileScreen/HelpGuideScreen';
+import HelpScreen from '../components/Help/HelpScreen';
+import HelpGuide from '../components/Help/HelpGuide';
+import FaqDetail from '../components/Help/FaqDetail';
 import LanguagesScreen from '../components/ProfileScreen/LanguagesScreen';
 import PrivacyPolicyScreen from '../components/ProfileScreen/PrivacyPolicyScreen';
 import ProfileSettingsScreen from '../components/ProfileScreen/SettingsScreen';
@@ -137,7 +139,9 @@ const AppNavigator: React.FC<AppNavigatorProps> = ({ bootstrapState }) => {
           <RootStack.Screen name="EditProfile" component={EditProfileScreen} />
           <RootStack.Screen name="About" component={AboutScreen} />
           <RootStack.Screen name="ChangePassword" component={ChangePasswordScreen} />
-          <RootStack.Screen name="HelpGuide" component={HelpGuideScreen} />
+          <RootStack.Screen name="HelpScreen" component={HelpScreen} />
+          <RootStack.Screen name="FaqDetail" component={FaqDetail} />
+          <RootStack.Screen name="HelpGuide" component={HelpGuide} />
           <RootStack.Screen name="Languages" component={LanguagesScreen} />
           <RootStack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
           <RootStack.Screen name="ProfileSettings" component={SettingsScreen}/>

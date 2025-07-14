@@ -281,7 +281,7 @@ const SettingsScreen: React.FC = () => {
           subtitle: 'Get help and contact support',
           icon: 'help-circle-outline',
           type: 'navigation' as const,
-          action: () => console.log('Navigate to Help'),
+          action: () => navigation.navigate('HelpScreen'),
           color: '#6B7280',
         },
         {
@@ -729,7 +729,11 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   headerTitleContainer: {
-    flex: 1,
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 20,
+    justifyContent: 'center',
     alignItems: 'center',
   },
   headerTitle: {
