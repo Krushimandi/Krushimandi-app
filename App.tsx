@@ -11,6 +11,7 @@ import { Colors } from './src/constants';
 import './global.css';
 import './src/config/firebase';
 import Toast from 'react-native-toast-message';
+import appCheck from '@react-native-firebase/app-check';
 import { AppBootstrapScreen } from './src/components/common/AppBootstrapScreen';
 import { AuthStateProvider } from './src/components/providers/AuthStateProvider';
 import { AuthBootstrapState } from './src/utils/authBootstrap';

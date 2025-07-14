@@ -198,7 +198,7 @@ const ProfileScreen = () => {
           { icon: 'star', text: 'Rate KrushiMandi', iconType: 'FontAwesome' },
           { icon: 'file-text-o', text: 'Terms & Conditions', iconType: 'FontAwesome' },
           { icon: 'shield', text: 'Privacy Policy', iconType: 'FontAwesome', route: 'PrivacyPolicy' },
-          { icon: 'info-circle', text: 'About KrushiMandi', iconType: 'FontAwesome', route: 'AboutKrushimandi' },
+          { icon: 'info-circle', text: 'About', iconType: 'FontAwesome', route: 'About' },
           { icon: 'phone', text: 'Contact Us', iconType: 'FontAwesome' },
         ] as MenuItem[]).map((item, index) => (
           <TouchableOpacity 

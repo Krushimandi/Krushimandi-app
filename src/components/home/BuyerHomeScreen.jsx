@@ -94,9 +94,18 @@ const BuyerHomeScreen = () => {
     extrapolate: 'clamp',
   });
 
+
+  // Always fetch fresh profile on mount
   useEffect(() => {
-    loadUserProfile();
+    loadUserProfile(true);
   }, []);
+
+  // Always fetch fresh profile on screen focus
+  useFocusEffect(
+    React.useCallback(() => {
+      loadUserProfile(true);
+    }, [])
+  );
 
   // Filter modal functions
   const openFilterModal = () => {
@@ -223,7 +232,7 @@ const BuyerHomeScreen = () => {
     }
   };
 
-  const loadUserProfile = async () => {
+  const loadUserProfile = async (forceRefresh = false) => {
     try {
       const user = auth().currentUser;
       if (!user) {
@@ -238,8 +247,8 @@ const BuyerHomeScreen = () => {
         return;
       }
 
-      // Get complete user profile from Firestore/AsyncStorage
-      const profile = await getCompleteUserProfile();
+      // Get complete user profile from Firestore/AsyncStorage, force refresh if needed
+      const profile = await getCompleteUserProfile(forceRefresh);
 
       if (profile) {
         setUserProfile(profile);
@@ -395,9 +404,11 @@ const BuyerHomeScreen = () => {
     loadMarketplaceFruits();
   };
 
+
   // Handle pull to refresh
   const onRefresh = async () => {
     setRefreshing(true);
+    await loadUserProfile(true); // Always force refresh on pull-to-refresh
     await loadMarketplaceFruits();
     setRefreshing(false);
   };

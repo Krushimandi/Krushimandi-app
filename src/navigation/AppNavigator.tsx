@@ -12,10 +12,9 @@ import { navigationRef } from './navigationService';
 import LoadingScreen from '../components/common/LoadingScreen';
 import { NotificationScreen, NotificationDetail } from '../components/notification';
 import { SettingsScreen } from '../components/settings';
-import { ProfileScreen } from '../components/profile';
 import BuyerProfileScreen from '../components/profile/BuyerProfileScreen';
 import EditProfileScreen from '../components/ProfileScreen/EditProfileScreen';
-import AboutKrushimandiScreen from '../components/ProfileScreen/AboutKrushimandiScreen';
+import AboutScreen from '../components/ProfileScreen/AboutScreen';
 import ChangePasswordScreen from '../components/ProfileScreen/ChangePasswordScreen';
 import HelpGuideScreen from '../components/ProfileScreen/HelpGuideScreen';
 import LanguagesScreen from '../components/ProfileScreen/LanguagesScreen';
@@ -135,15 +134,14 @@ const AppNavigator: React.FC<AppNavigatorProps> = ({ bootstrapState }) => {
           <RootStack.Screen name="Main" component={MainStack} />
           <RootStack.Screen name="Notification" component={NotificationScreen} />
           <RootStack.Screen name="NotificationDetail" component={NotificationDetail as React.ComponentType<any>} />
-          <RootStack.Screen name="ProfileScreen" component={ProfileScreen} />
           <RootStack.Screen name="EditProfile" component={EditProfileScreen} />
-          <RootStack.Screen name="AboutKrushimandi" component={AboutKrushimandiScreen} />
+          <RootStack.Screen name="About" component={AboutScreen} />
           <RootStack.Screen name="ChangePassword" component={ChangePasswordScreen} />
           <RootStack.Screen name="HelpGuide" component={HelpGuideScreen} />
           <RootStack.Screen name="Languages" component={LanguagesScreen} />
           <RootStack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
-          <RootStack.Screen name="ProfileSettings" component={ProfileSettingsScreen} />
-          <RootStack.Screen name="Settings" component={SettingsScreen} options={{ presentation: 'modal' }} />
+          <RootStack.Screen name="ProfileSettings" component={SettingsScreen}/>
+          <RootStack.Screen name="ProfileScreen" component={SettingsScreen} options={{ presentation: 'modal' }} />
           <RootStack.Screen name="BuyerProfile" component={BuyerProfileScreen} />
         </RootStack.Navigator>
       </NavigationContainer>

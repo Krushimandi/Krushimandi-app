@@ -33,6 +33,7 @@ import {
   getRelativeTime
 } from '../../utils/formatters';
 import { RefreshControl } from 'react-native-gesture-handler';
+import Toast from 'react-native-toast-message';
 
 const fruitCategories = [
   { name: 'All Fruits', type: 'all', icon: null },
@@ -101,9 +102,19 @@ const FarmerHomeScreen = () => {
     extrapolate: 'clamp',
   });
 
+
+  // Always fetch fresh profile on mount
   useEffect(() => {
-    loadUserProfile();
+    loadUserProfile(true);
   }, []);
+
+  // Always fetch fresh profile on screen focus
+  useFocusEffect(
+    React.useCallback(() => {
+      loadUserProfile(true);
+      showTabBar();
+    }, [showTabBar])
+  );
 
   // Safe navigation function to prevent "route not defined" errors
   const safeNavigate = (routeName, params = {}) => {
@@ -115,7 +126,7 @@ const FarmerHomeScreen = () => {
     }
   };
 
-  const loadUserProfile = async () => {
+  const loadUserProfile = async (forceRefresh = false) => {
     try {
       setIsLoading(true);
 
@@ -126,7 +137,7 @@ const FarmerHomeScreen = () => {
         return;
       }
 
-      console.log('📱 Loading user profile for:', user.uid);
+      console.log('📱 Loading user profile for:', user.uid, forceRefresh ? '(force refresh)' : '');
 
       // First validate if the user still exists on Firebase server
       const isValidUser = await validateCurrentUser();
@@ -136,8 +147,8 @@ const FarmerHomeScreen = () => {
         return;
       }
 
-      // Get complete user profile from Firestore/AsyncStorage
-      const profile = await getCompleteUserProfile();
+      // Get complete user profile from Firestore/AsyncStorage, force refresh if needed
+      const profile = await getCompleteUserProfile(forceRefresh);
 
       if (profile) {
         setUserProfile(profile);
@@ -165,22 +176,16 @@ const FarmerHomeScreen = () => {
   };
 
   const handleUserValidationFailure = () => {
-    Alert.alert(
-      'Authentication Error',
-      'Your session has expired or your account is no longer valid. Please sign in again.',
-      [
-        {
-          text: 'OK',
-          onPress: () => {
-            // Navigate back to auth flow using our utility function
-            import('../../utils/navigationUtils').then(
-              ({ navigateToAuth }) => navigateToAuth()
-            );
-          }
-        }
-      ],
-      { cancelable: false }
+    // Navigate back to auth flow using our utility function
+    navigation.then(
+      ({ navigateToAuth }) => navigateToAuth()
     );
+    Toast.show({
+      type: 'error',
+      position: 'bottom',
+      text1: "logged out",
+      text2: "Your session has expired or your account is no longer valid. Please sign in again."
+    });
   };
 
   // Get display name for greeting
@@ -275,6 +280,7 @@ const FarmerHomeScreen = () => {
   // Refresh function for pull-to-refresh
   const handleRefresh = async () => {
     if (userProfile?.uid) {
+      await loadUserProfile(true); // Always force refresh on pull-to-refresh
       await loadFarmerFruits();
     }
   };

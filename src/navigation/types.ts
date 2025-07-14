@@ -20,7 +20,7 @@ export type RootStackParamList = {
   };
   ProfileScreen: undefined;
   EditProfile: undefined;
-  AboutKrushimandi: undefined;
+  About: undefined;
   ChangePassword: undefined;
   HelpGuide: undefined;
   Languages: undefined;

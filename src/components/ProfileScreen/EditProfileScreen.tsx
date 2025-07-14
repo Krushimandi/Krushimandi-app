@@ -104,7 +104,7 @@ const handleSave = async () => {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar 
         barStyle="light-content" 
-        backgroundColor="#667eea" 
+        backgroundColor="#43B86C" 
         translucent={false}
       />
       {/* Header */}
@@ -227,7 +227,7 @@ export default EditProfileScreen;
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#667eea',
+    backgroundColor: '#43B86C',
   },
   flex: {
     flex: 1,
@@ -238,12 +238,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 20,
-    // background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    backgroundColor: '#667eea', // Fallback for React Native
+    paddingTop: Platform.OS === 'android' ? ((StatusBar.currentHeight ?? 0) + 16) : 0,
+    backgroundColor: '#43B86C',
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
     elevation: 8,
-    shadowColor: '#667eea',
+    shadowColor: '#43B86C',
     shadowOpacity: 0.3,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 6 },
@@ -314,11 +314,11 @@ const styles = StyleSheet.create({
   },
   editIcon: {
     position: 'absolute',
-    bottom: 8,
-    right: 8,
-    backgroundColor: '#3B82F6',
-    padding: 10,
-    borderRadius: 20,
+    bottom: 0,
+    right: 0,
+    backgroundColor: '#43B86C',
+    padding: 8,
+    borderRadius: 30,
     borderWidth: 3,
     borderColor: '#FFFFFF',
     elevation: 3,
