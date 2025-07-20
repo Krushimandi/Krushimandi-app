@@ -6,22 +6,21 @@
 import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import { navigationRef } from './navigationService';
+import { navigationRef, isNavigationReady, pendingNotificationData, handleNotificationNavigation } from './navigationService';
+import { notificationTabEmitter } from './buyer/notificationTabEmitter';
 
 // Screen components
 import LoadingScreen from '../components/common/LoadingScreen';
 import { NotificationScreen, NotificationDetail } from '../components/notification';
 import { SettingsScreen } from '../components/settings';
-import BuyerProfileScreen from '../components/profile/BuyerProfileScreen';
+import BuyerProfileScreen from '../components/ProfileScreen/BuyerProfileScreen';
 import EditProfileScreen from '../components/ProfileScreen/EditProfileScreen';
 import AboutScreen from '../components/ProfileScreen/AboutScreen';
-import ChangePasswordScreen from '../components/ProfileScreen/ChangePasswordScreen';
 import HelpScreen from '../components/Help/HelpScreen';
 import HelpGuide from '../components/Help/HelpGuide';
 import FaqDetail from '../components/Help/FaqDetail';
 import LanguagesScreen from '../components/ProfileScreen/LanguagesScreen';
 import PrivacyPolicyScreen from '../components/ProfileScreen/PrivacyPolicyScreen';
-import ProfileSettingsScreen from '../components/ProfileScreen/SettingsScreen';
 
 // Navigation provider
 import { NavigationProvider } from './NavigationProvider';
@@ -60,13 +59,13 @@ const AppNavigator: React.FC<AppNavigatorProps> = ({ bootstrapState }) => {
     const currentIsAuthenticated = isAuthenticated || bootstrapState.isAuthenticated;
     const currentUserRole = userRole || bootstrapState.userRole;
     const shouldShowMainApp = currentIsAuthenticated && currentUserRole;
-    
+
     console.log('🔄 Auth state changed, re-evaluating navigation:', {
       currentIsAuthenticated,
       currentUserRole,
       shouldShowMainApp
     });
-    
+
     setNavigationKey(prev => prev + 1);
   }, [isAuthenticated, userRole, bootstrapState.isAuthenticated, bootstrapState.userRole]);
 
@@ -78,10 +77,11 @@ const AppNavigator: React.FC<AppNavigatorProps> = ({ bootstrapState }) => {
     isLoading
   });
 
-  // Choose the appropriate stack based on user role
+  // Always use the most up-to-date userRole (context or bootstrap)
   const getMainComponent = () => {
-    console.log('🎯 getMainComponent called with userRole:', userRole);
-    switch (userRole) {
+    const currentUserRole = userRole || bootstrapState.userRole;
+    console.log('🎯 getMainComponent called with userRole:', currentUserRole);
+    switch (currentUserRole) {
       case 'buyer':
         console.log('📱 Routing to BuyerStack for buyer role');
         return BuyerStack;
@@ -90,7 +90,7 @@ const AppNavigator: React.FC<AppNavigatorProps> = ({ bootstrapState }) => {
         return FarmerStack;
       default:
         // If userRole is undefined or not recognized, default to FarmerStack
-        console.warn('⚠️ User role not defined or recognized:', userRole, 'defaulting to Farmer UI');
+        console.warn('⚠️ User role not defined or recognized:', currentUserRole, 'defaulting to Farmer UI');
         return FarmerStack;
     }
   };
@@ -102,7 +102,7 @@ const AppNavigator: React.FC<AppNavigatorProps> = ({ bootstrapState }) => {
   // Use current auth state instead of just bootstrap state
   const currentIsAuthenticated = isAuthenticated || bootstrapState.isAuthenticated;
   const currentUserRole = userRole || bootstrapState.userRole;
-  
+
   // Determine initial route based on current auth state
   const shouldShowMainApp = currentIsAuthenticated && currentUserRole;
   const initialRouteName = shouldShowMainApp ? "Main" : "Auth";
@@ -123,10 +123,18 @@ const AppNavigator: React.FC<AppNavigatorProps> = ({ bootstrapState }) => {
 
   return (
     <NavigationProvider>
-      <NavigationContainer 
+      <NavigationContainer
         key={navigationKey}
-        ref={navigationRef} 
-        onReady={() => console.log('Navigation container is ready')}
+        ref={navigationRef}
+        onReady={() => {
+          isNavigationReady.current = true;
+          // If there is a pending notification navigation, handle it now
+          if (pendingNotificationData.current) {
+            handleNotificationNavigation(pendingNotificationData.current, notificationTabEmitter);
+            pendingNotificationData.current = null;
+          }
+          console.log('Navigation container is ready');
+        }}
       >
         <RootStack.Navigator
           screenOptions={{ headerShown: false }}
@@ -138,13 +146,12 @@ const AppNavigator: React.FC<AppNavigatorProps> = ({ bootstrapState }) => {
           <RootStack.Screen name="NotificationDetail" component={NotificationDetail as React.ComponentType<any>} />
           <RootStack.Screen name="EditProfile" component={EditProfileScreen} />
           <RootStack.Screen name="About" component={AboutScreen} />
-          <RootStack.Screen name="ChangePassword" component={ChangePasswordScreen} />
           <RootStack.Screen name="HelpScreen" component={HelpScreen} />
           <RootStack.Screen name="FaqDetail" component={FaqDetail} />
           <RootStack.Screen name="HelpGuide" component={HelpGuide} />
           <RootStack.Screen name="Languages" component={LanguagesScreen} />
           <RootStack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
-          <RootStack.Screen name="ProfileSettings" component={SettingsScreen}/>
+          <RootStack.Screen name="ProfileSettings" component={SettingsScreen} />
           <RootStack.Screen name="ProfileScreen" component={SettingsScreen} options={{ presentation: 'modal' }} />
           <RootStack.Screen name="BuyerProfile" component={BuyerProfileScreen} />
         </RootStack.Navigator>

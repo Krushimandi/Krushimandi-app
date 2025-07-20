@@ -14,71 +14,7 @@ export interface Notification {
 }
 
 // Mock notification data - in a real app, this would come from an API or local storage
-let notifications: Notification[] = [
-    {
-        id: '1',
-        title: 'Order #KM2045 Confirmed',
-        message: 'Your order for 5 kg of organic fertilizer has been confirmed and will be delivered within 2 days.',
-        date: '2025-06-23',
-        time: '10:30 AM',
-        read: true,
-        type: 'transaction',
-    },
-    {
-        id: '2',
-        title: 'Special Discount!',
-        message: 'Get 15% off on all seeds and gardening tools this weekend. Limited time offer!',
-        date: '2023-06-21',
-        time: '08:15 AM',
-        read: true,
-        type: 'promotion',
-    },
-    {
-        id: '3',
-        title: 'App Update Available',
-        message: 'KrushiMandi v2.5 is now available with new features and improvements. Update now!',
-        date: '2023-06-20',
-        time: '03:45 PM',
-        read: true,
-        type: 'update',
-    },
-    {
-        id: '4',
-        title: 'Payment Received',
-        message: 'We have received your payment of ₹1,500 for order #KM2032. Thank you!',
-        date: '2023-06-20',
-        time: '11:20 AM',
-        read: true,
-        type: 'transaction',
-    },
-    {
-        id: '5',
-        title: 'Weather Alert',
-        message: 'Heavy rainfall expected in your area in the next 24 hours. Please secure your crops.',
-        date: '2023-06-19',
-        time: '09:00 AM',
-        read: true,
-        type: 'alert',
-    },
-    {
-        id: '6',
-        title: 'New Article Available',
-        message: 'Check out our new article on "Efficient Irrigation Methods" in the Knowledge Base.',
-        date: '2023-06-18',
-        time: '02:30 PM',
-        read: true,
-        type: 'update',
-    },
-    {
-        id: '7',
-        title: 'Your Profile is Incomplete',
-        message: 'Complete your farmer profile to get personalized recommendations and updates.',
-        date: '2023-06-17',
-        time: '10:45 AM',
-        read: true,
-        type: 'alert',
-    },
-];
+let notifications: Notification[] = [];
 
 /**
  * Get all notifications

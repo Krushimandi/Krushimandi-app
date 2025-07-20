@@ -1,7 +1,7 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
-import { View, Animated, Platform, Dimensions, StyleSheet, Text } from 'react-native';
+import { View, Animated, Platform, StyleSheet } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Octicons from 'react-native-vector-icons/Octicons';
 import MaterialDesignIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -26,8 +26,7 @@ import { Colors } from '../../constants';
 
 const BuyerTab = createBottomTabNavigator<BuyerTabParamList>();
 const BuyerMainStack = createStackNavigator<BuyerStackParamList>();
-const { width, height } = Dimensions.get('window');
-const isSmallScreen = height < 700;
+const isSmallScreen = false; // If you want to support small screens, use Dimensions API only in React Native
 
 // Enhanced Tab Bar Component
 const CustomTabBarIcon = ({ focused, color, size, route }: any) => {
@@ -90,7 +89,6 @@ const CustomTabBarIcon = ({ focused, color, size, route }: any) => {
   }, [focused]);
 
   let iconComponent;
-  let iconName = '';
 
   switch (route.name) {
     case 'Home':
@@ -99,7 +97,6 @@ const CustomTabBarIcon = ({ focused, color, size, route }: any) => {
       ) : (
         <Octicons name="home" size={size} color={color} />
       );
-      iconName = 'Home';
       break;
     case 'Orders':
       iconComponent = (
@@ -112,7 +109,6 @@ const CustomTabBarIcon = ({ focused, color, size, route }: any) => {
           <NotificationBadge size="small" count={3} />
         </View>
       );
-      iconName = 'Orders';
       break;
     case 'Requests':
       iconComponent = (
@@ -124,11 +120,9 @@ const CustomTabBarIcon = ({ focused, color, size, route }: any) => {
           )}
         </View>
       );
-      iconName = 'Requests';
       break;
     default:
       iconComponent = <Ionicons name="ellipse" size={size} color={color} />;
-      iconName = route.name;
   }
 
   return (
@@ -181,6 +175,7 @@ const BuyerTabNavigator = () => {
 
   return (
     <BuyerTab.Navigator
+      initialRouteName={'Home'}
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarShowLabel: true,
@@ -275,14 +270,12 @@ const BuyerTabNavigator = () => {
 };
 
 // Main Buyer Stack with Product Detail Screen
-const BuyerStack = () => {
-  return (
-    <BuyerMainStack.Navigator screenOptions={{ headerShown: false }}>
-      <BuyerMainStack.Screen name="BuyerTabs" component={BuyerTabNavigator} />
-      <BuyerMainStack.Screen name="ProductDetail" component={ProductDetailScreen as React.ComponentType<any>} />
-    </BuyerMainStack.Navigator>
-  );
-};
+const BuyerStack = () => (
+  <BuyerMainStack.Navigator screenOptions={{ headerShown: false }}>
+    <BuyerMainStack.Screen name="BuyerTabs" component={BuyerTabNavigator} />
+    <BuyerMainStack.Screen name="ProductDetail" component={ProductDetailScreen as React.ComponentType<any>} />
+  </BuyerMainStack.Navigator>
+);
 
 const styles = StyleSheet.create({
   tabIconContainer: {

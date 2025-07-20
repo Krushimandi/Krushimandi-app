@@ -25,14 +25,22 @@ import { NavigationProp, ParamListBase, RouteProp } from '@react-navigation/nati
 // Define types for notification detail props
 interface NotificationDetailProps {
   navigation: NavigationProp<ParamListBase>;
-  route: RouteProp<{ 
+  route: RouteProp<{
     params: {
       title: string;
       message: string;
       date: string;
       time?: string;
-      type?: 'transaction' | 'promotion' | 'update' | 'alert';
-    } 
+      type?: 'promotion' | 'update' | 'alert' | 'request' | 'transaction';
+      offer?: any;
+      actionUrl?: string;
+      category?: string;
+      createdAt?: string;
+      // Add more fields as needed for transaction/request
+      orderId?: string;
+      requestId?: string;
+      status?: string;
+    }
   }, 'params'>;
 }
 
@@ -70,10 +78,10 @@ const getNotificationColor = (type?: string, theme: 'light' | 'dark' = 'light'):
 };
 
 const NotificationDetail: React.FC<NotificationDetailProps> = ({ navigation, route }) => {
-  const { title, message, date, time, type } = route.params;
+  const { title, message, date, time, type, offer, actionUrl, category, createdAt } = route.params;
   const iconName = getNotificationIcon(type);
   const iconColor = getNotificationColor(type);
-  
+
   // Animation values
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
   const translateY = React.useRef(new Animated.Value(50)).current;  // Define type tag based on notification type
@@ -91,7 +99,7 @@ const NotificationDetail: React.FC<NotificationDetailProps> = ({ navigation, rou
         return 'Notification';
     }
   };
-  
+
   // Start animations when component mounts
   React.useEffect(() => {
     Animated.parallel([
@@ -112,41 +120,41 @@ const NotificationDetail: React.FC<NotificationDetailProps> = ({ navigation, rou
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-       <StatusBar
-        backgroundColor="transparent"
-        translucent={true}
+      <StatusBar
+        backgroundColor="#FFFFFF"
+        translucent={false}
         barStyle="dark-content"
       />
-      
+
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton} 
+        <TouchableOpacity
+          style={styles.backButton}
           onPress={() => navigation.goBack()}
-          hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
           <Icon name="arrow-back" size={24} color={Colors.light.text} />
         </TouchableOpacity>
-        
+
         <Text style={styles.headerTitle}>{getTypeTag()}</Text>
-        
-        <TouchableOpacity 
+
+        <TouchableOpacity
           style={styles.actionButton}
           onPress={() => {
             // Mark as unread or other actions
           }}
-          hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
           <Icon name="ellipsis-vertical" size={20} color={Colors.light.text} />
         </TouchableOpacity>      </View>
-      
+
       {/* Content */}
-      <ScrollView 
+      <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollViewContent}
       >
-        <Animated.View 
+        <Animated.View
           style={[
             styles.content,
             {
@@ -159,7 +167,7 @@ const NotificationDetail: React.FC<NotificationDetailProps> = ({ navigation, rou
             <View style={[styles.iconCircle, { backgroundColor: iconColor + '20' }]}>
               <Icon name={iconName} size={28} color={iconColor} />
             </View>
-            
+
             <View style={styles.titleTextContainer}>
               <Text style={styles.title}>{title}</Text>
               <View style={styles.dateContainer}>
@@ -168,59 +176,122 @@ const NotificationDetail: React.FC<NotificationDetailProps> = ({ navigation, rou
               </View>
             </View>
           </View>
-          
+
           {/* Content Card */}
           <View style={styles.messageCard}>
             {/* Message */}
             <Text style={styles.message}>{message}</Text>
-            
+            {/* Dynamic offer rendering for all notification types */}
+            {type === 'promotion' && offer && (
+              <View style={{ marginTop: 8 }}>
+                <Text style={{ fontWeight: 'bold', color: Colors.light.secondary }}>Coupon: {offer[0]?.text}</Text>
+                <Text>Description: {offer[0]?.description}</Text>
+                <Text>Validity: {offer[0]?.validity}</Text>
+              </View>
+            )}
+            {type === 'update' && offer && (
+              <View style={{ marginTop: 8 }}>
+                <Text style={{ fontWeight: 'bold', color: Colors.light.primary }}>Version: {offer[0]?.text}</Text>
+                {offer[0]?.description?.map((desc: string, idx: number) => (
+                  <Text key={idx}>• {desc}</Text>
+                ))}
+              </View>
+            )}
+            {type === 'alert' && offer && (
+              <View style={{ marginTop: 8 }}>
+                <Text style={{ fontWeight: 'bold', color: Colors.light.error }}>{offer[0]?.text}</Text>
+                {offer[0]?.description?.map((desc: string, idx: number) => (
+                  <Text key={idx}>• {desc}</Text>
+                ))}
+                {offer[0]?.sub_description?.map((sub: string, idx: number) => (
+                  <Text key={idx} style={{ fontStyle: 'italic' }}>Tip: {sub}</Text>
+                ))}
+              </View>
+            )}
+            {type === 'request' && offer && (
+              <View style={{ marginTop: 8 }}>
+                <Text style={{ fontWeight: 'bold', color: Colors.light.info }}>Request ID: {offer[0]?.requestId}</Text>
+                <Text>Date: {offer[0]?.date}</Text>
+                <Text>Status: {offer[0]?.status}</Text>
+              </View>
+            )}
             {/* Date stamp */}
             <View style={styles.timestampContainer}>
-              <Icon name="time-outline" size={12} color={Colors.light.textTertiary} style={{marginRight: 4}} />
+              <Icon name="time-outline" size={12} color={Colors.light.textTertiary} style={{ marginRight: 4 }} />
               <Text style={styles.timestampText}>{time || '12:00 PM'}</Text>
             </View>
           </View>
-            {/* Actions */}
+          {/* Actions */}
           <View style={styles.actionsContainer}>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[styles.actionButton, styles.primaryAction]}
               onPress={() => {
                 // Handle primary action based on notification type
+                if (type === 'transaction') {
+                  // Navigate to order details if orderId is present
+                  if (route.params.orderId) {
+                    navigation.navigate('OrderDetail', { orderId: route.params.orderId });
+                  } else {
+                    // fallback: just go back or show a message
+                    navigation.goBack();
+                  }
+                } else if (type === 'promotion' && actionUrl) {
+                  // Open offer/action URL
+                  if (actionUrl.startsWith('http')) {
+                    // For React Native, use Linking
+                    // eslint-disable-next-line @typescript-eslint/no-var-requires
+                    const Linking = require('react-native').Linking;
+                    Linking.openURL(actionUrl);
+                  }
+                } else if (type === 'update' && actionUrl) {
+                  // Open update URL (e.g., app store)
+                  // eslint-disable-next-line @typescript-eslint/no-var-requires
+                  const Linking = require('react-native').Linking;
+                  Linking.openURL(actionUrl);
+                } else if (type === 'request' && route.params.requestId) {
+                  // Navigate to request details
+                  navigation.navigate('RequestDetail', { requestId: route.params.requestId });
+                } else {
+                  // Default: just go back
+                  navigation.goBack();
+                }
               }}
               activeOpacity={0.8}
             >
-              <Icon 
+              <Icon
                 name={
-                  type === 'transaction' ? 'cart-outline' : 
-                  type === 'promotion' ? 'gift-outline' : 
-                  type === 'update' ? 'arrow-up-circle-outline' : 'eye-outline'
+                  type === 'transaction' ? 'cart-outline' :
+                    type === 'promotion' ? 'gift-outline' :
+                      type === 'update' ? 'arrow-up-circle-outline' :
+                        type === 'request' ? 'help-buoy-outline' : 'eye-outline'
                 }
-                size={18} 
-                color={Colors.light.textOnPrimary} 
-                style={{marginRight: Layout.spacing.sm}} 
+                size={18}
+                color={Colors.light.textOnPrimary}
+                style={{ marginRight: Layout.spacing.sm }}
               />
               <Text style={styles.actionButtonText}>
-                {type === 'transaction' ? 'View Order' : 
-                 type === 'promotion' ? 'Claim Offer' : 
-                 type === 'update' ? 'Update Now' : 'View Details'}
+                {type === 'transaction' ? 'View Order' :
+                  type === 'promotion' ? 'Claim Offer' :
+                    type === 'update' ? 'Update Now' :
+                      type === 'request' ? 'View Request' : 'View Details'}
               </Text>
             </TouchableOpacity>
-            
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.dismissButton}
               activeOpacity={0.8}
+              onPress={() => navigation.goBack()}
             >
               <Text style={styles.dismissButtonText}>Dismiss</Text>
             </TouchableOpacity>
           </View>
-            {/* Related Content based on type */}
+          {/* Related Content based on type */}
           {type === 'transaction' && (
             <View style={styles.additionalInfo}>
               <View style={styles.additionalInfoHeader}>
-                <Icon name="document-text-outline" size={18} color={Colors.light.text} style={{marginRight: 8}} />
+                <Icon name="document-text-outline" size={18} color={Colors.light.text} style={{ marginRight: 8 }} />
                 <Text style={styles.additionalInfoTitle}>Order Details</Text>
               </View>
-              
+
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>Order ID</Text>
                 <Text style={styles.infoValue}>KM2045</Text>
@@ -236,14 +307,14 @@ const NotificationDetail: React.FC<NotificationDetailProps> = ({ navigation, rou
                   <Text style={[styles.statusText, { color: Colors.light.success }]}>Confirmed</Text>
                 </View>
               </View>
-              
+
               <TouchableOpacity style={styles.viewMoreButton}>
                 <Text style={styles.viewMoreText}>View Complete Order</Text>
                 <Icon name="chevron-forward-outline" size={16} color={Colors.light.primary} />
               </TouchableOpacity>
             </View>
           )}
-            {type === 'promotion' && (
+          {type === 'promotion' && (
             <View style={styles.promotionContainer}>
               <View style={styles.couponCard}>
                 <View style={styles.couponHeader}>
@@ -258,7 +329,7 @@ const NotificationDetail: React.FC<NotificationDetailProps> = ({ navigation, rou
               </View>
             </View>
           )}
-            {type === 'update' && (
+          {type === 'update' && (
             <View style={styles.updateContainer}>
               <View style={styles.versionContainer}>
                 <View style={styles.versionBadge}>
@@ -268,15 +339,15 @@ const NotificationDetail: React.FC<NotificationDetailProps> = ({ navigation, rou
                   <Text style={styles.updateTitle}>What's new in this update:</Text>
                   <View style={styles.featureList}>
                     <View style={styles.featureItem}>
-                      <Icon name="checkmark-circle" size={16} color={Colors.light.success} style={{marginRight: 8}} />
+                      <Icon name="checkmark-circle" size={16} color={Colors.light.success} style={{ marginRight: 8 }} />
                       <Text style={styles.featureText}>Improved crop recommendation system</Text>
                     </View>
                     <View style={styles.featureItem}>
-                      <Icon name="checkmark-circle" size={16} color={Colors.light.success} style={{marginRight: 8}} />
+                      <Icon name="checkmark-circle" size={16} color={Colors.light.success} style={{ marginRight: 8 }} />
                       <Text style={styles.featureText}>Weather forecast integration</Text>
                     </View>
                     <View style={styles.featureItem}>
-                      <Icon name="checkmark-circle" size={16} color={Colors.light.success} style={{marginRight: 8}} />
+                      <Icon name="checkmark-circle" size={16} color={Colors.light.success} style={{ marginRight: 8 }} />
                       <Text style={styles.featureText}>Bug fixes and performance improvements</Text>
                     </View>
                   </View>
@@ -284,7 +355,7 @@ const NotificationDetail: React.FC<NotificationDetailProps> = ({ navigation, rou
               </View>
             </View>
           )}
-          
+
           {type === 'alert' && (
             <View style={styles.alertContainer}>
               <View style={styles.weatherAlertCard}>
@@ -292,22 +363,22 @@ const NotificationDetail: React.FC<NotificationDetailProps> = ({ navigation, rou
                   <Icon name="rainy" size={28} color={'#0077c2'} />
                   <Text style={styles.weatherTitle}>Heavy Rainfall Alert</Text>
                 </View>
-                
+
                 <View style={styles.weatherInfo}>
                   <View style={styles.weatherDetail}>
-                    <Icon name="time-outline" size={16} color={Colors.light.textSecondary} style={{marginRight: 6}} />
+                    <Icon name="time-outline" size={16} color={Colors.light.textSecondary} style={{ marginRight: 6 }} />
                     <Text style={styles.weatherDetailText}>Expected in next 24 hours</Text>
                   </View>
                   <View style={styles.weatherDetail}>
-                    <Icon name="location-outline" size={16} color={Colors.light.textSecondary} style={{marginRight: 6}} />
+                    <Icon name="location-outline" size={16} color={Colors.light.textSecondary} style={{ marginRight: 6 }} />
                     <Text style={styles.weatherDetailText}>Your registered location</Text>
                   </View>
                   <View style={styles.weatherDetail}>
-                    <Icon name="water-outline" size={16} color={Colors.light.textSecondary} style={{marginRight: 6}} />
+                    <Icon name="water-outline" size={16} color={Colors.light.textSecondary} style={{ marginRight: 6 }} />
                     <Text style={styles.weatherDetailText}>45-60mm expected</Text>
                   </View>
                 </View>
-                
+
                 <View style={styles.safetyTipsContainer}>
                   <Text style={styles.safetyTipsTitle}>Safety Tips:</Text>
                   <Text style={styles.safetyTip}>• Move sensitive crops to sheltered areas</Text>
@@ -315,7 +386,7 @@ const NotificationDetail: React.FC<NotificationDetailProps> = ({ navigation, rou
                   <Text style={styles.safetyTip}>• Cover harvested produce</Text>
                 </View>
               </View>
-            </View>          )}
+            </View>)}
         </Animated.View>
       </ScrollView>
     </SafeAreaView>
@@ -326,7 +397,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.light.background,
-  },  header: {
+  }, header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -355,7 +426,7 @@ const styles = StyleSheet.create({
   actionButton: {
     padding: Layout.spacing.xs,
     borderRadius: Layout.borderRadius.full,
-  },  scrollView: {
+  }, scrollView: {
     flex: 1,
   },
   scrollViewContent: {
@@ -392,7 +463,7 @@ const styles = StyleSheet.create({
   titleContainer: {
     flexDirection: 'row',
     marginBottom: Layout.spacing.lg,
-  },  iconCircle: {
+  }, iconCircle: {
     width: 56,
     height: 56,
     borderRadius: 28,
@@ -407,7 +478,7 @@ const styles = StyleSheet.create({
   titleTextContainer: {
     flex: 1,
     justifyContent: 'center',
-  },  title: {
+  }, title: {
     fontSize: Typography.fontSize.xl,
     fontWeight: Typography.fontWeight.bold as TextStyle['fontWeight'],
     color: Colors.light.text,
@@ -420,7 +491,7 @@ const styles = StyleSheet.create({
   message: {
     fontSize: Typography.fontSize.base,
     color: Colors.light.text,
-  },  actionsContainer: {
+  }, actionsContainer: {
     marginBottom: Layout.spacing.xl,
   },
   primaryAction: {
@@ -452,7 +523,7 @@ const styles = StyleSheet.create({
   dismissButtonText: {
     color: Colors.light.textSecondary,
     fontSize: Typography.fontSize.base,
-  },  additionalInfo: {
+  }, additionalInfo: {
     padding: Layout.spacing.lg,
     backgroundColor: Colors.light.backgroundSecondary,
     borderRadius: Layout.borderRadius.lg,

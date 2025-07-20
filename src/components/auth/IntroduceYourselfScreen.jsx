@@ -20,6 +20,7 @@ import {
   Alert,
   FlatList,
 } from 'react-native';
+import Toast from 'react-native-toast-message';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import auth from '@react-native-firebase/auth';
@@ -40,7 +41,7 @@ const BUSINESS_TYPE_OPTIONS = [
 ];
 
 const IntroduceYourselfScreen = ({ navigation, route }) => {
-  const { userRole = null } = route?.params || {}; 
+  const { userRole = null } = route?.params || {};
   const authStore = useAuthStore(); const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [profileImage, setProfileImage] = useState(null);
@@ -76,18 +77,15 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
 
       if (!user) {
         console.error('❌ No Firebase user found!');
-        Alert.alert(
-          'Authentication Error',
-          'Your session has expired. Please sign in again.',
-          [
-            {              text: 'OK',
-              onPress: () => {
-                import('../../utils/navigationUtils').then(
-                  ({ navigateToAuth }) => navigateToAuth()
-                );
-              },
-            }
-          ]
+        Toast.show({
+          type: 'error',
+          text1: 'Authentication Error',
+          text2: 'Your session has expired. Please sign in again.',
+          position: 'bottom',
+          visibilityTime: 1000,
+        });
+        import('../../utils/navigationUtils').then(
+          ({ navigateToAuth }) => navigateToAuth()
         );
       } else {
         console.log('✅ Firebase user confirmed:', user.uid);
@@ -277,19 +275,19 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         });
-        
+
         console.log('🎯 Auth store updated with user role:', selectedUserRole);
 
         // Store profile completion in AsyncStorage as well for persistence
         try {
           const existingUserData = await AsyncStorage.getItem('userData');
           let updatedUserData = userData;
-          
+
           if (existingUserData) {
             const parsed = JSON.parse(existingUserData);
             updatedUserData = { ...parsed, ...userData };
           }
-          
+
           await AsyncStorage.setItem('userData', JSON.stringify(updatedUserData));
           console.log('✅ Profile data persisted to AsyncStorage');
         } catch (storageError) {
@@ -307,9 +305,9 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
           // For farmers, complete auth flow as before
           await setAuthStep('Complete');
           setUploadStatus('Complete!');
-          
+
           console.log('✅ Auth step set to Complete - AppNavigator should handle navigation automatically');
-          
+
           // Give the auth state manager a moment to process and trigger navigation
           setTimeout(() => {
             if (isLoading) {
@@ -318,7 +316,7 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
             }
           }, 2000); // Clear loading after 2 seconds as fallback
         }
-        
+
         // Don't navigate immediately - let the auth state listener in AppNavigator handle it
         // The auth state will update and AppNavigator will automatically switch to main app
 
@@ -368,7 +366,7 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
       ]
     );
   };
-  
+
   const handleImageResponse = (response) => {
     console.log('Image picker response:', response);
 
@@ -598,7 +596,7 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
                   <Text style={styles.loadingText}>
                     {uploadStatus || 'Processing...'}
                   </Text>
-                 {/* uploadProgress > 0 && (
+                  {/* uploadProgress > 0 && (
                     <View style={styles.progressContainer}>
                       <View style={styles.progressBar}>
                         <View
@@ -610,7 +608,7 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
                       </View>
                     </View>
                   ) */}
-                  
+
                 </View>
               ) : (
                 <>

@@ -1,11 +1,35 @@
+// --- Notification navigation cold start support ---
+export const isNavigationReady = { current: false };
+export const pendingNotificationData = { current: null as any };
+
+/**
+ * Handles notification navigation, including cold start queuing
+ */
+export function handleNotificationNavigation(data: any, notificationTabEmitter?: any) {
+  console.log('🔔 Handling notification navigation:', data);
+  if (data?.screen === 'MyOrdersScreen' && data?.type === 'navigate') {
+    if (isNavigationReady.current && navigationRef.isReady()) {
+      console.log('🔔 Navigating to Orders screen from notification');
+      setTimeout(() => {
+        navigationRef.navigate('Main', {
+          screen: 'BuyerTabs',
+          params: { screen: 'Orders' },
+        });
+      }, 200);
+    } else {
+      // Queue for later
+      pendingNotificationData.current = data;
+    }
+  }
+}
 /**
  * Navigation Service
  * A centralized service for handling navigation actions outside of React components
  */
 
 import React from 'react';
-import { 
-  CommonActions, 
+import {
+  CommonActions,
   createNavigationContainerRef,
   StackActions,
 } from '@react-navigation/native';
@@ -38,7 +62,7 @@ export function reset(routeName: keyof RootStackParamList, params?: object) {
       CommonActions.reset({
         index: 0,
         routes: [
-          { 
+          {
             name: routeName,
             params
           },

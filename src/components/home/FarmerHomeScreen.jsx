@@ -8,7 +8,6 @@ import {
   FlatList,
   Image,
   ScrollView,
-  Pressable,
   Alert,
   StatusBar,
   Animated,
@@ -17,15 +16,12 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Octicons from 'react-native-vector-icons/Octicons';
-import Feather from 'react-native-vector-icons/Feather';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import { getCompleteUserProfile, updateLastLogin, validateCurrentUser } from '../../services/firebaseService';
-import { getFruitsByFarmer, getFruitsByFarmerOptimized, createFruit, updateFruitStatus } from '../../services/fruitService';
+import { getCompleteUserProfile, updateLastLogin, validateCurrentUser, updateUserProfile } from '../../services/firebaseService';
+import { getFruitsByFarmerOptimized, updateFruitStatus } from '../../services/fruitService';
 import auth from '@react-native-firebase/auth';
-import { Colors, Typography, Layout } from '../../constants';
+import { Colors, } from '../../constants';
 import { useTabBarControl } from '../../utils/navigationControls';
-import { Fruit } from '../../types/fruit';
-import { FruitType } from '../../types/fruit';
 import {
   formatPrice,
   formatFruitQuantity,
@@ -147,8 +143,13 @@ const FarmerHomeScreen = () => {
         return;
       }
 
-      // Get complete user profile from Firestore/AsyncStorage, force refresh if needed
-      const profile = await getCompleteUserProfile(forceRefresh);
+      // Always check for remote changes and sync if needed
+      let profile;
+      if (forceRefresh) {
+        profile = await updateUserProfile();
+      } else {
+        profile = await getCompleteUserProfile(false);
+      }
 
       if (profile) {
         setUserProfile(profile);
@@ -182,8 +183,10 @@ const FarmerHomeScreen = () => {
     );
     Toast.show({
       type: 'error',
+      visibilityTime: 1000,
       position: 'bottom',
       text1: "logged out",
+
       text2: "Your session has expired or your account is no longer valid. Please sign in again."
     });
   };
@@ -433,7 +436,7 @@ const FarmerHomeScreen = () => {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar
         backgroundColor="#FFFFFF"
-        translucent={true}
+        translucent={false}
         barStyle="dark-content"
       />
 
@@ -443,6 +446,7 @@ const FarmerHomeScreen = () => {
         scrollEventThrottle={16}
         refreshing={loadingFruits}
         onRefresh={handleRefresh}
+        nestedScrollEnabled={true}
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { y: scrollY } } }],
           { useNativeDriver: false }
@@ -666,6 +670,7 @@ const FarmerHomeScreen = () => {
                 </View>
               ) : (
                 <FlatList
+                  nestedScrollEnabled={true}
                   key={selectedCategory} // Force re-render when category changes
                   data={getFilteredFruits(activeFruits)}
                   keyExtractor={(item) => item.id || item._id || `fruit_${Math.random()}`}
@@ -779,6 +784,7 @@ const FarmerHomeScreen = () => {
                 </View>
               ) : (
                 <FlatList
+                  nestedScrollEnabled={true}
                   data={getFilteredFruits(fruitHistory)}
                   keyExtractor={(item) => item.id || item._id || `history_${Math.random()}`}
                   showsVerticalScrollIndicator={false}

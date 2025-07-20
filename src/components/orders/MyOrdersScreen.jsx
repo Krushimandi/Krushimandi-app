@@ -33,124 +33,98 @@ import NotificationBadge from '../common/NotificationBadge.tsx';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
-// Mock order data for UI
-const ORDERS_DATA = [
-  {
-    id: 'o1',
-    productName: 'Premium Hapus Mango',
-    orderNumber: 'KM20250621',
-    quantity: '5 KG',
-    price: '₹600',
-    image: require('../../assets/hapus.jpeg'),
-    status: 'delivered',
-    seller: 'Kishor Patil',
-    farmerPhone: '+91 9876543210',
-    farmerLocation: 'Ratnagiri, Maharashtra',
-    dateOrdered: '21 June 2025',
-    dateDelivered: '24 June 2025',
-    deliveryAddress: 'Flat 301, Sunrise Apartments, Kothrud, Pune - 411038',
-    paymentMethod: 'Cash on Delivery',
-    category: 'Fruits',
-    fruitInfo: {
-      variety: 'Alphonso',
-      quality: 'Premium Grade A',
-      origin: 'Ratnagiri Farms',
-      harvestDate: '18 June 2025'
-    }
-  },
-  {
-    id: 'o2',
-    productName: 'Kashmiri Apple',
-    orderNumber: 'KM20250620',
-    quantity: '3 KG',
-    price: '₹540',
-    image: require('../../assets/appleFruit.jpeg'),
-    status: 'processing',
-    seller: 'Ramesh Kumar',
-    farmerPhone: '+91 9876543211',
-    farmerLocation: 'Srinagar, Kashmir',
-    dateOrdered: '20 June 2025',
-    estimatedDelivery: '23 June 2025',
-    deliveryAddress: 'Flat 301, Sunrise Apartments, Kothrud, Pune - 411038',
-    paymentMethod: 'UPI',
-    unreadMessages: 2,
-    category: 'Fruits',
-    fruitInfo: {
-      variety: 'Red Delicious',
-      quality: 'Export Quality',
-      origin: 'Kashmir Valley',
-      harvestDate: '19 June 2025'
-    }
-  },
-  {
-    id: 'o3',
-    productName: 'Organic Spinach',
-    orderNumber: 'KM20250618',
-    quantity: '2 KG',
-    price: '₹80',
-    image: require('../../assets/spinach.jpg'),
-    status: 'canceled',
-    seller: 'Anita Patil',
-    farmerPhone: '+91 9876543212',
-    farmerLocation: 'Nashik, Maharashtra',
-    dateOrdered: '18 June 2025',
-    cancellationReason: 'Stock unavailable - Heavy rains affected harvest',
-    deliveryAddress: 'Flat 301, Sunrise Apartments, Kothrud, Pune - 411038',
-    paymentMethod: 'UPI',
-    category: 'Vegetables',
-    fruitInfo: {
-      variety: 'Baby Spinach',
-      quality: 'Organic Certified',
-      origin: 'Organic Farm',
-      harvestDate: '17 June 2025'
-    }
-  }
-];
+import { useRequests } from '../../hooks/useRequests';
+
+const getDateFromTimestamp = (timestamp) => {
+  let dateObj;
+  if (!timestamp) dateObj = new Date();
+  else if (typeof timestamp === 'string') dateObj = new Date(timestamp);
+  else if (timestamp.toDate && typeof timestamp.toDate === 'function') dateObj = timestamp.toDate();
+  else if (timestamp.seconds) dateObj = new Date(timestamp.seconds * 1000);
+  else dateObj = new Date(timestamp);
+
+  // Format: YYYY-MM-DD HH:MM AM/PM (no seconds)
+  const year = dateObj.getFullYear();
+  const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+  const day = String(dateObj.getDate()).padStart(2, '0');
+  let hours = dateObj.getHours();
+  const minutes = String(dateObj.getMinutes()).padStart(2, '0');
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12;
+  hours = hours ? hours : 12; // the hour '0' should be '12'
+  const hourStr = String(hours).padStart(2, '0');
+  return `${year}-${month}-${day} ${hourStr}:${minutes} ${ampm}`;
+};
+
+
+// Helper to map accepted requests to order data
+const mapAcceptedRequestsToOrders = (requests) => {
+  return requests
+    .filter(r => r.status === 'accepted')
+    .map(r => ({
+      id: r.id,
+      productName: r.productSnapshot?.name || 'Unknown Product',
+      orderNumber: r.id, // Firestore does not provide orderNumber, use id
+      quantity: Array.isArray(r.quantity)
+        ? `${r.quantity[0]}-${r.quantity[1]} ${r.quantityUnit || 'ton'}`
+        : `${r.quantity} ${r.quantityUnit || 'ton'}`,
+      price: r.productSnapshot?.price
+        ? `₹${r.productSnapshot.price}/${r.productSnapshot.priceUnit || 'ton'}`
+        : 'Price not available',
+      image: r.productSnapshot?.imageUrl
+        ? { uri: r.productSnapshot.imageUrl }
+        : require('../../assets/fruit_placeholder.png'),
+      status: r.status,
+      seller: r.productSnapshot?.farmerName || 'Unknown Farmer',
+      farmerPhone: r.buyerDetails?.phone || '',
+      farmerLocation: r.productSnapshot?.farmerLocation || 'Unknown Location',
+      // Use createdAt (Firestore Timestamp) instead of createdAtString
+      dateOrdered: r.createdAt ? getDateFromTimestamp(r.createdAt).toLocaleString() : '',
+      // dateOrdered: r.createdAtString ? getDateFromTimestamp(r.createdAtString)
+      //   : 'Unavailable',
+      deliveryAddress: r.buyerDetails?.location || '',
+      paymentMethod: r.paymentMethod || '',
+      category: r.productSnapshot?.category || '',
+      fruitInfo: {
+        variety: r.productSnapshot?.variety || '',
+        quality: r.productSnapshot?.quality || '',
+        origin: r.productSnapshot?.origin || '',
+        harvestDate: r.productSnapshot?.harvestDate || '',
+      },
+      buyerName: r.buyerDetails?.name || '',
+      unreadMessages: r.unreadMessages || 0,
+    }));
+};
 
 
 const MyOrdersScreen = () => {
   const navigation = useNavigation();
   const { showTabBar } = useTabBarControl();
+  const { requests, loading: requestsLoading, loadBuyerRequests } = useRequests();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
 
-  // Show tab bar when screen is focused
+  // Show tab bar and load requests only once on mount
   useEffect(() => {
     showTabBar();
+    loadBuyerRequests();
   }, []);
 
-  // Load orders data
+  // Map requests to orders whenever requests change
   useEffect(() => {
-    const loadOrders = async () => {
-      try {
-        // In a real app, this would fetch from an API
-        setLoading(true);
-
-        // Simulate network request
-        setTimeout(() => {
-          setOrders(ORDERS_DATA);
-          setLoading(false);
-        }, 1000);
-      } catch (error) {
-        console.error('Error loading orders:', error);
-        setLoading(false);
-      }
-    };
-
-    loadOrders();
-  }, []);
+    setOrders(mapAcceptedRequestsToOrders(requests));
+    setLoading(requestsLoading);
+  }, [requests, requestsLoading]);
 
   // Pull to refresh
   const onRefresh = async () => {
     setRefreshing(true);
-    // Simulate network request
-    setTimeout(() => {
-      setOrders(ORDERS_DATA);
-      setRefreshing(false);
-    }, 1500);
+    await loadBuyerRequests();
+    setOrders(mapAcceptedRequestsToOrders(requests));
+    setRefreshing(false);
   };
 
   // Get order statistics
@@ -201,14 +175,14 @@ const MyOrdersScreen = () => {
 
     // Clean the phone number (remove any non-digit characters except +)
     const cleanPhone = order.farmerPhone.replace(/[^\d+]/g, '');
-    
+
     // Create a demo message
     const demoMessage = `Hello ${order.seller}! 👋\n\nI have a question about my order:\n• Order: ${order.orderNumber}\n• Product: ${order.productName}\n• Quantity: ${order.quantity}\n\nCould you please provide an update on the delivery status?\n\nThank you! 😊`;
-    
+
     // Encode the message for URL
     const encodedMessage = encodeURIComponent(demoMessage);
     const smsUrl = `sms:${cleanPhone}?body=${encodedMessage}`;
-    
+
     console.log('Attempting to open SMS with:', smsUrl);
 
     // First try to open SMS directly
@@ -218,7 +192,7 @@ const MyOrdersScreen = () => {
       })
       .catch((error) => {
         console.error('SMS failed, trying alternative methods:', error);
-        
+
         // Fallback 1: Try without body parameter (some devices don't support it)
         const simpleSmsUrl = `sms:${cleanPhone}`;
         Linking.openURL(simpleSmsUrl)
@@ -242,7 +216,7 @@ const MyOrdersScreen = () => {
           })
           .catch((fallbackError) => {
             console.error('All SMS methods failed:', fallbackError);
-            
+
             // Final fallback: Show options to user
             Alert.alert(
               'Message Seller',
@@ -258,7 +232,7 @@ const MyOrdersScreen = () => {
                     const fullText = `Phone: ${order.farmerPhone}\n\nMessage:\n${demoMessage}`;
                     Clipboard.setString(fullText);
                     Alert.alert(
-                      'Copied!', 
+                      'Copied!',
                       'Phone number and message have been copied to your clipboard.\n\nYou can now paste them in your messaging app.'
                     );
                   }
@@ -316,7 +290,7 @@ const MyOrdersScreen = () => {
     // Clean the phone number (remove any non-digit characters except +)
     const cleanPhone = order.farmerPhone.replace(/[^\d+]/g, '');
     const phoneUrl = `tel:${cleanPhone}`;
-    
+
     console.log('Attempting to call:', phoneUrl);
 
     // First try to open directly
@@ -326,7 +300,7 @@ const MyOrdersScreen = () => {
       })
       .catch((error) => {
         console.error('Direct call failed, trying alternative methods:', error);
-        
+
         // Fallback 1: Try with different URL format
         const alternativeUrl = `telprompt:${cleanPhone}`;
         Linking.openURL(alternativeUrl)
@@ -335,7 +309,7 @@ const MyOrdersScreen = () => {
           })
           .catch((fallbackError) => {
             console.error('Fallback call also failed:', fallbackError);
-            
+
             // Fallback 2: Show options to user
             Alert.alert(
               'Call Farmer',
@@ -351,7 +325,7 @@ const MyOrdersScreen = () => {
                     // Copy number to clipboard and show confirmation
                     Clipboard.setString(order.farmerPhone);
                     Alert.alert(
-                      'Number Copied!', 
+                      'Number Copied!',
                       `${order.farmerPhone} has been copied to your clipboard.\n\nYou can now paste it in your phone dialer.`
                     );
                   }
@@ -400,7 +374,7 @@ const MyOrdersScreen = () => {
           <Text style={styles.productTitle}>{item.productName}</Text>
           <View style={styles.dateRow}>
             <Icon name="calendar-outline" size={16} color="#8B5CF6" />
-            <Text style={styles.harvestDate}>{item.fruitInfo.harvestDate}</Text>
+            <Text style={styles.harvestDate}>{item.dateOrdered}</Text>
           </View>
         </View>
 
@@ -409,22 +383,32 @@ const MyOrdersScreen = () => {
           {/* Product Image with Quantity Badge */}
           <View style={styles.imageContainer}>
             <Image source={item.image} style={styles.productImage} />
+            {/* <View style={styles.quantityBadge}>
+              <Text style={styles.quantityText}>{item.quantity}</Text>
+            </View> */}
           </View>
 
-          {/* Farmer Details */}
+          {/* Farmer & Buyer Details */}
           <View style={styles.farmerDetails}>
             <Text style={styles.farmerName}>{item.seller}</Text>
+            <Text style={styles.infoText}>Buyer: {item.buyerName}</Text>
 
             <View style={styles.varietyRow}>
               <Icon name="leaf-outline" size={14} color="#10B981" />
-              <Text style={styles.varietyText}>{item.fruitInfo.variety}</Text>
+              <Text style={styles.varietyText}>{item.category}</Text>
             </View>
-
-            <View style={styles.locationRow}>
-              <Icon name="location-outline" size={16} color="#EF4444" />
-              <Text style={styles.locationText}>{item.farmerLocation}</Text>
-            </View>
+            {/* {item.deliveryAddress ? (
+              <View style={styles.locationRow}>
+                <Icon name="home-outline" size={16} color="#3B82F6" />
+                <Text style={styles.locationText}>{item.deliveryAddress}</Text>
+              </View>
+            ) : null} */}
           </View>
+        </View>
+
+        <View style={styles.locationRow}>
+          <Icon name="location-outline" size={16} color="#EF4444" />
+          <Text style={styles.locationText}>{item.farmerLocation}</Text>
         </View>
 
         {/* Action Buttons - Only Call and Message */}
@@ -432,6 +416,7 @@ const MyOrdersScreen = () => {
           <TouchableOpacity
             style={[styles.actionButton, styles.callButton]}
             onPress={() => handleCallFarmer(item)}
+            activeOpacity={0.8}
           >
             <Icon name="call" size={18} color="#FFFFFF" />
             <Text style={styles.actionButtonText}>Call Now</Text>
@@ -440,6 +425,7 @@ const MyOrdersScreen = () => {
           <TouchableOpacity
             style={[styles.actionButton, styles.messageButton]}
             onPress={() => handleContactSeller(item)}
+            activeOpacity={0.8}
           >
             <Icon name="chatbubble-outline" size={18} color="#FFFFFF" />
             <Text style={styles.actionButtonText}>Message</Text>
@@ -521,8 +507,8 @@ const MyOrdersScreen = () => {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar
-        backgroundColor="transparent"
-        translucent={true}
+        backgroundColor="#FFFFFF"
+        translucent={false}
         barStyle="dark-content"
       />
 
@@ -541,7 +527,7 @@ const MyOrdersScreen = () => {
             style={styles.notificationButton}>
             <Icon name="notifications-outline" size={24} color="#000000" />
             <View style={styles.notificationBadge}>
-              <NotificationBadge size="small" count={3}  borderWidth={0}/>
+              <NotificationBadge size="small" count={3} borderWidth={0} />
             </View>
           </TouchableOpacity>
         </View>
@@ -803,7 +789,6 @@ const styles = StyleSheet.create({
   mainContent: {
     flexDirection: 'row',
     paddingHorizontal: 20,
-    paddingBottom: 20,
     alignItems: 'flex-start',
   },
   imageContainer: {
@@ -817,8 +802,8 @@ const styles = StyleSheet.create({
   },
   quantityBadge: {
     position: 'absolute',
-    top: -8,
-    right: -8,
+    top: -6,
+    right: -6,
     backgroundColor: '#10B981',
     borderRadius: 14,
     paddingHorizontal: 10,
@@ -832,7 +817,7 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   quantityText: {
-    fontSize: 11,
+    fontSize: 9,
     fontWeight: '800',
     color: '#FFFFFF',
     letterSpacing: -0.2,
@@ -868,18 +853,13 @@ const styles = StyleSheet.create({
     marginLeft: 6,
     letterSpacing: -0.1,
   },
+
   locationRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FEF2F2',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 14,
+    paddingHorizontal: 20,
+    paddingBottom: 16,
     alignSelf: 'flex-start',
-    shadowColor: '#EF4444',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 3,
     elevation: 2,
   },
   locationText: {
@@ -960,12 +940,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FEF2F2',
     borderRadius: 12,
   },
-  locationText: {
-    fontSize: 14,
-    color: '#DC2626',
-    fontWeight: '600',
-    marginLeft: 8,
-  },
+  // Removed duplicate locationText style
 
   // Bottom Row
   bottomRow: {
@@ -1080,17 +1055,7 @@ const styles = StyleSheet.create({
   findSimilarActionButton: {
     backgroundColor: '#3B82F6',
   },
-  messageBadge: {
-    position: 'absolute',
-    top: -6,
-    right: -6,
-    backgroundColor: '#EF4444',
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  // Removed duplicate messageBadge style
   messageBadgeText: {
     color: '#FFFFFF',
     fontSize: 10,
@@ -1191,11 +1156,6 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  quantityText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
   modernOrderDetails: {
     flex: 1,
     marginLeft: 20,
@@ -1224,11 +1184,7 @@ const styles = StyleSheet.create({
   sellerInfoContainer: {
     flex: 1,
   },
-  locationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 2,
-  },
+
   locationText: {
     fontSize: 12,
     color: '#64748B',

@@ -113,7 +113,7 @@ const BuyerHomeScreen = () => {
     console.log('🔍 handleApplyFilters function exists:', typeof handleApplyFilters);
     console.log('🔍 closeFilterModal function exists:', typeof closeFilterModal);
     console.log('🔍 clearAllFilters function exists:', typeof clearAllFilters);
-    
+
     setIsFilterModalVisible(true);
     slideAnim.setValue(0);
     Animated.timing(slideAnim, {
@@ -137,10 +137,10 @@ const BuyerHomeScreen = () => {
     console.log('🎯 BuyerHomeScreen applying filters:', filters);
     console.log('📊 Current fruits before filtering:', allFruits.length);
     console.log('🔍 Sample fruit prices:', allFruits.slice(0, 3).map(f => ({ name: f.name, price: f.price_per_kg })));
-    
+
     // Store applied filters for state management
     setAppliedFilters(filters);
-    
+
     let filtered = [...allFruits];
 
     // Apply price range filter with new format
@@ -272,6 +272,7 @@ const BuyerHomeScreen = () => {
       text1: 'Authentication Error',
       text2: 'Your session has expired or your account is no longer valid. Please sign in again.',
       position: 'bottom',
+      visibilityTime: 1000,
     });
 
     // Navigate back to auth flow using our utility function
@@ -347,7 +348,7 @@ const BuyerHomeScreen = () => {
         text1: '❌ Data Load Failed',
         text2: 'Unable to load fruits. Check connection.',
         position: 'bottom',
-        visibilityTime: 4000,
+        visibilityTime: 1000,
       });
     } finally {
       setLoadingFruits(false);
@@ -416,10 +417,10 @@ const BuyerHomeScreen = () => {
   // Clear all filters
   const clearAllFilters = () => {
     console.log('🧹 BuyerHomeScreen clearing all filters');
-    
+
     setSearchQuery('');
     setSelectedCategory('all');
-    
+
     const defaultFilters = {
       selectedFeatures: [],
       priceRange: null,
@@ -427,10 +428,10 @@ const BuyerHomeScreen = () => {
       maxPrice: 500,
       minRating: 0
     };
-    
+
     setAppliedFilters(defaultFilters);
     setFruits([...allFruits]);
-    
+
     console.log('✅ All filters cleared, showing', allFruits.length, 'fruits');
   };
 
@@ -456,8 +457,8 @@ const BuyerHomeScreen = () => {
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar
-        backgroundColor="transparent"
-        translucent={true}
+        backgroundColor="#FFFFFF"
+        translucent={false}
         barStyle="dark-content"
       />
 
@@ -1178,7 +1179,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     maxHeight: '85%',
-    minHeight: '70%',
+    minHeight: '80%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.25,

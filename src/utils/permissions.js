@@ -25,6 +25,7 @@
 
 import { Platform, PermissionsAndroid, Alert } from 'react-native';
 import Geolocation from '@react-native-community/geolocation';
+import { GOOGLE_MAPS_API_KEY } from '../config';
 
 /**
  * Get Android API level
@@ -435,8 +436,6 @@ export const reverseGeocode = async (latitude, longitude) => {
   try {
     console.log(`🗺️ Getting accurate location for: ${latitude}, ${longitude}`);
 
-    const googleApiKey = 'AIzaSyA7N1JXTOsM60RFRrCohYhm_2ZZp4Q0B3o';
-
     // Enhanced timeout for better accuracy (3 seconds)
     const timeoutPromise = new Promise((_, reject) => {
       setTimeout(() => reject(new Error('Location timeout')), 3000);
@@ -444,7 +443,7 @@ export const reverseGeocode = async (latitude, longitude) => {
 
     // Enhanced API call with all possible result types for maximum granular detail
     const googlePromise = fetch(
-      `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${googleApiKey}&language=en&region=IN&result_type=street_address|route|intersection|political|country|administrative_area_level_1|administrative_area_level_2|administrative_area_level_3|colloquial_area|locality|sublocality|neighborhood|premise|subpremise|postal_code|natural_feature|airport|park|point_of_interest`
+      `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${GOOGLE_MAPS_API_KEY}&language=en&region=IN&result_type=street_address|route|intersection|political|country|administrative_area_level_1|administrative_area_level_2|administrative_area_level_3|colloquial_area|locality|sublocality|neighborhood|premise|subpremise|postal_code|natural_feature|airport|park|point_of_interest`
     );
 
     const googleResponse = await Promise.race([googlePromise, timeoutPromise]);

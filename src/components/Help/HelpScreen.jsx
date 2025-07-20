@@ -16,50 +16,50 @@ import MaterialIcon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - 48) / 2;
-
 const quickActions = [
   {
-    title: 'Paytee\nLine',
-    image: require('../../assets/help2.jpg'), 
-    onPress: () => alert('Paytee Line clicked'),
+    title: 'Farmer\nSupport',
+    image: require('../../assets/help2.jpg'),
+    onPress: () => alert('Farmer Support clicked'),
   },
   {
-    title: 'Live\nChat',
-    image: require('../../assets/help1.jpg'), 
-    onPress: () => alert('Live Chat clicked'),
+    title: 'Chat with\nSupport',
+    image: require('../../assets/help1.jpg'),
+    onPress: () => alert('Chat with KrushiMitra clicked'),
   },
 ];
 
 const assistanceList = [
   {
-    title: 'FAQ Section',
-    subtitle: 'Find answers to common questions',
+    title: 'How to Sell',
+    subtitle: 'Step-by-step guide to start selling your produce',
     icon: 'help-circle-outline',
-    onPress: () => alert('Help Guide clicked'),
+    onPress: () => navigation.navigate('HelpGuide', { userType: 'farmer' }),
     color: '#3B82F6',
   },
   {
-    title: 'Payments',
-    subtitle: 'Manage your payment methods',
+    title: 'Price Meter Info',
+    subtitle: 'Understand how Krushimandi shows market-based price range',
     icon: 'wallet-outline',
-    onPress: () => alert('Payments clicked'),
+    onPress: () => alert('Price Meter Info clicked'),
     color: '#059669',
   },
   {
-    title: 'Loans',
-    subtitle: 'Apply for agricultural loans',
+    title: 'Commission Model',
+    subtitle: 'Know how commission is charged and how much',
     icon: 'briefcase-outline',
-    onPress: () => alert('Loans clicked'),
+    onPress: () => alert('Commission Info clicked'),
     color: '#DC2626',
   },
   {
-    title: 'Crypto',
-    subtitle: 'Cryptocurrency trading guide',
-    icon: 'logo-bitcoin',
-    onPress: () => alert('Crypto clicked'),
+    title: 'Farmer Rank System',
+    subtitle: 'Your rank is based on quality & fair pricing',
+    icon: 'bar-chart-outline',
+    onPress: () => alert('Ranking Info clicked'),
     color: '#F59E0B',
   },
 ];
+
 
 const HelpScreen = ({ navigation }) => {
   return (
@@ -124,7 +124,6 @@ const HelpScreen = ({ navigation }) => {
                 imageStyle={styles.quickImageBgImg}
                 resizeMode="cover"
               >
-                <View style={styles.quickOverlay} />
                 <View style={styles.quickTitleWrapper}>
                   <Text style={styles.quickTitle}>{quickActions[0].title}</Text>
                 </View>
@@ -142,7 +141,6 @@ const HelpScreen = ({ navigation }) => {
                 imageStyle={styles.quickImageBgImg}
                 resizeMode="cover"
               >
-                <View style={styles.quickOverlay} />
                 <View style={styles.quickTitleWrapper}>
                   <Text style={styles.quickTitle}>{quickActions[1].title}</Text>
                 </View>
@@ -346,12 +344,12 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     overflow: 'hidden',
     elevation: 6,
-    shadowColor: '#43B86C',
+    shadowColor: '#E5E7EB',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.4,
     shadowRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.1)',
+    borderColor: '#D1D5DBCC',
   },
   quickImageBg: {
     flex: 1,
@@ -362,16 +360,9 @@ const styles = StyleSheet.create({
   },
   quickImageBgImg: {
     borderRadius: 20,
+    opacity: 0.6,
   },
-  quickOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-    borderRadius: 20,
-  },
+
   quickTitleWrapper: {
     width: '100%',
     paddingLeft: 20,
@@ -383,9 +374,9 @@ const styles = StyleSheet.create({
   quickTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#000000',
     textAlign: 'left',
-    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowColor: 'rgba(255, 255, 255, 0.5)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
   },

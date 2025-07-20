@@ -4,6 +4,9 @@ import { BlurView } from '@react-native-community/blur';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useFocusEffect } from '@react-navigation/native';
+import FeedbackModal, { FeedbackData } from '@ui/FeedbackModal';
+import { requestService } from '../../services/requestService';
+
 import {
   View,
   Text,
@@ -26,13 +29,13 @@ import auth from '@react-native-firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { Colors, StorageKeys } from '../../constants';
-import { getCompleteUserProfile } from '../../services/firebaseService';
+import { getCompleteUserProfile, updateUserProfile } from '../../services/firebaseService';
 import { clearUserRole } from '../../utils/userRoleStorage';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../../navigation';
+import Toast from 'react-native-toast-message';
 
 const { width } = Dimensions.get('window');
-
 
 interface SettingItem {
   id: string;
@@ -51,12 +54,11 @@ const SettingsScreen: React.FC = () => {
 
   type SettingsScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Settings'>;
 
+  const [isModalVisible, setIsModalVisible] = useState<boolean>(false);
   const navigation = useNavigation<SettingsScreenNavigationProp>();
   const [userProfile, setUserProfile] = useState<any>(null);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [darkModeEnabled, setDarkModeEnabled] = useState(false);
-  const [locationEnabled, setLocationEnabled] = useState(true);
-  const [biometricEnabled, setBiometricEnabled] = useState(false);
 
   // Modal state for profile image
   const [modalVisible, setModalVisible] = useState(false);
@@ -74,9 +76,53 @@ const SettingsScreen: React.FC = () => {
     }, [])
   );
 
+  const openFeedbackModal = (): void => setIsModalVisible(true);
+  const closeFeedbackModal = (): void => setIsModalVisible(false);
+
+  const handleFeedbackSubmit = (feedbackData: FeedbackData): void => {
+    // Send feedback to backend
+    if (!userProfile) {
+      Alert.alert('Error', 'User profile not loaded.');
+      return;
+    }
+    const uuid = userProfile.id || userProfile.uid || userProfile.userId || userProfile.phoneNumber || 'unknown';
+    const userType = userProfile.userRole === 'farmer' ? 'farmer' : 'buyer';
+    requestService.sendFeedback(uuid, {
+      message: feedbackData.feedback,
+      rating: feedbackData.rating,
+      userType,
+      context: 'settings_feedback',
+    })
+      .then(() => {
+        Toast.show({
+          type: 'success',
+          text1: 'Feedback Sent',
+          text2: 'Thank you for your feedback!',
+          position: 'bottom',
+          visibilityTime: 1000,
+        });
+        closeFeedbackModal();
+      })
+      .catch((error: any) => {
+        console.log('Failed to send feedback: ' + error.message);
+        Toast.show({
+          type: 'error',
+          text1: 'Feedback Error',
+          // text2: 'Failed to send feedback: ' + error.message,
+          position: 'bottom',
+          visibilityTime: 1000,
+        });
+      });
+  };
+
   const loadUserProfile = async () => {
     try {
-      const profile = await getCompleteUserProfile();
+      let profile = await getCompleteUserProfile(false);
+      if (!profile) {
+        // If not found, force refresh from Firestore
+        profile = await updateUserProfile();
+      }
+      console.log("Profile", profile);
       setUserProfile(profile);
     } catch (error) {
       console.error('Error loading user profile:', error);
@@ -92,8 +138,6 @@ const SettingsScreen: React.FC = () => {
 
       if (notifications !== null) setNotificationsEnabled(JSON.parse(notifications));
       if (darkMode !== null) setDarkModeEnabled(JSON.parse(darkMode));
-      if (location !== null) setLocationEnabled(JSON.parse(location));
-      if (biometric !== null) setBiometricEnabled(JSON.parse(biometric));
     } catch (error) {
       console.error('Error loading settings:', error);
     }
@@ -115,16 +159,6 @@ const SettingsScreen: React.FC = () => {
   const handleDarkModeToggle = (value: boolean) => {
     setDarkModeEnabled(value);
     saveSettingToStorage('dark_mode_enabled', value);
-  };
-
-  const handleLocationToggle = (value: boolean) => {
-    setLocationEnabled(value);
-    saveSettingToStorage('location_enabled', value);
-  };
-
-  const handleBiometricToggle = (value: boolean) => {
-    setBiometricEnabled(value);
-    saveSettingToStorage('biometric_enabled', value);
   };
 
   const handleLogout = () => {
@@ -169,30 +203,6 @@ const SettingsScreen: React.FC = () => {
     );
   };
 
-  const handleDeleteAccount = () => {
-    Alert.alert(
-      'Delete Account',
-      'This action cannot be undone. All your data will be permanently deleted.',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            Alert.alert(
-              'Confirm Deletion',
-              'Please contact support to delete your account.',
-              [{ text: 'OK' }]
-            );
-          },
-        },
-      ]
-    );
-  };
-
   const settingsGroups = [
     {
       title: 'Account',
@@ -212,7 +222,12 @@ const SettingsScreen: React.FC = () => {
           subtitle: 'Switch role to buyer/farmer',
           icon: 'arrow-switch',
           type: 'navigation' as const,
-          action: () => console.log('Role Change'),
+          action: () => Toast.show({
+            type: 'info',
+            position: 'bottom',
+            visibilityTime: 1000,
+            text1: 'This feature is coming soon!',
+          }),
           color: '#3B82F6',
           badge: 'New',
         },
@@ -290,7 +305,7 @@ const SettingsScreen: React.FC = () => {
           subtitle: 'Help us improve the app',
           icon: 'chatbubble-outline',
           type: 'navigation' as const,
-          action: () => console.log('Navigate to Feedback'),
+          action: () => { openFeedbackModal() },
           color: '#6B7280',
         },
         {
@@ -447,7 +462,14 @@ const SettingsScreen: React.FC = () => {
       >
         {/* User Profile Card */}
         <View style={styles.userCard}>
-          {userProfile && (
+          {!userProfile ? (
+            <View style={{ alignItems: 'center', padding: 24 }}>
+              <Icon name="person-circle-outline" size={64} color="#BDBDBD" />
+              <Text style={{ color: '#888', fontSize: 16, marginTop: 12, textAlign: 'center' }}>
+                User profile not found
+              </Text>
+            </View>
+          ) : (
             <View style={styles.userHeader}>
               <View style={styles.avatarSection}>
                 <TouchableOpacity
@@ -508,10 +530,6 @@ const SettingsScreen: React.FC = () => {
                   />
                 </GestureHandlerRootView>
               )}
-
-
-
-// --- CustomZoomableImage component moved to bottom for correct file structure ---
             </BlurView>
           </Modal>
         </View>
@@ -565,6 +583,11 @@ const SettingsScreen: React.FC = () => {
           <Text style={styles.appVersion}>Version 1.0.0</Text>
           <Text style={styles.appCopyright}>© 2025 Krushimandi. All rights reserved.</Text>
         </View>
+        <FeedbackModal
+          isVisible={isModalVisible}
+          onClose={closeFeedbackModal}
+          onSubmit={handleFeedbackSubmit}
+        />
       </ScrollView>
     </SafeAreaView>
   );

@@ -1,4 +1,6 @@
-import React, { useState , useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import RNBlobUtil from 'react-native-blob-util';
+import storage from '@react-native-firebase/storage';
 import {
   View,
   Text,
@@ -15,101 +17,208 @@ import {
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { launchImageLibrary } from 'react-native-image-picker';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { updateUserInFirestore } from '../../services/firebaseService';
+import { updateUserInFirestore, getUserFromFirestore } from '../../services/firebaseService';
+import Toast from 'react-native-toast-message';
 
 const EditProfileScreen = () => {
   const navigation = useNavigation();
   const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [uploading, setUploading] = useState<boolean>(false);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [userData, setUserData] = useState<any>(null);
 
-  useEffect(() => {
-    const fetchUserData = async () => {
-      const userDataString = await AsyncStorage.getItem('userData');
-      const user = userDataString ? JSON.parse(userDataString) : null;
-      setUserData(user);
-
-      // Optionally prefill fields
-      if (user) {
-        setFirstName(user.firstName || '');
-        setLastName(user.lastName || '');
-        setEmail(user.email || '');
-        setPhone(user.phoneNumber || '');
-        setProfileImage(user.profileImage || null);
+  // Fetch latest profile from Firestore on mount/focus, like SettingsScreen
+  const fetchUserProfile = useCallback(async () => {
+    const userDataString = await AsyncStorage.getItem('userData');
+    const user = userDataString ? JSON.parse(userDataString) : null;
+    setUserData(user);
+    if (user) {
+      setFirstName(user.firstName || '');
+      setLastName(user.lastName || '');
+      setEmail(user.email || '');
+      setPhone(user.phoneNumber || '');
+    }
+    if (user?.uid && user?.userRole) {
+      try {
+        const firestoreUser: any = await getUserFromFirestore(user.uid, user.userRole);
+        setProfileImage(firestoreUser?.profileImage || null);
+      } catch (err) {
+        setProfileImage(null);
       }
-    };
-    fetchUserData();
+    } else {
+      setProfileImage(null);
+    }
   }, []);
 
+  useEffect(() => {
+    fetchUserProfile();
+  }, [fetchUserProfile]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchUserProfile();
+    }, [fetchUserProfile])
+  );
+
+  // Pick and compress image
   const pickImage = () => {
-    launchImageLibrary({ mediaType: 'photo' }, (response: any) => {
-      if (!response.didCancel && response.assets?.[0]?.uri) {
-        setProfileImage(response.assets[0].uri);
+    launchImageLibrary(
+      {
+        mediaType: 'photo',
+        quality: 0.7, // Compress to 70% quality
+        maxWidth: 500,
+        maxHeight: 500,
+      },
+      (response: any) => {
+        if (!response.didCancel && response.assets?.[0]?.uri) {
+          setProfileImage(response.assets[0].uri);
+        }
       }
+    );
+  };
+
+  // Upload and sync profile image (move picked file to cache, delete old after upload)
+  const uploadProfileImage = async (pickedFilePath: string, userId: string) => {
+    setUploading(true);
+    setUploadProgress(0);
+    const filename = `profile_${Date.now()}.jpg`;
+    const ref = storage().ref(`profiles/${filename}`);
+    const task = ref.putFile(pickedFilePath);
+
+    return new Promise<string>(async (resolve, reject) => {
+      let oldLocalPath: string | null = null;
+      try {
+        const userDataString = await AsyncStorage.getItem('userData');
+        const user = userDataString ? JSON.parse(userDataString) : null;
+        oldLocalPath = user?.profileImageLocalPath ? user.profileImageLocalPath : null;
+      } catch { }
+
+      task.on('state_changed',
+        (snapshot) => {
+          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+          setUploadProgress(progress);
+        },
+        (error) => {
+          setUploading(false);
+          setUploadProgress(0);
+          reject(error);
+        },
+        async () => {
+          try {
+            const downloadURL = await ref.getDownloadURL();
+            // Move picked file to cache location
+            const localPath = `${RNBlobUtil.fs.dirs.DocumentDir}/profile_${filename}`;
+            if (pickedFilePath !== localPath) {
+              try {
+                await RNBlobUtil.fs.mv(pickedFilePath.replace('file://', ''), localPath);
+              } catch (moveErr) {
+                // fallback: copy if move fails
+                await RNBlobUtil.fs.cp(pickedFilePath.replace('file://', ''), localPath);
+              }
+            }
+            // Delete old cached image if different
+            if (oldLocalPath && oldLocalPath !== localPath) {
+              try { await RNBlobUtil.fs.unlink(oldLocalPath); } catch { }
+            }
+            const userDataString = await AsyncStorage.getItem('userData');
+            const user = userDataString ? JSON.parse(userDataString) : null;
+            const updatedUser = {
+              ...user,
+              profileImageFirebaseURL: downloadURL,
+              profileImageLocalPath: localPath,
+              profileImage: downloadURL,
+            };
+            await AsyncStorage.setItem('userData', JSON.stringify(updatedUser));
+            setUploading(false);
+            setUploadProgress(100);
+            resolve(downloadURL);
+          } catch (err) {
+            setUploading(false);
+            setUploadProgress(0);
+            reject(err);
+          }
+        }
+      );
     });
   };
 
-const handleSave = async () => {
-  try {
-    const userDataString = await AsyncStorage.getItem('userData');
-    const userData = userDataString ? JSON.parse(userDataString) : null;
-    if (!userData?.uid || !userData?.userRole) {
-      Alert.alert('Error', 'User not found');
-      return;
+  const handleSave = async () => {
+    try {
+      const userDataString = await AsyncStorage.getItem('userData');
+      const userData = userDataString ? JSON.parse(userDataString) : null;
+      if (!userData?.uid || !userData?.userRole) {
+        Alert.alert('Error', 'User not found');
+        return;
+      }
+
+      let newProfileImageUrl = userData.profileImage;
+      // If a new image was picked, upload and sync
+      if (profileImage && !profileImage.startsWith('http')) {
+        newProfileImageUrl = await uploadProfileImage(profileImage, userData.uid);
+      }
+
+      // Prepare update data
+      const updateData = {
+        firstName,
+        lastName,
+        email,
+        displayName: `${firstName} ${lastName}`,
+        profileImage: newProfileImageUrl || null,
+      };
+
+      await updateUserInFirestore(userData.uid, userData.userRole, updateData);
+
+      // Update AsyncStorage with new user data
+      await AsyncStorage.setItem(
+        'userData',
+        JSON.stringify({ ...userData, ...updateData })
+      );
+      Toast.show({
+        type: 'success',
+        text1: 'Profile Updated',
+        visibilityTime: 1200,
+        position: 'bottom',
+      });
+      navigation.goBack();
+    } catch (error) {
+      setUploading(false);
+      setUploadProgress(0);
+      console.error('Profile update failed:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Profile Update Failed',
+      });
     }
-
-    // Prepare update data
-    const updateData = {
-      firstName,
-      lastName,
-      email,
-      displayName: `${firstName} ${lastName}`,
-      profileImage: profileImage || userData.profileImage || null,
-    };
-
-    await updateUserInFirestore(userData.uid, userData.userRole, updateData);
-
-    // Update AsyncStorage with new user data
-    await AsyncStorage.setItem(
-      'userData',
-      JSON.stringify({ ...userData, ...updateData })
-    );
-
-    Alert.alert('Success', 'Profile updated!');
-    navigation.goBack();
-  } catch (error) {
-    console.error('Profile update failed:', error);
-    Alert.alert('Error', 'Failed to update profile. Please try again.');
-  }
-};
+  };
 
 
-<Image
-  source={
-    profileImage
-      ? { uri: profileImage }
-      : userData?.profileImage
-        ? { uri: userData.profileImage }
-        : { uri: 'https://via.placeholder.com/100x100/E2E8F0/64748B?text=Profile' }
-  }
-  style={styles.profileImage}
-/>
+  // --- Use Firestore profile image if available, else fallback ---
+  const getProfileImageSource = () => {
+    if (profileImage) {
+      return { uri: profileImage };
+    }
+    if (userData?.profileImage) {
+      return { uri: userData.profileImage };
+    }
+    return { uri: 'https://via.placeholder.com/100x100/E2E8F0/64748B?text=Profile' };
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar 
-        barStyle="light-content" 
-        backgroundColor="#43B86C" 
+      <StatusBar
+        barStyle="light-content"
+        backgroundColor="#43B86C"
         translucent={false}
       />
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
@@ -136,16 +245,20 @@ const handleSave = async () => {
           <View style={styles.profileSection}>
             <View style={styles.imageWrapper}>
               <Image
-                source={
-                  profileImage
-                    ? { uri: profileImage }
-                    : { uri: 'https://via.placeholder.com/100x100/E2E8F0/64748B?text=Profile' }
-                }
+                source={getProfileImageSource()}
                 style={styles.profileImage}
               />
               <TouchableOpacity style={styles.editIcon} onPress={pickImage}>
                 <Ionicons name="camera" size={20} color="#FFFFFF" />
               </TouchableOpacity>
+              {uploading && (
+                <View style={{ position: 'absolute', left: 0, right: 0, bottom: -54, alignItems: 'center' }}>
+                  <View style={{ width: 100, height: 6, backgroundColor: '#E5E7EB', borderRadius: 3, overflow: 'hidden' }}>
+                    <View style={{ width: `${uploadProgress}%`, height: 6, backgroundColor: '#43B86C' }} />
+                  </View>
+                  <Text style={{ fontSize: 10, color: '#64748B', marginTop: 2 }}>{Math.round(uploadProgress)}%</Text>
+                </View>
+              )}
             </View>
             <Text style={styles.profileImageText}>Tap to change photo</Text>
           </View>
@@ -227,7 +340,7 @@ export default EditProfileScreen;
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#43B86C',
+    backgroundColor: '#F9FAFB',
   },
   flex: {
     flex: 1,
@@ -236,12 +349,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    zIndex: 1,
     paddingHorizontal: 20,
     paddingVertical: 20,
-    paddingTop: Platform.OS === 'android' ? ((StatusBar.currentHeight ?? 0) + 16) : 0,
-    backgroundColor: '#43B86C',
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
+    paddingTop: Platform.OS === 'android' ? ((StatusBar.currentHeight ?? 0) + 16) : 0,
+    backgroundColor: '#43B86C',
     elevation: 8,
     shadowColor: '#43B86C',
     shadowOpacity: 0.3,
@@ -249,11 +363,14 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 6 },
   },
   backButton: {
-    padding: 10,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   headerCenter: {
     alignItems: 'center',

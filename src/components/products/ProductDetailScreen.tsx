@@ -61,7 +61,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
   const [farmerData, setFarmerData] = useState<any>(null);
   const [farmerReviews, setFarmerReviews] = useState<any[]>([]);
   const [isFarmerDataLoading, setIsFarmerDataLoading] = useState<boolean>(true);
-  
+
   // Request-related states
   const [showRequestModal, setShowRequestModal] = useState<boolean>(false);
   const [requestCount, setRequestCount] = useState<number>(0);
@@ -69,7 +69,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
   const [isCheckingExistingRequest, setIsCheckingExistingRequest] = useState<boolean>(true);
   const { user, userRole } = useAuthState();
   const { createRequest, getProductRequestCounts, hasExistingRequest } = useRequests();
- 
+
   // Get raw product data from route params
   const rawProduct = route?.params?.product;
   // Debug the incoming product data
@@ -90,7 +90,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
         [{ text: 'OK', onPress: () => navigation.goBack() }]
       );
     }, []);
-    
+
     // Return a minimal component while navigating back
     return (
       <SafeAreaView style={styles.container}>
@@ -191,13 +191,13 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
         setCurrentLikes(Math.max(0, product.likes || 0));
         return;
       }
-      
+
       console.log('🔄 Quick sync for product:', product.id);
-      
+
       // Fast, single read from fruit document
       const likesCount = await syncFruitLikesCount(product.id);
       setCurrentLikes(Math.max(0, likesCount));
-      
+
     } catch (error) {
       console.error('❌ Error syncing data:', error);
       // Use product data as fallback
@@ -222,7 +222,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
     console.log('   📂 User wishlist is also in: buyers/' + (user?.uid || 'USER_ID') + '/wishlist/' + product.id);
     console.log('   ❤️ When user likes: creates document in both locations');
     console.log('   🗑️ When user unlikes: removes document from both locations');
-    
+
     checkWishlistStatus();
     incrementViewCount();
     fetchFarmerData();
@@ -276,17 +276,17 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
         try {
           // Small delay to ensure any pending operations complete
           await new Promise(resolve => setTimeout(resolve, 100));
-          
+
           // Fast parallel operations
           const [freshWishlistStatus, freshLikesCount] = await Promise.all([
             isInWishlist(product.id),
             syncFruitLikesCount(product.id)
           ]);
-          
+
           // Update UI with fresh data
           setIsFavorite(freshWishlistStatus);
           setCurrentLikes(Math.max(0, freshLikesCount));
-          
+
           // Check existing request status for buyers
           if (userRole === 'buyer' && user?.uid) {
             try {
@@ -303,7 +303,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
           console.error('❌ Error during focus refresh:', error);
         }
       };
-      
+
       refreshData();
     }, [product.id, userRole, user?.uid])
   );
@@ -329,7 +329,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
         .get();
 
       console.log('🔍 Farmer document exists:', farmerDoc.exists());
-      
+
       if (farmerDoc.exists()) {
         const farmer = farmerDoc.data();
         console.log('✅ Farmer data fetched:', farmer);
@@ -339,13 +339,13 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
       } else {
         console.log('⚠️ Farmer document not found for ID:', product.farmer_id);
         console.log('⚠️ Checking if this is a valid Firestore document ID...');
-        
+
         // Try to fetch all farmers to see what IDs exist (for debugging)
         const allFarmersSnapshot = await firestore
           .collection('farmers')
           .limit(5)
           .get();
-        
+
         console.log('🔍 Sample farmer IDs in collection:');
         allFarmersSnapshot.docs.forEach((doc: any) => {
           console.log('  -', doc.id, '(data:', Object.keys(doc.data() || {}), ')');
@@ -399,18 +399,18 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
       }
 
       console.log('🔍 Getting wishlist status (optimized) for:', product.id);
-      
+
       // Fast parallel operations
       const [isWishlisted, likesCount] = await Promise.all([
         isInWishlist(product.id),
         syncFruitLikesCount(product.id)
       ]);
-      
+
       setIsFavorite(isWishlisted);
       setCurrentLikes(Math.max(0, likesCount));
-      
+
       console.log('✅ Wishlist data loaded:', isWishlisted ? '❤️ LIKED' : '🤍 NOT_LIKED', 'likes:', likesCount);
-      
+
     } catch (error) {
       console.error('❌ Error checking wishlist status:', error);
       // Default to false on error
@@ -423,19 +423,19 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
   const incrementViewCount = async () => {
     try {
       console.log('📈 Incrementing view count for fruit:', product.id);
-      
+
       // First check if the document exists
       const fruitDoc = await firestore
         .collection('fruits')
         .doc(product.id)
         .get();
-      
+
       if (!fruitDoc.exists) {
         console.log('⚠️ Fruit document does not exist in Firestore:', product.id);
         console.log('⚠️ This might be sample/test data. Skipping view count increment.');
         return;
       }
-      
+
       await firestore
         .collection('fruits')
         .doc(product.id)
@@ -454,29 +454,29 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
 
   const handleWishlistToggle = async () => {
     if (isWishlistLoading) return;
-    
+
     console.log('🔄 Starting wishlist toggle for fruit:', product.id);
     console.log('🔄 Current UI state - wishlist:', isFavorite ? 'LIKED ❤️' : 'UNLIKED 🤍', 'likes:', currentLikes);
-    
+
     // Store previous state for reverting on error
     const previousWishlistStatus = isFavorite;
     const previousLikeCount = currentLikes;
-    
+
     setIsWishlistLoading(true);
-    
+
     try {
       // First, get the ACTUAL current state from Firestore (not UI state)
       console.log('🔍 Getting actual current state from Firestore...');
       const actualCurrentStatus = await isInWishlist(product.id);
       const actualCurrentLikesCount = await getFruitLikesCount(product.id);
-      
+
       console.log('� Actual Firestore state - wishlist:', actualCurrentStatus ? 'LIKED ❤️' : 'UNLIKED 🤍', 'likes:', actualCurrentLikesCount);
-      
+
       // Determine what action to take based on ACTUAL state, not UI state
       const shouldAddToWishlist = !actualCurrentStatus;
-      
+
       console.log('🔄 Action to take:', shouldAddToWishlist ? 'ADD to wishlist' : 'REMOVE from wishlist');
-      
+
       // Perform the toggle operation
       let newStatus;
       if (shouldAddToWishlist) {
@@ -488,36 +488,36 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
         newStatus = false;
         console.log('✅ Removed from wishlist');
       }
-      
+
       // Wait a bit for Firestore consistency
       console.log('⏳ Waiting for Firestore consistency...');
       await new Promise(resolve => setTimeout(resolve, 100));
-      
+
       // Get the fresh count from Firestore (single read)
       const freshLikesCount = await syncFruitLikesCount(product.id);
       console.log('📊 Fresh likes count after toggle:', freshLikesCount);
-      
+
       // Update UI with final state
       setIsFavorite(newStatus);
       setCurrentLikes(Math.max(0, freshLikesCount));
-      
+
       console.log('✅ UI updated - wishlist:', newStatus ? 'LIKED ❤️' : 'UNLIKED 🤍', 'likes:', freshLikesCount);
-      
-     
-      
+
+
+
     } catch (error) {
       console.error('❌ Error toggling wishlist:', error);
-      
+
       // On error, refresh the actual state from Firestore instead of reverting to old UI state
       try {
         console.log('🔄 Error occurred, refreshing actual state from Firestore...');
         await new Promise(resolve => setTimeout(resolve, 300)); // Small delay for Firestore
         const actualStatus = await isInWishlist(product.id);
         const actualCount = await syncFruitLikesCount(product.id);
-        
+
         setIsFavorite(actualStatus);
         setCurrentLikes(Math.max(0, actualCount));
-        
+
         console.log('✅ Refreshed to actual Firestore state - wishlist:', actualStatus ? 'LIKED ❤️' : 'UNLIKED 🤍', 'likes:', actualCount);
       } catch (refreshError) {
         console.error('❌ Error refreshing state:', refreshError);
@@ -525,7 +525,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
         setIsFavorite(previousWishlistStatus);
         setCurrentLikes(previousLikeCount);
       }
-      
+
       Toast.show({
         type: 'error',
         text1: '❌ Wishlist Error',
@@ -614,7 +614,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
     try {
       console.log('🔍 Checking for existing requests for product:', product.id);
       const hasExisting = await hasExistingRequest(product.id);
-      
+
       if (hasExisting) {
         Alert.alert(
           "Request Already Sent",
@@ -623,7 +623,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
         );
         return;
       }
-      
+
       console.log('✅ No existing request found, showing request modal');
     } catch (error) {
       console.error('❌ Error checking existing requests:', error);
@@ -646,10 +646,10 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
       if (requestId) {
         // Update local request count
         setRequestCount(prev => prev + 1);
-        
+
         // Update existing request status
         setHasExistingRequestForProduct(true);
-        
+
         Toast.show({
           type: 'success',
           text1: 'Request Sent!',
@@ -688,8 +688,8 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar
-        backgroundColor="transparent"
-        translucent={true}
+        backgroundColor="#FFFFFF"
+        translucent={false}
         barStyle="dark-content"
       />
 
@@ -704,7 +704,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
         <Text style={styles.headerTitle}>Product Details</Text>
         <TouchableOpacity
           style={[
-            styles.favoriteButton, 
+            styles.favoriteButton,
             isWishlistLoading && { opacity: 0.6 },
             isFavorite && styles.favoriteButtonActive
           ]}
@@ -724,8 +724,8 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
         </TouchableOpacity>
       </View>
 
-      <ScrollView 
-        style={styles.content} 
+      <ScrollView
+        style={styles.content}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 120 }} // Ensure content is scrollable
       >
@@ -788,7 +788,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                       </TouchableOpacity>
                     )}
                   />
-                  
+
                   {/* Dots Indicator */}
                   <View style={styles.dotsContainer}>
                     {product.image_urls.map((_, index) => (
@@ -864,14 +864,14 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                   <Text style={styles.engagementLabel}>views</Text>
                 </View>
               </View>
-              
+
               <View style={styles.statsDivider} />
-              
+
               <View style={styles.modernEngagementStat}>
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={[
                     styles.engagementIconContainer,
-                    { 
+                    {
                       backgroundColor: isFavorite ? '#FFE8E8' : '#E8F5E8',
                       opacity: isWishlistLoading ? 0.6 : 1.0,
                       transform: [{ scale: isWishlistLoading ? 0.95 : 1.0 }]
@@ -882,16 +882,16 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                   activeOpacity={0.7}
                 >
                   {isWishlistLoading ? (
-                    <Ionicons 
-                      name="heart-outline" 
-                      size={18} 
-                      color="#999999" 
+                    <Ionicons
+                      name="heart-outline"
+                      size={18}
+                      color="#999999"
                     />
                   ) : (
-                    <Ionicons 
-                      name={isFavorite ? "heart" : "heart-outline"} 
-                      size={18} 
-                      color={isFavorite ? "#FF6B6B" : "#007E2F"} 
+                    <Ionicons
+                      name={isFavorite ? "heart" : "heart-outline"}
+                      size={18}
+                      color={isFavorite ? "#FF6B6B" : "#007E2F"}
                     />
                   )}
                 </TouchableOpacity>
@@ -932,9 +932,9 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                   </View>
                 </>
               )}
-              
+
               <View style={styles.statsDivider} />
-              
+
               <View style={styles.modernEngagementStat}>
                 <View style={styles.engagementIconContainer}>
                   <Ionicons name="time" size={18} color="#007E2F" />
@@ -947,7 +947,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                 </View>
               </View>
             </View>
-            
+
             {isFavorite && (
               <View style={styles.modernWishlistBadge}>
                 <Ionicons name="heart" size={14} color="#FF6B6B" />
@@ -1000,17 +1000,17 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                   styles.modernDetailIconContainer,
                   { backgroundColor: product.status === 'active' ? '#E8F5E8' : '#FFF3E0' }
                 ]}>
-                  <Ionicons 
-                    name="checkmark-circle-outline" 
-                    size={22} 
-                    color={product.status === 'active' ? '#4CAF50' : '#FF9800'} 
+                  <Ionicons
+                    name="checkmark-circle-outline"
+                    size={22}
+                    color={product.status === 'active' ? '#4CAF50' : '#FF9800'}
                   />
                 </View>
                 <View style={styles.modernDetailContent}>
                   <Text style={styles.modernDetailLabel}>Availability Status</Text>
                   <Text style={[
                     styles.modernDetailValue,
-                    { 
+                    {
                       color: product.status === 'active' ? '#4CAF50' : '#FF9800',
                       fontWeight: '700'
                     }
@@ -1131,7 +1131,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
           {/* Modern Farmer Details Section */}
           <View style={styles.modernDetailSection}>
             <Text style={styles.modernSectionTitle}>Farmer Information</Text>
-            
+
             {isFarmerDataLoading ? (
               <View style={styles.modernFarmerCard}>
                 <View style={styles.farmerLoadingContainer}>
@@ -1163,7 +1163,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                         ) : (
                           <Text style={styles.modernFarmerAvatarText}>
                             {(farmerData?.displayName || 'F').charAt(0).toUpperCase()
-                          }</Text>
+                            }</Text>
                         )}
                       </View>
                       {farmerData?.is_verified && (
@@ -1172,11 +1172,11 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                         </View>
                       )}
                     </View>
-                    
+
                     <View style={styles.modernFarmerInfo}>
                       <Text style={styles.modernFarmerName}>
                         {(() => {
-                          const displayName = farmerData?.displayName|| 'Unknown Farmer';
+                          const displayName = farmerData?.displayName || 'Unknown Farmer';
                           console.log('🔍 Farmer name display logic:', {
                             'farmerData?.displayName': farmerData?.displayName,
                             'product.farmer_name': product.farmer_name,
@@ -1187,7 +1187,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                           return displayName;
                         })()}
                       </Text>
-                      
+
                       <View style={styles.farmerRatingContainer}>
                         <View style={styles.modernStarsContainer}>
                           {renderStars(farmerData?.average_rating || product.farmer_rating || 4.0)}
@@ -1199,7 +1199,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                           ({farmerData?.total_reviews || farmerReviews.length || 0} reviews)
                         </Text>
                       </View>
-                      
+
                       {/* Farmer Stats */}
                       <View style={styles.farmerStatsRow}>
                         {farmerData?.experience_years && (
@@ -1225,7 +1225,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                       </View>
                     </View>
                   </View>
-                  
+
                   {/* Farmer Description */}
                   {farmerData?.description && (
                     <View style={styles.farmerDescriptionContainer}>
@@ -1235,7 +1235,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                     </View>
                   )}
                 </View>
-                
+
                 {/* Modern Reviews Section */}
                 {farmerReviews.length > 0 && (
                   <>
@@ -1245,7 +1245,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                         <Text style={styles.reviewsCountText}>{farmerReviews.length}</Text>
                       </View>
                     </View>
-                    
+
                     <View style={styles.modernReviewsList}>
                       {farmerReviews.slice(0, 3).map((review, index) => (
                         <View key={review.id || index} style={styles.modernReviewItem}>
@@ -1253,7 +1253,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                             <View style={styles.reviewerAvatar}>
                               <Text style={styles.reviewerAvatarText}>
                                 {(review.buyer_name || 'A').charAt(0).toUpperCase()
-                              }</Text>
+                                }</Text>
                             </View>
                             <View style={styles.reviewInfo}>
                               <View style={styles.reviewTopRow}>
@@ -1277,7 +1277,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                         </View>
                       ))}
                     </View>
-                    
+
                     {farmerReviews.length > 3 && (
                       <TouchableOpacity style={styles.modernViewMoreButton}>
                         <Text style={styles.modernViewMoreText}>
@@ -1290,7 +1290,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                 )}
               </>
             )}
-            
+
             <View style={styles.modernContactNote}>
               <Ionicons name="chatbubble-outline" size={20} color="#007E2F" />
               <Text style={styles.modernContactText}>
@@ -1307,34 +1307,34 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
           <Animated.View
             style={[
               styles.modernSwipeThumb,
-              { 
+              {
                 transform: [{ translateX: pan }],
                 backgroundColor: hasExistingRequestForProduct ? '#6B7280' : '#10B981'
               }
             ]}
             {...panResponder.panHandlers}
           >
-            <Ionicons 
-              name={hasExistingRequestForProduct ? "checkmark" : "arrow-forward"} 
-              size={24} 
-              color="#FFFFFF" 
+            <Ionicons
+              name={hasExistingRequestForProduct ? "checkmark" : "arrow-forward"}
+              size={24}
+              color="#FFFFFF"
             />
           </Animated.View>
           <Text style={[
             styles.modernSwipeText,
             hasExistingRequestForProduct && { color: '#6B7280' }
           ]}>
-            {isCheckingExistingRequest 
-              ? 'Checking...' 
-              : hasExistingRequestForProduct 
-                ? 'Request already sent' 
+            {isCheckingExistingRequest
+              ? 'Checking...'
+              : hasExistingRequestForProduct
+                ? 'Request already sent'
                 : 'Swipe to request'
             }
           </Text>
           <View style={styles.swipeGradientOverlay} />
         </View>
         <Text style={styles.modernSwipeInstruction}>
-          {hasExistingRequestForProduct 
+          {hasExistingRequestForProduct
             ? 'You have already sent a request for this product'
             : `Swipe right to send a request to ${farmerData?.displayName || 'the farmer'}`
           }
@@ -1481,7 +1481,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 126, 47, 0.8)',
+    backgroundColor: 'rgba(0, 126, 47, 0.4)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1757,7 +1757,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 24,
     borderRadius: 1,
   },
-  
+
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
@@ -1839,7 +1839,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
-  
+
   // "3 days ago" badge
   ButtonOverlay: {
     position: 'absolute',

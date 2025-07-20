@@ -62,7 +62,7 @@ const AboutPage: React.FC<AboutPageProps> = ({ navigation }) => {
           style={styles.backButton}
           onPress={handleBackPress}
         >
-          <Icon name="chevron-back" size={24} color={Colors.light.primary} />
+           <Icon name="chevron-back" size={24} color="#000" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>About</Text>
         <View style={styles.headerRight} />
@@ -91,16 +91,17 @@ const AboutPage: React.FC<AboutPageProps> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: '#F5F5F5',
   },
+
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
+    paddingHorizontal: 10,
+    paddingTop: (StatusBar.currentHeight ?? 0) + 16,
     paddingVertical: 12,
-    paddingTop: StatusBar.currentHeight || 0,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: '#F5F5F5',
   },
   backButton: {
     padding: 8,

@@ -9,7 +9,12 @@ import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 // Root Stack
 export type RootStackParamList = {
   Auth: undefined;
-  Main: undefined;
+  Main?: {
+    screen?: 'BuyerTabs';
+    params?: {
+      screen?: 'Orders';
+    };
+  };
   Notification: undefined;
   NotificationDetail: {
     title: string;

@@ -38,11 +38,42 @@ import { useNotifications } from '../../hooks/useNotifications';
 interface Notification {
     id: string;
     title: string;
-    message: string;
+    body: string;
     date: string;
     time?: string;
     read: boolean;
-    type: 'transaction' | 'promotion' | 'update' | 'alert';
+    type: 'promotion' | 'update' | 'alert' | 'request' | 'transaction';
+    offer?: any;
+    actionUrl?: string;
+    category?: string;
+    createdAt?: string;
+}
+
+// Map Firestore/FCM notification to Notification type
+function mapNotification(doc: any): Notification {
+    const data = doc.data ? doc.data() : doc;
+    const payload = data.payload || data;
+    return {
+        id: doc.id || data.id,
+        title: payload.title,
+        body: payload.body,
+        date: formatDate(payload.createdAt), // implement formatDate as needed
+        read: data.seen === false ? false : true,
+        type: (data.category || payload.type || 'promotion').toLowerCase(),
+        offer: payload.offer ? (typeof payload.offer === 'string' ? JSON.parse(payload.offer) : payload.offer) : undefined,
+        actionUrl: payload.actionUrl,
+        category: data.category || payload.type,
+        createdAt: payload.createdAt,
+    };
+}
+
+// Example formatDate function (customize as needed)
+function formatDate(date: any): string {
+    if (!date) return '';
+    if (typeof date === 'string') return date.split(' ')[0];
+    if (typeof date === 'number') return new Date(date).toLocaleDateString();
+    if (date.seconds) return new Date(date.seconds * 1000).toLocaleDateString();
+    return '';
 }
 
 // Define section data structure
@@ -239,8 +270,9 @@ const FilterChip: React.FC<{
 
 const NotificationScreen: React.FC<NotificationScreenProps> = ({ navigation }) => {
     const { showTabBar, hideTabBar } = useTabBarControl();
+
     const {
-        notifications,
+        notifications: rawNotifications,
         unreadCount,
         markAsRead: markNotificationAsRead,
         markAllAsRead: markAllNotificationsAsRead,
@@ -248,6 +280,9 @@ const NotificationScreen: React.FC<NotificationScreenProps> = ({ navigation }) =
         getFilteredNotifications,
         refreshNotifications
     } = useNotifications();
+
+    // Map all notifications to local Notification type
+    const notifications: Notification[] = rawNotifications.map(mapNotification);
 
     const [showSettings, setShowSettings] = useState<boolean>(false);
     const [refreshing, setRefreshing] = useState<boolean>(false);
@@ -278,31 +313,49 @@ const NotificationScreen: React.FC<NotificationScreenProps> = ({ navigation }) =
         { id: 'update', label: 'Updates', icon: 'refresh-outline' },
         { id: 'alert', label: 'Alerts', icon: 'alert-circle-outline' },
     ];
-    // Initialize data and animations
+    // Only show loading spinner on initial mount, and only if notifications are being fetched
     useEffect(() => {
-        // Simulating API fetch
         setLoading(true);
-        setTimeout(() => {
-            const groupedData = groupNotificationsByDate(notifications);
-            setSections(groupedData);
-            setLoading(false);
+        // If there are no notifications, just show placeholder after short delay
+        if (notifications.length === 0) {
+            setTimeout(() => {
+                setSections([]);
+                setLoading(false);
+            }, 400);
+        } else {
+            setTimeout(() => {
+                const groupedData = groupNotificationsByDate(notifications);
+                setSections(groupedData);
+                setLoading(false);
 
-            // Animate cards appearance with staggered animation
-            Animated.parallel([
-                Animated.timing(opacity, {
-                    toValue: 1,
-                    duration: 600,
-                    useNativeDriver: true,
-                    easing: Easing.out(Easing.cubic),
-                }),
-                Animated.timing(translateY, {
-                    toValue: 0,
-                    duration: 700,
-                    useNativeDriver: true,
-                    easing: Easing.out(Easing.poly(4)),
-                }),
-            ]).start();
-        }, 400);
+                // Animate cards appearance with staggered animation
+                Animated.parallel([
+                    Animated.timing(opacity, {
+                        toValue: 1,
+                        duration: 600,
+                        useNativeDriver: true,
+                        easing: Easing.out(Easing.cubic),
+                    }),
+                    Animated.timing(translateY, {
+                        toValue: 0,
+                        duration: 700,
+                        useNativeDriver: true,
+                        easing: Easing.out(Easing.poly(4)),
+                    }),
+                ]).start();
+            }, 400);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // Update sections when notifications change, but don't trigger loading spinner
+    useEffect(() => {
+        if (notifications.length === 0) {
+            setSections([]);
+        } else {
+            setSections(groupNotificationsByDate(notifications));
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [notifications]);
 
     // Group notifications by date
@@ -334,14 +387,14 @@ const NotificationScreen: React.FC<NotificationScreenProps> = ({ navigation }) =
         }));
     };
 
-    // Handle filter change
+    // Handle filter change and notifications change
     useEffect(() => {
         filterNotifications(selectedFilter);
-    }, [selectedFilter]);
+    }, [selectedFilter, notifications]);
 
     // Filter notifications based on active filter
     const filterNotifications = (filter: string) => {
-        const filtered = getFilteredNotifications(filter);
+        const filtered = getFilteredNotifications(filter).map(mapNotification);
         setSections(groupNotificationsByDate(filtered));
     };
 
@@ -359,17 +412,15 @@ const NotificationScreen: React.FC<NotificationScreenProps> = ({ navigation }) =
         // Mark as read using hook function
         markNotificationAsRead(id);
 
-        // Update filtered data
-        filterNotifications(selectedFilter);
-
         // Navigate to notification detail
         const notification = notifications.find((n: Notification) => n.id === id);
         if (notification) {
             navigation.navigate('NotificationDetail', {
-                title: notification.title,
-                message: notification.message,
-                date: notification.date,
-                type: notification.type,
+                ...notification,
+                offer: notification.offer,
+                actionUrl: notification.actionUrl,
+                category: notification.category,
+                createdAt: notification.createdAt,
             });
         }
     };
@@ -379,9 +430,6 @@ const NotificationScreen: React.FC<NotificationScreenProps> = ({ navigation }) =
         // Mark all as read using hook function
         markAllNotificationsAsRead();
 
-        // Update filtered data
-        filterNotifications(selectedFilter);
-
         // Show confirmation
         Alert.alert('Success', 'All notifications marked as read');
     };
@@ -390,9 +438,6 @@ const NotificationScreen: React.FC<NotificationScreenProps> = ({ navigation }) =
     const deleteNotificationHandler = (id: string) => {
         // Delete using hook function
         deleteNotification(id);
-
-        // Update filtered data
-        filterNotifications(selectedFilter);
     };
     // Animation value for refresh button
     const refreshIconRotation = useRef(new Animated.Value(0)).current;
@@ -501,6 +546,9 @@ const NotificationScreen: React.FC<NotificationScreenProps> = ({ navigation }) =
                 case 'alert':
                     tagLabel = 'Alert';
                     break;
+                case 'request':
+                    tagLabel = 'Request';
+                    break;
                 default:
                     tagLabel = 'Notification';
             }
@@ -535,7 +583,7 @@ const NotificationScreen: React.FC<NotificationScreenProps> = ({ navigation }) =
                     onPressIn={handlePressIn}
                     onPressOut={handlePressOut}
                 >
-                    here
+                    {/* Dynamic offer rendering for all notification types */}
                     <View style={styles.contentContainer}>
                         <View style={styles.cardHeader}>
                             <Text style={[
@@ -548,11 +596,24 @@ const NotificationScreen: React.FC<NotificationScreenProps> = ({ navigation }) =
                         </View>
 
                         <Text style={[
-                            styles.message,
+                            styles.body,
                             !item.read && { color: Colors.light.text }
                         ]} numberOfLines={2}>
-                            {item.message}
+                            {item.body}
                         </Text>
+                        {/* Render offer/extra info for each type */}
+                        {item.type === 'promotion' && item.offer && (
+                            <Text style={{ color: Colors.light.secondary, fontWeight: 'bold' }}>Coupon: {item.offer[0]?.text} | Valid: {item.offer[0]?.validity}</Text>
+                        )}
+                        {item.type === 'update' && item.offer && (
+                            <Text style={{ color: Colors.light.primary }}>Version: {item.offer[0]?.text}</Text>
+                        )}
+                        {item.type === 'alert' && item.offer && (
+                            <Text style={{ color: Colors.light.error }}>{item.offer[0]?.text}</Text>
+                        )}
+                        {item.type === 'request' && item.offer && (
+                            <Text style={{ color: Colors.light.info }}>Request: {item.offer[0]?.requestId} | Status: {item.offer[0]?.status}</Text>
+                        )}
 
                         <View style={styles.cardFooter}>
                             <View
@@ -589,8 +650,9 @@ const NotificationScreen: React.FC<NotificationScreenProps> = ({ navigation }) =
     return (
         <View style={styles.container}>
             <StatusBar
-                backgroundColor={Colors.light.primary}
-                barStyle="light-content"
+                backgroundColor="#FFFFFF"
+                translucent={false}
+                barStyle="dark-content"
             />
 
             {/* Header - Matching MyOrdersScreen/RequestsScreen design */}
@@ -599,7 +661,7 @@ const NotificationScreen: React.FC<NotificationScreenProps> = ({ navigation }) =
                     <View>
                         <Text style={styles.headerTitle}>Notifications</Text>
                         <Text style={styles.headerSubtitle}>
-                            {sections.reduce((total, section) => total + section.data.length, 0)} notifications • {unreadCount} unread
+                            {notifications.length} notifications • {unreadCount} unread
                         </Text>
                     </View>
                     <TouchableOpacity
@@ -642,7 +704,8 @@ const NotificationScreen: React.FC<NotificationScreenProps> = ({ navigation }) =
                     <Text style={styles.loadingText}>Loading notifications...</Text>
                 </View>
             ) : (
-                <>          {sections.length > 0 ? (
+                // Only show SectionList if there is at least one notification in any section
+                notifications.length > 0 && sections.some(section => section.data.length > 0) ? (
                     <SectionList
                         sections={sections}
                         keyExtractor={(item) => item.id}
@@ -662,7 +725,8 @@ const NotificationScreen: React.FC<NotificationScreenProps> = ({ navigation }) =
                             />
                         }
                         contentContainerStyle={styles.notificationsList}
-                    />) : (
+                    />
+                ) : (
                     <View style={styles.emptyContainer}>
                         <View style={styles.emptyIconContainer}>
                             <Icon name="notifications-off-outline" size={70} color={Colors.light.primary + '70'} />
@@ -670,7 +734,8 @@ const NotificationScreen: React.FC<NotificationScreenProps> = ({ navigation }) =
                         <Text style={styles.emptyTitle}>No notifications</Text>
                         <Text style={styles.emptyMessage}>
                             You don't have any {selectedFilter !== 'all' ? selectedFilter : ''} notifications in this category at the moment.
-                        </Text>              <TouchableOpacity
+                        </Text>
+                        <TouchableOpacity
                             style={styles.refreshButton}
                             onPress={handleRefresh}
                             activeOpacity={0.7}
@@ -683,8 +748,7 @@ const NotificationScreen: React.FC<NotificationScreenProps> = ({ navigation }) =
                             <Text style={styles.refreshButtonText}>Refresh</Text>
                         </TouchableOpacity>
                     </View>
-                )}
-                </>
+                )
             )}
 
             {/* Settings Modal */}
@@ -964,7 +1028,7 @@ const styles = StyleSheet.create({
         fontSize: 12,
         color: '#999999',
         marginLeft: 8,
-    }, message: {
+    }, body: {
         fontSize: 14,
         color: '#666666',
         lineHeight: 20,

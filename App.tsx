@@ -2,16 +2,19 @@
  * KrushiMandi App
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
+import messaging from '@react-native-firebase/messaging';
+import { navigationRef, isNavigationReady, pendingNotificationData, handleNotificationNavigation } from './src/navigation/navigationService';
+import { notificationTabEmitter } from './src/navigation/buyer/notificationTabEmitter';
 import { StatusBar } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import RNBootSplash from 'react-native-bootsplash';
 import { AppNavigator } from './src/navigation';
 import { Colors } from './src/constants';
 import './global.css';
+import './src/config/appCheckSetup';
 import './src/config/firebase';
 import Toast from 'react-native-toast-message';
-import appCheck from '@react-native-firebase/app-check';
 import { AppBootstrapScreen } from './src/components/common/AppBootstrapScreen';
 import { AuthStateProvider } from './src/components/providers/AuthStateProvider';
 import { AuthBootstrapState } from './src/utils/authBootstrap';
@@ -37,6 +40,7 @@ const App: React.FC = () => {
         requestPermission: requestPushPermission
     } = usePushNotifications();
 
+
     // Initialize network monitoring on app start
     useEffect(() => {
         console.log('📶 Initializing network monitoring...');
@@ -50,6 +54,25 @@ const App: React.FC = () => {
         }
     }, [isBootstrapped]);
 
+    // No-op: now handled in navigationService.tsx
+
+    useEffect(() => {
+        // When app is in background and user taps notification
+        const unsubscribe = messaging().onNotificationOpenedApp(remoteMessage => {
+            if (remoteMessage?.data) {
+                handleNotificationNavigation(remoteMessage.data, notificationTabEmitter);
+            }
+        });
+
+        // When app is opened from quit state by tapping notification
+        messaging().getInitialNotification().then(remoteMessage => {
+            if (remoteMessage?.data) {
+                handleNotificationNavigation(remoteMessage.data, notificationTabEmitter);
+            }
+        });
+
+        return unsubscribe;
+    }, []);
     // Log FCM token when available (for development/debugging)
     useEffect(() => {
         if (fcmToken) {

@@ -22,12 +22,17 @@ import {
   formatLocation
 } from '../../utils/formatters';
 import { useRequests } from '../../hooks/useRequests';
+import { updateFruitStatus } from '../../services';
+import Toast from 'react-native-toast-message';
 
 const { width } = Dimensions.get('window');
 
 const ProductDetailsFarmer = ({ route, navigation }) => {
   // Get product from route params (passed from FarmerHomeScreen)
-  const product = route?.params?.product;
+  // Use local state for product to enable UI updates
+  const initialProduct = route?.params?.product;
+  const [productState, setProductState] = useState(initialProduct);
+  const product = productState;
 
   // Get request management functions
   const { getProductRequestCounts } = useRequests();
@@ -42,16 +47,16 @@ const ProductDetailsFarmer = ({ route, navigation }) => {
   const [isLoadingRequests, setIsLoadingRequests] = useState(true);
 
   // Use image URLs from the new schema
-  const productImages = product?.image_urls || [product?.image].filter(Boolean);
+  const productImages = productState?.image_urls || [product?.image].filter(Boolean);
 
   // Load request counts when component mounts
   useEffect(() => {
     const loadRequestCounts = async () => {
-      if (product?.id) {
+      if (productState?.id) {
         try {
           setIsLoadingRequests(true);
           const counts = await getProductRequestCounts([product.id]);
-          const productCount = counts.find(c => c.productId === product.id);
+          const productCount = counts.find(c => c.productId === productState.id);
           setRequestCount(productCount?.count || 0);
         } catch (error) {
           console.error('Error loading request counts:', error);
@@ -94,6 +99,23 @@ const ProductDetailsFarmer = ({ route, navigation }) => {
       </SafeAreaView>
     );
   }
+
+
+  const handleFruitStatusUpdate = async (fruitId, newStatus) => {
+    try {
+      console.log('🔄 Updating fruit status...', { fruitId, newStatus });
+      await updateFruitStatus(fruitId, newStatus);
+      // Update local product state so UI reflects change immediately
+      setProductState(prev => ({ ...prev, status: newStatus }));
+      const statusMessage = newStatus === 'sold' ? 'marked as sold' :
+        newStatus === 'inactive' ? 'deactivated' :
+          'updated';
+      Alert.alert('Success', `Fruit ${statusMessage} successfully!`);
+    } catch (error) {
+      console.error('❌ Error updating fruit status:', error);
+      Alert.alert('Error', 'Failed to update fruit status: ' + error.message);
+    }
+  };
 
   const handleEdit = () => {
     // Navigate to edit product screen
@@ -164,20 +186,29 @@ Contact for more details and bulk orders!
 
   const handleRemoveFromListing = () => {
     Alert.alert(
-      'Remove from Public Listing',
-      'This will hide your product from public view and move it to history. You can relist it later if needed.',
+      'Mark as Sold',
+      'This will hide your product from public view and move it to history.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Remove',
+          text: 'Mark as Sold',
           style: 'destructive',
-          onPress: () => {
-            // Here you would update the product status to 'unlisted' in your backend
-            Alert.alert(
-              'Product Removed',
-              'Your product has been removed from public listing and moved to history.',
-              [{ text: 'OK', onPress: () => navigation.goBack() }]
-            );
+          onPress: async () => {
+            try {
+              await updateFruitStatus(product.id, 'sold')
+                .then(() => setProductState(prev => ({ ...prev, status: 'sold' })))
+                .catch(error => Alert.alert('Error', 'Failed to mark as sold: ' + error.message));
+
+              Toast.show({
+                type: 'success',
+                text1: 'Fruits Sold',
+                position: 'bottom',
+                visibilityTime: 1000,
+              });
+
+            } catch (error) {
+              Alert.alert('Error', 'Failed to hide product: ' + error.message);
+            }
           }
         }
       ]
@@ -217,7 +248,12 @@ Contact for more details and bulk orders!
         },
         {
           text: '❌ Cancel',
-          style: 'cancel'
+          style: 'cancel',
+          onPress: async () => {
+            // Optionally, mark as sold if user cancels
+            // await updateFruitStatus(product.id, 'sold');
+            // setProductState(prev => ({ ...prev, status: 'sold' }));
+          }
         }
       ]
     );
@@ -299,6 +335,9 @@ Contact for more details and bulk orders!
     };
 
     // Here you would send this data to your backend for analytics
+    updateFruitStatus(product.id, 'sold')
+      .then(() => setProductState(prev => ({ ...prev, status: 'sold' })))
+      .catch(error => Alert.alert('Error', 'Failed to mark as sold: ' + error.message));
     Alert.alert(
       '🎉 Sale Recorded Successfully!',
       `Thank you for the details!\n\n📈 ${quantity} of your ${product.name} (${soldAmount} kg) has been marked as sold.\n💰 Estimated revenue: ₹${estimatedRevenue.toLocaleString()}\n\n✨ This data helps improve our platform and provides better market insights for all farmers.`,
@@ -309,7 +348,6 @@ Contact for more details and bulk orders!
         }
       ]
     );
-
     // Enhanced analytics data
     console.log('Enhanced Sale Data:', details);
   };
@@ -632,11 +670,13 @@ Contact for more details and bulk orders!
               >
 
                 {/* Badge */}
-                {/* {product.inquiries > 0 && (
-                <View style={styles.inquiriesBadge}>
-                  <Text style={styles.inquiriesBadgeText}>{product.inquiries}</Text>
-                </View>
-              )} */}
+                {/* {
+                  requestCount > 0 && (
+                    <View style={styles.inquiriesBadge}>
+                      <Text style={styles.inquiriesBadgeText}>{requestCount}</Text>
+                    </View>
+                  )
+                } */}
 
                 <View style={styles.inquiriesButtonContent}>
                   <View style={styles.inquiriesIcon}>
@@ -660,18 +700,18 @@ Contact for more details and bulk orders!
               </TouchableOpacity>
 
               {/* Secondary Actions (1x width each) */}
-              <TouchableOpacity
+              {/* <TouchableOpacity
                 style={styles.removeButton}
                 onPress={handleRemoveFromListing}
                 activeOpacity={0.8}
               >
                 <Ionicons name="eye-off-outline" size={20} color="#FFF" />
                 <Text style={styles.secondaryButtonText}>Hide</Text>
-              </TouchableOpacity>
+              </TouchableOpacity> */}
 
               <TouchableOpacity
-                style={styles.soldButton}
-                onPress={handleMarkSold}
+                style={styles.removeButton}
+                onPress={handleRemoveFromListing}
                 activeOpacity={0.8}
               >
                 <Ionicons name="checkmark-circle-outline" size={20} color="#FFF" />
@@ -681,7 +721,7 @@ Contact for more details and bulk orders!
           ) : (
             <TouchableOpacity
               style={styles.relistButton}
-              onPress={() => Alert.alert('Relist Product', 'This feature would allow you to make the product active again.')}
+              onPress={() => handleFruitStatusUpdate(product?.id, 'active')}
               activeOpacity={0.8}
             >
               <Ionicons name="refresh-outline" size={22} color="#FFF" style={styles.buttonIcon} />
@@ -1131,7 +1171,7 @@ const styles = StyleSheet.create({
   },
   actionsRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 16,
     alignItems: 'stretch',
   },
   inquiriesButton: {

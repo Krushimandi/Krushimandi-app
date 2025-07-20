@@ -54,13 +54,13 @@ const RequestsScreen = () => {
 
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedFilter, setSelectedFilter] = useState('All');
+  const [selectedFilter, setSelectedFilter] = useState('Pending');
   const [sortBy, setSortBy] = useState('date');
   const [showFilters, setShowFilters] = useState(false);
   const fadeAnim = useState(new Animated.Value(0))[0];
 
   // const filters = ['All', 'Pending', 'Accepted', 'Rejected', 'Expired'];
-  const filters = ['All', 'Pending', 'Accepted', 'Rejected', 'Cancelled', 'Expired'];
+  const filters = ['Pending', 'Rejected', 'Cancelled', 'Expired'];
   const sortOptions = [
     { key: 'date', label: 'Date', icon: 'calendar-outline' },
     { key: 'status', label: 'Status', icon: 'checkmark-circle-outline' },
@@ -508,7 +508,11 @@ const RequestsScreen = () => {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+      <StatusBar
+        backgroundColor="#FFFFFF"
+        translucent={false}
+        barStyle="dark-content"
+      />
 
       {/* Header */}
       <View style={styles.header}>

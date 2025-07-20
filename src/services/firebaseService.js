@@ -1,5 +1,4 @@
-import auth from '@react-native-firebase/auth';
-import { 
+import {
   serverTimestamp as firestoreServerTimestamp,
   collection,
   doc,
@@ -63,14 +62,51 @@ export const initializeNetworkMonitoring = () => {
   networkListener = NetInfo.addEventListener(state => {
     const wasOffline = isOffline;
     isOffline = !state.isConnected;
-    
+
     console.log(`📶 Network state changed: ${isOffline ? 'OFFLINE' : 'ONLINE'}`);
-    
+
     // If coming back online, process offline queue
     if (wasOffline && !isOffline) {
       processOfflineQueue();
     }
   });
+};
+
+/**
+ * Force update user profile from Firestore and update local cache
+ * @returns {Promise<object|null>} Latest user profile or null
+ */
+export const updateUserProfile = async () => {
+  try {
+    const user = firebaseAuth.currentUser;
+    if (!user) return null;
+
+    // Try to get user role from AsyncStorage
+    const localData = await getUserFromAsyncStorage();
+    const userRole = localData?.userRole;
+    if (!userRole) return null;
+
+    // Fetch from Firestore (force refresh)
+    const firestoreData = await getUserFromFirestore(user.uid, userRole);
+    if (!firestoreData) return localData;
+
+    // Compare profileImage URLs
+    const localImage = localData?.profileImage;
+    const remoteImage = firestoreData.profileImage;
+
+    if (localImage === remoteImage) {
+      // No change, use local data
+      return localData;
+    } else {
+      // Image changed, update local cache and offline state
+      await saveUserToAsyncStorage(firestoreData);
+      await saveOfflineAuthState(firestoreData);
+      return firestoreData;
+    }
+  } catch (error) {
+    console.error('❌ updateUserProfile failed:', error);
+    return null;
+  }
 };
 
 /**
@@ -99,11 +135,11 @@ const addToOfflineQueue = (operation, data) => {
     timestamp: Date.now(),
     id: Math.random().toString(36).substr(2, 9)
   });
-  
+
   // Store offline queue in AsyncStorage
   AsyncStorage.setItem('offlineQueue', JSON.stringify(offlineQueue))
     .catch(err => console.error('❌ Failed to save offline queue:', err));
-  
+
   console.log(`📱 Added to offline queue: ${operation}`, data);
 };
 
@@ -118,18 +154,18 @@ const processOfflineQueue = async () => {
   }
 
   isProcessingQueue = true;
-  
+
   try {
     console.log('🔄 Processing offline queue...', offlineQueue.length, 'items');
-    
+
     // Load queue from storage in case app was restarted
     const storedQueue = await AsyncStorage.getItem('offlineQueue');
     if (storedQueue) {
       offlineQueue = [...offlineQueue, ...JSON.parse(storedQueue)];
     }
-    
+
     const processedItems = [];
-    
+
     for (const item of offlineQueue) {
       try {
         switch (item.operation) {
@@ -148,7 +184,7 @@ const processOfflineQueue = async () => {
           default:
             console.log('⚠️ Unknown offline operation:', item.operation);
         }
-        
+
         processedItems.push(item.id);
         console.log('✅ Processed offline item:', item.operation);
       } catch (error) {
@@ -156,13 +192,13 @@ const processOfflineQueue = async () => {
         // Keep failed items in queue for retry
       }
     }
-    
+
     // Remove processed items from queue
     offlineQueue = offlineQueue.filter(item => !processedItems.includes(item.id));
-    
+
     // Update stored queue
     await AsyncStorage.setItem('offlineQueue', JSON.stringify(offlineQueue));
-    
+
     console.log('✅ Offline queue processed. Remaining items:', offlineQueue.length);
   } catch (error) {
     console.error('❌ Error processing offline queue:', error);
@@ -180,7 +216,7 @@ const processOfflineQueue = async () => {
  */
 const handleNetworkError = async (error, operation, fallbackData = null) => {
   const errorMessage = error.message?.toLowerCase() || '';
-  const isNetworkError = 
+  const isNetworkError =
     errorMessage.includes('network') ||
     errorMessage.includes('timeout') ||
     errorMessage.includes('connection') ||
@@ -190,7 +226,7 @@ const handleNetworkError = async (error, operation, fallbackData = null) => {
 
   if (isNetworkError) {
     console.log(`📱 Network error detected for ${operation}, handling offline:`, error.message);
-    
+
     return {
       isNetworkError: true,
       handled: true,
@@ -218,7 +254,7 @@ export const saveOfflineAuthState = async (authData) => {
       lastOfflineSync: Date.now(),
       savedAt: new Date().toISOString()
     };
-    
+
     await AsyncStorage.setItem('offlineAuthState', JSON.stringify(offlineAuthData));
     console.log('✅ Offline auth state saved');
   } catch (error) {
@@ -299,12 +335,12 @@ export const clearAuthData = async () => {
       'auth_state',
       'authStep',
     ]);
-    
+
     // Clear user role storage
     await clearUserRole();
     // Clear any other app-specific storage
     // Add any other storage keys your app uses
-    
+
     console.log('✅ All auth data cleared');
   } catch (error) {
     console.error('❌ Error clearing auth data:', error);
@@ -558,7 +594,7 @@ export const syncUserProfile = async (profileData, onProgress = null) => {
     }
 
     let updatedData = { ...profileData };
-    
+
     // 1. Upload avatar to Firebase Storage if provided (only if online)
     if (profileData.avatar && profileData.avatar.startsWith('file://')) {
       console.log('📸 Uploading new avatar to Firebase Storage...');
@@ -580,7 +616,7 @@ export const syncUserProfile = async (profileData, onProgress = null) => {
         } catch (error) {
           console.error('❌ Avatar upload failed:', error);
           const errorResult = await handleNetworkError(error, 'avatar_upload');
-          
+
           if (errorResult.isNetworkError) {
             // Save avatar locally for later upload
             await AsyncStorage.setItem('pendingAvatarUpload', JSON.stringify({
@@ -589,7 +625,7 @@ export const syncUserProfile = async (profileData, onProgress = null) => {
               userRole: profileData.userRole,
               timestamp: Date.now()
             }));
-            
+
             // Use local avatar for now
             updatedData.profileImage = profileData.avatar;
             if (onProgress) onProgress({ step: 'avatar_offline', message: 'Photo saved locally, will upload when online' });
@@ -606,7 +642,7 @@ export const syncUserProfile = async (profileData, onProgress = null) => {
           userRole: profileData.userRole,
           timestamp: Date.now()
         }));
-        
+
         updatedData.profileImage = profileData.avatar; // Use local path
         if (onProgress) onProgress({ step: 'avatar_offline', message: 'Photo saved locally, will upload when online' });
       }
@@ -671,14 +707,14 @@ export const syncUserProfile = async (profileData, onProgress = null) => {
     if (onProgress) onProgress({ step: 'saving_local', message: 'Saving locally...' });
 
     await saveUserToAsyncStorage(completeUserData);
-    
+
     // 5. Save offline auth state for persistence
     await saveOfflineAuthState(completeUserData);
 
     console.log('✅ User profile sync completed successfully!');
-    if (onProgress) onProgress({ 
-      step: 'complete', 
-      message: isOnline ? 'Profile saved successfully!' : 'Profile saved locally and will sync when online!' 
+    if (onProgress) onProgress({
+      step: 'complete',
+      message: isOnline ? 'Profile saved successfully!' : 'Profile saved locally and will sync when online!'
     });
 
     return true;
@@ -689,7 +725,7 @@ export const syncUserProfile = async (profileData, onProgress = null) => {
 
     // Show different alerts based on network status
     const isOnline = await isNetworkAvailable();
-    
+
     if (!isOnline) {
       Alert.alert(
         'Offline Mode',
@@ -703,7 +739,7 @@ export const syncUserProfile = async (profileData, onProgress = null) => {
         [{ text: 'OK' }]
       );
     }
-    
+
     return false;
   }
 };
@@ -721,14 +757,13 @@ export const getCompleteUserProfile = async (forceRefresh = false) => {
     const user = firebaseAuth.currentUser;
     if (!user) {
       console.log('❌ No authenticated user');
-      
       // Check if we have offline auth state
       const offlineAuth = await getOfflineAuthState();
       if (offlineAuth && offlineAuth.isOfflineAuth) {
         console.log('📱 Using offline auth state');
         return offlineAuth;
       }
-      
+
       return null;
     }
 
@@ -741,13 +776,13 @@ export const getCompleteUserProfile = async (forceRefresh = false) => {
       const localData = await getUserFromAsyncStorage();
       if (localData && localData.uid === user.uid) {
         console.log('✅ User profile loaded from AsyncStorage');
-        
+
         // If offline, this is our only option
         if (!isOnline) {
           console.log('📱 Offline mode: using cached profile data');
           return localData;
         }
-        
+
         // If online but not forcing refresh, use cached data
         if (!forceRefresh) {
           return localData;
@@ -763,7 +798,7 @@ export const getCompleteUserProfile = async (forceRefresh = false) => {
         console.log('📱 Using offline auth state as fallback');
         return offlineAuth;
       }
-      
+
       console.log('❌ No offline data available');
       return null;
     }
@@ -772,6 +807,8 @@ export const getCompleteUserProfile = async (forceRefresh = false) => {
     const authStep = await AsyncStorage.getItem('authStep');
     const localData = await getUserFromAsyncStorage();
     const userRole = localData?.userRole;
+    console.log(localData ? '✅ Local user data found' : '❌ No local user data found');
+    console.log(userRole ? `✅ User role: ${userRole}` : '❌ No user role found in local data');
 
     if (userRole) {
       try {
@@ -779,10 +816,10 @@ export const getCompleteUserProfile = async (forceRefresh = false) => {
         const firestoreData = await getUserFromFirestore(user.uid, userRole);
         if (firestoreData) {
           await saveUserToAsyncStorage(firestoreData);
-          
+
           // Update offline auth state as backup
           await saveOfflineAuthState(firestoreData);
-          
+
           console.log('✅ User profile loaded from Firestore and cached');
           return firestoreData;
         }
@@ -790,12 +827,12 @@ export const getCompleteUserProfile = async (forceRefresh = false) => {
         const errorResult = await handleNetworkError(error, 'get_user_profile');
         if (errorResult.isNetworkError) {
           console.log('📱 Network error getting profile, falling back to local data');
-          
+
           // Fall back to local data if available
           if (localData) {
             return localData;
           }
-          
+
           // Try offline auth state as last resort
           const offlineAuth = await getOfflineAuthState();
           if (offlineAuth) {
@@ -812,7 +849,7 @@ export const getCompleteUserProfile = async (forceRefresh = false) => {
 
   } catch (error) {
     console.error('❌ Failed to get complete user profile:', error);
-    
+
     // Try to fall back to local data in case of any error
     try {
       const localData = await getUserFromAsyncStorage();
@@ -820,7 +857,7 @@ export const getCompleteUserProfile = async (forceRefresh = false) => {
         console.log('📱 Error occurred, falling back to local data');
         return localData;
       }
-      
+
       const offlineAuth = await getOfflineAuthState();
       if (offlineAuth) {
         console.log('📱 Error occurred, falling back to offline auth state');
@@ -829,7 +866,7 @@ export const getCompleteUserProfile = async (forceRefresh = false) => {
     } catch (fallbackError) {
       console.error('❌ Fallback data retrieval also failed:', fallbackError);
     }
-    
+
     return null;
   }
 };
@@ -844,7 +881,7 @@ export const updateLastLogin = async (userId, userRole) => {
   try {
     // Check if online
     const isOnline = await isNetworkAvailable();
-    
+
     if (isOnline) {
       await updateUserInFirestore(userId, userRole, {
         lastLoginAt: firestoreServerTimestamp(),
@@ -997,14 +1034,14 @@ export const validateCurrentUser = async () => {
     const user = firebaseAuth.currentUser;
     if (!user) {
       console.log('❌ No current user found');
-      
+
       // Check offline auth state
       const offlineAuth = await getOfflineAuthState();
       if (offlineAuth && offlineAuth.isOfflineAuth) {
         console.log('📱 No Firebase auth user, but offline auth state exists');
         return true; // Allow offline access
       }
-      
+
       return false;
     }
 
@@ -1017,11 +1054,11 @@ export const validateCurrentUser = async () => {
     // If offline, allow user to stay logged in using cached data
     if (!isOnline) {
       console.log('📱 Offline mode: skipping Firebase validation, using local auth state');
-      
+
       // Check if we have local user data
       const localData = await getUserFromAsyncStorage();
       const offlineAuth = await getOfflineAuthState();
-      
+
       if (localData || offlineAuth) {
         console.log('✅ Offline validation successful - user has local data');
         return true;
@@ -1036,21 +1073,21 @@ export const validateCurrentUser = async () => {
       // Try to get fresh user data from Firebase Auth
       await user.reload();
       console.log('✅ Firebase Auth user still valid');
-      
+
       // Check if user data exists in Firestore
       const userData = await getUserFromAsyncStorage();
-      
+
       if (userData?.phoneNumber) {
         try {
           // Check in Firestore using phone number to ensure data integrity
           const firestoreCheck = await checkUserExistsInFirestore(userData.phoneNumber);
-          
+
           if (firestoreCheck.exists && firestoreCheck.userData) {
             console.log('✅ User data still exists in Firestore');
-            
+
             // Update offline auth state with fresh data
             await saveOfflineAuthState(firestoreCheck.userData);
-            
+
             return true;
           } else {
             console.log('❌ User data not found in Firestore, may have been deleted');
@@ -1068,18 +1105,18 @@ export const validateCurrentUser = async () => {
           }
         }
       }
-      
+
       // Also try standard profile check for backward compatibility
       try {
         const profile = await getCompleteUserProfile(true); // Force refresh
-        
+
         if (!profile) {
           console.log('❌ User profile not found, user data may have been deleted');
           await clearUserData();
           await clearOfflineAuthState();
           return false;
         }
-        
+
         console.log('✅ User validation successful');
         return true;
       } catch (profileError) {
@@ -1091,11 +1128,11 @@ export const validateCurrentUser = async () => {
           throw profileError;
         }
       }
-      
+
     } catch (reloadError) {
       // If reload fails, the user has likely been deleted from Firebase Auth
       console.error('❌ User reload failed:', reloadError);
-      
+
       const errorResult = await handleNetworkError(reloadError, 'auth_reload');
       if (errorResult.isNetworkError) {
         console.log('📱 Auth reload failed due to network, allowing offline access');
@@ -1110,7 +1147,7 @@ export const validateCurrentUser = async () => {
 
   } catch (error) {
     console.error('❌ User validation failed:', error);
-    
+
     const errorResult = await handleNetworkError(error, 'user_validation');
     if (errorResult.isNetworkError) {
       console.log('📱 Validation failed due to network error, allowing offline access');
@@ -1134,29 +1171,29 @@ export const validateCurrentUser = async () => {
 export const checkUserExistsInFirestore = async (phoneNumber) => {
   try {
     console.log('🔍 Checking if user exists in Firestore by phone number:', phoneNumber);
-    
+
     // Check in farmers collection
     const farmersCollectionRef = collection(firebaseFirestore, COLLECTIONS.FARMERS);
     const farmersQuery = query(farmersCollectionRef, where('phoneNumber', '==', phoneNumber), limit(1));
     let snapshot = await getDocs(farmersQuery);
-    
+
     if (!snapshot.empty) {
       const userData = snapshot.docs[0].data();
       console.log('✅ User found in farmers collection:', userData.uid);
       return { exists: true, userData, collection: COLLECTIONS.FARMERS };
     }
-    
+
     // Check in buyers collection
     const buyersCollectionRef = collection(firebaseFirestore, COLLECTIONS.BUYERS);
     const buyersQuery = query(buyersCollectionRef, where('phoneNumber', '==', phoneNumber), limit(1));
     snapshot = await getDocs(buyersQuery);
-    
+
     if (!snapshot.empty) {
       const userData = snapshot.docs[0].data();
       console.log('✅ User found in buyers collection:', userData.uid);
       return { exists: true, userData, collection: COLLECTIONS.BUYERS };
     }
-    
+
     console.log('❌ User not found in any collection');
     return { exists: false, userData: null, collection: null };
   } catch (error) {

@@ -21,15 +21,16 @@ import {
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import auth from '@react-native-firebase/auth';
+import appCheck from '@react-native-firebase/app-check';
 import { useAuth } from '../../contexts/AuthContext';
 
 const MobileScreen = ({ navigation }) => {
   const { setPhoneNumber, setConfirmation } = useAuth();
-  const [mobile, setMobile] = useState('');  const [modalVisible, setModalVisible] = useState(false);
+  const [mobile, setMobile] = useState(''); const [modalVisible, setModalVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [isFocused, setIsFocused] = useState(false);
-  const [showHelpModal, setShowHelpModal] = useState(false);  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const [showHelpModal, setShowHelpModal] = useState(false); const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
   const modalAnimation = useRef(new Animated.Value(0)).current;
   const inputRef = useRef(null);
@@ -126,14 +127,17 @@ const MobileScreen = ({ navigation }) => {
     setError('');
 
     try {
-      // Send OTP using Firebase
+      // // Send OTP using Firebase
+      // const tokenResult = await appCheck().getToken();
+      // console.log('App Check token:', tokenResult.token);
+
       const phoneNumberWithCode = `+91${mobile}`;
       const confirmation = await auth().signInWithPhoneNumber(phoneNumberWithCode);
-      
+
       // Store phone number and confirmation in context
       setPhoneNumber(phoneNumberWithCode);
       setConfirmation(confirmation);
-      
+
       // Navigate without passing confirmation
       navigation.navigate('OTPVerification', { phoneNumber: phoneNumberWithCode });
     } catch (err) {
@@ -228,7 +232,7 @@ const MobileScreen = ({ navigation }) => {
               <Text style={styles.heading}>Verify your phone number</Text>
               <Text style={styles.subtext}>We'll send you a 6-digit verification code to confirm your identity</Text>
 
-              {/* Enhanced Input Section */}              
+              {/* Enhanced Input Section */}
               <View style={styles.inputSection}>
                 <Text style={styles.inputLabel}>Mobile Number</Text>
                 <View style={inputWrapperStyle}>
@@ -278,7 +282,7 @@ const MobileScreen = ({ navigation }) => {
                 <Text style={styles.characterCount}>
                   {mobile.length}/10 digits
                 </Text>
-              </View>              
+              </View>
             </Animated.View>
           </ScrollView>
 
@@ -310,8 +314,8 @@ const MobileScreen = ({ navigation }) => {
           <TouchableWithoutFeedback onPress={closeHelpModal}>
             <View style={styles.modalBackground} />
           </TouchableWithoutFeedback>
-          
-          <Animated.View 
+
+          <Animated.View
             style={[
               styles.helpModal,
               {
@@ -347,7 +351,7 @@ const MobileScreen = ({ navigation }) => {
             {/* Modal Content */}
             <View style={styles.modalContent}>
               <Text style={styles.modalSubtitle}>Tips for entering your mobile number:</Text>
-              
+
               <View style={styles.helpOption}>
                 <Ionicons name="call-outline" size={20} color="#007E2F" />
                 <Text style={styles.helpOptionText}>Enter 10-digit Indian mobile number</Text>
@@ -566,7 +570,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#CCCCCC',
     shadowOpacity: 0,
     elevation: 0,
-  },  nextText: {
+  }, nextText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',

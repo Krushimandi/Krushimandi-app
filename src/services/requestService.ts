@@ -4,28 +4,60 @@
  */
 
 import { auth, firestore } from '../config/firebase';
-import { increment, serverTimestamp, Timestamp } from '@react-native-firebase/firestore';
+import { addDoc, collection, increment, serverTimestamp, Timestamp } from '@react-native-firebase/firestore';
 import { Request, RequestStatus, CreateRequestInput, RequestResponseInput, RequestFilters, ProductRequestCount } from '../types/Request';
+
+interface CreateFeedbackInput {
+    message: string;
+    rating?: 'good' | 'neutral' | 'bad';
+    userType: 'buyer' | 'farmer';
+    timestamp?: number;
+    context?: string; // optional - like "app_crash", "feature_request", etc.
+}
 
 // Helper type for request creation (before saving to Firestore)
 type RequestForCreation = Omit<Request, 'id' | 'createdAt' | 'updatedAt' | 'expiresAt' | 'farmerResponse'> & {
-  createdAt: any; // Will be serverTimestamp()
-  updatedAt: any; // Will be serverTimestamp()
-  expiresAt: any; // Will be Timestamp
-  farmerResponse?: Omit<Request['farmerResponse'], 'respondedAt'> & {
-    respondedAt?: any; // Will be serverTimestamp()
-  };
+    createdAt: any; // Will be serverTimestamp()
+    updatedAt: any; // Will be serverTimestamp()
+    expiresAt: any; // Will be Timestamp
+    farmerResponse?: Omit<Request['farmerResponse'], 'respondedAt'> & {
+        respondedAt?: any; // Will be serverTimestamp()
+    };
 };
 
 class RequestService {
     private db = firestore;
+
+    // Add Feedback to system
+    async sendFeedback(uuid: string, input: CreateFeedbackInput): Promise<string> {
+        try {
+            // Check for existing requests from this buyer for this product
+            console.log('🔍 Sending feedback for UUID:', uuid, 'with input:', input);
+
+            const feedbackRef = collection(this.db, 'feedbacks');
+            const docRef = await addDoc(feedbackRef, {
+                uuid,
+                message: input.message,
+                rating: input.rating || null,
+                userType: input.userType,
+                timestamp: Timestamp.now(),
+                context: input.context || null,
+            });
+
+            return docRef.id; // return generated feedback ID
+        } catch (error) {
+            console.error('Error sending feedback:', error);
+            throw error;
+        }
+
+    }
 
     // Create a new request
     async createRequest(buyerId: string, input: CreateRequestInput): Promise<string> {
         try {
             // Check for existing requests from this buyer for this product
             console.log('🔍 Checking for existing requests from buyer:', buyerId, 'for product:', input.productId);
-            
+
             const existingRequestsQuery = await this.db
                 .collection('requests')
                 .where('buyerId', '==', buyerId)
@@ -40,7 +72,7 @@ class RequestService {
                     status: existingRequest.status,
                     createdAt: existingRequest.createdAt
                 });
-                
+
                 throw new Error('You have already sent a request for this product. Please wait for the farmer to respond.');
             }
 
@@ -55,7 +87,7 @@ class RequestService {
             const fruitData = fruitDoc.data();
             console.log('🍎 Fruit data from Firestore:', JSON.stringify(fruitData, null, 2));
             console.log('🍎 Fruit data keys:', Object.keys(fruitData || {}));
-            
+
             // Get buyer details
             const buyerDoc = await this.db.collection('buyers').doc(buyerId).get();
             if (!buyerDoc.exists) {
@@ -94,10 +126,10 @@ class RequestService {
                     priceUnit: 'ton', // Default unit as per new schema
                     category: fruitData!.type || 'Other',
                     farmerName: farmerData!.name || farmerData!.displayName || 'Unknown Farmer',
-                    farmerLocation: farmerData!.location || 
-                                  (fruitData!.location ? 
-                                    `${fruitData!.location.village}, ${fruitData!.location.district}, ${fruitData!.location.state}` : 
-                                    'Unknown Location'),
+                    farmerLocation: farmerData!.location ||
+                        (fruitData!.location ?
+                            `${fruitData!.location.village}, ${fruitData!.location.district}, ${fruitData!.location.state}` :
+                            'Unknown Location'),
                     imageUrl: fruitData!.image_urls && fruitData!.image_urls.length > 0 ? fruitData!.image_urls[0] : ''
                 },
                 buyerDetails: {
@@ -138,6 +170,8 @@ class RequestService {
         }
     }
 
+
+
     // Get requests for a buyer
     async getBuyerRequests(buyerId: string, filters?: RequestFilters): Promise<Request[]> {
         try {
@@ -169,7 +203,7 @@ class RequestService {
                     ...data
                 } as Request;
             });
-            
+
             return requests;
         } catch (error) {
             console.error('Error fetching buyer requests:', error);
@@ -329,8 +363,8 @@ class RequestService {
             console.log('✅ Request resent with ID:', requestId);
 
             // Update fruit request count (only if it was cancelled/rejected before)
-            if (requestData.status === RequestStatus.CANCELLED || 
-                requestData.status === RequestStatus.REJECTED || 
+            if (requestData.status === RequestStatus.CANCELLED ||
+                requestData.status === RequestStatus.REJECTED ||
                 requestData.status === RequestStatus.EXPIRED) {
                 await this.updateProductRequestCount(requestData.productId, 1);
             }
@@ -430,11 +464,11 @@ class RequestService {
     // Helper method to clean object for Firestore (remove undefined values)
     private cleanObjectForFirestore(obj: any): any {
         const cleaned: any = {};
-        
+
         for (const key in obj) {
             if (obj.hasOwnProperty(key)) {
                 const value = obj[key];
-                
+
                 if (value !== undefined) {
                     if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
                         // Recursively clean nested objects
@@ -445,7 +479,7 @@ class RequestService {
                 }
             }
         }
-        
+
         return cleaned;
     }
 
