@@ -1,6 +1,7 @@
 /**
  * Notification Hook
  * Provides notification state and functions for components
+ * Now with Firestore integration
  */
 
 import { useState, useEffect } from 'react';
@@ -12,6 +13,9 @@ import {
     markAllNotificationsAsRead,
     deleteNotification,
     getNotificationsByType,
+    loadNotificationsFromFirestore,
+    subscribeToNotificationUpdates,
+    addNotificationListener,
     type Notification
 } from '../services/notificationService';
 import { updateAppIconBadge, clearAppIconBadge } from '../utils/appIconBadge';
@@ -23,6 +27,7 @@ export const useNotifications = () => {
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [unreadCount, setUnreadCount] = useState<number>(0);
     const [badgeText, setBadgeText] = useState<string>('0');
+    const [loading, setLoading] = useState<boolean>(true);
 
     // Update state from service
     const refreshNotifications = () => {
@@ -38,28 +43,60 @@ export const useNotifications = () => {
         updateAppIconBadge();
     };
 
-    // Initialize notifications
+    // Initialize notifications and set up real-time updates
     useEffect(() => {
-        refreshNotifications();
+        let unsubscribeFirestore: (() => void) | null = null;
+        let unsubscribeListener: (() => void) | null = null;
+
+        const initializeNotifications = async () => {
+            try {
+                setLoading(true);
+                
+                // Load initial notifications from Firestore
+                await loadNotificationsFromFirestore();
+                
+                // Set up real-time listener
+                unsubscribeFirestore = subscribeToNotificationUpdates();
+                
+                // Set up local change listener
+                unsubscribeListener = addNotificationListener(refreshNotifications);
+                
+                // Initial refresh
+                refreshNotifications();
+                
+            } catch (error) {
+                console.error('❌ Error initializing notifications:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        initializeNotifications();
+
+        // Cleanup function
+        return () => {
+            if (unsubscribeFirestore) unsubscribeFirestore();
+            if (unsubscribeListener) unsubscribeListener();
+        };
     }, []);
 
     // Mark notification as read
-    const markAsRead = (id: string) => {
-        markNotificationAsRead(id);
-        refreshNotifications();
+    const markAsRead = async (id: string) => {
+        await markNotificationAsRead(id);
+        // refreshNotifications will be called automatically via listener
     };
 
     // Mark all notifications as read
-    const markAllAsRead = () => {
-        markAllNotificationsAsRead();
+    const markAllAsRead = async () => {
+        await markAllNotificationsAsRead();
         clearAppIconBadge();
-        refreshNotifications();
+        // refreshNotifications will be called automatically via listener
     };
 
     // Delete notification
-    const deleteNotificationById = (id: string) => {
-        deleteNotification(id);
-        refreshNotifications();
+    const deleteNotificationById = async (id: string) => {
+        await deleteNotification(id);
+        // refreshNotifications will be called automatically via listener
     };
 
     // Get notifications by filter
@@ -71,6 +108,7 @@ export const useNotifications = () => {
         notifications,
         unreadCount,
         badgeText,
+        loading,
         markAsRead,
         markAllAsRead,
         deleteNotification: deleteNotificationById,

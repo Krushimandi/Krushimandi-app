@@ -2,9 +2,22 @@
  * Layout Constants for KrushiMandi App
  */
 
-import { Dimensions, Platform } from 'react-native';
+import { Dimensions, Platform, StatusBar } from 'react-native';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+
+// Dynamic header constants that adapt to safe area
+export const getHeaderConstants = (safeAreaTop: number = 0) => {
+  const statusBarHeight = Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0;
+  const safeTop = Math.max(safeAreaTop, statusBarHeight);
+  
+  return {
+    HEADER_MAX_HEIGHT: 146 + safeTop, // Increased for better proportion
+    HEADER_MIN_HEIGHT: 70 + safeTop,  // Increased min height
+    HEADER_SCROLL_DISTANCE: 80, // Optimal scroll distance
+    SAFE_AREA_TOP: safeTop,
+  };
+};
 
 export const Layout = {
   // Screen Dimensions
@@ -47,9 +60,11 @@ export const Layout = {
     borderRadius: 8,
   },
   
-  // Header Heights
+  // Header Heights (Static - use getHeaderConstants() for dynamic values)
   header: {
     height: Platform.OS === 'ios' ? 88 : 64,
+    maxHeight: 140, // Base max height without safe area
+    minHeight: 60,  // Base min height without safe area
   },
   
   // Tab Bar

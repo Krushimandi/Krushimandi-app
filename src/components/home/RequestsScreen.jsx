@@ -16,20 +16,28 @@ import {
   RefreshControl,
   Animated,
   Linking,
+  Platform,
+  Dimensions,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Colors } from '../../constants/Colors';
+import { getHeaderConstants } from '../../constants/Layout';
 import { useTabBarControl } from '../../utils/navigationControls.ts';
 import { useRequests } from '../../hooks/useRequests';
 import { useAuthState } from '../providers/AuthStateProvider';
 import { Request, RequestStatus } from '../../types/Request';
 import Toast from 'react-native-toast-message';
+// Add import for testing notifications
+import { sendTestNotification } from '../../utils/testNotifications';
 
 const RequestsScreen = () => {
   const navigation = useNavigation();
   const { showTabBar } = useTabBarControl();
   const { user } = useAuthState();
+  const insets = useSafeAreaInsets();
+  const headerConstants = getHeaderConstants(insets.top);
   const {
     requests,
     loading,
@@ -361,8 +369,7 @@ const RequestsScreen = () => {
       >
         <TouchableOpacity
           style={styles.requestContent}
-          // onPress={() => handleRequestTap(item)}
-          onPress={() => { }}
+          onPress={() => handleRequestTap(item)}
           activeOpacity={0.7}
         >
           <View style={styles.requestHeader}>
@@ -460,41 +467,39 @@ const RequestsScreen = () => {
 
   // Render filter chips
   const renderFilterChips = () => (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      style={{ maxHeight: 50 }} // max height to avoid full-height scroll
-      contentContainerStyle={{
-        paddingHorizontal: 10,
-        alignItems: 'center' // important for vertical wrap
-      }}
-    >
-      {filters.map((filter) => (
-        <TouchableOpacity
-          key={filter}
-          style={[
-            styles.filterChip,
-            selectedFilter === filter && styles.filterChipActive
-          ]}
-          onPress={() => setSelectedFilter(filter)}
-        >
-          <Text style={[
-            styles.filterChipText,
-            selectedFilter === filter && styles.filterChipTextActive
-          ]}>
-            {filter}
-          </Text>
-          {filter !== 'All' && (
+    <View style={styles.filterContainer}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.filterContent}
+      >
+        {filters.map((filter) => (
+          <TouchableOpacity
+            key={filter}
+            style={[
+              styles.filterChip,
+              selectedFilter === filter && styles.filterChipActive
+            ]}
+            onPress={() => setSelectedFilter(filter)}
+          >
             <Text style={[
-              styles.filterCount,
-              selectedFilter === filter && styles.filterCountActive
+              styles.filterChipText,
+              selectedFilter === filter && styles.filterChipTextActive
             ]}>
-              {stats[filter.toLowerCase()] || 0}
+              {filter}
             </Text>
-          )}
-        </TouchableOpacity>
-      ))}
-    </ScrollView>
+            {filter !== 'All' && (
+              <Text style={[
+                styles.filterCount,
+                selectedFilter === filter && styles.filterCountActive
+              ]}>
+                {stats[filter.toLowerCase()] || 0}
+              </Text>
+            )}
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+    </View>
   );
 
   if (loading) {
@@ -515,17 +520,35 @@ const RequestsScreen = () => {
       />
 
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <View style={styles.headerTop}>
           <Text style={styles.headerTitle}>
             {user?.role === 'buyer' ? 'My Requests' : 'Received Requests'}
           </Text>
-          <TouchableOpacity
-            style={styles.sortButton}
-            onPress={() => setShowFilters(!showFilters)}
-          >
-            <Icon name="options-outline" size={20} color="#6B7280" />
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              style={styles.sortButton}
+              onPress={() => setShowFilters(!showFilters)}
+            >
+              <Icon name="options-outline" size={20} color="#6B7280" />
+            </TouchableOpacity>
+
+            {/* Debug: Test Notification Button - Remove in production */}
+            <TouchableOpacity
+              style={[styles.sortButton, styles.testNotificationButton]}
+              onPress={async () => {
+                const success = await sendTestNotification();
+                Toast.show({
+                  type: success ? 'success' : 'error',
+                  text1: success ? 'Test Notification Sent' : 'Failed to Send',
+                  text2: success ? 'Check your notification screen' : 'Error sending test notification',
+                  position: 'bottom',
+                });
+              }}
+            >
+              <Icon name="notifications-outline" size={20} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
         </View>
         <Text style={styles.headerSubtitle}>
           {filteredAndSortedRequests.length} of {stats.total} requests
@@ -639,17 +662,28 @@ const styles = StyleSheet.create({
   },
   header: {
     backgroundColor: '#FFFFFF',
-    paddingTop: 40,
     paddingHorizontal: 20,
     paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
+    // Shadow for better visual separation
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 2,
   },
   headerTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 8,
+    minHeight: 44, // Ensure touch target size
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   headerTitle: {
     fontSize: 28,
@@ -670,6 +704,13 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 10,
     backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 40,
+    minHeight: 40,
+  },
+  testNotificationButton: {
+    backgroundColor: '#10B981',
   },
   statsContainer: {
     flexDirection: 'row',
@@ -706,23 +747,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
     marginHorizontal: 16,
-    marginVertical: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    marginTop: 16,
+    marginBottom: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     borderRadius: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
     shadowRadius: 2,
     elevation: 1,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
   },
   searchInput: {
     flex: 1,
     fontSize: 15,
-    marginLeft: 10,
+    marginLeft: 12,
     color: '#111827',
     fontWeight: '500',
     lineHeight: 20,
+    paddingVertical: 0, // Remove default padding for better alignment
   },
   filterContainer: {
     paddingLeft: 16,
@@ -730,22 +775,25 @@ const styles = StyleSheet.create({
   },
   filterContent: {
     paddingRight: 16,
-    paddingVertical: 0,
+    paddingVertical: 4,
+    alignItems: 'center',
   },
   filterChip: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    marginRight: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 18,
+    marginRight: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
     shadowRadius: 2,
     elevation: 1,
-    height: 32,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    minHeight: 36,
   },
   filterChipActive: {
     backgroundColor: Colors.light.primary,
@@ -778,14 +826,16 @@ const styles = StyleSheet.create({
   sortContainer: {
     backgroundColor: '#FFFFFF',
     marginHorizontal: 16,
-    marginBottom: 12,
-    padding: 14,
+    marginBottom: 16,
+    padding: 16,
     borderRadius: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
     shadowRadius: 2,
     elevation: 1,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
   },
   sortTitle: {
     fontSize: 15,
@@ -798,10 +848,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F3F4F6',
-    paddingHorizontal: 10,
-    paddingVertical: 7,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 10,
-    marginRight: 6,
+    marginRight: 8,
+    minHeight: 36,
   },
   sortOptionActive: {
     backgroundColor: Colors.light.primary,
@@ -821,21 +872,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   listContent: {
-    paddingBottom: 100, // Extra space for bottom navigation
+    paddingBottom: Platform.OS === 'ios' ? 120 : 100, // Better spacing for navigation
   },
   requestItem: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
-    marginBottom: 10,
+    marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 6,
     elevation: 3,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#F8FAFC',
   },
   requestContent: {
-    padding: 16,
+    padding: 18,
   },
   requestHeader: {
     marginBottom: 10,
@@ -951,21 +1004,29 @@ const styles = StyleSheet.create({
   },
   actionButtons: {
     flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
     borderTopWidth: 1,
     borderTopColor: '#F3F4F6',
-    gap: 10,
+    gap: 12,
   },
   cancelButton: {
-    padding: 7,
+    padding: 8,
     borderRadius: 10,
     backgroundColor: '#FEF2F2',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 36,
+    minHeight: 36,
   },
   resendButton: {
-    padding: 7,
+    padding: 8,
     borderRadius: 10,
     backgroundColor: '#ECFDF5',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 36,
+    minHeight: 36,
   },
   emptyState: {
     alignItems: 'center',

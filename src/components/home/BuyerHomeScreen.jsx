@@ -16,7 +16,9 @@ import {
   SafeAreaView,
   Modal,
   RefreshControl,
+  Dimensions,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Octicons from 'react-native-vector-icons/Octicons';
 import { useNavigation } from '@react-navigation/native';
@@ -25,6 +27,7 @@ import { getCompleteUserProfile, updateLastLogin, validateCurrentUser } from '..
 import { getMarketplaceFruits } from '../../services/fruitService';
 import auth from '@react-native-firebase/auth';
 import { Colors } from '../../constants';
+import { getHeaderConstants } from '../../constants/Layout';
 import FilterScreen from './FilterScreen';
 import Toast from 'react-native-toast-message';
 import {
@@ -45,12 +48,13 @@ const categories = [
   { name: 'Mango', type: 'mango', icon: require('../../assets/fruits/mango.png') },
 ];
 
-const HEADER_MAX_HEIGHT = 158; // Maximum header height
-const HEADER_MIN_HEIGHT = Platform.OS === 'ios' ? 95 : 75; // Minimum header height after scroll
-const HEADER_SCROLL_DISTANCE = HEADER_MAX_HEIGHT - HEADER_MIN_HEIGHT;
+// Get screen dimensions
+const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 const BuyerHomeScreen = () => {
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
+  const headerConstants = getHeaderConstants(insets.top);
   const [userProfile, setUserProfile] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
@@ -69,28 +73,62 @@ const BuyerHomeScreen = () => {
   const scrollY = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(0)).current;
 
-  // Calculate header height and opacity based on scroll
+  // Calculate header height and opacity based on scroll with proper constants
   const headerHeight = scrollY.interpolate({
-    inputRange: [0, HEADER_SCROLL_DISTANCE],
-    outputRange: [HEADER_MAX_HEIGHT, HEADER_MIN_HEIGHT],
+    inputRange: [0, headerConstants.HEADER_SCROLL_DISTANCE],
+    outputRange: [headerConstants.HEADER_MAX_HEIGHT, headerConstants.HEADER_MIN_HEIGHT],
     extrapolate: 'clamp',
   });
 
   const headerOpacity = scrollY.interpolate({
-    inputRange: [0, HEADER_SCROLL_DISTANCE / 2, HEADER_SCROLL_DISTANCE],
-    outputRange: [1, 0.5, 0],
+    inputRange: [0, headerConstants.HEADER_SCROLL_DISTANCE * 0.3, headerConstants.HEADER_SCROLL_DISTANCE * 0.8],
+    outputRange: [1, 0.8, 0],
     extrapolate: 'clamp',
   });
 
   const titleOpacity = scrollY.interpolate({
-    inputRange: [0, HEADER_SCROLL_DISTANCE / 2, HEADER_SCROLL_DISTANCE],
+    inputRange: [0, headerConstants.HEADER_SCROLL_DISTANCE * 0.5, headerConstants.HEADER_SCROLL_DISTANCE],
     outputRange: [0, 0.5, 1],
     extrapolate: 'clamp',
   });
 
-  const titleIndex = scrollY.interpolate({
-    inputRange: [0, HEADER_SCROLL_DISTANCE / 2, HEADER_SCROLL_DISTANCE],
-    outputRange: [0, 50, 100],
+  const titleTranslateY = scrollY.interpolate({
+    inputRange: [0, headerConstants.HEADER_SCROLL_DISTANCE],
+    outputRange: [15, 0],
+    extrapolate: 'clamp',
+  });
+
+  // Fixed header shadow opacity - matches title opacity
+  const fixedHeaderShadowOpacity = scrollY.interpolate({
+    inputRange: [0, headerConstants.HEADER_SCROLL_DISTANCE * 0.7, headerConstants.HEADER_SCROLL_DISTANCE],
+    outputRange: [0, 0, 0.1],
+    extrapolate: 'clamp',
+  });
+
+  // Fixed header border opacity - only show when nearly fully visible
+  const fixedHeaderBorderOpacity = scrollY.interpolate({
+    inputRange: [0, headerConstants.HEADER_SCROLL_DISTANCE * 0.85, headerConstants.HEADER_SCROLL_DISTANCE],
+    outputRange: [0, 0, 1],
+    extrapolate: 'clamp',
+  });
+
+  // Fixed header elevation for Android
+  const fixedHeaderElevation = scrollY.interpolate({
+    inputRange: [0, headerConstants.HEADER_SCROLL_DISTANCE * 0.8, headerConstants.HEADER_SCROLL_DISTANCE],
+    outputRange: [0, 0, 8],
+    extrapolate: 'clamp',
+  });
+
+  // Search row animation - smoother transition
+  const searchRowOpacity = scrollY.interpolate({
+    inputRange: [0, headerConstants.HEADER_SCROLL_DISTANCE * 0.4, headerConstants.HEADER_SCROLL_DISTANCE * 0.9],
+    outputRange: [1, 0.6, 0],
+    extrapolate: 'clamp',
+  });
+
+  const searchRowTranslateY = scrollY.interpolate({
+    inputRange: [0, headerConstants.HEADER_SCROLL_DISTANCE],
+    outputRange: [0, -25],
     extrapolate: 'clamp',
   });
 
@@ -468,10 +506,17 @@ const BuyerHomeScreen = () => {
           styles.fixedHeaderTitle,
           {
             opacity: titleOpacity,
-            zIndex: titleIndex,
+            transform: [{ translateY: titleTranslateY }],
+            paddingTop: insets.top + 8, // Adjusted padding
+            height: headerConstants.HEADER_MIN_HEIGHT,
+            backgroundColor: '#FFFFFF', // Ensure solid background
+            // Animated shadow and elevation
+            shadowOpacity: fixedHeaderShadowOpacity,
+            elevation: fixedHeaderElevation,
           }
         ]}>
-        <Image source={require('../../assets/icon.png')} style={styles.fixedHeaderImage} />        <TouchableOpacity
+        <Image source={require('../../assets/icon.png')} style={styles.fixedHeaderImage} />
+        <TouchableOpacity
           style={styles.notificationIconButton}
           onPress={() => {
             navigation.navigate('Notification');
@@ -480,12 +525,26 @@ const BuyerHomeScreen = () => {
         >
           <Icon name="notifications-outline" size={24} color="#000" />
         </TouchableOpacity>
+        
+        {/* Animated Border */}
+        <Animated.View
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: 1,
+            backgroundColor: '#EFEFEF',
+            opacity: fixedHeaderBorderOpacity,
+          }}
+        />
       </Animated.View>
 
       <Animated.ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollViewContent}
-        scrollEventThrottle={16}
+        scrollEventThrottle={1} // Reduced for smoother animation
+        bounces={true} // Enable bounce for better feel
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -498,7 +557,12 @@ const BuyerHomeScreen = () => {
         }
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-          { useNativeDriver: false }
+          {
+            useNativeDriver: false, // Height animations require layout thread
+            listener: (event) => {
+              // Optional: Add custom scroll logic here if needed
+            }
+          }
         )}
       >
         {/* Collapsible Header */}
@@ -506,101 +570,116 @@ const BuyerHomeScreen = () => {
           styles.header,
           {
             height: headerHeight,
-            opacity: headerOpacity
+            paddingTop: insets.top,
+            backgroundColor: '#FFFFFF', // Ensure background stays white
           }
         ]}>
-          <View style={styles.headerRow}>
-            <View style={styles.profileContainer}>
-              {userProfile?.profileImage ? (
-                <TouchableOpacity onPress={() => {
-                  safeNavigate('ProfileScreen');
-                }}
-                  style={styles.profileImageButton}
-                  activeOpacity={0.7}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <View style={styles.profileImage}>
-                    <Image
-                      source={{ uri: userProfile.profileImage }}
-                      style={{ width: '100%', height: '100%' }}
-                    />
-                  </View>
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity
-                  style={styles.profilePlaceholderButton} onPress={() => {
+          <Animated.View style={[
+            styles.headerContent,
+            {
+              opacity: headerOpacity,
+              backgroundColor: 'transparent', // Prevent double background
+            }
+          ]}>
+            <View style={styles.headerRow}>
+              <View style={styles.profileContainer}>
+                {userProfile?.profileImage ? (
+                  <TouchableOpacity onPress={() => {
                     safeNavigate('ProfileScreen');
                   }}
-                  activeOpacity={0.7}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    style={styles.profileImageButton}
+                    activeOpacity={0.7}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <View style={styles.profileImage}>
+                      <Image
+                        source={{ uri: userProfile.profileImage }}
+                        style={{ width: '100%', height: '100%' }}
+                      />
+                    </View>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    style={styles.profilePlaceholderButton} onPress={() => {
+                      safeNavigate('ProfileScreen');
+                    }}
+                    activeOpacity={0.7}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <View style={styles.profilePlaceholder}>
+                      <Octicons
+                        name="person"
+                        size={24}
+                        color="#000"
+                      />
+                    </View>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity
+                  style={styles.userInfo}
+                  onPress={() => {
+                    safeNavigate('ProfileScreen');
+                  }}
+                  activeOpacity={0.8}
+                  hitSlop={{ top: 10, bottom: 10, left: 0, right: 10 }}
                 >
-                  <View style={styles.profilePlaceholder}>
-                    <Octicons
-                      name="person"
-                      size={24}
-                      color="#000"
-                    />
+                  <Text style={styles.welcome}>
+                    Namaste {getDisplayName()}!
+                  </Text>
+                  <View style={styles.locationContainer}>
+                    <Text style={styles.location}>
+                      Paithan, Chhatrapati Sambhajinagar
+                    </Text>
+                    <Icon name="chevron-down" size={12} color="#505050" />
                   </View>
                 </TouchableOpacity>
-              )}
+              </View>
               <TouchableOpacity
-                style={styles.userInfo}
                 onPress={() => {
-                  safeNavigate('ProfileScreen');
+                  safeNavigate('Notification');
                 }}
-                activeOpacity={0.8}
-                hitSlop={{ top: 10, bottom: 10, left: 0, right: 10 }}
+                style={styles.notificationIconButton}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <Text style={styles.welcome}>
-                  Namaste {getDisplayName()}!
-                </Text>
-                <View style={styles.locationContainer}>
-                  <Text style={styles.location}>
-                    Paithan, Chhatrapati Sambhajinagar
-                  </Text>
-                  <Icon name="chevron-down" size={12} color="#505050" />
-                </View>
+                <Icon name="notifications-outline" size={24} color="#000" />
               </TouchableOpacity>
             </View>
-            <TouchableOpacity
-              onPress={() => {
-                safeNavigate('Notification');
-              }}
-              style={styles.notificationIconButton}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Icon name="notifications-outline" size={24} color="#000" />
-            </TouchableOpacity>
-          </View>
 
-          {/* Search */}
-          <View style={styles.searchRow}>
-            <View style={styles.searchBox}>
-              <Icon name="search" size={20} color="#939393" style={{ marginLeft: 12 }} />
-              <TextInput
-                placeholder="Search fruits, vegetables..."
-                placeholderTextColor="#939393"
-                style={styles.searchInput}
-                value={searchQuery}
-                onChangeText={handleSearchChange}
-              />
-              {searchQuery.length > 0 && (
-                <TouchableOpacity
-                  onPress={() => handleSearchChange('')}
-                  style={{ paddingRight: 12 }}
-                >
-                  <Icon name="close-circle" size={20} color="#939393" />
-                </TouchableOpacity>
-              )}
-            </View>
+            {/* Search Row with Animation */}
+            <Animated.View style={[
+              styles.searchRow,
+              {
+                opacity: searchRowOpacity,
+                transform: [{ translateY: searchRowTranslateY }]
+              }
+            ]}>
+              <View style={styles.searchBox}>
+                <Icon name="search" size={20} color="#939393" style={{ marginLeft: 12 }} />
+                <TextInput
+                  placeholder="Search fruits, vegetables..."
+                  placeholderTextColor="#939393"
+                  style={styles.searchInput}
+                  value={searchQuery}
+                  onChangeText={handleSearchChange}
+                />
+                {searchQuery.length > 0 && (
+                  <TouchableOpacity
+                    onPress={() => handleSearchChange('')}
+                    style={{ paddingRight: 12 }}
+                  >
+                    <Icon name="close-circle" size={20} color="#939393" />
+                  </TouchableOpacity>
+                )}
+              </View>
 
-            {/* Filter Model */}
-            <TouchableOpacity style={styles.filterBtn} onPress={() => {
-              openFilterModal();
-            }}>
-              <Icon name="options-outline" size={20} color={Colors.light.primaryDark} />
-            </TouchableOpacity>
-          </View>
+              {/* Filter Model */}
+              <TouchableOpacity style={styles.filterBtn} onPress={() => {
+                openFilterModal();
+              }}>
+                <Icon name="options-outline" size={20} color={Colors.light.primaryDark} />
+              </TouchableOpacity>
+            </Animated.View>
+          </Animated.View>
         </Animated.View>
 
         {/* Categories */}
@@ -844,49 +923,63 @@ const BuyerHomeScreen = () => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#ffffff',
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+    backgroundColor: '#FFFFFF',
   },
   scrollViewContent: {
     paddingBottom: 80,
   },
   header: {
     backgroundColor: '#FFFFFF',
-    paddingTop: 16,
     paddingHorizontal: 16,
+    paddingBottom: 16,
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 5,
     zIndex: 10,
+    overflow: 'hidden', // Ensure proper clipping
+    // Ensure background stays solid during animation
+    opacity: 1,
+    // Prevent background color from becoming transparent
+    backgroundColor: '#FFFFFF',
+  },
+  headerContent: {
+    flex: 1,
+    justifyContent: 'space-between',
   },
   fixedHeaderTitle: {
     position: 'absolute',
-    top: Platform.OS === 'ios' ? 44 : StatusBar.currentHeight,
+    top: 0,
     left: 0,
     right: 0,
-    height: 56,
     backgroundColor: '#FFFFFF',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#EFEFEF',
+    paddingBottom: 12,
+    zIndex: 1000, // High z-index to stay on top
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0, // Will be animated
+    shadowRadius: 4,
+    elevation: 0, // Will be animated
+    // Ensure background color stays opaque
+    opacity: 1,
   },
   fixedHeaderImage: {
-    width: 160,
-    height: '100%',
-    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+    width: 152,
+    height: 56,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 10,
+    minHeight: 64, // Ensure consistent height
+    paddingVertical: 8,
   },
   profileContainer: {
     flexDirection: 'row',
@@ -906,7 +999,7 @@ const styles = StyleSheet.create({
     borderRadius: 60,
     borderWidth: 1,
     borderColor: '#EEEEEE',
-    overflow: 'hidden', // Ensures the image stays within circular bounds
+    overflow: 'hidden',
   },
   profilePlaceholder: {
     width: 48,
@@ -920,7 +1013,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F6F6F6', // Light background color
   },
   userInfo: {
-    marginLeft: 12,
+    marginLeft: 4,
   },
   welcome: {
     fontSize: 20,
@@ -941,46 +1034,61 @@ const styles = StyleSheet.create({
   },
   notificationIconButton: {
     padding: 8,
-    borderRadius: 8,
+    borderRadius: 12,
+    backgroundColor: '#F8F9FA',
+    borderWidth: 1,
+    borderColor: '#E9ECEF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
   },
   searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
-    marginTop: 16,
+    minHeight: 64,
   },
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F6F6F6',
-    borderRadius: 25,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 16,
     flex: 1,
     height: 48,
     borderWidth: 1,
-    borderColor: '#EFEFEF',
+    borderColor: '#E9ECEF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    // elevation: 1,
   },
   searchInput: {
     flex: 1,
     paddingHorizontal: 12,
     fontSize: 15,
-    color: '#505050',
+    color: '#212529',
     height: 48,
+    fontWeight: '400',
     fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
   filterBtn: {
     backgroundColor: '#E8F5E8',
     height: 48,
     width: 48,
-    borderRadius: 24,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 3,
-  }, section: {
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  section: {
     paddingHorizontal: 20,
-    marginTop: 18,
+    marginTop: 28, // Increased for better spacing with new header height
   },
   sectionHeader: {
     flexDirection: 'row',

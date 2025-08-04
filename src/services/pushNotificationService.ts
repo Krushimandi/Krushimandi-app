@@ -249,8 +249,10 @@ class PushNotificationService {
     private async handleForegroundMessage(remoteMessage: any): Promise<void> {
         const notificationData = this.parseRemoteMessage(remoteMessage);
         
-        // Add to local notification store
-        addNotification({
+        console.log('📱 Handling foreground FCM message:', notificationData);
+
+        // Add to local notification store (this will save to Firestore automatically)
+        await addNotification({
             title: notificationData.title,
             message: notificationData.body,
             date: new Date().toISOString().split('T')[0],
@@ -272,8 +274,10 @@ class PushNotificationService {
     private async handleBackgroundMessage(remoteMessage: any): Promise<void> {
         const notificationData = this.parseRemoteMessage(remoteMessage);
         
-        // Add to local notification store
-        addNotification({
+        console.log('📱 Handling background FCM message:', notificationData);
+
+        // Add to local notification store (this will save to Firestore automatically)
+        await addNotification({
             title: notificationData.title,
             message: notificationData.body,
             date: new Date().toISOString().split('T')[0],
@@ -347,15 +351,48 @@ class PushNotificationService {
     private parseRemoteMessage(remoteMessage: any): PushNotificationData {
         const { notification, data } = remoteMessage;
         
+        // Handle your FCM message format
+        const title = notification?.title || 'New Notification';
+        const body = notification?.body || '';
+        const type = data?.type || 'update';
+        
+        console.log('📋 Parsing FCM message:', {
+            title,
+            body,
+            type,
+            screen: data?.screen,
+            description: data?.description
+        });
+        
         return {
             id: data?.id || Date.now().toString(),
-            title: notification?.title || 'New Notification',
-            body: notification?.body || '',
-            type: data?.type || 'update',
-            data: data,
+            title,
+            body,
+            type: this.mapFCMTypeToNotificationType(type) as 'transaction' | 'promotion' | 'update' | 'alert',
+            data: {
+                screen: data?.screen,
+                description: data?.description,
+                ...data
+            },
             imageUrl: notification?.android?.imageUrl || notification?.ios?.attachments?.[0]?.url,
             actionButtons: data?.actionButtons ? JSON.parse(data.actionButtons) : undefined,
         };
+    }
+
+    /**
+     * Map FCM notification type to local notification type
+     */
+    private mapFCMTypeToNotificationType(fcmType: string): 'transaction' | 'promotion' | 'update' | 'alert' {
+        const typeMapping: { [key: string]: 'transaction' | 'promotion' | 'update' | 'alert' } = {
+            'navigate': 'update',
+            'promotion': 'promotion',
+            'alert': 'alert',
+            'transaction': 'transaction',
+            'order': 'transaction',
+            'offer': 'promotion'
+        };
+
+        return typeMapping[fcmType] || 'update';
     }
 
     /**

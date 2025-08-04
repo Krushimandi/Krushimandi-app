@@ -13,7 +13,9 @@ import {
   Animated,
   Platform,
   SafeAreaView,
+  Dimensions,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Octicons from 'react-native-vector-icons/Octicons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -21,6 +23,7 @@ import { getCompleteUserProfile, updateLastLogin, validateCurrentUser, updateUse
 import { getFruitsByFarmerOptimized, updateFruitStatus } from '../../services/fruitService';
 import auth from '@react-native-firebase/auth';
 import { Colors, } from '../../constants';
+import { getHeaderConstants } from '../../constants/Layout';
 import { useTabBarControl } from '../../utils/navigationControls';
 import {
   formatPrice,
@@ -42,13 +45,14 @@ const fruitCategories = [
   { name: 'Mango', type: 'mango', icon: require('../../assets/fruits/mango.png') },
 ];
 
-const HEADER_MAX_HEIGHT = 158; // Maximum header height
-const HEADER_MIN_HEIGHT = Platform.OS === 'ios' ? 95 : 75; // Minimum header height after scroll
-const HEADER_SCROLL_DISTANCE = HEADER_MAX_HEIGHT - HEADER_MIN_HEIGHT;
+// Get screen dimensions
+const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 const FarmerHomeScreen = () => {
   const navigation = useNavigation();
   const { showTabBar } = useTabBarControl();
+  const insets = useSafeAreaInsets();
+  const headerConstants = getHeaderConstants(insets.top);
   const [userProfile, setUserProfile] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -67,34 +71,49 @@ const FarmerHomeScreen = () => {
     }, [showTabBar])
   );
 
-  // Calculate header height and opacity based on scroll
+  // Calculate header height and opacity based on scroll with proper constants
   const headerHeight = scrollY.interpolate({
-    inputRange: [0, HEADER_SCROLL_DISTANCE],
-    outputRange: [HEADER_MAX_HEIGHT, HEADER_MIN_HEIGHT],
+    inputRange: [0, headerConstants.HEADER_SCROLL_DISTANCE],
+    outputRange: [headerConstants.HEADER_MAX_HEIGHT, headerConstants.HEADER_MIN_HEIGHT],
     extrapolate: 'clamp',
   });
 
   const headerOpacity = scrollY.interpolate({
-    inputRange: [0, HEADER_SCROLL_DISTANCE / 2, HEADER_SCROLL_DISTANCE],
-    outputRange: [1, 0.5, 0],
+    inputRange: [0, headerConstants.HEADER_SCROLL_DISTANCE * 0.3, headerConstants.HEADER_SCROLL_DISTANCE * 0.8],
+    outputRange: [1, 0.8, 0],
     extrapolate: 'clamp',
   });
 
   const titleOpacity = scrollY.interpolate({
-    inputRange: [0, HEADER_SCROLL_DISTANCE * 0.7, HEADER_SCROLL_DISTANCE],
-    outputRange: [0, 0, 1], // Hidden until 70% of scroll, then fade in quickly
+    inputRange: [0, headerConstants.HEADER_SCROLL_DISTANCE * 0.5, headerConstants.HEADER_SCROLL_DISTANCE],
+    outputRange: [0, 0.5, 1],
     extrapolate: 'clamp',
   });
 
-  const isVisible = scrollY.interpolate({
-    inputRange: [0, HEADER_SCROLL_DISTANCE],
-    outputRange: [0, 1],
+  const titleTranslateY = scrollY.interpolate({
+    inputRange: [0, headerConstants.HEADER_SCROLL_DISTANCE],
+    outputRange: [15, 0],
     extrapolate: 'clamp',
   });
 
-  const titleIndex = scrollY.interpolate({
-    inputRange: [0, HEADER_SCROLL_DISTANCE / 2, HEADER_SCROLL_DISTANCE],
-    outputRange: [0, 20, 40], // Higher values but still below normal header
+  // Fixed header shadow opacity
+  const fixedHeaderShadowOpacity = scrollY.interpolate({
+    inputRange: [0, headerConstants.HEADER_SCROLL_DISTANCE * 0.7, headerConstants.HEADER_SCROLL_DISTANCE],
+    outputRange: [0, 0, 0.1],
+    extrapolate: 'clamp',
+  });
+
+  // Fixed header border opacity
+  const fixedHeaderBorderOpacity = scrollY.interpolate({
+    inputRange: [0, headerConstants.HEADER_SCROLL_DISTANCE * 0.85, headerConstants.HEADER_SCROLL_DISTANCE],
+    outputRange: [0, 0, 1],
+    extrapolate: 'clamp',
+  });
+
+  // Fixed header elevation for Android
+  const fixedHeaderElevation = scrollY.interpolate({
+    inputRange: [0, headerConstants.HEADER_SCROLL_DISTANCE * 0.8, headerConstants.HEADER_SCROLL_DISTANCE],
+    outputRange: [0, 0, 8],
     extrapolate: 'clamp',
   });
 
@@ -443,19 +462,28 @@ const FarmerHomeScreen = () => {
       <Animated.ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollViewContent}
-        scrollEventThrottle={16}
+        scrollEventThrottle={1} // Reduced for smoother animation
+        bounces={true} // Enable bounce for better feel
         refreshing={loadingFruits}
         onRefresh={handleRefresh}
         nestedScrollEnabled={true}
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-          { useNativeDriver: false }
+          { 
+            useNativeDriver: false, // Height animations require layout thread
+            listener: (event) => {
+              // Optional: Add custom scroll logic here if needed
+            }
+          }
         )}
         refreshControl={
           <RefreshControl
             refreshing={loadingFruits}
             onRefresh={handleRefresh}
             colors={[Colors.light.primary]}
+            tintColor={Colors.light.primary}
+            title="Loading fruits..."
+            titleColor={Colors.light.primary}
             progressBackgroundColor="#FFFFFF"
           />
         }
@@ -465,9 +493,17 @@ const FarmerHomeScreen = () => {
           styles.header,
           {
             height: headerHeight,
-            opacity: headerOpacity
+            paddingTop: insets.top + 16, // Use safe area insets
+            backgroundColor: '#FFFFFF', // Ensure background stays white
           }
         ]}>
+          <Animated.View style={[
+            styles.headerContent,
+            {
+              opacity: headerOpacity,
+              backgroundColor: 'transparent', // Prevent double background
+            }
+          ]}>
           <View style={styles.headerRow}>
             <View style={styles.profileContainer}>
               {userProfile?.profileImage ? (
@@ -554,6 +590,7 @@ const FarmerHomeScreen = () => {
               <Icon name="options-outline" size={20} color={Colors.light.primaryDark} />
             </TouchableOpacity>
           </View>
+          </Animated.View>
         </Animated.View>
 
         {/* Fruit Categories */}
@@ -861,24 +898,20 @@ const FarmerHomeScreen = () => {
         </View>
       </Animated.ScrollView>
 
-      {/* Fixed Header Title - Initially hidden, shows only when user scrolls significantly */}
+      {/* Fixed Header Title - Shows on scroll */}
       <Animated.View
         style={[
           styles.fixedHeaderTitle,
           {
-            opacity: titleOpacity, // Will be 0 initially, becomes visible on scroll
-            transform: [
-              {
-                translateY: titleOpacity.interpolate({
-                  inputRange: [0, 0.1, 1],
-                  outputRange: [-56, -56, 0], // Slide down from hidden position
-                  extrapolate: 'clamp',
-                })
-              }
-            ],
-          },
-          // Only enable pointer events when significantly visible
-          titleOpacity.__getValue() > 0.3 ? {} : { pointerEvents: 'none' },
+            opacity: titleOpacity,
+            transform: [{ translateY: titleTranslateY }],
+            paddingTop: insets.top + 8, // Adjusted padding
+            height: headerConstants.HEADER_MIN_HEIGHT,
+            backgroundColor: '#FFFFFF', // Ensure solid background
+            // Animated shadow and elevation
+            shadowOpacity: fixedHeaderShadowOpacity,
+            elevation: fixedHeaderElevation, // For Android
+          }
         ]}>
         <Image source={require('../../assets/icon.png')} style={styles.fixedHeaderImage} />
         <TouchableOpacity
@@ -888,6 +921,19 @@ const FarmerHomeScreen = () => {
         >
           <Icon name="notifications-outline" size={24} color="#000" />
         </TouchableOpacity>
+        
+        {/* Animated Border */}
+        <Animated.View
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: 1,
+            backgroundColor: '#EFEFEF',
+            opacity: fixedHeaderBorderOpacity,
+          }}
+        />
       </Animated.View>
     </SafeAreaView>
   );
@@ -896,44 +942,65 @@ const FarmerHomeScreen = () => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#ffffff',
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+    backgroundColor: '#FFFFFF',
   },
   scrollViewContent: {
     paddingBottom: 80,
+    // Add top padding to prevent content from hiding behind fixed header
+    paddingTop: 4,
   },
   header: {
-    position: 'relative',
     backgroundColor: '#FFFFFF',
-    paddingTop: 16,
     paddingHorizontal: 16,
+    paddingBottom: 16,
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 8,
-    zIndex: 100,
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 5,
+    zIndex: 10,
+    overflow: 'hidden', // Ensure proper clipping
+    // Ensure background stays solid during animation
+    opacity: 1,
+    // Prevent background color from becoming transparent
+    backgroundColor: '#FFFFFF',
+  },
+  headerContent: {
+    flex: 1,
+    justifyContent: 'space-between',
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: 64, // Ensure consistent height
+    paddingVertical: 8,
   },
   fixedHeaderTitle: {
     position: 'absolute',
-    top: Platform.OS === 'ios' ? 44 : StatusBar.currentHeight,
+    top: 0,
     left: 0,
     right: 0,
-    height: 56,
     backgroundColor: '#FFFFFF',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#EFEFEF',
+    paddingBottom: 12,
+    zIndex: 1000, // High z-index to stay on top
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0, // Will be animated
+    shadowRadius: 4,
+    elevation: 0, // Will be animated
+    // Ensure background color stays opaque
+    opacity: 1,
   },
   fixedHeaderImage: {
-    width: 160,
-    height: '100%',
-    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+    width: 152,
+    height: 56,
   },
   headerRow: {
     flexDirection: 'row',
@@ -1034,8 +1101,8 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
   },
   section: {
-    paddingHorizontal: 10,
-    marginTop: 18,
+    paddingHorizontal: 20,
+    marginTop: 28, // Increased for better spacing with new header height
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -1374,6 +1441,31 @@ const styles = StyleSheet.create({
     color: '#505050',
     fontWeight: '600',
     marginLeft: 8,
+  },
+  fixedHeaderTitle: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#FFFFFF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+    zIndex: 1000, // High z-index to stay on top
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0, // Will be animated
+    shadowRadius: 4,
+    elevation: 0, // Will be animated
+    // Ensure background color stays opaque
+    opacity: 1,
+  },
+  fixedHeaderImage: {
+    width: 140,
+    height: 32,
+    resizeMode: 'contain',
   },
 });
 
