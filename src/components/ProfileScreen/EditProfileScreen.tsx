@@ -13,7 +13,9 @@ import {
   KeyboardAvoidingView,
   Platform,
   StatusBar,
-  Alert
+  Alert,
+  ActivityIndicator,
+  Modal
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { launchImageLibrary } from 'react-native-image-picker';
@@ -32,6 +34,70 @@ const EditProfileScreen = () => {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [userData, setUserData] = useState<any>(null);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
+  
+  // Validation states
+  const [emailError, setEmailError] = useState('');
+  const [phoneError, setPhoneError] = useState('');
+  const [firstNameError, setFirstNameError] = useState('');
+  const [lastNameError, setLastNameError] = useState('');
+
+  // Validation functions
+  const validateEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email.trim()) {
+      return 'Email is required';
+    }
+    if (!emailRegex.test(email)) {
+      return 'Please enter a valid email address';
+    }
+    return '';
+  };
+
+  const validatePhone = (phone: string) => {
+    const phoneRegex = /^[0-9]{10}$/;
+    if (!phone.trim()) {
+      return 'Phone number is required';
+    }
+    if (!phoneRegex.test(phone.replace(/\s/g, ''))) {
+      return 'Please enter a valid 10-digit phone number';
+    }
+    return '';
+  };
+
+  const validateFirstName = (name: string) => {
+    if (!name.trim()) {
+      return 'First name is required';
+    }
+    if (name.trim().length < 2) {
+      return 'First name must be at least 2 characters';
+    }
+    return '';
+  };
+
+  const validateLastName = (name: string) => {
+    if (!name.trim()) {
+      return 'Last name is required';
+    }
+    if (name.trim().length < 2) {
+      return 'Last name must be at least 2 characters';
+    }
+    return '';
+  };
+
+  const validateAllFields = () => {
+    const emailErr = validateEmail(email);
+    const phoneErr = validatePhone(phone);
+    const firstNameErr = validateFirstName(firstName);
+    const lastNameErr = validateLastName(lastName);
+
+    setEmailError(emailErr);
+    setPhoneError(phoneErr);
+    setFirstNameError(firstNameErr);
+    setLastNameError(lastNameErr);
+
+    return !emailErr && !phoneErr && !firstNameErr && !lastNameErr;
+  };
 
   // Fetch latest profile from Firestore on mount/focus, like SettingsScreen
   const fetchUserProfile = useCallback(async () => {
@@ -42,7 +108,10 @@ const EditProfileScreen = () => {
       setFirstName(user.firstName || '');
       setLastName(user.lastName || '');
       setEmail(user.email || '');
-      setPhone(user.phoneNumber || '');
+      // Remove +91 prefix from phone number if it exists
+      const phoneNumber = user.phoneNumber || '';
+      const cleanedPhone = phoneNumber.startsWith('+91') ? phoneNumber.substring(3) : phoneNumber;
+      setPhone(cleanedPhone);
     }
     if (user?.uid && user?.userRole) {
       try {
@@ -149,11 +218,25 @@ const EditProfileScreen = () => {
   };
 
   const handleSave = async () => {
+    // Validate all fields before saving
+    if (!validateAllFields()) {
+      Toast.show({
+        type: 'error',
+        text1: 'Validation Error',
+        text2: 'Please fix the errors before saving',
+        visibilityTime: 2000,
+        position: 'bottom',
+      });
+      return;
+    }
+
+    setIsSaving(true);
     try {
       const userDataString = await AsyncStorage.getItem('userData');
       const userData = userDataString ? JSON.parse(userDataString) : null;
       if (!userData?.uid || !userData?.userRole) {
         Alert.alert('Error', 'User not found');
+        setIsSaving(false);
         return;
       }
 
@@ -185,10 +268,12 @@ const EditProfileScreen = () => {
         visibilityTime: 1200,
         position: 'bottom',
       });
+      setIsSaving(false);
       navigation.goBack();
     } catch (error) {
       setUploading(false);
       setUploadProgress(0);
+      setIsSaving(false);
       console.error('Profile update failed:', error);
       Toast.show({
         type: 'error',
@@ -221,6 +306,7 @@ const EditProfileScreen = () => {
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
+          disabled={isSaving}
         >
           <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
         </TouchableOpacity>
@@ -228,9 +314,6 @@ const EditProfileScreen = () => {
           <Text style={styles.headerTitle}>Edit Profile</Text>
           <Text style={styles.headerSubtitle}>Update your information</Text>
         </View>
-        {/* <TouchableOpacity style={styles.headerAction} onPress={handleHeaderSave}>
-          <Ionicons name="checkmark" size={22} color="#FFFFFF" />
-        </TouchableOpacity> */}
       </View>
 
       <KeyboardAvoidingView
@@ -240,6 +323,7 @@ const EditProfileScreen = () => {
         <ScrollView
           contentContainerStyle={styles.container}
           showsVerticalScrollIndicator={false}
+          scrollEnabled={!isSaving}
         >
           {/* Profile Image Section */}
           <View style={styles.profileSection}>
@@ -248,7 +332,11 @@ const EditProfileScreen = () => {
                 source={getProfileImageSource()}
                 style={styles.profileImage}
               />
-              <TouchableOpacity style={styles.editIcon} onPress={pickImage}>
+              <TouchableOpacity 
+                style={styles.editIcon} 
+                onPress={pickImage}
+                disabled={isSaving}
+              >
                 <Ionicons name="camera" size={20} color="#FFFFFF" />
               </TouchableOpacity>
               {uploading && (
@@ -267,70 +355,110 @@ const EditProfileScreen = () => {
           <View style={styles.formContainer}>
             <View style={styles.inputGroup}>
               <Text style={styles.label}>First Name</Text>
-              <View style={styles.inputContainer}>
+              <View style={[styles.inputContainer, firstNameError ? styles.inputError : {}]}>
                 <Ionicons name="person-outline" size={20} color="#64748B" style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
                   value={firstName}
-                  onChangeText={setFirstName}
+                  onChangeText={(text) => {
+                    setFirstName(text);
+                    if (firstNameError) setFirstNameError('');
+                  }}
                   placeholder="Enter your first name"
                   placeholderTextColor="#94A3B8"
+                  editable={!isSaving}
                 />
               </View>
+              {firstNameError ? <Text style={styles.errorText}>{firstNameError}</Text> : null}
             </View>
 
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Last Name</Text>
-              <View style={styles.inputContainer}>
+              <View style={[styles.inputContainer, lastNameError ? styles.inputError : {}]}>
                 <Ionicons name="person-outline" size={20} color="#64748B" style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
                   value={lastName}
-                  onChangeText={setLastName}
+                  onChangeText={(text) => {
+                    setLastName(text);
+                    if (lastNameError) setLastNameError('');
+                  }}
                   placeholder="Enter your last name"
                   placeholderTextColor="#94A3B8"
+                  editable={!isSaving}
                 />
               </View>
+              {lastNameError ? <Text style={styles.errorText}>{lastNameError}</Text> : null}
             </View>
 
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Email Address</Text>
-              <View style={styles.inputContainer}>
+              <View style={[styles.inputContainer, emailError ? styles.inputError : {}]}>
                 <Ionicons name="mail-outline" size={20} color="#64748B" style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
                   value={email}
-                  onChangeText={setEmail}
+                  onChangeText={(text) => {
+                    setEmail(text);
+                    if (emailError) setEmailError('');
+                  }}
                   keyboardType="email-address"
                   autoCapitalize="none"
                   placeholder="Enter your email"
                   placeholderTextColor="#94A3B8"
+                  editable={!isSaving}
                 />
               </View>
+              {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
             </View>
 
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Phone Number</Text>
-              <View style={styles.inputContainer}>
+              <View style={[styles.inputContainer, phoneError ? styles.inputError : {}]}>
                 <Ionicons name="call-outline" size={20} color="#64748B" style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
                   value={phone}
-                  onChangeText={setPhone}
+                  onChangeText={(text) => {
+                    setPhone(text);
+                    if (phoneError) setPhoneError('');
+                  }}
                   keyboardType="phone-pad"
                   placeholder="Enter your phone number"
                   placeholderTextColor="#94A3B8"
+                  editable={!isSaving}
                 />
               </View>
+              {phoneError ? <Text style={styles.errorText}>{phoneError}</Text> : null}
             </View>
 
             {/* Save Button */}
-            <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
+            <TouchableOpacity 
+              style={[styles.saveButton, isSaving && styles.saveButtonDisabled]} 
+              onPress={handleSave}
+              disabled={isSaving}
+            >
               <Text style={styles.saveText}>Save Changes</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Full Screen Loading Modal */}
+      <Modal
+        visible={isSaving}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => {}}
+      >
+        <View style={styles.loadingOverlay}>
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#43B86C" style={styles.loadingSpinner} />
+            <Text style={styles.loadingText}>Saving Profile...</Text>
+            <Text style={styles.loadingSubText}>Please wait</Text>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -354,7 +482,7 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
-    paddingTop: Platform.OS === 'android' ? ((StatusBar.currentHeight ?? 0) + 16) : 0,
+    // paddingTop: Platform.OS === 'android' ? ((StatusBar.currentHeight ?? 0) + 16) : 0,
     backgroundColor: '#43B86C',
     elevation: 8,
     shadowColor: '#43B86C',
@@ -375,20 +503,38 @@ const styles = StyleSheet.create({
   headerCenter: {
     alignItems: 'center',
     flex: 1,
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 20,
+    justifyContent: 'center',
+    // alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
+    // fontSize: 20,
+    // fontWeight: '700',
+    // color: '#FFFFFF',
+    // letterSpacing: 0.5,
+    // textAlign: 'center',
+    fontSize: 24,
+    fontWeight: '800',
     color: '#FFFFFF',
     letterSpacing: 0.5,
-    textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.2)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   headerSubtitle: {
+    // fontSize: 13,
+    // color: 'rgba(255, 255, 255, 0.8)',
+    // fontWeight: '500',
+    // marginTop: 2,
+    // textAlign: 'center',
     fontSize: 13,
     color: 'rgba(255, 255, 255, 0.8)',
     fontWeight: '500',
     marginTop: 2,
-    textAlign: 'center',
+    letterSpacing: 0.3,
   },
   headerAction: {
     padding: 10,
@@ -504,5 +650,66 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     letterSpacing: 0.5,
+  },
+  // Validation error styles
+  inputError: {
+    borderColor: '#EF4444',
+    borderWidth: 2,
+    backgroundColor: '#FEF2F2',
+  },
+  errorText: {
+    color: '#EF4444',
+    fontSize: 12,
+    marginTop: 4,
+    marginLeft: 4,
+    fontWeight: '500',
+  },
+  // Save button loading styles
+  saveButtonDisabled: {
+    backgroundColor: '#9CA3AF',
+    opacity: 0.7,
+  },
+  saveButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  spinner: {
+    marginRight: 8,
+  },
+  // Full screen loading overlay styles
+  loadingOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 40,
+    alignItems: 'center',
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 5 },
+    minWidth: 200,
+  },
+  loadingSpinner: {
+    marginBottom: 20,
+  },
+  loadingText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1E293B',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  loadingSubText: {
+    fontSize: 14,
+    color: '#64748B',
+    textAlign: 'center',
+    fontWeight: '500',
   },
 });
