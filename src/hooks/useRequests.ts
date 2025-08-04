@@ -1,10 +1,11 @@
 /**
  * useRequests Hook
- * Custom hook for managing request operations
+ * Custom hook for managing request operations with integrated notifications
  */
 
 import { useState, useEffect, useCallback } from 'react';
 import { requestService } from '../services/requestService';
+import { requestNotificationService } from '../services/requestNotificationService';
 import { Request, RequestStatus, CreateRequestInput, RequestResponseInput, RequestFilters, ProductRequestCount } from '../types/Request';
 import { useAuthState } from '../components/providers/AuthStateProvider';
 
@@ -26,6 +27,28 @@ export const useRequests = () => {
       setError(null);
       const requestId = await requestService.createRequest(user.uid, input);
       
+      if (requestId) {
+        // Get the created request to access product snapshot and farmer details
+        try {
+          const createdRequest = await requestService.getRequest(requestId);
+          if (createdRequest) {
+            await requestNotificationService.sendRequestCreatedNotification({
+              requestId,
+              buyerId: user.uid,
+              farmerId: createdRequest.farmerId,
+              productName: createdRequest.productSnapshot.name,
+              farmerName: createdRequest.productSnapshot.farmerName,
+              buyerName: user.name || 'Unknown Buyer',
+              price: createdRequest.productSnapshot.price,
+              quantity: input.quantity
+            });
+          }
+        } catch (notificationError) {
+          console.error('❌ Failed to send request notification:', notificationError);
+          // Don't fail the request creation if notification fails
+        }
+      }
+      
       // Refresh requests after creating
       await loadBuyerRequests();
       
@@ -37,7 +60,7 @@ export const useRequests = () => {
     } finally {
       setLoading(false);
     }
-  }, [user?.uid]);
+  }, [user?.uid, user?.name]);
 
   // Load buyer's requests
   const loadBuyerRequests = useCallback(async (filters?: RequestFilters): Promise<void> => {
@@ -92,6 +115,42 @@ export const useRequests = () => {
       setError(null);
       await requestService.respondToRequest(user.uid, input);
       
+      // Send notification to buyer
+      try {
+        const request = await requestService.getRequest(input.requestId);
+        if (request) {
+          if (input.status === 'accepted') {
+            await requestNotificationService.sendRequestAcceptedNotification({
+              requestId: input.requestId,
+              buyerId: request.buyerId,
+              farmerId: user.uid,
+              productName: request.productSnapshot.name,
+              farmerName: user.name || 'Unknown Farmer',
+              buyerName: request.buyerDetails.name,
+              status: RequestStatus.ACCEPTED,
+              price: input.proposedPrice || request.productSnapshot.price,
+              quantity: request.quantity
+            });
+          } else {
+            await requestNotificationService.sendRequestRejectedNotification({
+              requestId: input.requestId,
+              buyerId: request.buyerId,
+              farmerId: user.uid,
+              productName: request.productSnapshot.name,
+              farmerName: user.name || 'Unknown Farmer',
+              buyerName: request.buyerDetails.name,
+              status: RequestStatus.REJECTED,
+              price: request.productSnapshot.price,
+              quantity: request.quantity,
+              rejectionReason: input.message
+            });
+          }
+        }
+      } catch (notificationError) {
+        console.error('❌ Failed to send response notification:', notificationError);
+        // Don't fail the response if notification fails
+      }
+      
       console.log('✅ useRequests: Request response successful, refreshing farmer requests...');
       
       // Refresh requests after responding
@@ -111,7 +170,7 @@ export const useRequests = () => {
     } finally {
       setLoading(false);
     }
-  }, [user?.uid]);
+  }, [user?.uid, user?.name]);
 
   // Cancel a request (buyer action)
   const cancelRequest = useCallback(async (requestId: string): Promise<boolean> => {
@@ -123,7 +182,30 @@ export const useRequests = () => {
     try {
       setLoading(true);
       setError(null);
+      
+      // Get request details before canceling for notification
+      const request = await requestService.getRequest(requestId);
+      
       await requestService.cancelRequest(user.uid, requestId);
+      
+      // Send notification to farmer
+      if (request) {
+        try {
+          await requestNotificationService.sendRequestCancelledNotification({
+            requestId,
+            buyerId: user.uid,
+            farmerId: request.farmerId,
+            productName: request.productSnapshot.name,
+            farmerName: request.productSnapshot.farmerName,
+            buyerName: user.name || 'Unknown Buyer',
+            status: RequestStatus.CANCELLED,
+            price: request.productSnapshot.price,
+            quantity: request.quantity
+          });
+        } catch (notificationError) {
+          console.error('❌ Failed to send cancellation notification:', notificationError);
+        }
+      }
       
       // Refresh requests after canceling
       await loadBuyerRequests();
@@ -136,7 +218,7 @@ export const useRequests = () => {
     } finally {
       setLoading(false);
     }
-  }, [user?.uid]);
+  }, [user?.uid, user?.name]);
 
   // Resend a request (buyer action)
   const resendRequest = useCallback(async (requestId: string): Promise<string | null> => {
@@ -148,7 +230,29 @@ export const useRequests = () => {
     try {
       setLoading(true);
       setError(null);
+      
+      // Get original request details for notification
+      const originalRequest = await requestService.getRequest(requestId);
+      
       const newRequestId = await requestService.resendRequest(user.uid, requestId);
+      
+      // Send notification to farmer about resent request
+      if (newRequestId && originalRequest) {
+        try {
+          await requestNotificationService.sendRequestResentNotification({
+            requestId: newRequestId,
+            buyerId: user.uid,
+            farmerId: originalRequest.farmerId,
+            productName: originalRequest.productSnapshot.name,
+            farmerName: originalRequest.productSnapshot.farmerName,
+            buyerName: user.name || 'Unknown Buyer',
+            price: originalRequest.productSnapshot.price,
+            quantity: originalRequest.quantity
+          });
+        } catch (notificationError) {
+          console.error('❌ Failed to send resend notification:', notificationError);
+        }
+      }
       
       // Refresh requests after resending
       await loadBuyerRequests();
@@ -161,7 +265,7 @@ export const useRequests = () => {
     } finally {
       setLoading(false);
     }
-  }, [user?.uid]);
+  }, [user?.uid, user?.name]);
 
   // Get product request counts
   const getProductRequestCounts = useCallback(async (productIds: string[]): Promise<ProductRequestCount[]> => {

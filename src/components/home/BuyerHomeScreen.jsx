@@ -63,6 +63,7 @@ const BuyerHomeScreen = () => {
   const [loadingFruits, setLoadingFruits] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  const [isFixedHeaderVisible, setIsFixedHeaderVisible] = useState(false);
   const [appliedFilters, setAppliedFilters] = useState({
     selectedFeatures: [],
     priceRange: null,
@@ -514,7 +515,9 @@ const BuyerHomeScreen = () => {
             shadowOpacity: fixedHeaderShadowOpacity,
             elevation: fixedHeaderElevation,
           }
-        ]}>
+        ]}
+        pointerEvents={isFixedHeaderVisible ? 'auto' : 'none'} // Only allow touch when sufficiently visible
+      >
         <Image source={require('../../assets/icon.png')} style={styles.fixedHeaderImage} />
         <TouchableOpacity
           style={styles.notificationIconButton}
@@ -560,7 +563,10 @@ const BuyerHomeScreen = () => {
           {
             useNativeDriver: false, // Height animations require layout thread
             listener: (event) => {
-              // Optional: Add custom scroll logic here if needed
+              const scrollY = event.nativeEvent.contentOffset.y;
+              // Update fixed header visibility state
+              const shouldShowFixedHeader = scrollY > headerConstants.HEADER_SCROLL_DISTANCE * 0.7;
+              setIsFixedHeaderVisible(shouldShowFixedHeader);
             }
           }
         )}

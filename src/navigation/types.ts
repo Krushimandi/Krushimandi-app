@@ -12,16 +12,24 @@ export type RootStackParamList = {
   Main?: {
     screen?: 'BuyerTabs';
     params?: {
-      screen?: 'Orders';
+      screen?: keyof BuyerTabParamList;
     };
   };
   Notification: undefined;
   NotificationDetail: {
+    id: string;
     title: string;
-    message: string;
+    body: string; // Changed from message to body to match Firebase structure
     date: string;
     time?: string;
-    type?: 'transaction' | 'promotion' | 'update' | 'alert';
+    type?: 'transaction' | 'promotion' | 'update' | 'alert' | 'request';
+    offer?: any;
+    actionUrl?: string;
+    category?: string;
+    createdAt?: string;
+    orderId?: string;
+    requestId?: string;
+    status?: string;
   };
   ProfileScreen: undefined;
   EditProfile: undefined;

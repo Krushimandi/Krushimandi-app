@@ -1031,23 +1031,25 @@ const styles = StyleSheet.create({
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 60,
+    paddingVertical: 80,
     paddingHorizontal: 32,
+    marginTop: 20,
   },
   emptyText: {
-    fontSize: 16,
+    fontSize: 18,
     color: '#6B7280',
     fontWeight: '600',
     textAlign: 'center',
-    marginTop: 12,
-    lineHeight: 22,
+    marginTop: 16,
+    lineHeight: 24,
   },
   emptySubtext: {
-    fontSize: 13,
+    fontSize: 14,
     color: '#9CA3AF',
     textAlign: 'center',
-    marginTop: 6,
-    lineHeight: 18,
+    marginTop: 8,
+    lineHeight: 20,
+    maxWidth: 280,
   },
 });
 

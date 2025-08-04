@@ -7,19 +7,83 @@ export const pendingNotificationData = { current: null as any };
  */
 export function handleNotificationNavigation(data: any, notificationTabEmitter?: any) {
   console.log('🔔 Handling notification navigation:', data);
-  if (data?.screen === 'MyOrdersScreen' && data?.type === 'navigate') {
-    if (isNavigationReady.current && navigationRef.isReady()) {
-      console.log('🔔 Navigating to Orders screen from notification');
-      setTimeout(() => {
-        navigationRef.navigate('Main', {
-          screen: 'BuyerTabs',
-          params: { screen: 'Orders' },
-        });
-      }, 200);
-    } else {
-      // Queue for later
+  
+  if (!data?.screen || data?.type !== 'navigate') {
+    console.log('🔔 No navigation data or not navigate type, data:', data);
+    return;
+  }
+
+  const navigateToScreen = () => {
+    if (!navigationRef.isReady()) {
+      console.warn('Navigation not ready, queuing navigation data');
       pendingNotificationData.current = data;
+      return;
     }
+
+    console.log('🔔 Processing navigation for screen:', data.screen);
+
+    try {
+      switch (data.screen) {
+        case 'MyOrdersScreen':
+        case 'Orders':
+          console.log('🔔 Navigating to Orders screen from notification');
+          navigationRef.navigate('Main', {
+            screen: 'BuyerTabs',
+            params: { screen: 'Orders' },
+          });
+          break;
+          
+        case 'RequestsScreen':
+        case 'Requests':
+          console.log('🔔 Navigating to Requests screen from notification');
+          navigationRef.navigate('Main', {
+            screen: 'BuyerTabs',
+            params: { screen: 'Requests' },
+          });
+          break;
+          
+        case 'HomeScreen':
+        case 'Home':
+          console.log('🔔 Navigating to Home screen from notification');
+          navigationRef.navigate('Main', {
+            screen: 'BuyerTabs',
+            params: { screen: 'Home' },
+          });
+          break;
+          
+        case 'NotificationScreen':
+        case 'Notification':
+          console.log('🔔 Navigating to Notification screen from notification');
+          navigationRef.navigate('Notification');
+          break;
+
+        case 'ProfileScreen':
+        case 'Profile':
+          console.log('🔔 Navigating to Profile screen from notification');
+          navigationRef.navigate('ProfileScreen');
+          break;
+
+        default:
+          console.log('🔔 Unknown screen in notification:', data.screen);
+          // Default to home if unknown screen
+          navigationRef.navigate('Main');
+          break;
+      }
+      console.log('✅ Navigation completed successfully');
+    } catch (error) {
+      console.error('❌ Navigation error:', error);
+    }
+  };
+
+  if (isNavigationReady.current && navigationRef.isReady()) {
+    // Add small delay to ensure UI is ready
+    setTimeout(() => {
+      navigateToScreen();
+    }, 200);
+  } else {
+    // Queue for later when navigation is ready
+    pendingNotificationData.current = data;
+    console.log('🔔 Navigation not ready, queued data:', data);
   }
 }
 /**

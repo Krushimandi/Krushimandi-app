@@ -53,27 +53,89 @@ interface Notification {
 function mapNotification(doc: any): Notification {
     const data = doc.data ? doc.data() : doc;
     const payload = data.payload || data;
+    
     return {
-        id: doc.id || data.id,
-        title: payload.title,
-        body: payload.body,
-        date: formatDate(payload.createdAt), // implement formatDate as needed
-        read: data.seen === false ? false : true,
-        type: (data.category || payload.type || 'promotion').toLowerCase(),
+        id: doc.id || data.id || Date.now().toString(),
+        title: payload.title || data.title || 'Notification',
+        body: payload.description || payload.body || data.message || '',
+        date: formatDate(payload.createdAt || data.createdAt || data.date),
+        time: formatTime(payload.createdAt || data.createdAt || data.time),
+        read: data.seen !== false, // Default to read if seen is not explicitly false
+        type: (data.category || payload.type || data.type || 'update').toLowerCase(),
         offer: payload.offer ? (typeof payload.offer === 'string' ? JSON.parse(payload.offer) : payload.offer) : undefined,
-        actionUrl: payload.actionUrl,
-        category: data.category || payload.type,
-        createdAt: payload.createdAt,
+        actionUrl: payload.actionUrl || data.actionUrl,
+        category: data.category || payload.type || data.type,
+        createdAt: payload.createdAt || data.createdAt,
     };
 }
 
-// Example formatDate function (customize as needed)
+// Format date function to handle Firebase timestamp
 function formatDate(date: any): string {
-    if (!date) return '';
-    if (typeof date === 'string') return date.split(' ')[0];
-    if (typeof date === 'number') return new Date(date).toLocaleDateString();
-    if (date.seconds) return new Date(date.seconds * 1000).toLocaleDateString();
-    return '';
+    if (!date) return new Date().toISOString().split('T')[0];
+    
+    try {
+        if (typeof date === 'string') {
+            // Handle "2025-08-04T20:24:42.563Z" format
+            if (date.includes('T')) {
+                return date.split('T')[0];
+            }
+            // Handle "5 August 2025 at 01:54:42 UTC+5:30" format
+            if (date.includes(' at ')) {
+                const dateStr = date.split(' at ')[0];
+                const parsedDate = new Date(dateStr);
+                return parsedDate.toISOString().split('T')[0];
+            }
+            return date.split(' ')[0];
+        }
+        
+        if (typeof date === 'number') {
+            return new Date(date).toISOString().split('T')[0];
+        }
+        
+        // Handle Firebase Timestamp
+        if (date.seconds) {
+            return new Date(date.seconds * 1000).toISOString().split('T')[0];
+        }
+        
+        return new Date(date).toISOString().split('T')[0];
+    } catch (error) {
+        console.warn('Error formatting date:', error);
+        return new Date().toISOString().split('T')[0];
+    }
+}
+
+// Format time function to handle Firebase timestamp
+function formatTime(date: any): string {
+    if (!date) return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    
+    try {
+        if (typeof date === 'string') {
+            // Handle "2025-08-04T20:24:42.563Z" format
+            if (date.includes('T')) {
+                return new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            }
+            // Handle "5 August 2025 at 01:54:42 UTC+5:30" format
+            if (date.includes(' at ')) {
+                const timeStr = date.split(' at ')[1].split(' ')[0];
+                return timeStr.substring(0, 5); // Extract HH:MM
+            }
+            return new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+        
+        if (typeof date === 'number') {
+            return new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+        
+        // Handle Firebase Timestamp
+        if (date.seconds) {
+            return new Date(date.seconds * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+        
+        return new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } catch (error) {
+        console.warn('Error formatting time:', error);
+        return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
 }
 
 // Define section data structure
@@ -281,8 +343,55 @@ const NotificationScreen: React.FC<NotificationScreenProps> = ({ navigation }) =
         refreshNotifications
     } = useNotifications();
 
-    // Map all notifications to local Notification type
-    const notifications: Notification[] = rawNotifications.map(mapNotification);
+    // Map all notifications to local Notification type using useMemo to prevent infinite re-renders
+    const notifications: Notification[] = React.useMemo(() => {
+        console.log('🔄 Mapping notifications, count:', rawNotifications.length);
+        return rawNotifications.map(mapNotification);
+    }, [rawNotifications]);
+    
+    // Debug: Log first notification to verify Firebase structure (only when notifications change)
+    React.useEffect(() => {
+        if (notifications.length > 0) {
+            console.log('🔍 Firebase notification mapping test:');
+            console.log('📱 Raw notification data:', rawNotifications[0]);
+            console.log('🔄 Mapped notification:', notifications[0]);
+        }
+    }, [rawNotifications.length]);
+
+    // Group notifications by date
+    const groupNotificationsByDate = React.useCallback((notifications: Notification[]): { title: string; data: Notification[] }[] => {
+        const today = new Date().toISOString().split('T')[0];
+        const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+
+        const getDateTitle = (dateString: string) => {
+            if (dateString === today) return 'Today';
+            if (dateString === yesterday) return 'Yesterday';
+            return 'Earlier';
+        };
+
+        // Group notifications by date
+        const groupedData: Record<string, Notification[]> = {};
+
+        notifications.forEach(notification => {
+            const dateTitle = getDateTitle(notification.date);
+            if (!groupedData[dateTitle]) {
+                groupedData[dateTitle] = [];
+            }
+            groupedData[dateTitle].push(notification);
+        });
+
+        // Convert to array of sections
+        return Object.keys(groupedData).map(title => ({
+            title,
+            data: groupedData[title],
+        }));
+    }, []);
+
+    // Filter notifications based on active filter
+    const filterNotifications = React.useCallback((filter: string) => {
+        const filtered = getFilteredNotifications(filter).map(mapNotification);
+        setSections(groupNotificationsByDate(filtered));
+    }, [getFilteredNotifications, groupNotificationsByDate]);
 
     const [showSettings, setShowSettings] = useState<boolean>(false);
     const [refreshing, setRefreshing] = useState<boolean>(false);
@@ -355,48 +464,7 @@ const NotificationScreen: React.FC<NotificationScreenProps> = ({ navigation }) =
         } else {
             setSections(groupNotificationsByDate(notifications));
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [notifications]);
-
-    // Group notifications by date
-    const groupNotificationsByDate = (notifications: Notification[]): { title: string; data: Notification[] }[] => {
-        const today = new Date().toISOString().split('T')[0];
-        const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-
-        const getDateTitle = (dateString: string) => {
-            if (dateString === today) return 'Today';
-            if (dateString === yesterday) return 'Yesterday';
-            return 'Earlier';
-        };
-
-        // Group notifications by date
-        const groupedData: Record<string, Notification[]> = {};
-
-        notifications.forEach(notification => {
-            const dateTitle = getDateTitle(notification.date);
-            if (!groupedData[dateTitle]) {
-                groupedData[dateTitle] = [];
-            }
-            groupedData[dateTitle].push(notification);
-        });
-
-        // Convert to array of sections
-        return Object.keys(groupedData).map(title => ({
-            title,
-            data: groupedData[title],
-        }));
-    };
-
-    // Handle filter change and notifications change
-    useEffect(() => {
-        filterNotifications(selectedFilter);
-    }, [selectedFilter, notifications]);
-
-    // Filter notifications based on active filter
-    const filterNotifications = (filter: string) => {
-        const filtered = getFilteredNotifications(filter).map(mapNotification);
-        setSections(groupNotificationsByDate(filtered));
-    };
+    }, [notifications.length, groupNotificationsByDate]);
 
     // Control tab bar visibility when settings modal is open
     useEffect(() => {

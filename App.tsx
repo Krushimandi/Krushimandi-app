@@ -20,6 +20,7 @@ import { AuthStateProvider } from './src/components/providers/AuthStateProvider'
 import { AuthBootstrapState } from './src/utils/authBootstrap';
 import { usePushNotifications } from './src/hooks/usePushNotifications';
 import { initializeNetworkMonitoring } from './src/services/firebaseService';
+import { notificationInitService } from './src/services/notificationInitService';
 import NetworkStatusIndicator from './src/components/common/NetworkStatusIndicator';
 
 // In App.js or index.js
@@ -45,6 +46,15 @@ const App: React.FC = () => {
     useEffect(() => {
         console.log('📶 Initializing network monitoring...');
         initializeNetworkMonitoring();
+        
+        // Initialize notification system
+        console.log('🔔 Initializing notification system...');
+        const cleanupNotifications = notificationInitService.initialize();
+        
+        // Return cleanup function
+        return () => {
+            cleanupNotifications();
+        };
     }, []);
 
     useEffect(() => {

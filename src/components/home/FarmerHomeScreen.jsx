@@ -62,6 +62,7 @@ const FarmerHomeScreen = () => {
   const [fruitHistory, setFruitHistory] = useState([]);
   const [loadingFruits, setLoadingFruits] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isFixedHeaderVisible, setIsFixedHeaderVisible] = useState(false);
   const scrollY = useRef(new Animated.Value(0)).current;
 
   // Make sure tab bar is visible when screen comes into focus
@@ -472,7 +473,10 @@ const FarmerHomeScreen = () => {
           { 
             useNativeDriver: false, // Height animations require layout thread
             listener: (event) => {
-              // Optional: Add custom scroll logic here if needed
+              const scrollY = event.nativeEvent.contentOffset.y;
+              // Update fixed header visibility state
+              const shouldShowFixedHeader = scrollY > headerConstants.HEADER_SCROLL_DISTANCE * 0.7;
+              setIsFixedHeaderVisible(shouldShowFixedHeader);
             }
           }
         )}
@@ -912,7 +916,9 @@ const FarmerHomeScreen = () => {
             shadowOpacity: fixedHeaderShadowOpacity,
             elevation: fixedHeaderElevation, // For Android
           }
-        ]}>
+        ]}
+        pointerEvents={isFixedHeaderVisible ? 'auto' : 'none'} // Only allow touch when sufficiently visible
+      >
         <Image source={require('../../assets/icon.png')} style={styles.fixedHeaderImage} />
         <TouchableOpacity
           style={styles.notificationIconButton}

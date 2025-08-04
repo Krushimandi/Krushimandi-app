@@ -27,8 +27,9 @@ interface NotificationDetailProps {
   navigation: NavigationProp<ParamListBase>;
   route: RouteProp<{
     params: {
+      id: string;
       title: string;
-      message: string;
+      body: string; // Changed from message to body to match Firebase structure
       date: string;
       time?: string;
       type?: 'promotion' | 'update' | 'alert' | 'request' | 'transaction';
@@ -78,7 +79,7 @@ const getNotificationColor = (type?: string, theme: 'light' | 'dark' = 'light'):
 };
 
 const NotificationDetail: React.FC<NotificationDetailProps> = ({ navigation, route }) => {
-  const { title, message, date, time, type, offer, actionUrl, category, createdAt } = route.params;
+  const { id, title, body, date, time, type, offer, actionUrl, category, createdAt } = route.params;
   const iconName = getNotificationIcon(type);
   const iconColor = getNotificationColor(type);
 
@@ -180,7 +181,7 @@ const NotificationDetail: React.FC<NotificationDetailProps> = ({ navigation, rou
           {/* Content Card */}
           <View style={styles.messageCard}>
             {/* Message */}
-            <Text style={styles.message}>{message}</Text>
+            <Text style={styles.message}>{body}</Text>
             {/* Dynamic offer rendering for all notification types */}
             {type === 'promotion' && offer && (
               <View style={{ marginTop: 8 }}>

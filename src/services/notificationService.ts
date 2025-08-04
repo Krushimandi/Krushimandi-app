@@ -10,11 +10,16 @@ import auth from '@react-native-firebase/auth';
 export interface Notification {
     id: string;
     title: string;
-    message: string;
+    message: string; // Keep message for backward compatibility
+    body?: string; // Add body to match Firebase structure  
     date: string;
     time?: string;
     read: boolean;
-    type: 'transaction' | 'promotion' | 'update' | 'alert';
+    type: 'transaction' | 'promotion' | 'update' | 'alert' | 'request';
+    offer?: any;
+    actionUrl?: string;
+    category?: string;
+    createdAt?: string;
 }
 
 // Local notification cache - synced with Firestore
@@ -35,11 +40,16 @@ const convertFirestoreNotification = (fsNotification: FirestoreNotification): No
     return {
         id: fsNotification.id,
         title: fsNotification.payload.title,
-        message: fsNotification.payload.description,
+        message: fsNotification.payload.description, // Keep for backward compatibility
+        body: fsNotification.payload.description,    // Add for Firebase structure
         date: createdAt.toISOString().split('T')[0],
         time: createdAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         read: fsNotification.seen,
-        type: fsNotification.category as Notification['type']
+        type: fsNotification.category as Notification['type'],
+        offer: fsNotification.payload.offer,
+        actionUrl: fsNotification.payload.actionUrl,
+        category: fsNotification.category,
+        createdAt: fsNotification.payload.createdAt
     };
 };
 

@@ -8,6 +8,7 @@ import notifee, { AndroidImportance, AndroidVisibility, EventType } from '@notif
 import { Platform, Alert } from 'react-native';
 import { addNotification, markNotificationAsRead } from './notificationService';
 import { updateAppIconBadge } from '../utils/appIconBadge';
+import { handleNotificationNavigation } from '../navigation/navigationService';
 
 export interface PushNotificationData {
     id?: string;
@@ -264,8 +265,11 @@ class PushNotificationService {
         // Update app icon badge
         updateAppIconBadge();
 
-        // Display local notification
+        // Display local notification for foreground
         await this.displayNotification(notificationData);
+        
+        // Handle navigation for foreground messages (when user clicks the displayed notification)
+        // Note: The actual navigation will be handled in handleNotifeePress when user taps the notification
     }
 
     /**
@@ -299,14 +303,16 @@ class PushNotificationService {
     private handleNotificationPress(remoteMessage: any): void {
         const data = remoteMessage.data;
         
+        console.log('📱 FCM notification pressed (background/quit state):', data);
+        
         // Navigate to appropriate screen based on notification type
         if (data?.notificationId) {
             markNotificationAsRead(data.notificationId);
             updateAppIconBadge();
         }
 
-        // You can add navigation logic here
-        // Example: navigateToScreen(data?.screen, data?.params);
+        // Handle navigation using the navigation service
+        handleNotificationNavigation(data);
     }
 
     /**
@@ -315,12 +321,15 @@ class PushNotificationService {
     private handleNotifeePress(notification: any): void {
         const data = notification?.data;
         
+        console.log('🔔 Notifee notification pressed (foreground):', data);
+        
         if (data?.notificationId) {
             markNotificationAsRead(data.notificationId);
             updateAppIconBadge();
         }
 
-        // Navigation logic here
+        // Handle navigation using the navigation service
+        handleNotificationNavigation(data);
     }
 
     /**
@@ -330,6 +339,8 @@ class PushNotificationService {
         const actionId = pressAction?.id;
         const data = notification?.data;
 
+        console.log('🔔 Notifee action pressed:', actionId, data);
+
         switch (actionId) {
             case 'mark_read':
                 if (data?.notificationId) {
@@ -338,7 +349,8 @@ class PushNotificationService {
                 }
                 break;
             case 'open_app':
-                // Navigation logic to open specific screen
+                // Handle navigation using the navigation service
+                handleNotificationNavigation(data);
                 break;
             default:
                 console.log('Unknown action:', actionId);
