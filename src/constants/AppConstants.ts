@@ -71,11 +71,20 @@ export const StorageKeys = {
   APP_SETTINGS: '@krushimandi:app_settings',
 } as const;
 
+// Secure Storage Keys for sensitive data (using react-native-keychain)
+export const SecureStorageKeys = {
+  AUTH_TOKEN: 'krushimandi_auth_token',
+  REFRESH_TOKEN: 'krushimandi_refresh_token',
+  FIREBASE_TOKEN: 'krushimandi_firebase_token',
+  USER_CREDENTIALS: 'krushimandi_user_credentials',
+} as const;
+
 // API Endpoints
 export const API_ENDPOINTS = {
   AUTH: {
     LOGIN: '/auth/login',
     REGISTER: '/auth/register',
+    SEND_OTP: '/auth/send-otp',
     VERIFY_OTP: '/auth/verify-otp',
     REFRESH_TOKEN: '/auth/refresh-token',
     LOGOUT: '/auth/logout',

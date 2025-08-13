@@ -20,7 +20,7 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
   useEffect(() => {
     const timer = setTimeout(() => {
       onFinish();
-    }, 3000); // Show splash for 3 seconds
+    }, 1500); // Show splash for 3 seconds
 
     return () => clearTimeout(timer);
   }, [onFinish]);

@@ -40,18 +40,18 @@ class FirestoreNotificationService {
   private unsubscribe: (() => void) | null = null;
 
   /**
-   * Load notifications for current user
+   * Load notifications for current user ONLY (no shared/universal notifications)
    */
   async loadUserNotifications(userId: string): Promise<FirestoreNotification[]> {
     try {
-      console.log('📬 Loading notifications for user:', userId);
+      console.log('📬 Loading user-specific notifications for user:', userId);
 
       const notificationsRef = collection(firestore, 'notifications');
       
-      // Query for user-specific and universal notifications
+      // Query ONLY for user-specific notifications (removed 'all' to fix shared notifications)
       const userQuery = query(
         notificationsRef,
-        where('to', 'in', [userId, 'all']),
+        where('to', '==', userId), // Only get notifications specifically for this user
         orderBy('createdAt', 'desc'),
         limit(100)
       );
@@ -67,7 +67,7 @@ class FirestoreNotificationService {
         } as FirestoreNotification);
       });
 
-      console.log('✅ Loaded', notifications.length, 'notifications from Firestore');
+      console.log('✅ Loaded', notifications.length, 'user-specific notifications from Firestore');
       return notifications;
 
     } catch (error) {
@@ -77,19 +77,20 @@ class FirestoreNotificationService {
   }
 
   /**
-   * Real-time listener for notifications
+   * Real-time listener for user-specific notifications ONLY
    */
   subscribeToNotifications(
     userId: string, 
     callback: (notifications: FirestoreNotification[]) => void
   ): () => void {
     try {
-      console.log('🔔 Setting up real-time notification listener for:', userId);
+      console.log('🔔 Setting up real-time notification listener for user-specific notifications:', userId);
 
       const notificationsRef = collection(firestore, 'notifications');
+      // Query ONLY for user-specific notifications (removed 'all' to fix shared notifications)
       const userQuery = query(
         notificationsRef,
-        where('to', 'in', [userId, 'all']),
+        where('to', '==', userId), // Only get notifications specifically for this user
         orderBy('createdAt', 'desc'),
         limit(100)
       );
@@ -105,7 +106,7 @@ class FirestoreNotificationService {
           } as FirestoreNotification);
         });
 
-        console.log('🔄 Real-time update:', notifications.length, 'notifications');
+        console.log('🔄 Real-time update:', notifications.length, 'user-specific notifications');
         callback(notifications);
       }, (error) => {
         console.error('❌ Notification listener error:', error);
@@ -148,19 +149,27 @@ class FirestoreNotificationService {
   }
 
   /**
-   * Mark all notifications as read for user
+   * Mark all notifications as read for current user ONLY
    */
   async markAllAsRead(userId: string): Promise<void> {
     try {
+      console.log('📝 Marking all notifications as read for user:', userId);
+      
+      // Load only user-specific notifications to mark as read
       const notifications = await this.loadUserNotifications(userId);
       const unreadNotifications = notifications.filter(n => !n.seen);
+
+      if (unreadNotifications.length === 0) {
+        console.log('ℹ️ No unread notifications to mark as read');
+        return;
+      }
 
       const promises = unreadNotifications.map(notification => 
         this.markAsRead(notification.id)
       );
 
       await Promise.all(promises);
-      console.log('✅ All notifications marked as read');
+      console.log(`✅ Marked ${unreadNotifications.length} user-specific notifications as read`);
     } catch (error) {
       console.error('❌ Error marking all notifications as read:', error);
     }

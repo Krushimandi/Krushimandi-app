@@ -9,6 +9,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { User, AuthState } from '../types';
 import { StorageKeys } from '../constants';
 import { authService } from '../services/authService';
+import { persistentAuthManager } from '../utils/persistentAuthManager';
 
 interface AuthStore extends AuthState {
   // Actions
@@ -93,6 +94,11 @@ export const useAuthStore = create<AuthStore>()(
             isLoading: false,
             error: null,
           });
+
+          // Enable persistent login after successful OTP verification
+          if (response.user?.id) {
+            await persistentAuthManager.enablePersistentLogin(response.user.id);
+          }
         } catch (error) {
           set({
             isLoading: false,
@@ -106,6 +112,9 @@ export const useAuthStore = create<AuthStore>()(
         try {
           set({ isLoading: true });
           
+          // Disable persistent login for manual logout
+          await persistentAuthManager.disablePersistentLogin();
+          
           await authService.logout();
           
           set({
@@ -117,6 +126,8 @@ export const useAuthStore = create<AuthStore>()(
           });
         } catch (error) {
           // Even if logout fails on server, clear local state
+          await persistentAuthManager.disablePersistentLogin();
+          
           set({
             isAuthenticated: false,
             user: null,
@@ -140,9 +151,19 @@ export const useAuthStore = create<AuthStore>()(
             token: response.token,
             user: response.user,
           });
+
+          // Reset failure count on successful token refresh
+          await persistentAuthManager.resetFailureCount();
         } catch (error) {
-          // If refresh fails, logout user
-          get().logout();
+          // Check if we should logout based on persistent auth settings
+          const errorResult = await persistentAuthManager.handleAuthError(error, 'token_refresh');
+          
+          if (errorResult.shouldLogout) {
+            get().logout();
+          } else {
+            // Don't logout, just log the error
+            console.warn('Token refresh failed but maintaining session:', errorResult.reason);
+          }
           throw error;
         }
       },

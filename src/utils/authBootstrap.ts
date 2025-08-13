@@ -11,6 +11,7 @@ import { getCompleteUserProfile } from '../services/firebaseService';
 import { getUserRole, syncUserRole, initializeUserRoleFromUserData } from './userRoleStorage';
 import { StorageKeys } from '../constants';
 import { authService } from '../services/authService';
+import { persistentAuthManager } from './persistentAuthManager';
 
 export interface AuthBootstrapState {
   isReady: boolean;
@@ -52,6 +53,9 @@ class AuthBootstrap {
     
     try {
       log('🚀 Starting auth bootstrap...');
+      
+      // Step 0: Initialize persistent auth manager
+      await persistentAuthManager.initialize();
       
       // Step 1: Wait for Zustand persist to hydrate
       await this.waitForZustandHydration(maxWaitTime, log);
@@ -148,7 +152,7 @@ class AuthBootstrap {
       log('🔐 Firebase Auth initialized:', authState.isAuthenticated ? 'User authenticated' : 'No user');
       
       if (authState.isAuthenticated && authState.user) {
-        log('🔐 Firebase user available:', authState.user.uid);
+        log('🔐 Firebase user available:', authState.user.id);
       }
     } catch (error) {
       log('❌ Firebase Auth initialization failed:', error);

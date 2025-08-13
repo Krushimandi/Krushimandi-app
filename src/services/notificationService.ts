@@ -20,6 +20,9 @@ export interface Notification {
     actionUrl?: string;
     category?: string;
     createdAt?: string;
+    userId?: string; // User-specific identifier
+    recipientId?: string; // Alternative user identifier
+    timestamp?: number; // Numeric timestamp for sorting
 }
 
 // Local notification cache - synced with Firestore
@@ -37,6 +40,9 @@ const convertFirestoreNotification = (fsNotification: FirestoreNotification): No
         fsNotification.createdAt.toDate() : 
         new Date(fsNotification.payload.createdAt);
 
+    // Extract timestamp for sorting
+    let timestamp = createdAt.getTime();
+
     return {
         id: fsNotification.id,
         title: fsNotification.payload.title,
@@ -49,7 +55,10 @@ const convertFirestoreNotification = (fsNotification: FirestoreNotification): No
         offer: fsNotification.payload.offer,
         actionUrl: fsNotification.payload.actionUrl,
         category: fsNotification.category,
-        createdAt: fsNotification.payload.createdAt
+        createdAt: fsNotification.payload.createdAt,
+        userId: fsNotification.to, // Store the recipient ID as userId
+        recipientId: fsNotification.to, // Store the recipient ID as recipientId
+        timestamp: timestamp
     };
 };
 

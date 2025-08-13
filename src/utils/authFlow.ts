@@ -398,15 +398,54 @@ export const debugAuthState = async (): Promise<void> => {
  */
 export const clearAuthData = async (): Promise<void> => {
   try {
-    await AsyncStorage.multiRemove([
+    console.log('🧹 Starting comprehensive auth data cleanup...');
+    
+    // Import StorageKeys for consistency
+    const { StorageKeys, SecureStorageKeys } = await import('../constants/AppConstants');
+    
+    // Clear AsyncStorage keys - comprehensive list of all possible auth-related keys
+    const keysToRemove = [
+      // Main StorageKeys
+      StorageKeys.USER_TOKEN,
+      StorageKeys.USER_DATA,
+      StorageKeys.USER_ROLE,
+      
+      // Legacy/additional auth keys (maintain backward compatibility)
       'userData',
-      'user_role',
+      'user_role', 
       'auth_state',
-      'authStep'
-    ]);
+      'authStep',
+      'userRole',
+      'lastLoginTime',
+      'authToken',
+      'isAuthenticated',
+      'bootstrapAuth',
+      '@auth:token',
+      '@auth:user',
+      '@auth:state',
+    ];
+    
+    // Also clear secure storage keys
+    try {
+      const { secureStorage } = await import('./secureStorage');
+      await secureStorage.clearAll();
+      console.log('✅ Secure storage cleared');
+    } catch (error) {
+      console.warn('⚠️ Failed to clear secure storage:', error);
+    }
+    
+    // Remove duplicates and filter out undefined values
+    const uniqueKeysToRemove = [...new Set(keysToRemove.filter(Boolean))];
+    
+    console.log('🗑️ Removing AsyncStorage keys:', uniqueKeysToRemove);
+    await AsyncStorage.multiRemove(uniqueKeysToRemove);
+    
+    // Clear user role using the dedicated function
     await clearUserRole();
-    console.log('✅ Auth data cleared');
+    
+    console.log('✅ Comprehensive auth data cleared from AsyncStorage');
   } catch (error) {
-    console.error('Error clearing auth data:', error);
+    console.error('❌ Error clearing auth data:', error);
+    throw error;
   }
 };

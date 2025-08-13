@@ -40,26 +40,34 @@ MyApp is an innovative agricultural marketplace that eliminates middlemen by con
 ### Frontend
 - **React Native CLI** 0.72+ - Native mobile development
 - **TypeScript** - Type-safe development
-- **React Navigation 6** - Navigation and routing
+- **React Navigation 7** - Navigation and routing
 - **React Native Vector Icons** - Icon library
-- **React Native Async Storage** - Local data persistence
+- **@react-native-async-storage/async-storage** - Local data persistence
 - **React Native Image Picker** - Camera and gallery integration
 - **React Native Gesture Handler** - Touch and gesture system
 
 ### State Management
-- **React Context API** - Global state management
+- **Zustand** - Global state management
+- **React Context API** - For theming and authentication
 - **Custom Hooks** - Reusable state logic
 - **AsyncStorage** - Local data caching
 
-### Native Features
+### Backend & Native Features
+- **Firebase** - Backend-as-a-Service (BaaS)
+  - **Firestore** - NoSQL database
+  - **Firebase Authentication** - User authentication
+  - **Firebase Storage** - File storage
+  - **Firebase Cloud Messaging (FCM)** - Push notifications
+- **@notifee/react-native** - Local and remote notifications
 - **React Native Permissions** - Handle device permissions
 - **React Native Device Info** - Device information
 - **React Native NetInfo** - Network connectivity
-- **React Native Push Notifications** - Local and remote notifications
 - **GPS Location Services** - Automatic location detection and auto-fill
 - **Google Geocoding API** - Accurate address resolution for Indian locations
 
 ### UI/UX
+- **NativeWind** - Tailwind CSS for React Native
+- **TailwindCSS** - Utility-first CSS framework
 - **Custom Design System** - Consistent theming and components
 - **React Native Reanimated** - High-performance animations
 - **React Native Safe Area Context** - Safe area handling
@@ -69,35 +77,37 @@ MyApp is an innovative agricultural marketplace that eliminates middlemen by con
 
 ```
 src/
-├── components/
-│   ├── auth/                 # Authentication screens
-│   ├── buyer/               # Buyer-specific components
-│   ├── farmer/              # Farmer-specific components
-│   ├── orders/              # Order management
-│   ├── products/            # Product-related components
-│   ├── common/              # Shared components
-│   ├── notification/        # Notification system
-│   ├── profile/             # User profile management
-│   └── providers/           # Context providers
-├── navigation/
-│   ├── auth/               # Authentication navigation
-│   ├── buyer/              # Buyer navigation stack
-│   ├── farmer/             # Farmer navigation stack
-│   └── types.ts            # Navigation type definitions
-├── utils/
-│   ├── authBootstrap.ts    # Authentication initialization
-│   ├── storage.ts          # AsyncStorage utilities
-│   └── constants.ts        # App constants
-android/                    # Android native code
-ios/                       # iOS native code
-└── assets/               # Images, fonts, and static files
+├── assets/               # Images, fonts, and static files
+├── components/           # Reusable UI components
+│   ├── auth/             # Authentication screens
+│   ├── common/           # Shared components
+│   ├── home/             # Home screen components
+│   ├── notification/     # Notification components
+│   ├── orders/           # Order management components
+│   ├── products/         # Product-related components
+│   ├── profile/          # User profile components
+│   └── ...               # Other component groups
+├── config/               # Firebase and other configurations
+├── constants/            # App-wide constants (colors, styles)
+├── contexts/             # React context providers
+├── hooks/                # Custom hooks for reusable logic
+├── navigation/           # Navigation setup and stacks
+│   ├── auth/             # Auth navigation flow
+│   ├── buyer/            # Buyer-specific navigation
+│   ├── farmer/           # Farmer-specific navigation
+│   └── ...               # Other navigation stacks
+├── services/             # Services for API calls and backend logic
+├── store/                # Zustand stores for state management
+├── types/                # TypeScript type definitions
+├── ui/                   # General UI elements
+└── utils/                # Utility functions
 ```
 
 ## 🚀 Getting Started
 
 ### Prerequisites
 
-- **Node.js** (v16 or higher)
+- **Node.js** (v18 or higher)
 - **npm** or **yarn**
 - **React Native CLI** (`npm install -g @react-native-community/cli`)
 - **Java Development Kit** (JDK 11 or newer)
@@ -154,8 +164,8 @@ ios/                       # iOS native code
 4. **Set up environment variables**
    ```bash
    cp .env.example .env
-   # Edit .env with your configuration
    ```
+   Then, edit the `.env` file with your configuration.
 
 ### Running the App
 

@@ -35,7 +35,7 @@ const EditProfileScreen = () => {
   const [phone, setPhone] = useState('');
   const [userData, setUserData] = useState<any>(null);
   const [isSaving, setIsSaving] = useState<boolean>(false);
-  
+
   // Validation states
   const [emailError, setEmailError] = useState('');
   const [phoneError, setPhoneError] = useState('');
@@ -302,17 +302,25 @@ const EditProfileScreen = () => {
         translucent={false}
       />
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-          disabled={isSaving}
-        >
-          <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
-        </TouchableOpacity>
-        <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>Edit Profile</Text>
-          <Text style={styles.headerSubtitle}>Update your information</Text>
+      <View style={styles.headerContainer}>
+        <View style={styles.headerBackground}>
+          <View style={styles.headerPattern} />
+          <View style={styles.headerOverlay} />
+        </View>
+
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.headerButton}
+            onPress={() => navigation.goBack()}
+            disabled={isSaving}
+          >
+            <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+
+          <View style={styles.headerTitleContainer}>
+            <Text style={styles.headerTitle}>Edit Profile</Text>
+            <Text style={styles.headerSubtitle}>Update your information</Text>
+          </View>
         </View>
       </View>
 
@@ -332,8 +340,8 @@ const EditProfileScreen = () => {
                 source={getProfileImageSource()}
                 style={styles.profileImage}
               />
-              <TouchableOpacity 
-                style={styles.editIcon} 
+              <TouchableOpacity
+                style={styles.editIcon}
                 onPress={pickImage}
                 disabled={isSaving}
               >
@@ -433,8 +441,8 @@ const EditProfileScreen = () => {
             </View>
 
             {/* Save Button */}
-            <TouchableOpacity 
-              style={[styles.saveButton, isSaving && styles.saveButtonDisabled]} 
+            <TouchableOpacity
+              style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
               onPress={handleSave}
               disabled={isSaving}
             >
@@ -449,7 +457,7 @@ const EditProfileScreen = () => {
         visible={isSaving}
         transparent={true}
         animationType="fade"
-        onRequestClose={() => {}}
+        onRequestClose={() => { }}
       >
         <View style={styles.loadingOverlay}>
           <View style={styles.loadingContainer}>
@@ -477,20 +485,50 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    zIndex: 1,
     paddingHorizontal: 20,
     paddingVertical: 20,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    // paddingTop: Platform.OS === 'android' ? ((StatusBar.currentHeight ?? 0) + 16) : 0,
-    backgroundColor: '#43B86C',
-    elevation: 8,
-    shadowColor: '#43B86C',
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
+    position: 'relative',
+    zIndex: 1,
   },
-  backButton: {
+  headerContainer: {
+    position: 'relative',
+    paddingTop: StatusBar.currentHeight || 44,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    overflow: 'hidden',
+    elevation: 12,
+    shadowColor: '#43B86C',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+  },
+  headerBackground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#43B86C',
+  },
+  headerPattern: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'transparent',
+    opacity: 0.1,
+  },
+  headerOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#43B86C',
+    opacity: 0.95,
+  },
+  headerButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
@@ -500,22 +538,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.2)',
   },
-  headerCenter: {
-    alignItems: 'center',
-    flex: 1,
+  headerTitleContainer: {
     position: 'absolute',
     left: 0,
     right: 0,
     top: 20,
     justifyContent: 'center',
-    // alignItems: 'center',
+    alignItems: 'center',
   },
   headerTitle: {
-    // fontSize: 20,
-    // fontWeight: '700',
-    // color: '#FFFFFF',
-    // letterSpacing: 0.5,
-    // textAlign: 'center',
     fontSize: 24,
     fontWeight: '800',
     color: '#FFFFFF',
@@ -525,23 +556,11 @@ const styles = StyleSheet.create({
     textShadowRadius: 3,
   },
   headerSubtitle: {
-    // fontSize: 13,
-    // color: 'rgba(255, 255, 255, 0.8)',
-    // fontWeight: '500',
-    // marginTop: 2,
-    // textAlign: 'center',
     fontSize: 13,
     color: 'rgba(255, 255, 255, 0.8)',
     fontWeight: '500',
     marginTop: 2,
     letterSpacing: 0.3,
-  },
-  headerAction: {
-    padding: 10,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   container: {
     padding: 20,

@@ -23,15 +23,15 @@ const additionalFeatures = [
 ];
 
 const priceRanges = [
-  { label: '₹0 - ₹50', min: 0, max: 50 },
-  { label: '₹50 - ₹100', min: 50, max: 100 },
-  { label: '₹100 - ₹200', min: 100, max: 200 },
-  { label: '₹200+', min: 200, max: 500 },
+  { label: '₹0 - ₹20', min: 0, max: 20 },
+  { label: '₹20 - ₹40', min: 20, max: 40 },
+  { label: '₹40 - ₹60', min: 40, max: 60 },
+  { label: '₹60+', min: 60, max: 500 },
 ];
 
 const FilterScreen = ({ onApplyFilters, onClose, isModal = false, currentFilters = {}, onClearFilters }) => {
   const navigation = useNavigation();
-  
+
   // Debug props on component mount
   console.log('🎯 FilterScreen mounted with props:', {
     onApplyFilters: typeof onApplyFilters,
@@ -40,7 +40,7 @@ const FilterScreen = ({ onApplyFilters, onClose, isModal = false, currentFilters
     isModal,
     currentFilters
   });
-  
+
   // Initialize state with current filters or defaults
   const [selectedFeatures, setSelectedFeatures] = useState(currentFilters.selectedFeatures || []);
   const [selectedPriceRange, setSelectedPriceRange] = useState(currentFilters.priceRange || null);
@@ -89,18 +89,18 @@ const FilterScreen = ({ onApplyFilters, onClose, isModal = false, currentFilters
       maxPrice,
       minRating
     };
-    
+
     console.log('🎯 FilterScreen applying filters:', filters);
     console.log('🔍 onApplyFilters prop exists:', typeof onApplyFilters);
     console.log('🔍 onClose prop exists:', typeof onClose);
-    
+
     if (onApplyFilters && typeof onApplyFilters === 'function') {
       onApplyFilters(filters);
     } else {
       console.error('❌ onApplyFilters prop is not a function or is missing');
       console.error('❌ Available props:', { onApplyFilters, onClose, isModal, currentFilters, onClearFilters });
     }
-    
+
     if (onClose && typeof onClose === 'function') {
       onClose();
     } else {
@@ -110,19 +110,19 @@ const FilterScreen = ({ onApplyFilters, onClose, isModal = false, currentFilters
 
   const handleClearFilters = () => {
     console.log('🧹 FilterScreen clearing filters');
-    
+
     // Clear all filter states
     setSelectedFeatures([]);
     setSelectedPriceRange(null);
     setMinPrice(0);
     setMaxPrice(500);
     setMinRating(0);
-    
+
     // Call parent clear function if provided
     if (onClearFilters) {
       onClearFilters();
     }
-    
+
     console.log('✅ FilterScreen filters cleared');
   };
 
@@ -135,7 +135,7 @@ const FilterScreen = ({ onApplyFilters, onClose, isModal = false, currentFilters
             translucent={true}
             barStyle="dark-content"
           />
-          
+
           {/* Enhanced Header */}
           <View style={styles.header}>
             <TouchableOpacity
@@ -144,16 +144,16 @@ const FilterScreen = ({ onApplyFilters, onClose, isModal = false, currentFilters
             >
               <Icon name="arrow-back" size={24} color="#007E2F" />
             </TouchableOpacity>
-            
+
             <View style={styles.headerCenter}>
-              <Text style={styles.headerText}>Filters</Text>
+              <Text style={styles.headerText}>Filters 00</Text>
               {getActiveFiltersCount() > 0 && (
                 <View style={styles.filterBadge}>
                   <Text style={styles.filterBadgeText}>{getActiveFiltersCount()}</Text>
                 </View>
               )}
             </View>
-            
+
             <TouchableOpacity
               style={[
                 styles.clearButton,
@@ -163,11 +163,11 @@ const FilterScreen = ({ onApplyFilters, onClose, isModal = false, currentFilters
               disabled={getActiveFiltersCount() === 0}
               activeOpacity={0.8}
             >
-              <Icon 
-                name="refresh" 
-                size={16} 
-                color={getActiveFiltersCount() === 0 ? '#9CA3AF' : '#FFFFFF'} 
-                style={styles.clearButtonIcon} 
+              <Icon
+                name="refresh"
+                size={16}
+                color={getActiveFiltersCount() === 0 ? '#9CA3AF' : '#FFFFFF'}
+                style={styles.clearButtonIcon}
               />
               <Text style={[
                 styles.clearButtonText,
@@ -180,7 +180,9 @@ const FilterScreen = ({ onApplyFilters, onClose, isModal = false, currentFilters
         </>
       )}
 
-      <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scrollContent}
+        showsVerticalScrollIndicator={false}>
 
         {/* Quick Filter Tags */}
         {(selectedFeatures.length > 0 || selectedPriceRange || minRating > 0) && (
@@ -226,10 +228,10 @@ const FilterScreen = ({ onApplyFilters, onClose, isModal = false, currentFilters
                 onPress={() => handlePriceRangeSelect(range)}
                 activeOpacity={0.7}
               >
-                <Icon 
-                  name="pricetag" 
-                  size={20} 
-                  color={selectedPriceRange === range.label ? '#FFFFFF' : '#007E2F'} 
+                <Icon
+                  name="pricetag"
+                  size={20}
+                  color={selectedPriceRange === range.label ? '#FFFFFF' : '#007E2F'}
                 />
                 <Text style={[
                   styles.priceRangeText,
@@ -256,10 +258,10 @@ const FilterScreen = ({ onApplyFilters, onClose, isModal = false, currentFilters
                 onPress={() => toggleFeature(feature.name)}
                 activeOpacity={0.7}
               >
-                <Icon 
-                  name={feature.icon} 
-                  size={18} 
-                  color={selectedFeatures.includes(feature.name) ? '#FFFFFF' : feature.color} 
+                <Icon
+                  name={feature.icon}
+                  size={18}
+                  color={selectedFeatures.includes(feature.name) ? '#FFFFFF' : feature.color}
                 />
                 <Text style={[
                   styles.featureCardText,
@@ -277,7 +279,7 @@ const FilterScreen = ({ onApplyFilters, onClose, isModal = false, currentFilters
           <Text style={styles.sectionTitle}>Customer Rating</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
             <View style={styles.ratingHorizontalGrid}>
-              {[4, 3, 2, 0].map((rating) => (
+              {[4, 3, 2, 1, 0].map((rating) => (
                 <TouchableOpacity
                   key={rating}
                   style={[
@@ -306,7 +308,7 @@ const FilterScreen = ({ onApplyFilters, onClose, isModal = false, currentFilters
       <View style={[styles.bottomActions, isModal && styles.modalBottomActions]}>
         <View style={styles.filtersInfo}>
           <Text style={styles.filtersInfoText}>
-            {getActiveFiltersCount() > 0 
+            {getActiveFiltersCount() > 0
               ? `${getActiveFiltersCount()} filter${getActiveFiltersCount() > 1 ? 's' : ''} applied`
               : 'No filters applied'
             }
@@ -334,6 +336,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     flex: 1,
     paddingHorizontal: 20,
+    paddingTop: 20,
     paddingBottom: 120,
   },
   header: {
@@ -415,10 +418,11 @@ const styles = StyleSheet.create({
     color: '#111827',
     fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
-  
+
   // Horizontal Scroll
   horizontalScroll: {
     marginBottom: 8,
+    paddingVertical: 10,
   },
 
   // Price Range Styles

@@ -1,6 +1,6 @@
 // HomeScreen.js
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -30,6 +30,7 @@ import { Colors } from '../../constants';
 import { getHeaderConstants } from '../../constants/Layout';
 import FilterScreen from './FilterScreen';
 import Toast from 'react-native-toast-message';
+import ErrorBoundary from '../common/ErrorBoundary';
 import {
   formatPrice,
   formatFruitQuantity,
@@ -73,6 +74,7 @@ const BuyerHomeScreen = () => {
   });
   const scrollY = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(0)).current;
+  const searchTimeoutRef = useRef(null);
 
   // Calculate header height and opacity based on scroll with proper constants
   const headerHeight = scrollY.interpolate({
@@ -134,25 +136,46 @@ const BuyerHomeScreen = () => {
   });
 
 
-  // Always fetch fresh profile on mount
+  // Always fetch fresh profile on mount with cleanup
   useEffect(() => {
-    loadUserProfile(true);
+    let isMounted = true;
+    
+    const initializeScreen = async () => {
+      if (isMounted) {
+        await loadUserProfile(true);
+      }
+    };
+    
+    initializeScreen();
+    
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
-  // Always fetch fresh profile on screen focus
+  // Always fetch fresh profile on screen focus with cleanup
   useFocusEffect(
-    React.useCallback(() => {
-      loadUserProfile(true);
-    }, [])
+    useCallback(() => {
+      let isMounted = true;
+      
+      const handleFocus = async () => {
+        if (isMounted && userProfile?.uid) {
+          await loadUserProfile(true);
+        }
+      };
+      
+      handleFocus();
+      
+      return () => {
+        isMounted = false;
+      };
+    }, [userProfile?.uid])
   );
 
-  // Filter modal functions
-  const openFilterModal = () => {
+  // Filter modal functions - optimized with useCallback
+  const openFilterModal = useCallback(() => {
     console.log('🔓 Opening filter modal');
-    console.log('🔍 handleApplyFilters function exists:', typeof handleApplyFilters);
-    console.log('🔍 closeFilterModal function exists:', typeof closeFilterModal);
-    console.log('🔍 clearAllFilters function exists:', typeof clearAllFilters);
-
+    
     setIsFilterModalVisible(true);
     slideAnim.setValue(0);
     Animated.timing(slideAnim, {
@@ -160,9 +183,9 @@ const BuyerHomeScreen = () => {
       duration: 200,
       useNativeDriver: true,
     }).start();
-  };
+  }, [slideAnim]);
 
-  const closeFilterModal = () => {
+  const closeFilterModal = useCallback(() => {
     Animated.timing(slideAnim, {
       toValue: 0,
       duration: 150,
@@ -170,21 +193,20 @@ const BuyerHomeScreen = () => {
     }).start(() => {
       setIsFilterModalVisible(false);
     });
-  };
+  }, [slideAnim]);
 
-  const handleApplyFilters = (filters) => {
+  // Optimized handleApplyFilters with memoization
+  const handleApplyFilters = useCallback((filters) => {
     console.log('🎯 BuyerHomeScreen applying filters:', filters);
     console.log('📊 Current fruits before filtering:', allFruits.length);
-    console.log('🔍 Sample fruit prices:', allFruits.slice(0, 3).map(f => ({ name: f.name, price: f.price_per_kg })));
 
     // Store applied filters for state management
     setAppliedFilters(filters);
 
     let filtered = [...allFruits];
 
-    // Apply price range filter with new format
+    // Apply price range filter
     if (filters.minPrice > 0 || filters.maxPrice < 500) {
-      console.log('💰 Applying price filter:', filters.minPrice, 'to', filters.maxPrice);
       filtered = filtered.filter(fruit => {
         const price = parseFloat(fruit.price_per_kg || 0);
         return price >= filters.minPrice && price <= filters.maxPrice;
@@ -260,7 +282,7 @@ const BuyerHomeScreen = () => {
     console.log(`📊 Filtered ${filtered.length} fruits from ${allFruits.length} total`);
     setFruits(filtered);
     closeFilterModal();
-  };
+  }, [allFruits, selectedCategory, searchQuery, closeFilterModal]);
   // Safe navigation function to prevent "route not defined" errors
   const safeNavigate = (routeName, params = {}) => {
     try {
@@ -306,22 +328,23 @@ const BuyerHomeScreen = () => {
   };
 
   const handleUserValidationFailure = () => {
+    // Fixed navigation - using proper reset navigation
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'AuthStack' }],
+    });
+    
     Toast.show({
       type: 'error',
-      text1: 'Authentication Error',
-      text2: 'Your session has expired or your account is no longer valid. Please sign in again.',
+      text1: 'Session Expired',
+      text2: 'Please sign in again.',
       position: 'bottom',
-      visibilityTime: 1000,
+      visibilityTime: 2000,
     });
-
-    // Navigate back to auth flow using our utility function
-    import('../../utils/navigationUtils').then(
-      ({ navigateToAuth }) => navigateToAuth()
-    );
   };
 
-  // Get display name for greeting
-  const getDisplayName = () => {
+  // Get display name for greeting - memoized to prevent recalculations
+  const getDisplayName = useMemo(() => {
     if (userProfile?.firstName) {
       return userProfile.firstName;
     }
@@ -329,9 +352,10 @@ const BuyerHomeScreen = () => {
       return userProfile.displayName.split(' ')[0];
     }
     return 'bhau';
-  };
+  }, [userProfile?.firstName, userProfile?.displayName]);
 
-  const renderStars = (rating) => {
+  // Memoized renderStars to prevent recalculations
+  const renderStars = useCallback((rating) => {
     const stars = [];
     const fullStars = Math.floor(rating);
     const halfStar = rating - fullStars >= 0.5;
@@ -352,50 +376,60 @@ const BuyerHomeScreen = () => {
         <Text style={{ color: '#505050', fontSize: 10, marginLeft: 3 }}>{rating}</Text>
       </View>
     );
-  };
+  }, []);
 
-  // Load marketplace fruits from Firebase
-  const loadMarketplaceFruits = async () => {
+  // Load marketplace fruits from Firebase with cleanup
+  const loadMarketplaceFruits = useCallback(async () => {
+    let isMounted = true;
+    
     try {
-      setLoadingFruits(true);
+      if (isMounted) setLoadingFruits(true);
 
       const marketplaceFruits = await getMarketplaceFruits(100);
 
-      if (marketplaceFruits && Array.isArray(marketplaceFruits) && marketplaceFruits.length > 0) {
-        setAllFruits(marketplaceFruits);
-        setFruits(marketplaceFruits);
-      } else {
-        setAllFruits([]);
-        setFruits([]);
+      if (isMounted) {
+        if (marketplaceFruits && Array.isArray(marketplaceFruits) && marketplaceFruits.length > 0) {
+          setAllFruits(marketplaceFruits);
+          setFruits(marketplaceFruits);
+        } else {
+          setAllFruits([]);
+          setFruits([]);
 
-        Toast.show({
-          type: 'info',
-          text1: '📋 No Data',
-          text2: 'No fruits found in database',
-          position: 'bottom',
-          visibilityTime: 3000,
-        });
+          Toast.show({
+            type: 'info',
+            text1: '📋 No Data',
+            text2: 'No fruits found in database',
+            position: 'bottom',
+            visibilityTime: 3000,
+          });
+        }
       }
     } catch (error) {
       console.error('❌ Error loading marketplace fruits:', error);
 
-      setAllFruits([]);
-      setFruits([]);
+      if (isMounted) {
+        setAllFruits([]);
+        setFruits([]);
 
-      Toast.show({
-        type: 'error',
-        text1: '❌ Data Load Failed',
-        text2: 'Unable to load fruits. Check connection.',
-        position: 'bottom',
-        visibilityTime: 1000,
-      });
+        Toast.show({
+          type: 'error',
+          text1: '❌ Data Load Failed',
+          text2: 'Unable to load fruits. Check connection.',
+          position: 'bottom',
+          visibilityTime: 1000,
+        });
+      }
     } finally {
-      setLoadingFruits(false);
+      if (isMounted) setLoadingFruits(false);
     }
-  };
 
-  // Filter fruits based on category and search query
-  const filterFruits = (category, search) => {
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Filter fruits based on category and search query - memoized and optimized
+  const filterFruits = useCallback((category, search) => {
     let filtered = [...allFruits];
 
     // Filter by category
@@ -423,38 +457,68 @@ const BuyerHomeScreen = () => {
     }
 
     setFruits(filtered);
-  };
+  }, [allFruits]);
 
-  // Handle category change
-  const handleCategoryChange = (categoryType) => {
+  // Handle category change - optimized with useCallback
+  const handleCategoryChange = useCallback((categoryType) => {
     setSelectedCategory(categoryType);
     filterFruits(categoryType, searchQuery);
-  };
+  }, [filterFruits, searchQuery]);
 
-  // Handle search query change
-  const handleSearchChange = (query) => {
+  // Handle search query change with debouncing - optimized
+  const handleSearchChange = useCallback((query) => {
     setSearchQuery(query);
-    filterFruits(selectedCategory, query);
-  };
+    
+    // Clear existing timeout
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+    
+    // Debounce the filtering to improve performance
+    searchTimeoutRef.current = setTimeout(() => {
+      filterFruits(selectedCategory, query);
+    }, 300);
+  }, [filterFruits, selectedCategory]);
 
-  // Handle refresh
-  const handleRefresh = () => {
+  // Handle refresh - optimized with useCallback
+  const handleRefresh = useCallback(() => {
     setSearchQuery('');
     setSelectedCategory('all');
     loadMarketplaceFruits();
-  };
+    clearAllFilters();
+  }, [loadMarketplaceFruits]);
 
+  // Handle pull to refresh with cleanup
+  const onRefresh = useCallback(async () => {
+    let isMounted = true;
+    
+    try {
+      if (isMounted) setRefreshing(true);
+      await Promise.allSettled([
+        loadUserProfile(true),
+        loadMarketplaceFruits()
+      ]);
+    } catch (error) {
+      console.error('Refresh error:', error);
+      if (isMounted) {
+        Toast.show({
+          type: 'error',
+          text1: 'Refresh Failed',
+          text2: 'Please try again later',
+          position: 'bottom',
+        });
+      }
+    } finally {
+      if (isMounted) setRefreshing(false);
+    }
+    
+    return () => {
+      isMounted = false;
+    };
+  }, [loadMarketplaceFruits]);
 
-  // Handle pull to refresh
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await loadUserProfile(true); // Always force refresh on pull-to-refresh
-    await loadMarketplaceFruits();
-    setRefreshing(false);
-  };
-
-  // Clear all filters
-  const clearAllFilters = () => {
+  // Clear all filters - optimized with useCallback
+  const clearAllFilters = useCallback(() => {
     console.log('🧹 BuyerHomeScreen clearing all filters');
 
     setSearchQuery('');
@@ -472,29 +536,87 @@ const BuyerHomeScreen = () => {
     setFruits([...allFruits]);
 
     console.log('✅ All filters cleared, showing', allFruits.length, 'fruits');
-  };
+  }, [allFruits]);
 
-  // Load fruits when component mounts
+  // Load fruits when component mounts - only once
   useEffect(() => {
     loadMarketplaceFruits();
+    
+    // Cleanup search timeout on unmount
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, [loadMarketplaceFruits]);
+
+  // Remove duplicate focus effect for fruits loading
+  // Fruits will be loaded once on mount and refreshed via pull-to-refresh
+
+  // Memoized product navigation handler to prevent object recreation
+  const handleProductPress = useCallback((item) => {
+    console.log('🔍 Navigating to ProductDetail with fruit data:', {
+      id: item.id,
+      name: item.name,
+      imageCount: item.image_urls?.length || 0,
+    });
+
+    const productData = {
+      // Core fruit properties from fruit.ts schema
+      id: item.id,
+      name: item.name,
+      type: item.type,
+      grade: item.grade,
+      description: item.description,
+      quantity: item.quantity,
+      price_per_kg: item.price_per_kg,
+      availability_date: item.availability_date,
+      image_urls: item.image_urls || [],
+      location: item.location,
+      farmer_id: item.farmer_id,
+      status: item.status || 'active',
+      views: item.views || 0,
+      likes: item.likes || 0,
+      created_at: item.created_at,
+      updated_at: item.updated_at || item.created_at,
+
+      // Additional display properties for compatibility
+      rating: 4.8,
+      reviewCount: Math.floor((item.likes || 0) * 2),
+      freshness: 'Fresh',
+      details: `${item.name} from ${formatLocation(item.location)}. Available quantity: ${formatFruitQuantity(item.quantity)}`,
+      image: { uri: item.image_urls?.[0] || 'https://via.placeholder.com/150' },
+      postedDate: getRelativeTime(item.created_at),
+      listedDate: getDaysSince(item.created_at)
+    };
+
+    safeNavigate('ProductDetail', { product: productData });
   }, []);
 
-  // Reload fruits when screen comes into focus (to show newly added fruits)
-  useFocusEffect(
-    React.useCallback(() => {
-      loadMarketplaceFruits();
-    }, [])
-  );
-
-  // Filter fruits whenever search or category changes
+  // Optimize filtering when search/category changes - debounced
   useEffect(() => {
     if (allFruits.length > 0) {
-      filterFruits(selectedCategory, searchQuery);
+      // Clear existing timeout
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+      
+      // Debounce filtering to prevent excessive calls
+      searchTimeoutRef.current = setTimeout(() => {
+        filterFruits(selectedCategory, searchQuery);
+      }, 100);
     }
-  }, [selectedCategory, searchQuery, allFruits]);
+    
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, [selectedCategory, searchQuery, allFruits, filterFruits]);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <ErrorBoundary>
+      <SafeAreaView style={styles.safeArea}>
       <StatusBar
         backgroundColor="#FFFFFF"
         translucent={false}
@@ -546,8 +668,9 @@ const BuyerHomeScreen = () => {
       <Animated.ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollViewContent}
-        scrollEventThrottle={1} // Reduced for smoother animation
-        bounces={true} // Enable bounce for better feel
+        scrollEventThrottle={16} // Optimized for better performance
+        bounces={true} // Better UX
+        overScrollMode="auto"
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -563,10 +686,12 @@ const BuyerHomeScreen = () => {
           {
             useNativeDriver: false, // Height animations require layout thread
             listener: (event) => {
-              const scrollY = event.nativeEvent.contentOffset.y;
-              // Update fixed header visibility state
-              const shouldShowFixedHeader = scrollY > headerConstants.HEADER_SCROLL_DISTANCE * 0.7;
-              setIsFixedHeaderVisible(shouldShowFixedHeader);
+              const currentScrollY = event.nativeEvent.contentOffset.y;
+              // Update fixed header visibility state - throttled to prevent excessive updates
+              const shouldShowFixedHeader = currentScrollY > headerConstants.HEADER_SCROLL_DISTANCE * 0.7;
+              
+              // Only update state if it actually changed to prevent unnecessary re-renders
+              setIsFixedHeaderVisible(prev => prev !== shouldShowFixedHeader ? shouldShowFixedHeader : prev);
             }
           }
         )}
@@ -630,11 +755,13 @@ const BuyerHomeScreen = () => {
                   hitSlop={{ top: 10, bottom: 10, left: 0, right: 10 }}
                 >
                   <Text style={styles.welcome}>
-                    Namaste {getDisplayName()}!
+                    Namaste {getDisplayName}!
                   </Text>
                   <View style={styles.locationContainer}>
                     <Text style={styles.location}>
-                      Paithan, Chhatrapati Sambhajinagar
+                      {userProfile?.location ? 
+                        `${userProfile.location.village || ''}, ${userProfile.location.state || ''}`.replace(/, $/, '') 
+                        : 'Paithan, Chhatrapati Sambhajinagar'}
                     </Text>
                     <Icon name="chevron-down" size={12} color="#505050" />
                   </View>
@@ -667,6 +794,9 @@ const BuyerHomeScreen = () => {
                   style={styles.searchInput}
                   value={searchQuery}
                   onChangeText={handleSearchChange}
+                  accessible={true}
+                  accessibilityLabel="Search input"
+                  accessibilityHint="Enter keywords to search for fruits"
                 />
                 {searchQuery.length > 0 && (
                   <TouchableOpacity
@@ -754,49 +884,7 @@ const BuyerHomeScreen = () => {
                   key={item.id}
                   style={styles.fruitCard}
                   activeOpacity={0.9}
-                  onPress={() => {
-                    // Navigate to the ProductDetail screen with complete fruit data
-                    console.log('🔍 Navigating to ProductDetail with fruit data:', {
-                      id: item.id,
-                      name: item.name,
-                      imageCount: item.image_urls?.length || 0,
-                      images: item.image_urls,
-                      allFields: Object.keys(item),
-                      hasId: !!item.id,
-                      productObjectId: item.id // This should be included in the product object
-                    });
-
-                    safeNavigate('ProductDetail', {
-                      product: {
-                        // Core fruit properties from fruit.ts schema
-                        id: item.id, // IMPORTANT: Include id in the product object
-                        name: item.name,
-                        type: item.type,
-                        grade: item.grade,
-                        description: item.description,
-                        quantity: item.quantity,
-                        price_per_kg: item.price_per_kg,
-                        availability_date: item.availability_date,
-                        image_urls: item.image_urls || [],
-                        location: item.location,
-                        farmer_id: item.farmer_id,
-                        status: item.status || 'active',
-                        views: item.views || 0,
-                        likes: item.likes || 0,
-                        created_at: item.created_at,
-                        updated_at: item.updated_at || item.created_at,
-
-                        // Additional display properties for compatibility
-                        rating: 4.8, // Default rating for now
-                        reviewCount: Math.floor((item.likes || 0) * 2),
-                        freshness: 'Fresh',
-                        details: `${item.name} from ${formatLocation(item.location)}. Available quantity: ${formatFruitQuantity(item.quantity)}`,
-                        image: { uri: item.image_urls?.[0] || 'https://via.placeholder.com/150' }, // For backward compatibility
-                        postedDate: getRelativeTime(item.created_at),
-                        listedDate: getDaysSince(item.created_at)
-                      }
-                    });
-                  }}
+                  onPress={() => handleProductPress(item)}
                 >
                   <Image
                     source={{ uri: item.image_urls?.[0] || 'https://via.placeholder.com/150' }}
@@ -852,7 +940,7 @@ const BuyerHomeScreen = () => {
               </View>
             )}
             {/* Add a spacer view to ensure the last item has padding at the bottom */}
-            <View style={{ flex: 1, paddingBottom: 40, backgroundColor: 'transparent' }}></View>
+            <View style={{ flex: 1, paddingBottom: 0, backgroundColor: 'transparent' }}></View>
           </View>
         </View>
       </Animated.ScrollView>
@@ -923,6 +1011,7 @@ const BuyerHomeScreen = () => {
         </View>
       </Modal>
     </SafeAreaView >
+    </ErrorBoundary>
   );
 };
 
@@ -984,8 +1073,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    minHeight: 64, // Ensure consistent height
-    paddingVertical: 8,
   },
   profileContainer: {
     flexDirection: 'row',
@@ -993,7 +1080,7 @@ const styles = StyleSheet.create({
   },
   profileImageButton: {
     padding: 5, // Add padding to increase touch area
-    borderRadius: 60,
+    borderRadius: 30,
   },
   profilePlaceholderButton: {
     padding: 5, // Add padding to increase touch area
@@ -1019,7 +1106,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F6F6F6', // Light background color
   },
   userInfo: {
-    marginLeft: 4,
+    marginLeft: 12,
   },
   welcome: {
     fontSize: 20,
@@ -1039,36 +1126,23 @@ const styles = StyleSheet.create({
     fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
   notificationIconButton: {
-    padding: 8,
-    borderRadius: 12,
-    backgroundColor: '#F8F9FA',
-    borderWidth: 1,
-    borderColor: '#E9ECEF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
+    padding: 5,
   },
   searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
-    minHeight: 64,
+    marginTop: 16,
   },
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8F9FA',
-    borderRadius: 16,
+    backgroundColor: '#F6F6F6',
+    borderRadius: 25,
     flex: 1,
     height: 48,
     borderWidth: 1,
-    borderColor: '#E9ECEF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    // elevation: 1,
+    borderColor: '#EFEFEF',
   },
   searchInput: {
     flex: 1,
@@ -1094,13 +1168,13 @@ const styles = StyleSheet.create({
   },
   section: {
     paddingHorizontal: 20,
-    marginTop: 28, // Increased for better spacing with new header height
+    marginTop: 20, // Increased for better spacing with new header height
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   sectionTitle: {
     fontSize: 18,

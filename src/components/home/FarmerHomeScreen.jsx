@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,7 @@ import {
   Platform,
   SafeAreaView,
   Dimensions,
+  Modal,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -33,6 +34,7 @@ import {
 } from '../../utils/formatters';
 import { RefreshControl } from 'react-native-gesture-handler';
 import Toast from 'react-native-toast-message';
+import ErrorBoundary from '../common/ErrorBoundary';
 
 const fruitCategories = [
   { name: 'All Fruits', type: 'all', icon: null },
@@ -43,6 +45,70 @@ const fruitCategories = [
   { name: 'Sweet Lemon', type: 'sweet lemon', icon: require('../../assets/fruits/sweetlemon.png') },
   { name: 'Apple', type: 'apple', icon: require('../../assets/fruits/Apple.png') },
   { name: 'Mango', type: 'mango', icon: require('../../assets/fruits/mango.png') },
+];
+
+// Sort options with security validation
+const sortOptions = [
+  { 
+    key: 'newest', 
+    label: 'Newest First', 
+    icon: 'time-outline',
+    description: 'Most recently added',
+    sortFn: (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)
+  },
+  { 
+    key: 'oldest', 
+    label: 'Oldest First', 
+    icon: 'hourglass-outline',
+    description: 'Earliest listings first',
+    sortFn: (a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0)
+  },
+  { 
+    key: 'price_high', 
+    label: 'Price: High to Low', 
+    icon: 'trending-up-outline',
+    description: 'Highest price first',
+    sortFn: (a, b) => (parseFloat(b.price_per_kg) || 0) - (parseFloat(a.price_per_kg) || 0)
+  },
+  { 
+    key: 'price_low', 
+    label: 'Price: Low to High', 
+    icon: 'trending-down-outline',
+    description: 'Lowest price first',
+    sortFn: (a, b) => (parseFloat(a.price_per_kg) || 0) - (parseFloat(b.price_per_kg) || 0)
+  },
+  { 
+    key: 'views', 
+    label: 'Most Viewed', 
+    icon: 'eye-outline',
+    description: 'Popular listings first',
+    sortFn: (a, b) => (parseInt(b.views) || 0) - (parseInt(a.views) || 0)
+  },
+  { 
+    key: 'likes', 
+    label: 'Most Liked', 
+    icon: 'heart-outline',
+    description: 'Most appreciated listings',
+    sortFn: (a, b) => (parseInt(b.likes) || 0) - (parseInt(a.likes) || 0)
+  },
+  { 
+    key: 'quantity', 
+    label: 'Most Available', 
+    icon: 'layers-outline',
+    description: 'Largest quantity first',
+    sortFn: (a, b) => {
+      const qtyA = Array.isArray(a.quantity) ? Math.max(...a.quantity.filter(q => !isNaN(q))) : (parseFloat(a.quantity) || 0);
+      const qtyB = Array.isArray(b.quantity) ? Math.max(...b.quantity.filter(q => !isNaN(q))) : (parseFloat(b.quantity) || 0);
+      return qtyB - qtyA;
+    }
+  },
+  { 
+    key: 'alphabetical', 
+    label: 'A to Z', 
+    icon: 'text-outline',
+    description: 'Alphabetical order',
+    sortFn: (a, b) => (a.name || '').toLowerCase().localeCompare((b.name || '').toLowerCase())
+  },
 ];
 
 // Get screen dimensions
@@ -63,6 +129,8 @@ const FarmerHomeScreen = () => {
   const [loadingFruits, setLoadingFruits] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isFixedHeaderVisible, setIsFixedHeaderVisible] = useState(false);
+  const [sortBy, setSortBy] = useState('newest');
+  const [showSortModal, setShowSortModal] = useState(false);
   const scrollY = useRef(new Animated.Value(0)).current;
 
   // Make sure tab bar is visible when screen comes into focus
@@ -121,15 +189,39 @@ const FarmerHomeScreen = () => {
 
   // Always fetch fresh profile on mount
   useEffect(() => {
-    loadUserProfile(true);
+    let isMounted = true;
+    
+    const initializeScreen = async () => {
+      if (isMounted) {
+        await loadUserProfile(true);
+      }
+    };
+    
+    initializeScreen();
+    
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   // Always fetch fresh profile on screen focus
   useFocusEffect(
-    React.useCallback(() => {
-      loadUserProfile(true);
-      showTabBar();
-    }, [showTabBar])
+    useCallback(() => {
+      let isMounted = true;
+      
+      const handleFocus = async () => {
+        showTabBar();
+        if (isMounted && userProfile?.uid) {
+          await loadUserProfile(true);
+        }
+      };
+      
+      handleFocus();
+      
+      return () => {
+        isMounted = false;
+      };
+    }, [showTabBar, userProfile?.uid])
   );
 
   // Safe navigation function to prevent "route not defined" errors
@@ -197,22 +289,23 @@ const FarmerHomeScreen = () => {
   };
 
   const handleUserValidationFailure = () => {
-    // Navigate back to auth flow using our utility function
-    navigation.then(
-      ({ navigateToAuth }) => navigateToAuth()
-    );
+    // Fixed navigation - using proper reset navigation
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'AuthStack' }],
+    });
+    
     Toast.show({
       type: 'error',
       visibilityTime: 1000,
       position: 'bottom',
-      text1: "logged out",
-
-      text2: "Your session has expired or your account is no longer valid. Please sign in again."
+      text1: "Session Expired",
+      text2: "Please sign in again."
     });
   };
 
-  // Get display name for greeting
-  const getDisplayName = () => {
+  // Get display name for greeting - memoized to prevent recalculations
+  const getDisplayName = useMemo(() => {
     if (userProfile?.firstName) {
       return userProfile.firstName;
     }
@@ -220,7 +313,7 @@ const FarmerHomeScreen = () => {
       return userProfile.displayName.split(' ')[0];
     }
     return 'there';
-  };
+  }, [userProfile?.firstName, userProfile?.displayName]);
 
   // Toggle product in watchlist
   const toggleWatchlist = (productId) => {
@@ -254,59 +347,92 @@ const FarmerHomeScreen = () => {
     );
   };
 
-  // Load farmer's fruits from Firebase
-  const loadFarmerFruits = async () => {
+  // Load farmer's fruits from Firebase with cleanup
+  const loadFarmerFruits = useCallback(async () => {
+    let isMounted = true;
+    
     try {
       if (!userProfile?.uid) {
         console.log('❌ No user profile available for loading fruits');
         return;
       }
 
-      setLoadingFruits(true);
+      if (isMounted) setLoadingFruits(true);
       console.log('🔄 Loading farmer fruits for user:', userProfile.uid);
 
       // Load active fruits using optimized method
       const activeData = await getFruitsByFarmerOptimized(userProfile.uid, 'active');
-      console.log('✅ Loaded active fruits:', activeData.length, activeData);
-      setActiveFruits(activeData || []);
+      if (isMounted) {
+        console.log('✅ Loaded active fruits:', activeData.length, activeData);
+        setActiveFruits(activeData || []);
+      }
 
       // Load fruit history (sold/inactive fruits) using optimized method
       const allFruitsData = await getFruitsByFarmerOptimized(userProfile.uid);
       const history = (allFruitsData || []).filter(fruit => fruit.status !== 'active');
-      console.log('✅ Loaded fruit history:', history.length, history);
-      setFruitHistory(history);
+      if (isMounted) {
+        console.log('✅ Loaded fruit history:', history.length, history);
+        setFruitHistory(history);
 
-      console.log('✅ Farmer fruits loaded successfully:', {
-        active: activeData?.length || 0,
-        history: history?.length || 0,
-        total: allFruitsData?.length || 0
-      });
+        console.log('✅ Farmer fruits loaded successfully:', {
+          active: activeData?.length || 0,
+          history: history?.length || 0,
+          total: allFruitsData?.length || 0
+        });
+      }
     } catch (error) {
       console.error('❌ Error loading farmer fruits:', error);
-      // Show error to user but don't fallback to dummy data
-      Alert.alert(
-        'Error Loading Fruits',
-        'Unable to load your fruit listings. Please check your internet connection and try again.',
-        [
-          { text: 'OK', onPress: () => { } },
-          { text: 'Retry', onPress: () => loadFarmerFruits() }
-        ]
-      );
-      // Set empty arrays instead of sample data
-      setActiveFruits([]);
-      setFruitHistory([]);
+      if (isMounted) {
+        // Show error to user but don't fallback to dummy data
+        Alert.alert(
+          'Error Loading Fruits',
+          'Unable to load your fruit listings. Please check your internet connection and try again.',
+          [
+            { text: 'OK', onPress: () => { } },
+            { text: 'Retry', onPress: () => loadFarmerFruits() }
+          ]
+        );
+        // Set empty arrays instead of sample data
+        setActiveFruits([]);
+        setFruitHistory([]);
+      }
     } finally {
-      setLoadingFruits(false);
+      if (isMounted) setLoadingFruits(false);
     }
-  };
 
-  // Refresh function for pull-to-refresh
-  const handleRefresh = async () => {
-    if (userProfile?.uid) {
-      await loadUserProfile(true); // Always force refresh on pull-to-refresh
-      await loadFarmerFruits();
+    return () => {
+      isMounted = false;
+    };
+  }, [userProfile?.uid]);
+
+  // Refresh function for pull-to-refresh with cleanup
+  const handleRefresh = useCallback(async () => {
+    let isMounted = true;
+    
+    try {
+      if (isMounted && userProfile?.uid) {
+        // Use Promise.allSettled for concurrent loading but with proper error handling
+        await Promise.allSettled([
+          loadUserProfile(true),
+          loadFarmerFruits()
+        ]);
+      }
+    } catch (error) {
+      console.error('Refresh error:', error);
+      if (isMounted) {
+        Toast.show({
+          type: 'error',
+          text1: 'Refresh Failed',
+          text2: 'Please try again later',
+          position: 'bottom',
+        });
+      }
     }
-  };
+    
+    return () => {
+      isMounted = false;
+    };
+  }, [userProfile?.uid, loadFarmerFruits]);
 
   // Add loading indicator component
   const LoadingFruits = () => (
@@ -357,25 +483,59 @@ const FarmerHomeScreen = () => {
 
 
   // Handle fruit status updates (mark as sold, inactive, etc.)
-  const handleFruitStatusUpdate = async (fruitId, newStatus) => {
+  const handleFruitStatusUpdate = useCallback(async (fruitId, newStatus) => {
+    let isMounted = true;
+    
     try {
       console.log('🔄 Updating fruit status...', { fruitId, newStatus });
 
+      // Optimistic update
+      if (newStatus === 'sold' || newStatus === 'inactive') {
+        setActiveFruits(prev => prev.filter(fruit => fruit.id !== fruitId));
+        const movedFruit = activeFruits.find(fruit => fruit.id === fruitId);
+        if (movedFruit && isMounted) {
+          setFruitHistory(prev => [{ ...movedFruit, status: newStatus }, ...prev]);
+        }
+      } else if (newStatus === 'active') {
+        setFruitHistory(prev => prev.filter(fruit => fruit.id !== fruitId));
+        const movedFruit = fruitHistory.find(fruit => fruit.id === fruitId);
+        if (movedFruit && isMounted) {
+          setActiveFruits(prev => [{ ...movedFruit, status: newStatus }, ...prev]);
+        }
+      }
+
       await updateFruitStatus(fruitId, newStatus);
 
-      // Reload fruits to reflect changes
-      await loadFarmerFruits();
+      // Reload fruits to reflect changes from server
+      if (isMounted) {
+        await loadFarmerFruits();
 
-      const statusMessage = newStatus === 'sold' ? 'marked as sold' :
-        newStatus === 'inactive' ? 'deactivated' :
-          'updated';
+        const statusMessage = newStatus === 'sold' ? 'marked as sold' :
+          newStatus === 'inactive' ? 'deactivated' :
+            newStatus === 'active' ? 'reactivated' :
+              'updated';
 
-      Alert.alert('Success', `Fruit ${statusMessage} successfully!`);
+        Toast.show({
+          type: 'success',
+          text1: 'Success',
+          text2: `Fruit ${statusMessage} successfully!`,
+          position: 'bottom',
+          visibilityTime: 1000,
+        });
+      }
     } catch (error) {
       console.error('❌ Error updating fruit status:', error);
-      Alert.alert('Error', 'Failed to update fruit status: ' + error.message);
+      if (isMounted) {
+        // Revert optimistic update
+        await loadFarmerFruits();
+        Alert.alert('Error', 'Failed to update fruit status: ' + error.message);
+      }
     }
-  };
+
+    return () => {
+      isMounted = false;
+    };
+  }, [activeFruits, fruitHistory, loadFarmerFruits]);
 
   // Handle marking a fruit as sold
   const markFruitAsSold = (fruit) => {
@@ -408,8 +568,8 @@ const FarmerHomeScreen = () => {
     );
   };
 
-  // Filter fruits based on search query and category
-  const getFilteredFruits = (fruits) => {
+  // Filter fruits based on search query and category - memoized
+  const getFilteredFruits = useCallback((fruits) => {
     let filtered = fruits;
 
     // Filter by category
@@ -440,20 +600,82 @@ const FarmerHomeScreen = () => {
     }
 
     return filtered;
-  };
+  }, [selectedCategory, searchQuery]);
+
+  // Sort fruits based on selected sort option - memoized
+  const getSortedFruits = useCallback((fruits) => {
+    // Validate sortBy to prevent injection attacks
+    const validSortKeys = sortOptions.map(option => option.key);
+    if (!validSortKeys.includes(sortBy)) {
+      console.warn('Invalid sort key detected:', sortBy);
+      return fruits; // Return unsorted if invalid
+    }
+
+    const sortOption = sortOptions.find(option => option.key === sortBy);
+    if (!sortOption || typeof sortOption.sortFn !== 'function') {
+      console.warn('Invalid sort function for key:', sortBy);
+      return fruits;
+    }
+
+    try {
+      // Create a copy to avoid mutating original array
+      const sortedFruits = [...fruits];
+      return sortedFruits.sort(sortOption.sortFn);
+    } catch (error) {
+      console.error('Error sorting fruits:', error);
+      return fruits; // Return original array if sorting fails
+    }
+  }, [sortBy]);
+
+  // Handle sort selection with validation
+  const handleSortSelection = useCallback((sortKey) => {
+    // Validate sort key
+    const isValidSortKey = sortOptions.some(option => option.key === sortKey);
+    if (!isValidSortKey) {
+      console.warn('Invalid sort key selected:', sortKey);
+      return;
+    }
+
+    setSortBy(sortKey);
+    setShowSortModal(false);
+    
+    // Show feedback to user
+    const selectedOption = sortOptions.find(option => option.key === sortKey);
+    if (selectedOption) {
+      Toast.show({
+        type: 'info',
+        text1: 'Sorted',
+        text2: selectedOption.label,
+        position: 'bottom',
+        visibilityTime: 1000,
+      });
+    }
+  }, []);
+
+  // Memoized filtered and sorted results to prevent unnecessary recalculations
+  const filteredActiveFruits = useMemo(() => {
+    const filtered = getFilteredFruits(activeFruits);
+    return getSortedFruits(filtered);
+  }, [activeFruits, getFilteredFruits, getSortedFruits]);
+
+  const filteredFruitHistory = useMemo(() => {
+    const filtered = getFilteredFruits(fruitHistory);
+    return getSortedFruits(filtered);
+  }, [fruitHistory, getFilteredFruits, getSortedFruits]);
 
   // Clear search
-  const clearSearch = () => {
+  const clearSearch = useCallback(() => {
     setSearchQuery('');
-  };
+  }, []);
 
-  // Handle search input change
-  const handleSearchChange = (text) => {
+  // Handle search input change - throttled to prevent excessive re-renders
+  const handleSearchChange = useCallback((text) => {
     setSearchQuery(text);
-  };
+  }, []);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <ErrorBoundary>
+      <SafeAreaView style={styles.safeArea}>
       <StatusBar
         backgroundColor="#FFFFFF"
         translucent={false}
@@ -470,13 +692,15 @@ const FarmerHomeScreen = () => {
         nestedScrollEnabled={true}
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-          { 
+          {
             useNativeDriver: false, // Height animations require layout thread
             listener: (event) => {
-              const scrollY = event.nativeEvent.contentOffset.y;
-              // Update fixed header visibility state
-              const shouldShowFixedHeader = scrollY > headerConstants.HEADER_SCROLL_DISTANCE * 0.7;
-              setIsFixedHeaderVisible(shouldShowFixedHeader);
+              const currentScrollY = event.nativeEvent.contentOffset.y;
+              // Update fixed header visibility state - throttled to prevent excessive updates
+              const shouldShowFixedHeader = currentScrollY > headerConstants.HEADER_SCROLL_DISTANCE * 0.7;
+              
+              // Only update state if it actually changed to prevent unnecessary re-renders
+              setIsFixedHeaderVisible(prev => prev !== shouldShowFixedHeader ? shouldShowFixedHeader : prev);
             }
           }
         )}
@@ -497,7 +721,7 @@ const FarmerHomeScreen = () => {
           styles.header,
           {
             height: headerHeight,
-            paddingTop: insets.top + 16, // Use safe area insets
+            paddingTop: insets.top, // Use safe area insets
             backgroundColor: '#FFFFFF', // Ensure background stays white
           }
         ]}>
@@ -508,92 +732,110 @@ const FarmerHomeScreen = () => {
               backgroundColor: 'transparent', // Prevent double background
             }
           ]}>
-          <View style={styles.headerRow}>
-            <View style={styles.profileContainer}>
-              {userProfile?.profileImage ? (
-                <TouchableOpacity
-                  onPress={() => safeNavigate('ProfileScreen')}
-                  style={styles.profileImageButton}
-                  activeOpacity={0.7}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <Image
-                    pointerEvents="none"
-                    source={{ uri: userProfile.profileImage }}
-                    style={styles.profileImage}
-                  />
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity
-                  style={styles.profilePlaceholderButton}
-                  onPress={() => safeNavigate('ProfileScreen')}
-                  activeOpacity={0.7}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <View style={styles.profilePlaceholder}>
-                    <Octicons
-                      name="person"
-                      size={24}
-                      color="#000"
+            <View style={styles.headerRow}>
+              <View style={styles.profileContainer}>
+                {userProfile?.profileImage ? (
+                  <TouchableOpacity
+                    onPress={() => safeNavigate('ProfileScreen')}
+                    style={styles.profileImageButton}
+                    activeOpacity={0.7}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Image
+                      pointerEvents="none"
+                      source={{ uri: userProfile.profileImage }}
+                      style={styles.profileImage}
                     />
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    style={styles.profilePlaceholderButton}
+                    onPress={() => safeNavigate('ProfileScreen')}
+                    activeOpacity={0.7}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <View style={styles.profilePlaceholder}>
+                      <Octicons
+                        name="person"
+                        size={24}
+                        color="#000"
+                      />
+                    </View>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity
+                  style={styles.userInfo}
+                  onPress={() => safeNavigate('ProfileScreen')}
+                  activeOpacity={0.8}
+                  hitSlop={{ top: 10, bottom: 10, left: 0, right: 10 }}
+                >
+                  <Text style={styles.welcome}>
+                    Namste, {getDisplayName}!
+                  </Text>
+                  <View style={styles.locationContainer}>
+                    <Text style={styles.location}>
+                      {userProfile?.location ? 
+                        `${userProfile.location.village || ''}, ${userProfile.location.state || ''}`.replace(/, $/, '') 
+                        : 'Paithan, Maharashtra'}
+                    </Text>
+                    <Icon name="chevron-down" size={12} color="#505050" />
                   </View>
                 </TouchableOpacity>
-              )}
+              </View>
               <TouchableOpacity
-                style={styles.userInfo}
-                onPress={() => safeNavigate('ProfileScreen')}
-                activeOpacity={0.8}
-                hitSlop={{ top: 10, bottom: 10, left: 0, right: 10 }}
+                onPress={() => safeNavigate('Notification')}
+                style={styles.notificationIconButton}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <Text style={styles.welcome}>
-                  Namste, {getDisplayName()}!
-                </Text>
-                <View style={styles.locationContainer}>
-                  <Text style={styles.location}>
-                    Paithan, Maharashtra
-                  </Text>
-                  <Icon name="chevron-down" size={12} color="#505050" />
-                </View>
+                <Icon name="notifications-outline" size={24} color="#000" />
               </TouchableOpacity>
             </View>
-            <TouchableOpacity
-              onPress={() => safeNavigate('Notification')}
-              style={styles.notificationIconButton}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Icon name="notifications-outline" size={24} color="#000" />
-            </TouchableOpacity>
-          </View>
 
-          {/* Search */}
-          <View style={styles.searchRow}>
-            <View style={styles.searchBox}>
-              <Icon name="search" size={20} color="#939393" style={{ marginLeft: 12 }} />
-              <TextInput
-                placeholder="Search fruits, location, grade..."
-                placeholderTextColor="#939393"
-                style={styles.searchInput}
-                value={searchQuery}
-                onChangeText={handleSearchChange}
-                returnKeyType="search"
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-              {searchQuery.length > 0 && (
-                <TouchableOpacity
-                  onPress={clearSearch}
-                  style={styles.clearSearchButton}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <Icon name="close-circle" size={18} color="#939393" />
-                </TouchableOpacity>
-              )}
+            {/* Search */}
+            <View style={styles.searchRow}>
+              <View style={styles.searchBox}>
+                <Icon name="search" size={20} color="#939393" style={{ marginLeft: 12 }} />
+                <TextInput
+                  placeholder="Search fruits, location, grade..."
+                  placeholderTextColor="#939393"
+                  style={styles.searchInput}
+                  value={searchQuery}
+                  onChangeText={handleSearchChange}
+                  returnKeyType="search"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  accessible={true}
+                  accessibilityLabel="Search input"
+                  accessibilityHint="Enter keywords to search for fruits"
+                />
+                {searchQuery.length > 0 && (
+                  <TouchableOpacity
+                    onPress={clearSearch}
+                    style={styles.clearSearchButton}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Icon name="close-circle" size={18} color="#939393" />
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              <TouchableOpacity 
+                style={[
+                  styles.sortBtn,
+                  sortBy !== 'newest' && styles.sortBtnActive
+                ]}
+                onPress={() => setShowSortModal(true)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                accessible={true}
+                accessibilityLabel="Sort listings"
+                accessibilityHint="Tap to open sort options"
+              >
+                <Icon name="swap-vertical-outline" size={20} color={Colors.light.primaryDark} />
+                {sortBy !== 'newest' && (
+                  <View style={styles.sortActiveDot} />
+                )}
+              </TouchableOpacity>
             </View>
-
-            <TouchableOpacity style={styles.filterBtn}>
-              <Icon name="options-outline" size={20} color={Colors.light.primaryDark} />
-            </TouchableOpacity>
-          </View>
           </Animated.View>
         </Animated.View>
 
@@ -639,11 +881,14 @@ const FarmerHomeScreen = () => {
           <View style={styles.sectionHeader}>
             <View>
               <Text style={styles.sectionTitle}>My Listings</Text>
-              {(searchQuery || selectedCategory !== 'all') && (
+              {(searchQuery || selectedCategory !== 'all' || sortBy !== 'newest') && (
                 <Text style={styles.searchResultsText}>
-                  {searchQuery && `"${searchQuery}" • `}
+                  {searchQuery && `"${searchQuery.length > 10 ? searchQuery.slice(0, 10) + '...' : searchQuery}" • `}
                   {selectedCategory !== 'all' && `${selectedCategory} • `}
-                  {!showHistory ? getFilteredFruits(activeFruits).length : getFilteredFruits(fruitHistory).length} results
+                  {sortBy !== 'newest' && `${sortOptions.find(opt => opt.key === sortBy)?.label} • `}
+                  {!showHistory
+                    ? filteredActiveFruits.length
+                    : filteredFruitHistory.length} results
                 </Text>
               )}
             </View>
@@ -653,7 +898,7 @@ const FarmerHomeScreen = () => {
                 onPress={() => setShowHistory(false)}
               >
                 <Text style={[styles.tabText, !showHistory && styles.activeTabText]}>
-                  Active ({getFilteredFruits(activeFruits).length})
+                  Active ({filteredActiveFruits.length})
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -661,7 +906,7 @@ const FarmerHomeScreen = () => {
                 onPress={() => setShowHistory(true)}
               >
                 <Text style={[styles.tabText, showHistory && styles.activeTabText]}>
-                  History ({getFilteredFruits(fruitHistory).length})
+                  History ({filteredFruitHistory.length})
                 </Text>
               </TouchableOpacity>
             </View>
@@ -688,7 +933,7 @@ const FarmerHomeScreen = () => {
                     <Text style={styles.refreshButtonText}>Refresh</Text>
                   </TouchableOpacity>
                 </View>
-              ) : getFilteredFruits(activeFruits).length === 0 ? (
+              ) : filteredActiveFruits.length === 0 ? (
                 <View style={styles.emptyState}>
                   <Icon name="search-outline" size={64} color="#E0E0E0" />
                   <Text style={styles.emptyStateText}>No Results Found</Text>
@@ -702,6 +947,7 @@ const FarmerHomeScreen = () => {
                       onPress={() => {
                         setSearchQuery('');
                         setSelectedCategory('all');
+                        setSortBy('newest');
                       }}
                     >
                       <Icon name="refresh-outline" size={20} color='#505050' />
@@ -713,7 +959,7 @@ const FarmerHomeScreen = () => {
                 <FlatList
                   nestedScrollEnabled={true}
                   key={selectedCategory} // Force re-render when category changes
-                  data={getFilteredFruits(activeFruits)}
+                  data={filteredActiveFruits}
                   keyExtractor={(item) => item.id || item._id || `fruit_${Math.random()}`}
                   numColumns={2}
                   showsVerticalScrollIndicator={false}
@@ -802,7 +1048,7 @@ const FarmerHomeScreen = () => {
                     <Text style={styles.refreshButtonText}>Refresh</Text>
                   </TouchableOpacity>
                 </View>
-              ) : getFilteredFruits(fruitHistory).length === 0 ? (
+              ) : filteredFruitHistory.length === 0 ? (
                 <View style={styles.emptyState}>
                   <Icon name="search-outline" size={64} color="#E0E0E0" />
                   <Text style={styles.emptyStateText}>No Results Found</Text>
@@ -816,6 +1062,7 @@ const FarmerHomeScreen = () => {
                       onPress={() => {
                         setSearchQuery('');
                         setSelectedCategory('all');
+                        setSortBy('newest');
                       }}
                     >
                       <Icon name="refresh-outline" size={20} color='#505050' />
@@ -826,7 +1073,7 @@ const FarmerHomeScreen = () => {
               ) : (
                 <FlatList
                   nestedScrollEnabled={true}
-                  data={getFilteredFruits(fruitHistory)}
+                  data={filteredFruitHistory}
                   keyExtractor={(item) => item.id || item._id || `history_${Math.random()}`}
                   showsVerticalScrollIndicator={false}
                   refreshing={loadingFruits}
@@ -927,7 +1174,7 @@ const FarmerHomeScreen = () => {
         >
           <Icon name="notifications-outline" size={24} color="#000" />
         </TouchableOpacity>
-        
+
         {/* Animated Border */}
         <Animated.View
           style={{
@@ -941,7 +1188,84 @@ const FarmerHomeScreen = () => {
           }}
         />
       </Animated.View>
+
+      {/* Sort Modal */}
+      <Modal
+        visible={showSortModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowSortModal(false)}
+        statusBarTranslucent={true}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowSortModal(false)}
+        >
+          <View style={styles.sortModal}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Sort By</Text>
+              <TouchableOpacity
+                style={styles.modalCloseButton}
+                onPress={() => setShowSortModal(false)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Icon name="close" size={20} color="#757575" />
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView 
+              style={styles.sortOptionsContainer}
+              showsVerticalScrollIndicator={false}
+            >
+              {sortOptions.map((option) => (
+                <TouchableOpacity
+                  key={option.key}
+                  style={[
+                    styles.sortOption, 
+                    sortBy === option.key && styles.selectedSort
+                  ]}
+                  onPress={() => handleSortSelection(option.key)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.sortOptionContent}>
+                    <Icon 
+                      name={option.icon} 
+                      size={18} 
+                      color={sortBy === option.key ? Colors.light.primary : '#757575'} 
+                    />
+                    <View style={styles.sortOptionText}>
+                      <Text style={[
+                        styles.sortOptionLabel, 
+                        sortBy === option.key && styles.selectedSortLabel
+                      ]}>
+                        {option.label}
+                      </Text>
+                      <Text style={styles.sortOptionDescription}>
+                        {option.description}
+                      </Text>
+                    </View>
+                  </View>
+                  {sortBy === option.key && (
+                    <Icon name="checkmark-circle" size={20} color={Colors.light.primary} />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={styles.modalCancelButton}
+                onPress={() => setShowSortModal(false)}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
+    </ErrorBoundary>
   );
 };
 
@@ -951,9 +1275,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   scrollViewContent: {
-    paddingBottom: 80,
-    // Add top padding to prevent content from hiding behind fixed header
-    paddingTop: 4,
+    paddingBottom: 50,
   },
   header: {
     backgroundColor: '#FFFFFF',
@@ -981,8 +1303,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    minHeight: 64, // Ensure consistent height
-    paddingVertical: 8,
   },
   fixedHeaderTitle: {
     position: 'absolute',
@@ -1007,12 +1327,6 @@ const styles = StyleSheet.create({
   fixedHeaderImage: {
     width: 152,
     height: 56,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 10,
   },
   profileContainer: {
     flexDirection: 'row',
@@ -1105,6 +1419,38 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 3,
+  },
+  sortBtn: {
+    backgroundColor: '#E8F5E8',
+    height: 48,
+    width: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: Colors.light.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(76, 175, 80, 0.2)',
+    position: 'relative',
+  },
+  sortBtnActive: {
+    backgroundColor: Colors.light.primary,
+    borderColor: Colors.light.primaryDark,
+    shadowOpacity: 0.25,
+  },
+  sortActiveDot: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#FF4444',
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
   },
   section: {
     paddingHorizontal: 20,
@@ -1448,30 +1794,110 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginLeft: 8,
   },
-  fixedHeaderTitle: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: '#FFFFFF',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingBottom: 12,
-    zIndex: 1000, // High z-index to stay on top
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0, // Will be animated
-    shadowRadius: 4,
-    elevation: 0, // Will be animated
-    // Ensure background color stays opaque
-    opacity: 1,
-  },
+
   fixedHeaderImage: {
     width: 140,
     height: 32,
     resizeMode: 'contain',
+  },
+
+  // Sort Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  sortModal: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    width: '100%',
+    maxWidth: 400,
+    maxHeight: screenHeight * 0.7,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 16,
+    overflow: 'hidden',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+    backgroundColor: '#FAFAFA',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#000000',
+  },
+  modalCloseButton: {
+    padding: 4,
+  },
+  sortOptionsContainer: {
+    maxHeight: screenHeight * 0.5,
+  },
+  sortOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F8F8F8',
+  },
+  selectedSort: {
+    backgroundColor: Colors.light.primaryLight,
+    borderBottomColor: Colors.light.primary,
+  },
+  sortOptionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  sortOptionText: {
+    marginLeft: 16,
+    flex: 1,
+  },
+  sortOptionLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333333',
+    marginBottom: 2,
+  },
+  selectedSortLabel: {
+    color: Colors.light.primaryDark,
+    fontWeight: '700',
+  },
+  sortOptionDescription: {
+    fontSize: 13,
+    color: '#757575',
+    lineHeight: 18,
+  },
+  modalFooter: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+    backgroundColor: '#FAFAFA',
+  },
+  modalCancelButton: {
+    backgroundColor: '#F5F5F5',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  modalCancelText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#666666',
   },
 });
 

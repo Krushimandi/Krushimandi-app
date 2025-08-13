@@ -23,7 +23,7 @@
  * }
  */
 
-import { Platform, PermissionsAndroid, Alert } from 'react-native';
+import { Platform, PermissionsAndroid, Alert, Linking } from 'react-native';
 import Geolocation from '@react-native-community/geolocation';
 import { GOOGLE_MAPS_API_KEY } from '../config';
 
@@ -198,6 +198,63 @@ export const ensureImagePickerPermissions = async () => {
 
   console.log('Requesting image picker permissions...');
   return await requestImagePickerPermissions();
+};
+
+/**
+ * Check if GPS/Location services are enabled and prompt user if not
+ * @returns {Promise<boolean>} Whether GPS is enabled or user chose to continue anyway
+ */
+export const checkAndPromptGPSSettings = async () => {
+  return new Promise((resolve) => {
+    // Quick test to see if location services are working
+    Geolocation.getCurrentPosition(
+      (position) => {
+        // GPS is working
+        console.log('GPS is enabled and working');
+        resolve(true);
+      },
+      (error) => {
+        console.log('GPS check error:', error);
+        
+        if (error.code === 2) {
+          // Location services are disabled
+          Alert.alert(
+            'Enable GPS',
+            'Please enable location services in your device settings.',
+            [
+              { text: 'Fill Manually', style: 'cancel', onPress: () => resolve(false) },
+              { 
+                text: 'Open Settings', 
+                onPress: () => {
+                  if (Platform.OS === 'android') {
+                    Linking.sendIntent('android.settings.LOCATION_SOURCE_SETTINGS')
+                      .catch(() => {
+                        // Fallback to general settings if location settings intent fails
+                        Linking.openSettings();
+                      });
+                  } else {
+                    Linking.openSettings();
+                  }
+                  resolve(false);
+                } 
+              }
+            ]
+          );
+        } else if (error.code === 1) {
+          // Permission issue
+          resolve(false);
+        } else {
+          // Other error, let the main location function handle it
+          resolve(true);
+        }
+      },
+      {
+        enableHighAccuracy: false,
+        timeout: 2000, // Quick check
+        maximumAge: 300000
+      }
+    );
+  });
 };
 
 /**
@@ -379,8 +436,8 @@ export const getCurrentLocation = async (options = {}) => {
                       userFriendlyMessage = 'Please enable location permissions in your device settings.';
                       break;
                     case 2: // POSITION_UNAVAILABLE
-                      errorMessage = 'Location not available. Please check your GPS or internet connection.';
-                      userFriendlyMessage = 'Make sure GPS is enabled or you have internet connection for WiFi location.';
+                      errorMessage = 'GPS is turned off or location services are disabled.';
+                      userFriendlyMessage = 'Please turn on GPS/Location Services in your device settings to auto-fill location details.';
                       break;
                     case 3: // TIMEOUT
                       errorMessage = 'Location request timed out. Poor signal quality.';

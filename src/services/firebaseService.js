@@ -16,6 +16,7 @@ import { Alert } from 'react-native';
 import { clearUserRole } from '../utils/userRoleStorage';
 import NetInfo from '@react-native-community/netinfo';
 import { auth as firebaseAuth, firestore as firebaseFirestore } from '../config/firebase';
+import { persistentAuthManager } from '../utils/persistentAuthManager';
 
 /**
  * Firebase Service for User Management
@@ -1138,10 +1139,17 @@ export const validateCurrentUser = async () => {
         console.log('📱 Auth reload failed due to network, allowing offline access');
         return true;
       } else {
-        // User likely deleted
-        await clearUserData();
-        await clearOfflineAuthState();
-        return false;
+        // Check with persistent auth manager before clearing data
+        const authResult = await persistentAuthManager.handleAuthError(reloadError, 'user_validation');
+        if (authResult.shouldLogout) {
+          console.log('🚪 Persistent auth determined logout required:', authResult.reason);
+          await clearUserData();
+          await clearOfflineAuthState();
+          return false;
+        } else {
+          console.log('🔒 Maintaining session despite reload error:', authResult.reason);
+          return true;
+        }
       }
     }
 
@@ -1153,11 +1161,17 @@ export const validateCurrentUser = async () => {
       console.log('📱 Validation failed due to network error, allowing offline access');
       return true;
     } else {
-      console.log('🗑️ User likely deleted from Firebase, clearing local data');
-      // Clear all user data since user is invalid
-      await clearUserData();
-      await clearOfflineAuthState();
-      return false;
+      // Check with persistent auth manager before clearing data
+      const authResult = await persistentAuthManager.handleAuthError(error, 'general_validation');
+      if (authResult.shouldLogout) {
+        console.log('🚪 Persistent auth determined logout required:', authResult.reason);
+        await clearUserData();
+        await clearOfflineAuthState();
+        return false;
+      } else {
+        console.log('🔒 Maintaining session despite validation error:', authResult.reason);
+        return true;
+      }
     }
   }
 };

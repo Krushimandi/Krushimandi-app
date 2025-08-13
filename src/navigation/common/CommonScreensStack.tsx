@@ -9,7 +9,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 // Common screens
 import { NotificationScreen, NotificationDetail } from '../../components/notification';
 import { SettingsScreen } from '../../components/settings';
-import { ProfileScreen } from '../../components/profile';
+import { ProfileScreen } from '../../components/ProfileScreen';
 
 // Types
 import { CommonScreensParamList } from '../../types';

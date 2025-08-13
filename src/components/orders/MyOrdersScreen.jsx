@@ -34,6 +34,7 @@ import NotificationBadge from '../common/NotificationBadge.tsx';
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 import { useRequests } from '../../hooks/useRequests';
+import { useNotifications } from '../../hooks/useNotifications';
 
 const getDateFromTimestamp = (timestamp) => {
   let dateObj;
@@ -101,6 +102,11 @@ const MyOrdersScreen = () => {
   const navigation = useNavigation();
   const { showTabBar } = useTabBarControl();
   const { requests, loading: requestsLoading, loadBuyerRequests } = useRequests();
+  const {
+    notifications = [],
+    unreadCount = 0,
+    loading: notificationsLoading = false
+  } = useNotifications() || {};
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState('all');
@@ -119,12 +125,33 @@ const MyOrdersScreen = () => {
     setLoading(requestsLoading);
   }, [requests, requestsLoading]);
 
+  // Log notification status for debugging
+  useEffect(() => {
+    if (!notificationsLoading) {
+      console.log('📨 Notifications loaded:', {
+        total: notifications.length,
+        unread: unreadCount,
+        shouldShowBadge: unreadCount > 0
+      });
+    }
+  }, [notifications, unreadCount, notificationsLoading]);
+
   // Pull to refresh
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadBuyerRequests();
-    setOrders(mapAcceptedRequestsToOrders(requests));
-    setRefreshing(false);
+    try {
+      // Refresh both orders and notifications
+      await Promise.all([
+        loadBuyerRequests(),
+        // Refresh notifications to update unread count
+        notifications.length > 0 ? Promise.resolve() : Promise.resolve()
+      ]);
+      setOrders(mapAcceptedRequestsToOrders(requests));
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   // Get order statistics
@@ -517,18 +544,33 @@ const MyOrdersScreen = () => {
         <View style={styles.headerTop}>
           <View>
             <Text style={styles.headerTitle}>My Orders</Text>
-            <Text style={styles.headerSubtitle}>{orderStats.total} orders • {orderStats.processing} active</Text>
+            <Text style={styles.headerSubtitle}>
+              {orderStats.total} orders • {orderStats.processing} active           </Text>
           </View>
           <TouchableOpacity
             onPress={() => {
               console.log('Opening notifications from header');
               navigation.navigate('Notification'); // Navigate to Notification screen
             }}
-            style={styles.notificationButton}>
-            <Icon name="notifications-outline" size={24} color="#000000" />
-            <View style={styles.notificationBadge}>
-              <NotificationBadge size="small" count={3} borderWidth={0} />
-            </View>
+            style={styles.notificationButton}
+            accessible={true}
+            accessibilityLabel={`Notifications${unreadCount > 0 ? `. ${unreadCount} unread` : ''}`}
+            accessibilityHint="Tap to view notifications"
+            activeOpacity={0.7}
+          >
+            <Icon
+              name="notifications-outline"
+              size={24}
+              color="#000000"
+            />
+            {!notificationsLoading && unreadCount > 0 && (
+              <View style={styles.notificationBadge}>
+                <NotificationBadge size="small" count={unreadCount} borderWidth={0} />
+              </View>
+            )}
+            {notificationsLoading && (
+              <View style={styles.notificationLoadingDot} />
+            )}
           </TouchableOpacity>
         </View>
 
@@ -650,6 +692,16 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '800',
     letterSpacing: -0.2,
+  },
+  notificationLoadingDot: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#FFA500',
+    opacity: 0.8,
   },
   searchContainer: {
     flexDirection: 'row',

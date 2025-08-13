@@ -10,7 +10,7 @@ export * from './auth';
 export * from './products';
 
 // Profile Components
-export * from './profile';
+export * from './ProfileScreen';
 
 // UI Components (uncomment when UI components are added)
 // export * from './ui';

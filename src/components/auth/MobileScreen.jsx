@@ -6,14 +6,12 @@ import {
   TouchableOpacity,
   Image,
   StyleSheet,
-  Modal,
   Pressable,
   Keyboard,
   ScrollView,
   TouchableWithoutFeedback,
   Animated,
   ActivityIndicator,
-  Alert,
   StatusBar,
   SafeAreaView,
   KeyboardAvoidingView,
@@ -21,16 +19,17 @@ import {
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import auth from '@react-native-firebase/auth';
-import appCheck from '@react-native-firebase/app-check';
 import { useAuth } from '../../contexts/AuthContext';
 
 const MobileScreen = ({ navigation }) => {
   const { setPhoneNumber, setConfirmation } = useAuth();
-  const [mobile, setMobile] = useState(''); const [modalVisible, setModalVisible] = useState(false);
+  const [mobile, setMobile] = useState(''); 
+  const [modalVisible, setModalVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [isFocused, setIsFocused] = useState(false);
-  const [showHelpModal, setShowHelpModal] = useState(false); const fadeAnim = useRef(new Animated.Value(0)).current;
+  const [showHelpModal, setShowHelpModal] = useState(false);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
   const modalAnimation = useRef(new Animated.Value(0)).current;
   const inputRef = useRef(null);
@@ -56,7 +55,7 @@ const MobileScreen = ({ navigation }) => {
       // Scroll to the input field when keyboard appears
       setTimeout(() => {
         scrollViewRef.current?.scrollTo({
-          y: 150,
+          y: 250,
           animated: true,
         });
       }, 100);
@@ -71,6 +70,11 @@ const MobileScreen = ({ navigation }) => {
       keyboardDidHideListener?.remove();
     };
   }, []);
+
+  useEffect(() => {
+    Keyboard.dismiss();
+  }, [showHelpModal]);
+
   const validatePhoneNumber = (number) => {
     const phoneRegex = /^[6-9]\d{9}$/;
     return phoneRegex.test(number);
@@ -174,9 +178,12 @@ const MobileScreen = ({ navigation }) => {
     if (isFocused) {
       Keyboard.dismiss();
     }
-  }; return (
+  };
+
+  return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />      <KeyboardAvoidingView
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <KeyboardAvoidingView
         style={styles.keyboardAvoidingView}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
@@ -406,7 +413,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#E8F5E8',
   }, scrollContent: {
     flexGrow: 1,
-    paddingBottom: 180, // Extra space for keyboard avoidance
+    paddingBottom: 100, // Extra space for keyboard avoidance
     paddingTop: 20,
     minHeight: 600, // Fixed height to ensure scrollability
   },

@@ -1,5 +1,5 @@
 // File: src/components/OTPVerificationScreen.jsx
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,6 @@ import {
   StyleSheet,
   ScrollView,
   Platform,
-  Alert,
   StatusBar,
   SafeAreaView,
   KeyboardAvoidingView,
@@ -33,22 +32,33 @@ const OTPVerificationScreen = ({ navigation, route }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [isFocused, setIsFocused] = useState(false); const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const [isPressed, setIsPressed] = useState(false);
+  const [isAutoSubmitting, setIsAutoSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [showHelpModal, setShowHelpModal] = useState(false);
   const inputRef = useRef(null); const shakeAnimation = useRef(new Animated.Value(0)).current;
   const fadeAnimation = useRef(new Animated.Value(0)).current;
   const cursorAnimation = useRef(new Animated.Value(1)).current;
   const modalAnimation = useRef(new Animated.Value(0)).current;
+  const autoSubmitAnimation = useRef(new Animated.Value(1)).current;
   const lastTapTime = useRef(0);
-  
+
+  const scrollViewRef = useRef(null);
+
   // Use phone number from context, fallback to route params, then default
   const displayPhoneNumber = phoneNumber || route?.params?.phoneNumber || '+91 XXXXXXXXXX';
 
   // Keyboard listeners
   useEffect(() => {
-    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
+    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', (event) => {
       console.log('Keyboard shown');
       setIsKeyboardVisible(true);
+      // Scroll to the input field when keyboard appears
+      setTimeout(() => {
+        scrollViewRef.current?.scrollTo({
+          y: 200,
+          animated: true,
+        });
+      }, 100);
     });
 
     const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
@@ -83,6 +93,12 @@ const OTPVerificationScreen = ({ navigation, route }) => {
       blinkCursor();
     }
   }, [isFocused]);
+
+
+  useEffect(() => {
+    Keyboard.dismiss();
+  }, [showHelpModal]);
+
   // Timer countdown
   useEffect(() => {
     if (timer > 0) {
@@ -128,20 +144,57 @@ const OTPVerificationScreen = ({ navigation, route }) => {
       setError('');
     }
 
-    // Log if 6 digits are entered (from paste or typing)
+    // Auto-submit when 6 digits are entered (from paste or typing)
     if (cleanedValue.length === 6) {
-      console.log('Full OTP entered:', cleanedValue);
+      console.log('Full OTP entered, auto-submitting:', cleanedValue);
+      setIsAutoSubmitting(true);
+      
+      // Subtle pulse animation to indicate auto-submit
+      Animated.sequence([
+        Animated.timing(autoSubmitAnimation, { 
+          toValue: 1.05, 
+          duration: 150, 
+          useNativeDriver: true 
+        }),
+        Animated.timing(autoSubmitAnimation, { 
+          toValue: 1, 
+          duration: 150, 
+          useNativeDriver: true 
+        }),
+      ]).start();
+      
+      // Small delay to allow UI to update before verification
+      setTimeout(() => {
+        handleVerifyWithOtp(cleanedValue);
+      }, 100);
+    } else {
+      // Reset auto-submitting state if user is still typing
+      setIsAutoSubmitting(false);
+      autoSubmitAnimation.setValue(1);
     }
-  }; const handleInputFocus = () => {
+  };
+
+
+  const handleInputFocus = useCallback(() => {
     console.log('Input focused');
     setIsFocused(true);
     setError(''); // Clear any existing errors when focusing
-  };
+
+    // Scroll to input field when keyboard opens
+    setTimeout(() => {
+      scrollViewRef.current?.scrollTo({
+        y: 200, // Adjust this value based on your layout
+        animated: true,
+      });
+    }, 300);
+  }, []);
 
   const handleInputBlur = () => {
     console.log('Input blurred');
     setIsFocused(false);
-  };  // More robust focus handling with debouncing
+  };
+
+  // More robust focus handling with debouncing
   const handleContainerPress = () => {
     const currentTime = Date.now();
 
@@ -193,8 +246,11 @@ const OTPVerificationScreen = ({ navigation, route }) => {
         }, 50);
       });
     }
-  }; const handleVerify = async () => {
-    if (otp.length === 6) {
+  }; 
+
+  // Separate function for verification that accepts OTP parameter (used for auto-submit)
+  const handleVerifyWithOtp = async (otpCode) => {
+    if (otpCode && otpCode.length === 6) {
       setIsLoading(true);
       setError('');
       try {
@@ -203,7 +259,7 @@ const OTPVerificationScreen = ({ navigation, route }) => {
         }
 
         // Confirm the OTP
-        const userCredential = await confirmation.confirm(otp);
+        const userCredential = await confirmation.confirm(otpCode);
         console.log('✅ OTP verified successfully for user:', userCredential.user.uid);
 
         // Import dynamically to avoid circular dependency issues
@@ -238,8 +294,13 @@ const OTPVerificationScreen = ({ navigation, route }) => {
         } else {
           // User data not found in Firestore, proceed with new user flow
           console.log('❌ User data not found in Firestore, continuing with new user setup');
-          Alert.alert('Success', 'OTP verified successfully!');
-
+          Toast.show({
+            type: 'success',
+            text1: 'Success',
+            text2: 'OTP verified successfully!',
+            position: 'bottom',
+            visibilityTime: 1000,
+          });
           // Navigate to role selection for new user setup
           navigation.replace('RoleSelection');
         }
@@ -295,6 +356,7 @@ const OTPVerificationScreen = ({ navigation, route }) => {
         }, 500);
       } finally {
         setIsLoading(false);
+        setIsAutoSubmitting(false);
       }
     } else {
       setError('Please enter complete 6-digit OTP code');
@@ -303,6 +365,11 @@ const OTPVerificationScreen = ({ navigation, route }) => {
         inputRef.current.focus();
       }
     }
+  };
+
+  const handleVerify = async () => {
+    // Simply call the new function with the current OTP
+    await handleVerifyWithOtp(otp);
   };
 
   const handleResend = async () => {
@@ -314,7 +381,13 @@ const OTPVerificationScreen = ({ navigation, route }) => {
       try {
         const newConfirmation = await auth().signInWithPhoneNumber(phoneNumber);
         setConfirmation(newConfirmation);
-        Alert.alert('OTP Sent', 'A new OTP has been sent to your phone.');
+        Toast.show({
+          type: 'success',
+          text1: 'OTP Sent',
+          text2: 'A new OTP has been sent to your phone.',
+          position: 'bottom',
+          visibilityTime: 1000,
+        });
       } catch (err) {
         setError('Failed to resend OTP. Try again.');
       }
@@ -326,9 +399,13 @@ const OTPVerificationScreen = ({ navigation, route }) => {
 
   const handleBackPress = () => {
     navigation.goBack();
-  }; const handleEditPhone = () => {
+  };
+
+  const handleEditPhone = () => {
     navigation.goBack(); // Go back to mobile screen
-  }; const handleHelp = () => {
+  };
+
+  const handleHelp = () => {
     setShowHelpModal(true);
     Animated.spring(modalAnimation, {
       toValue: 1,
@@ -348,46 +425,11 @@ const OTPVerificationScreen = ({ navigation, route }) => {
     });
   };
 
-  const showCommonIssues = () => {
-    Alert.alert(
-      'Common OTP Issues',
-      '📱 SMS Delivery:\n' +
-      '• Check your SMS/Messages app\n' +
-      '• Ensure good network signal\n' +
-      '• SMS may take 1-2 minutes to arrive\n\n' +
-      '⏰ Code Expiry:\n' +
-      '• OTP codes expire after a few minutes\n' +
-      '• Request a new code if expired\n\n' +
-      '📋 Input Tips:\n' +
-      '• You can paste the 6-digit code directly\n' +
-      '• Make sure to enter all 6 digits\n' +
-      '• Code is case-sensitive\n\n' +
-      '🔄 Still Having Issues?\n' +
-      '• Try requesting a new code\n' +
-      '• Check if phone number is correct\n' +
-      '• Contact support if problem persists',
-      [
-        {
-          text: 'Change Phone Number',
-          onPress: () => handleEditPhone(),
-          style: 'default'
-        },
-        {
-          text: 'Try Again',
-          onPress: () => {
-            setError('');
-            if (inputRef.current) {
-              inputRef.current.focus();
-            }
-          },
-          style: 'default'
-        },
-        {
-          text: 'OK',
-          style: 'cancel'
-        }
-      ]
-    );
+  // Handle dismissing keyboard only when tapping outside input area
+  const handleOutsidePress = () => {
+    if (isFocused) {
+      Keyboard.dismiss();
+    }
   };
 
   const formatTime = (seconds) => {
@@ -395,6 +437,14 @@ const OTPVerificationScreen = ({ navigation, route }) => {
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, '0')} : ${secs.toString().padStart(2, '0')}`;
   };
+
+  const otpContainerStyle = useMemo(() => [
+    styles.otpInputContainer,
+    isFocused && styles.otpInputContainerFocused,
+    error && styles.otpInputContainerError,
+    isPressed && styles.otpInputContainerPressed,
+    isAutoSubmitting && styles.otpInputContainerAutoSubmit
+  ], [isFocused, error, isPressed, isAutoSubmitting]);
 
   const isOtpComplete = otp.length === 6;
   return (
@@ -423,117 +473,124 @@ const OTPVerificationScreen = ({ navigation, route }) => {
           </View>
 
           <ScrollView
+            ref={scrollViewRef}
             style={styles.scrollView}
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="always"
-          >            <Animated.View
-            style={[
-              styles.content,
-              { opacity: fadeAnimation }
-            ]}
+            scrollEnabled={true}
           >
-              {/* Title */}
-              <Text style={styles.title}>We just sent an SMS</Text>              {/* Subtitle with phone number */}
-              <Text style={styles.subtitle}>Enter the 6-digit code we sent to</Text>
-
-              <View style={styles.phoneContainer}>
-                <Text style={styles.phoneNumber}>{displayPhoneNumber}</Text>
-                <TouchableOpacity onPress={handleEditPhone} style={styles.editButton}>
-                  <Ionicons name="pencil" size={18} color="#007E2F" />
-                </TouchableOpacity>
-              </View>              {/* Instruction text */}
-              <Text style={styles.instructionText}>
-                Tap the field below and enter your verification code or paste it directly
-              </Text>
-
-              {/* OTP Input Field */}
+            <TouchableWithoutFeedback onPress={handleOutsidePress}>
               <Animated.View
                 style={[
-                  styles.otpContainer,
-                  { transform: [{ translateX: shakeAnimation }] }
+                  styles.content,
+                  { opacity: fadeAnimation }
                 ]}
               >
-                <TouchableWithoutFeedback onPress={handleContainerPress}>
-                  <View style={[
-                    styles.otpInputContainer,
-                    isFocused && styles.otpInputContainerFocused,
-                    error && styles.otpInputContainerError,
-                    isPressed && styles.otpInputContainerPressed
-                  ]}
-                  >                {/* TextInput - Made more accessible and robust with paste support */}
-                    <TextInput
-                      ref={inputRef}
-                      style={styles.hiddenInput}
-                      value={otp}
-                      onChangeText={handleOtpChange}
-                      onFocus={handleInputFocus}
-                      onBlur={handleInputBlur}
-                      keyboardType="number-pad"
-                      maxLength={6}
-                      autoComplete="sms-otp"
-                      textContentType="oneTimeCode"
-                      autoFocus={false}
-                      blurOnSubmit={false}
-                      caretHidden={false}
-                      selectTextOnFocus={true}
-                      contextMenuHidden={false}
-                      importantForAccessibility="yes"
-                      accessible={true}
-                      accessibilityLabel="OTP Input Field"
-                      editable={true}
-                      showSoftInputOnFocus={true}
-                      multiline={false}
-                      numberOfLines={1}
-                      allowFontScaling={false}
-                      spellCheck={false}
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                    />{/* Visual OTP Display */}
-                    <TouchableOpacity
-                      style={styles.otpDisplayContainer}
-                      onPress={handleContainerPress}
-                      activeOpacity={1}
-                    >
-                      {[...Array(6)].map((_, index) => (
-                        <View key={index} style={styles.otpDigitContainer}>
-                          <Text style={[
-                            styles.otpDigit,
-                            otp[index] && styles.otpDigitFilled
-                          ]}>
-                            {otp[index] || ''}
-                          </Text>
-                          {index < 5 && <View style={styles.separator} />}
-                        </View>
-                      ))}
-                    </TouchableOpacity>
-                    {/* Cursor */}
-                    {isFocused && otp.length < 6 && (
-                      <Animated.View
-                        style={[
-                          styles.cursor,
-                          {
-                            left: 32 + (otp.length * 38), top: 22,
-                            opacity: cursorAnimation,
-                          }
-                        ]} />
-                    )}
-                  </View>
-                </TouchableWithoutFeedback>
-              </Animated.View>              {/* Error message */}
-              {error ? (
-                <Animated.View style={[
-                  styles.errorContainer,
-                  { transform: [{ translateX: shakeAnimation }] }
-                ]}>
-                  <Ionicons name="alert-circle" size={18} color="#FF3547" />
-                  <Text style={styles.errorText}>{error}</Text>                  <TouchableOpacity onPress={handleHelp} style={styles.helpIconSmall}>
-                    <Ionicons name="help-circle" size={16} color="#007E2F" />
-                  </TouchableOpacity>
-                </Animated.View>
-              ) : null}
+                {/* Title */}
+                <Text style={styles.title}>We just sent an SMS</Text>              {/* Subtitle with phone number */}
+                <Text style={styles.subtitle}>Enter the 6-digit code we sent to</Text>
 
-              {/* Security note
+                <View style={styles.phoneContainer}>
+                  <Text style={styles.phoneNumber}>{displayPhoneNumber}</Text>
+                  <TouchableOpacity onPress={handleEditPhone} style={styles.editButton}>
+                    <Ionicons name="pencil" size={18} color="#007E2F" />
+                  </TouchableOpacity>
+                </View>              {/* Instruction text */}
+                <Text style={styles.instructionText}>
+                  {isAutoSubmitting 
+                    ? '✓ Complete code detected! Auto-verifying...' 
+                    : 'Tap the field below and enter your verification code or paste it directly'
+                  }
+                </Text>
+
+                {/* OTP Input Field */}
+                <Animated.View
+                  style={[
+                    styles.otpContainer,
+                    { 
+                      transform: [
+                        { translateX: shakeAnimation },
+                        { scale: autoSubmitAnimation }
+                      ] 
+                    }
+                  ]}
+                >
+                  <TouchableWithoutFeedback onPress={handleContainerPress}>
+                    <View style={otpContainerStyle}>
+                      {/* TextInput - Made more accessible and robust with paste support */}
+                      <TextInput
+                        ref={inputRef}
+                        style={styles.hiddenInput}
+                        value={otp}
+                        onChangeText={handleOtpChange}
+                        onFocus={handleInputFocus}
+                        onBlur={handleInputBlur}
+                        keyboardType="number-pad"
+                        maxLength={6}
+                        autoComplete="sms-otp"
+                        textContentType="oneTimeCode"
+                        autoFocus={false}
+                        blurOnSubmit={false}
+                        caretHidden={false}
+                        selectTextOnFocus={true}
+                        contextMenuHidden={false}
+                        importantForAccessibility="yes"
+                        accessible={true}
+                        accessibilityLabel="OTP Input Field"
+                        editable={true}
+                        showSoftInputOnFocus={true}
+                        multiline={false}
+                        numberOfLines={1}
+                        allowFontScaling={false}
+                        spellCheck={false}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                      />{/* Visual OTP Display */}
+                      <TouchableOpacity
+                        style={styles.otpDisplayContainer}
+                        onPress={handleContainerPress}
+                        activeOpacity={1}
+                      >
+                        {[...Array(6)].map((_, index) => (
+                          <View key={index} style={styles.otpDigitContainer}>
+                            <Text style={[
+                              styles.otpDigit,
+                              otp[index] && styles.otpDigitFilled
+                            ]}>
+                              {otp[index] || ''}
+                            </Text>
+                            {index < 5 && <View style={styles.separator} />}
+                          </View>
+                        ))}
+                      </TouchableOpacity>
+                      {/* Cursor */}
+                      {isFocused && otp.length < 6 && (
+                        <Animated.View
+                          style={[
+                            styles.cursor,
+                            {
+                              left: 32 + (otp.length * 38), top: 22,
+                              opacity: cursorAnimation,
+                            }
+                          ]} />
+                      )}
+                    </View>
+                  </TouchableWithoutFeedback>
+                </Animated.View>              {/* Error message */}
+                {error ? (
+                  <Animated.View style={[
+                    styles.errorContainer,
+                    { transform: [{ translateX: shakeAnimation }] }
+                  ]}>
+                    <Ionicons name="alert-circle" size={18} color="#FF3547" />
+                    <Text style={styles.errorText}>{error}</Text>                  <TouchableOpacity onPress={handleHelp} style={styles.helpIconSmall}>
+                      <Ionicons name="help-circle" size={16} color="#007E2F" />
+                    </TouchableOpacity>
+                  </Animated.View>
+                ) : null}
+
+                {/* Security note
               <View style={styles.securityNote}>
                 <Ionicons name="shield-checkmark" size={16} color="#007E2F" />
                 <Text style={styles.securityText}>
@@ -541,18 +598,19 @@ const OTPVerificationScreen = ({ navigation, route }) => {
                 </Text>
               </View> */}
 
-              {/* Resend Section */}
-              <View style={styles.resendContainer}>
-                <Text style={styles.resendText}>Didn't receive the code?</Text>
-                <TouchableOpacity onPress={handleResend} disabled={!canResend}>
-                  <Text style={[
-                    styles.resendLink,
-                    !canResend && styles.resendLinkDisabled
-                  ]}>{canResend ? 'Resend code' : `Resend in ${formatTime(timer)}`}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </Animated.View>
+                {/* Resend Section */}
+                <View style={styles.resendContainer}>
+                  <Text style={styles.resendText}>Didn't receive the code?</Text>
+                  <TouchableOpacity onPress={handleResend} disabled={!canResend}>
+                    <Text style={[
+                      styles.resendLink,
+                      !canResend && styles.resendLinkDisabled
+                    ]}>{canResend ? 'Resend code' : `Resend in ${formatTime(timer)}`}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </Animated.View>
+            </TouchableWithoutFeedback>
           </ScrollView>
 
           {/* Verify Button */}
@@ -570,7 +628,9 @@ const OTPVerificationScreen = ({ navigation, route }) => {
                 <ActivityIndicator size="small" color="#FFFFFF" />
               ) : (
                 <>
-                  <Text style={styles.verifyButtonText}>Verify Code</Text>
+                  <Text style={styles.verifyButtonText}>
+                    {isAutoSubmitting ? 'Auto-Verifying...' : 'Verify Code'}
+                  </Text>
                   <Ionicons name="checkmark" size={16} color="#FFFFFF" />
                 </>
               )}            </TouchableOpacity>
@@ -714,8 +774,9 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    paddingBottom: 180,
+    paddingBottom: 100, // Extra space for keyboard avoidance
     paddingTop: 20,
+    minHeight: 600, // Ensure scrollability like MobileScreen
   },
   content: {
     alignItems: 'center',
@@ -800,6 +861,15 @@ const styles = StyleSheet.create({
   otpInputContainerPressed: {
     backgroundColor: '#F0F8F0',
     transform: [{ scale: 0.98 }],
+  },
+  otpInputContainerAutoSubmit: {
+    borderColor: '#22C55E',
+    backgroundColor: '#F0FDF4',
+    shadowColor: '#22C55E',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   }, hiddenInput: {
     position: 'absolute',
     top: 0,

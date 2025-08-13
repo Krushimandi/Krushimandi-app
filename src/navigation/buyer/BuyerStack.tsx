@@ -19,7 +19,7 @@ import { useAppStore } from '../../store';
 import { useNavigationControl } from '../NavigationProvider';
 
 // Types
-import { BuyerTabParamList, BuyerStackParamList } from '../../types';
+import { BuyerTabParamList, BuyerStackParamList } from '../types';
 
 // Constants
 import { Colors } from '../../constants';

@@ -30,6 +30,43 @@ const FARMERS_COLLECTION = 'farmers';
 const BUYERS_COLLECTION = 'buyers';
 
 /**
+ * Retry function with exponential backoff for transient errors
+ * @param {Function} fn - Function to retry
+ * @param {number} maxRetries - Maximum number of retries
+ * @param {number} baseDelay - Base delay in milliseconds
+ * @returns {Promise} Result of the function or throws error
+ */
+const retryWithBackoff = async (fn, maxRetries = 3, baseDelay = 1000) => {
+  let lastError;
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+      
+      // Check if it's a transient error worth retrying
+      const isTransientError = error.code === 'firestore/unavailable' || 
+                              error.code === 'firestore/deadline-exceeded' ||
+                              error.code === 'firestore/internal' ||
+                              error.code === 'firestore/resource-exhausted';
+      
+      if (!isTransientError || attempt === maxRetries) {
+        throw error;
+      }
+      
+      // Calculate delay with exponential backoff and jitter
+      const delay = baseDelay * Math.pow(2, attempt) + Math.random() * 1000;
+      console.log(`⏳ Retrying in ${delay}ms... (attempt ${attempt + 1}/${maxRetries + 1})`);
+      
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  
+  throw lastError;
+};
+
+/**
  * Validate fruit type against supported fruits
  * @param {string} fruitType - Fruit type to validate
  * @returns {boolean} Whether the fruit type is supported
@@ -203,15 +240,17 @@ export const updateFruit = async (fruitId, updateData) => {
  */
 export const getFruitById = async (fruitId) => {
   try {
-    const fruitsCollectionRef = collection(firestore(), FRUITS_COLLECTION);
-    const fruitDocRef = doc(fruitsCollectionRef, fruitId);
-    const docSnapshot = await getDoc(fruitDocRef);
-    
-    if (docSnapshot.exists()) {
-      return { id: docSnapshot.id, ...docSnapshot.data() };
-    }
-    
-    return null;
+    return await retryWithBackoff(async () => {
+      const fruitsCollectionRef = collection(firestore(), FRUITS_COLLECTION);
+      const fruitDocRef = doc(fruitsCollectionRef, fruitId);
+      const docSnapshot = await getDoc(fruitDocRef);
+      
+      if (docSnapshot.exists()) {
+        return { id: docSnapshot.id, ...docSnapshot.data() };
+      }
+      
+      return null;
+    });
   } catch (error) {
     console.error('❌ Error getting fruit:', error);
     throw new Error('Failed to get fruit: ' + error.message);
@@ -265,34 +304,38 @@ export const getMarketplaceFruits = async (limitCount = 20) => {
   try {
     console.log('🔍 getMarketplaceFruits: Starting query...', { limitCount });
     
-    const fruitsCollectionRef = collection(firestore(), FRUITS_COLLECTION);
-    const fruitsQuery = query(
-      fruitsCollectionRef,
-      where('status', '==', 'active'),
-      orderBy('created_at', 'desc'),
-      limit(limitCount)
-    );
-    const snapshot = await getDocs(fruitsQuery);
-    
-    console.log('📊 Firestore query result:', {
-      size: snapshot.size,
-      empty: snapshot.empty,
-      collection: FRUITS_COLLECTION
-    });
-    
-    const fruits = [];
-    snapshot.forEach(doc => {
-      const data = doc.data();
-      const fruit = { id: doc.id, ...data };
-      fruits.push(fruit);
-      console.log('🍎 Found fruit:', {
-        id: fruit.id,
-        name: fruit.name,
-        type: fruit.type,
-        status: fruit.status,
-        farmer_id: fruit.farmer_id,
-        created_at: fruit.created_at
+    const fruits = await retryWithBackoff(async () => {
+      const fruitsCollectionRef = collection(firestore(), FRUITS_COLLECTION);
+      const fruitsQuery = query(
+        fruitsCollectionRef,
+        where('status', '==', 'active'),
+        orderBy('created_at', 'desc'),
+        limit(limitCount)
+      );
+      const snapshot = await getDocs(fruitsQuery);
+      
+      console.log('📊 Firestore query result:', {
+        size: snapshot.size,
+        empty: snapshot.empty,
+        collection: FRUITS_COLLECTION
       });
+      
+      const fruitsData = [];
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        const fruit = { id: doc.id, ...data };
+        fruitsData.push(fruit);
+        console.log('🍎 Found fruit:', {
+          id: fruit.id,
+          name: fruit.name,
+          type: fruit.type,
+          status: fruit.status,
+          farmer_id: fruit.farmer_id,
+          created_at: fruit.created_at
+        });
+      });
+      
+      return fruitsData;
     });
     
     console.log('✅ getMarketplaceFruits: Returning', fruits.length, 'fruits');
@@ -451,17 +494,30 @@ export const getFruitsByFarmerOptimized = async (farmerId, status = null) => {
   try {
     console.log('🔍 Getting farmer fruits (optimized)...', { farmerId, status });
     
-    // First get farmer's fruit IDs
-    const farmersCollectionRef = collection(firestore(), FARMERS_COLLECTION);
-    const farmerDocRef = doc(farmersCollectionRef, farmerId);
-    const farmerDoc = await getDoc(farmerDocRef);
+    // First get farmer's fruit IDs with retry
+    const farmerData = await retryWithBackoff(async () => {
+      const farmersCollectionRef = collection(firestore(), FARMERS_COLLECTION);
+      const farmerDocRef = doc(farmersCollectionRef, farmerId);
+      const farmerDoc = await getDoc(farmerDocRef);
+      
+      if (!farmerDoc.exists()) {
+        console.warn('⚠️ Farmer document not found:', farmerId);
+        return null;
+      }
+      
+      const data = farmerDoc.data();
+      if (!data) {
+        console.warn('⚠️ Farmer data is empty:', farmerId);
+        return null;
+      }
+      
+      return data;
+    });
     
-    if (!farmerDoc.exists) {
-      console.warn('⚠️ Farmer document not found:', farmerId);
+    if (!farmerData) {
       return [];
     }
     
-    const farmerData = farmerDoc.data();
     const fruitIds = farmerData.fruit_ids || [];
     
     if (fruitIds.length === 0) {
@@ -469,25 +525,27 @@ export const getFruitsByFarmerOptimized = async (farmerId, status = null) => {
       return [];
     }
     
-    // Batch get all fruits by ID
+    // Batch get all fruits by ID with retry for each
     const fruitPromises = fruitIds.map(async (fruitId) => {
       try {
-        const fruitsCollectionRef = collection(firestore(), FRUITS_COLLECTION);
-        const fruitDocRef = doc(fruitsCollectionRef, fruitId);
-        const fruitDoc = await getDoc(fruitDocRef);
-        
-        if (fruitDoc.exists) {
-          const fruitData = { id: fruitDoc.id, ...fruitDoc.data() };
+        return await retryWithBackoff(async () => {
+          const fruitsCollectionRef = collection(firestore(), FRUITS_COLLECTION);
+          const fruitDocRef = doc(fruitsCollectionRef, fruitId);
+          const fruitDoc = await getDoc(fruitDocRef);
           
-          // Filter by status if provided
-          if (status && fruitData.status !== status) {
-            return null;
+          if (fruitDoc.exists()) {
+            const fruitData = { id: fruitDoc.id, ...fruitDoc.data() };
+            
+            // Filter by status if provided
+            if (status && fruitData.status !== status) {
+              return null;
+            }
+            
+            return fruitData;
           }
           
-          return fruitData;
-        }
-        
-        return null;
+          return null;
+        });
       } catch (error) {
         console.error('❌ Error getting fruit:', fruitId, error);
         return null;
@@ -547,16 +605,18 @@ export const getFarmerPublicProfile = async (farmerId) => {
   try {
     console.log('👤 Getting farmer public profile...', farmerId);
     
-    // Get farmer's basic info
-    const farmersCollectionRef = collection(firestore(), FARMERS_COLLECTION);
-    const farmerDocRef = doc(farmersCollectionRef, farmerId);
-    const farmerDoc = await getDoc(farmerDocRef);
-    
-    if (!farmerDoc.exists) {
-      throw new Error('Farmer not found');
-    }
-    
-    const farmerData = farmerDoc.data();
+    // Get farmer's basic info with retry
+    const farmerData = await retryWithBackoff(async () => {
+      const farmersCollectionRef = collection(firestore(), FARMERS_COLLECTION);
+      const farmerDocRef = doc(farmersCollectionRef, farmerId);
+      const farmerDoc = await getDoc(farmerDocRef);
+      
+      if (!farmerDoc.exists()) {
+        throw new Error('Farmer not found');
+      }
+      
+      return farmerDoc.data();
+    });
     
     // Get farmer's active fruits only
     const activeFruits = await getFruitsByFarmerOptimized(farmerId, 'active');
@@ -592,33 +652,37 @@ export const getFilteredMarketplaceFruits = async (filters = {}) => {
   try {
     const { type, limit: queryLimit = 100 } = filters;
     
-    const fruitsCollectionRef = collection(firestore(), FRUITS_COLLECTION);
-    let fruitQuery = query(
-      fruitsCollectionRef,
-      where('status', '==', 'active')
-    );
-    
-    // Add type filter if specified
-    if (type && type !== 'all') {
-      fruitQuery = query(
+    const fruits = await retryWithBackoff(async () => {
+      const fruitsCollectionRef = collection(firestore(), FRUITS_COLLECTION);
+      let fruitQuery = query(
         fruitsCollectionRef,
-        where('status', '==', 'active'),
-        where('type', '==', type)
+        where('status', '==', 'active')
       );
-    }
-    
-    // Order by creation date and limit
-    fruitQuery = query(
-      fruitQuery,
-      orderBy('created_at', 'desc'),
-      limit(queryLimit)
-    );
-    
-    const snapshot = await getDocs(fruitQuery);
-    
-    const fruits = [];
-    snapshot.forEach(doc => {
-      fruits.push({ id: doc.id, ...doc.data() });
+      
+      // Add type filter if specified
+      if (type && type !== 'all') {
+        fruitQuery = query(
+          fruitsCollectionRef,
+          where('status', '==', 'active'),
+          where('type', '==', type)
+        );
+      }
+      
+      // Order by creation date and limit
+      fruitQuery = query(
+        fruitQuery,
+        orderBy('created_at', 'desc'),
+        limit(queryLimit)
+      );
+      
+      const snapshot = await getDocs(fruitQuery);
+      
+      const fruitsData = [];
+      snapshot.forEach(doc => {
+        fruitsData.push({ id: doc.id, ...doc.data() });
+      });
+      
+      return fruitsData;
     });
     
     console.log(`✅ Loaded ${fruits.length} filtered marketplace fruits (type: ${type || 'all'})`);

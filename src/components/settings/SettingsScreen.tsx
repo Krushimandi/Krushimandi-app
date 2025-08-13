@@ -425,7 +425,7 @@ const SettingsScreen: React.FC = () => {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content"
         backgroundColor="#43B86C"
-        translucent />
+        translucent={false} />
 
       {/* Updated Header with Emerald Theme */}
       <View style={styles.headerContainer}>

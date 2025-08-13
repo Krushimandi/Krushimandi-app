@@ -1,5 +1,5 @@
 // File: src/components/AddFruitScreen.jsx
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
@@ -18,18 +18,22 @@ import {
   Alert,
   ActivityIndicator,
   Animated,
-  Dimensions
+  Dimensions,
+  BackHandler,
+  Linking
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { Colors } from '../../constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTabBarControl } from '../../utils/navigationControls';
-import { getCurrentLocation, reverseGeocode, getFastLocation } from '../../utils/permissions';
+import { getCurrentLocation, reverseGeocode, getFastLocation, checkAndPromptGPSSettings } from '../../utils/permissions';
 
 const AddFruitScreen = ({ navigation }) => {
-  const { width: screenWidth } = Dimensions.get('window');
+  const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
   const { hideTabBar, showTabBar } = useTabBarControl();
+
+  // Form state
   const [fruitName, setFruitName] = useState('');
   const [category, setCategory] = useState('banana');
   const [grade, setGrade] = useState('A');
@@ -39,23 +43,49 @@ const AddFruitScreen = ({ navigation }) => {
   const [district, setDistrict] = useState('');
   const [state, setState] = useState('');
   const [pincode, setPincode] = useState('');
+
+  // Modal states
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showGradeModal, setShowGradeModal] = useState(false);
   const [showQuantityModal, setShowQuantityModal] = useState(false);
-  const [isFormValid, setIsFormValid] = useState(false);
-  const [focusedInput, setFocusedInput] = useState('');
   const [showDescriptionTooltip, setShowDescriptionTooltip] = useState(false);
-  const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
+
+  // Form validation and UI states
+  const [isFormValid, setIsFormValid] = useState(false);
+  const [validationErrors, setValidationErrors] = useState({});
+  const [focusedInput, setFocusedInput] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showValidationErrors, setShowValidationErrors] = useState(false);
+  const [touchedFields, setTouchedFields] = useState({});
+
+  // Location states
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [locationPermission, setLocationPermission] = useState(null);
   const [currentLocation, setCurrentLocation] = useState(null);
+  const [locationError, setLocationError] = useState('');
 
+  // UI states
+  const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  // Refs
   const infoIconRef = useRef(null);
+  const scrollViewRef = useRef(null);
+  const inputRefs = useRef({
+    fruitName: null,
+    city: null,
+    district: null,
+    state: null,
+    pincode: null,
+    description: null
+  });
+
+  // Animations
   const [progress, setProgress] = useState(0);
   const slideAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(1)).current;
-
-  const scrollViewRef = useRef(null);
+  const shakeAnim = useRef(new Animated.Value(0)).current;
+  const buttonAnimY = useRef(new Animated.Value(0)).current;
 
   const categories = [
     { id: 'banana', name: 'Banana' },
@@ -97,124 +127,241 @@ const AddFruitScreen = ({ navigation }) => {
     return suggestions[category] || "";
   };
 
-  // Validate form whenever inputs change
-  React.useEffect(() => {
-    const isValid = fruitName.trim() &&
-      category &&
-      grade &&
-      quantity &&
-      description.trim() &&
-      city.trim() &&
-      district.trim() &&
-      state.trim() &&
-      pincode.trim();
-    setIsFormValid(isValid);
-  }, [fruitName, category, grade, quantity, description, city, district, state, pincode]);
+  // Enhanced scroll to input with keyboard-aware logic
+  const scrollToInput = useCallback((inputKey) => {
+    const inputRef = inputRefs.current[inputKey];
+    if (!inputRef || !scrollViewRef.current) return;
+    
+    const locationInputs = ['city', 'district', 'state', 'pincode'];
+    const isLocationInput = locationInputs.includes(inputKey);
+    
+    if (isLocationInput) {
+      // For location inputs, calculate position based on form structure
+      setTimeout(() => {
+        const scrollPositions = {
+          city: 450,
+          district: 450, 
+          state: 520,
+          pincode: 520
+        };
+        
+        const scrollPosition = scrollPositions[inputKey] || 450;
+        
+        console.log(`Scrolling to location input ${inputKey} at position:`, scrollPosition);
+        
+        scrollViewRef.current?.scrollTo({ 
+          y: scrollPosition, 
+          animated: true 
+        });
+      }, 250); // Wait for keyboard animation
+    } else {
+      // For other inputs like description, use measure
+      setTimeout(() => {
+        if (inputKey === 'description') {
+          // Description is at the bottom, scroll near the end
+          scrollViewRef.current?.scrollTo({ 
+            y: 600, 
+            animated: true 
+          });
+        } else {
+          // For top inputs, minimal scroll
+          scrollViewRef.current?.scrollTo({ 
+            y: 50, 
+            animated: true 
+          });
+        }
+      }, 250);
+    }
+  }, []);
 
-  React.useEffect(() => {
-    const totalFields = 9;
-    let filled = 0;
+  // Enhanced input handlers with validation
+  const handleInputChange = useCallback((field, value) => {
+    // Mark field as touched when user starts typing
+    setTouchedFields(prev => ({ ...prev, [field]: true }));
+    
+    switch (field) {
+      case 'fruitName':
+        setFruitName(value);
+        break;
+      case 'description':
+        setDescription(value);
+        break;
+      case 'city':
+        setCity(value);
+        break;
+      case 'district':
+        setDistrict(value);
+        break;
+      case 'state':
+        setState(value);
+        break;
+      case 'pincode':
+        // Only allow numeric input for pincode
+        const numericValue = value.replace(/[^0-9]/g, '');
+        setPincode(numericValue);
+        break;
+    }
 
-    if (fruitName.trim()) filled++;
-    if (category) filled++;
-    if (grade) filled++;
-    if (quantity) filled++;
-    if (description.trim()) filled++;
-    if (city.trim()) filled++;
-    if (district.trim()) filled++;
-    if (state.trim()) filled++;
-    if (pincode.trim()) filled++;
+    // Clear all errors when user starts typing to allow re-validation
+    // This will show the next priority error if current one is fixed
+    setValidationErrors({});
+  }, []);
 
-    const newProgress = (filled / totalFields) * 0.33; // 33% of total journey
-    setProgress(newProgress);
+  // Enhanced focus handler with immediate scroll
+  const handleInputFocus = useCallback((inputKey) => {
+    setFocusedInput(inputKey);
+    // Mark field as touched when focused
+    setTouchedFields(prev => ({ ...prev, [inputKey]: true }));
+    
+    // Immediate scroll for better UX
+    scrollToInput(inputKey);
+  }, [scrollToInput]);
 
-    // Animate progress bar
-    Animated.timing(slideAnim, {
-      toValue: newProgress,
-      duration: 300,
-      useNativeDriver: false,
-    }).start();
-  }, [fruitName, category, grade, quantity, description, city, district, state, pincode]);
+  // Shake animation for invalid form
+  const shakeForm = useCallback(() => {
+    Animated.sequence([
+      Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: -10, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 0, duration: 50, useNativeDriver: true })
+    ]).start();
+  }, [shakeAnim]);
 
 
   const handleContinue = async () => {
-    if (isFormValid) {
-      try {
-        // Get current user data for farmer_id
-        const userData = await AsyncStorage.getItem('userData');
-        const user = userData ? JSON.parse(userData) : null;
+    if (isSubmitting) return;
 
-        if (!user || !user.uid) {
-          Alert.alert('Error', 'Please login to continue');
-          return;
-        }
+    // Show validation errors when user tries to submit
+    setShowValidationErrors(true);
 
-        // Parse quantity range
-        const quantityParts = quantity.includes('+')
-          ? [parseInt(quantity.replace('+', '')), parseInt(quantity.replace('+', '')) + 5]
-          : quantity.split('-').map(q => parseInt(q.trim()));
-
-        // Get selected category object
-        const selectedCategory = categories.find(cat => cat.id === category);
-        const selectedGrade = grades.find(g => g.id === grade);
-
-        const fruitData = {
-          name: fruitName.trim(),
-          type: category,
-          grade,
-          quantity: quantityParts,
-          description: description.trim(),
-          location: {
-            city: city.trim(),
-            district: district.trim(),
-            state: state.trim(),
-            pincode: pincode.trim(),
-            lat: currentLocation?.lat || 0,
-            lng: currentLocation?.lng || 0
-          },
-          farmer_id: user.uid,
-          status: 'active',
-          views: 0,
-          likes: 0,
-          // Additional metadata for better UX
-          categoryInfo: selectedCategory,
-          gradeInfo: selectedGrade,
-          createdBy: {
-            name: user.firstName || 'Farmer',
-            uid: user.uid
-          }
-        };
-
-        console.log('🍎 Fruit data prepared:', fruitData);
-        Keyboard.dismiss();
-
-        // Success animation
-        Animated.timing(fadeAnim, {
-          toValue: 0.8,
-          duration: 200,
-          useNativeDriver: true,
-        }).start(() => {
-          // Navigate to PhotoUpload screen with the fruit data
-          navigation.navigate('PhotoUpload', { fruitData });
-        });
-
-      } catch (error) {
-        console.error('Error preparing fruit data:', error);
-        Alert.alert('Error', 'Something went wrong. Please try again.');
+    if (!validateForm()) {
+      shakeForm();
+      
+      // Show focused alert with only the current error
+      const currentError = Object.values(validationErrors)[0];
+      const currentField = Object.keys(validationErrors)[0];
+      
+      let fieldName = currentField;
+      switch (currentField) {
+        case 'fruitName':
+          fieldName = 'fruit name';
+          break;
+        case 'description':
+          fieldName = 'description';
+          break;
+        case 'city':
+          fieldName = 'city/village';
+          break;
+        case 'district':
+          fieldName = 'district';
+          break;
+        case 'state':
+          fieldName = 'state';
+          break;
+        case 'pincode':
+          fieldName = 'pincode';
+          break;
       }
+      
+      Alert.alert(
+        'Please Complete Form',
+        `${currentError || `Please fill the ${fieldName} field to continue.`}`,
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      // Get current user data for farmer_id
+      const userData = await AsyncStorage.getItem('userData');
+      const user = userData ? JSON.parse(userData) : null;
+
+      if (!user || !user.uid) {
+        Alert.alert('Authentication Error', 'Please login to continue');
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Parse quantity range
+      const quantityParts = quantity.includes('+')
+        ? [parseInt(quantity.replace('+', '')), parseInt(quantity.replace('+', '')) + 5]
+        : quantity.split('-').map(q => parseInt(q.trim()));
+
+      // Get selected category object
+      const selectedCategory = categories.find(cat => cat.id === category);
+      const selectedGrade = grades.find(g => g.id === grade);
+
+      const fruitData = {
+        name: fruitName.trim(),
+        type: category,
+        grade,
+        quantity: quantityParts,
+        description: description.trim(),
+        location: {
+          city: city.trim(),
+          district: district.trim(),
+          state: state.trim(),
+          pincode: pincode.trim(),
+          lat: currentLocation?.lat || 0,
+          lng: currentLocation?.lng || 0
+        },
+        farmer_id: user.uid,
+        status: 'active',
+        views: 0,
+        likes: 0,
+        // Additional metadata for better UX
+        categoryInfo: selectedCategory,
+        gradeInfo: selectedGrade,
+        createdBy: {
+          name: user.firstName || 'Farmer',
+          uid: user.uid
+        }
+      };
+
+      console.log('🍎 Fruit data prepared:', fruitData);
+      Keyboard.dismiss();
+
+      // Success animation
+      Animated.timing(fadeAnim, {
+        toValue: 0.8,
+        duration: 200,
+        useNativeDriver: true,
+      }).start(() => {
+        // Navigate to PhotoUpload screen with the fruit data
+        navigation.navigate('PhotoUpload', { fruitData });
+      });
+
+    } catch (error) {
+      console.error('Error preparing fruit data:', error);
+      Alert.alert('Error', 'Something went wrong. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleBack = () => {
+    if (isSubmitting) return;
+
     showTabBar(); // Ensure tab bar is visible when going back
     navigation.goBack();
   };
 
-  // Single location handling - fast with Network/WiFi priority, smart caching
+  // Enhanced location handling with better error management
   const handleGetLocation = async () => {
+    if (isGettingLocation) return;
+
     setIsGettingLocation(true);
+    setLocationError('');
 
     try {
+      // First check if GPS is enabled and prompt user if not
+      const gpsEnabled = await checkAndPromptGPSSettings();
+      if (!gpsEnabled) {
+        return; // User chose to fill manually or went to settings
+      }
+
       console.log('Getting location with Network/WiFi priority...');
       const location = await getCurrentLocation();
 
@@ -234,7 +381,10 @@ const AddFruitScreen = ({ navigation }) => {
           setState(locationData.state || 'India');
           setPincode(locationData.pincode || '');
 
-          // Show different messages based on location and data source
+          // Clear any location errors
+          setLocationError('');
+
+          // Show success message
           const locationSource = location.source ? ` (${location.source})` : '';
           let dataSource = '';
 
@@ -249,13 +399,13 @@ const AddFruitScreen = ({ navigation }) => {
               dataSource = '';
           }
 
-          console.log(
+          Alert.alert(
             'Location Found!',
             `Auto-filled: ${cityToFill}, ${locationData.district}, ${locationData.state}${locationData.pincode ? ' - ' + locationData.pincode : ''}${locationSource}${dataSource}`,
             [{ text: 'OK' }]
           );
         } else {
-          // This shouldn't happen with the new fallback system, but just in case
+          setLocationError('Address details unavailable');
           Alert.alert(
             'Location Found',
             'GPS coordinates obtained but address details unavailable. Please fill manually.',
@@ -266,37 +416,147 @@ const AddFruitScreen = ({ navigation }) => {
     } catch (error) {
       console.error('Location error:', error);
 
-      // Use user-friendly message if available
       const message = error.userMessage || error.message || 'Unable to get your location. Please fill location details manually.';
+      setLocationError(message);
 
-      // Show error alert with option to try again or fill manually
-      Alert.alert(
-        'Location Error',
-        message,
-        [
-          { text: 'Fill Manually', style: 'cancel' },
-          { text: 'Try Again', onPress: () => handleGetLocation() }
-        ]
-      );
+      // Enhanced error handling for different location error types
+      if (error.code === 2) {
+        // GPS/Location Services are disabled
+        Alert.alert(
+          'GPS is Off',
+          'Please enable GPS/Location Services in your device settings.',
+          [
+            { text: 'Fill Manually', style: 'cancel' },
+            { 
+              text: 'Open Settings', 
+              onPress: () => {
+                // For Android, you can use Linking to open location settings
+                if (Platform.OS === 'android') {
+                  Linking.sendIntent('android.settings.LOCATION_SOURCE_SETTINGS');
+                } else {
+                  // For iOS, open general settings
+                  Linking.openSettings();
+                }
+              } 
+            },
+            { text: 'Try Again', onPress: () => handleGetLocation() }
+          ]
+        );
+      } else if (error.code === 1) {
+        // Permission denied
+        Alert.alert(
+          'Location Permission Required',
+          'Location permission is required to auto-fill farm location details. Please grant location permission in your device settings.',
+          [
+            { text: 'Fill Manually', style: 'cancel' },
+            { 
+              text: 'Open Settings', 
+              onPress: () => {
+                Linking.openSettings();
+              } 
+            },
+            { text: 'Try Again', onPress: () => handleGetLocation() }
+          ]
+        );
+      } else {
+        // Generic location error
+        Alert.alert(
+          'Location Error',
+          message,
+          [
+            { text: 'Fill Manually', style: 'cancel' },
+            { text: 'Try Again', onPress: () => handleGetLocation() }
+          ]
+        );
+      }
     } finally {
       setIsGettingLocation(false);
     }
   };
 
-  // Auto-suggest description based on category
-  useEffect(() => {
-    if (category && !description.trim()) {
-      const suggestion = getDescriptionSuggestion(category);
-      if (suggestion) {
-        setDescription(suggestion);
-      }
+  // Enhanced validation function - shows only one error at a time
+  const validateForm = useCallback(() => {
+    const errors = {};
+    let isValid = true;
+    let firstError = null;
+
+    // Priority order for validation (show most important first)
+    
+    // 1. Fruit name validation (highest priority)
+    if (!fruitName.trim()) {
+      firstError = firstError || { field: 'fruitName', message: 'Fruit name is required' };
+      isValid = false;
+    } else if (fruitName.trim().length < 2) {
+      firstError = firstError || { field: 'fruitName', message: 'Fruit name must be at least 2 characters' };
+      isValid = false;
     }
-  }, [category]);
 
-  // Note: Removed automatic location initialization to avoid unwanted permission requests
-  // Location will only be requested when user taps the GPS button
+    // 2. Location validation (second priority)
+    if (!city.trim()) {
+      firstError = firstError || { field: 'city', message: 'City is required' };
+      isValid = false;
+    }
+    if (!district.trim()) {
+      firstError = firstError || { field: 'district', message: 'District is required' };
+      isValid = false;
+    }
+    if (!state.trim()) {
+      firstError = firstError || { field: 'state', message: 'State is required' };
+      isValid = false;
+    }
+    if (!pincode.trim()) {
+      firstError = firstError || { field: 'pincode', message: 'Pincode is required' };
+      isValid = false;
+    } else if (!/^\d{6}$/.test(pincode.trim())) {
+      firstError = firstError || { field: 'pincode', message: 'Please enter a valid 6-digit pincode' };
+      isValid = false;
+    }
 
-  // Progress animation
+    // 3. Description validation (lowest priority)
+    if (!description.trim()) {
+      firstError = firstError || { field: 'description', message: 'Description is required' };
+      isValid = false;
+    } else if (description.trim().length < 20) {
+      firstError = firstError || { field: 'description', message: 'Please provide a more detailed description (min 20 characters)' };
+      isValid = false;
+    }
+
+    // Only show the first error found
+    if (firstError) {
+      errors[firstError.field] = firstError.message;
+    }
+
+    setValidationErrors(errors);
+    setIsFormValid(isValid);
+    return isValid;
+  }, [fruitName, description, city, district, state, pincode]);
+
+  // Calculate progress
+  const calculateProgress = useCallback(() => {
+    const totalFields = 9;
+    let filled = 0;
+
+    if (fruitName.trim()) filled++;
+    if (category) filled++;
+    if (grade) filled++;
+    if (quantity) filled++;
+    if (description.trim() && description.trim().length >= 20) filled++;
+    if (city.trim()) filled++;
+    if (district.trim()) filled++;
+    if (state.trim()) filled++;
+    if (pincode.trim() && /^\d{6}$/.test(pincode.trim())) filled++;
+
+    return (filled / totalFields) * 0.33; // 33% of total journey
+  }, [fruitName, category, grade, quantity, description, city, district, state, pincode]);
+
+  // Form validation effect
+  useEffect(() => {
+    validateForm();
+    const newProgress = calculateProgress();
+    setProgress(newProgress);
+  }, [validateForm, calculateProgress]);
+
+  // Progress animation effect
   useEffect(() => {
     Animated.timing(slideAnim, {
       toValue: progress,
@@ -304,6 +564,98 @@ const AddFruitScreen = ({ navigation }) => {
       useNativeDriver: false,
     }).start();
   }, [progress, slideAnim]);
+
+  // Keyboard handling with improved logic
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener(
+      'keyboardDidShow',
+      (e) => {
+        setKeyboardHeight(e.endCoordinates.height);
+        // For Android, move button above keyboard
+        // For iOS, use a smaller offset since the system handles it better
+        const offset = Platform.OS === 'android' ? -e.endCoordinates.height : -50;
+        Animated.timing(buttonAnimY, {
+          toValue: offset,
+          duration: 250,
+          useNativeDriver: true,
+        }).start();
+      }
+    );
+    const keyboardDidHideListener = Keyboard.addListener(
+      'keyboardDidHide',
+      () => {
+        setKeyboardHeight(0);
+        // Animate button back to original position
+        Animated.timing(buttonAnimY, {
+          toValue: 0,
+          duration: 250,
+          useNativeDriver: true,
+        }).start();
+      }
+    );
+
+    return () => {
+      keyboardDidShowListener?.remove();
+      keyboardDidHideListener?.remove();
+    };
+  }, [buttonAnimY]);
+
+  // Auto-suggest description based on category
+
+  // ## Temperary Disabled But may be it need in future
+
+  // useEffect(() => {
+  //   if (category && !description.trim()) {
+  //     const suggestion = getDescriptionSuggestion(category);
+  //     if (suggestion) {
+  //       setDescription(suggestion);
+  //     }
+  //   }
+  // }, [category, description]);
+
+  // Hardware back button handler
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (showCategoryModal || showGradeModal || showQuantityModal || showDescriptionTooltip) {
+        setShowCategoryModal(false);
+        setShowGradeModal(false);
+        setShowQuantityModal(false);
+        setShowDescriptionTooltip(false);
+        return true;
+      }
+      return false;
+    });
+
+    return () => backHandler.remove();
+  }, [showCategoryModal, showGradeModal, showQuantityModal, showDescriptionTooltip]);
+
+  // Enhanced tooltip handler with better positioning
+  const handleTooltipPress = useCallback(() => {
+    infoIconRef.current?.measure((fx, fy, width, height, px, py) => {
+      const tooltipX = Math.max(20, Math.min(px - 140, screenWidth - 300));
+      const tooltipY = Math.max(100, py - 80);
+      setTooltipPosition({ x: tooltipX, y: tooltipY });
+      setShowDescriptionTooltip(true);
+    });
+  }, [screenWidth]);
+
+  // Enhanced modal close handlers
+  const closeModal = useCallback((modalType) => {
+    switch (modalType) {
+      case 'category':
+        setShowCategoryModal(false);
+        break;
+      case 'grade':
+        setShowGradeModal(false);
+        break;
+      case 'quantity':
+        setShowQuantityModal(false);
+        break;
+      case 'tooltip':
+        setShowDescriptionTooltip(false);
+        break;
+    }
+  }, []);
 
   // Tab bar control - hide when screen is focused, show when leaving
   useFocusEffect(
@@ -320,15 +672,11 @@ const AddFruitScreen = ({ navigation }) => {
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar
-        backgroundColor="transparent"
-        translucent={true}
+        backgroundColor="#FFFFFF"
+        translucent={false}
         barStyle="dark-content"
       />
-      <KeyboardAvoidingView
-        style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
-      >
+      <View style={styles.container}>
         {/* Modern Header */}
         <View style={styles.header}>
           <TouchableOpacity style={styles.backButton} onPress={handleBack}>
@@ -372,14 +720,45 @@ const AddFruitScreen = ({ navigation }) => {
           </View>
           <Text style={styles.progressText}>
             {Math.round(progress * 100)}% Complete
+            {!isFormValid && (() => {
+              const currentField = Object.keys(validationErrors)[0];
+              if (currentField) {
+                let fieldName = currentField;
+                switch (currentField) {
+                  case 'fruitName':
+                    fieldName = 'fruit name';
+                    break;
+                  case 'description':
+                    fieldName = 'description';
+                    break;
+                  case 'city':
+                    fieldName = 'city/village';
+                    break;
+                  case 'district':
+                    fieldName = 'district';
+                    break;
+                  case 'state':
+                    fieldName = 'state';
+                    break;
+                  case 'pincode':
+                    fieldName = 'pincode';
+                    break;
+                }
+                return ` • Next: ${fieldName}`;
+              }
+              return '';
+            })()}
           </Text>
         </View>
 
-        <Animated.View style={[styles.contentContainer, { opacity: fadeAnim }]}>
+        <Animated.View style={[styles.contentContainer, { opacity: fadeAnim, transform: [{ translateX: shakeAnim }] }]}>
           <ScrollView
             ref={scrollViewRef}
             style={styles.scrollView}
-            contentContainerStyle={styles.scrollContent}
+            contentContainerStyle={[
+              styles.scrollContent,
+              { paddingBottom: keyboardHeight > 0 ? 180 : 120 }
+            ]}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
             bounces={true}
@@ -388,37 +767,43 @@ const AddFruitScreen = ({ navigation }) => {
               {/* Fruit Name Input */}
               <View style={styles.modernInputContainer}>
                 <Text style={styles.modernLabel}>
-                  <Ionicons name="leaf-outline" size={16} color="#00C851" /> Fruit Name
+                  <Ionicons name="leaf-outline" size={16} color="#00C851" /> Fruit Name *
                 </Text>
                 <TextInput
+                  ref={(ref) => inputRefs.current.fruitName = ref}
                   style={[
                     styles.modernInput,
-                    focusedInput === 'fruitName' && styles.modernInputFocused
+                    focusedInput === 'fruitName' && styles.modernInputFocused,
+                    (showValidationErrors || touchedFields.fruitName) && validationErrors.fruitName && styles.modernInputError
                   ]}
                   value={fruitName}
-                  onChangeText={setFruitName}
-                  onFocus={() => setFocusedInput('fruitName')}
+                  onChangeText={(value) => handleInputChange('fruitName', value)}
+                  onFocus={() => handleInputFocus('fruitName')}
                   onBlur={() => setFocusedInput('')}
                   placeholder="e.g. Alphonso Mango, Fuji Apple"
                   placeholderTextColor="#94A3B8"
                   autoCapitalize="words"
                   returnKeyType="next"
+                  onSubmitEditing={() => inputRefs.current.description?.focus()}
                 />
+                {(showValidationErrors || touchedFields.fruitName) && validationErrors.fruitName && (
+                  <Text style={styles.errorText}>{validationErrors.fruitName}</Text>
+                )}
               </View>
 
               {/* Category Selection */}
               <View style={styles.modernInputContainer}>
                 <Text style={styles.modernLabel}>
-                  <Ionicons name="apps-outline" size={16} color="#00C851" /> Category
+                  <Ionicons name="apps-outline" size={16} color="#00C851" /> Category *
                 </Text>
                 <TouchableOpacity
                   style={styles.modernDropdown}
                   onPress={() => setShowCategoryModal(true)}
+                  accessible={true}
+                  accessibilityLabel="Select fruit category"
+                  accessibilityHint="Opens category selection modal"
                 >
                   <View style={styles.dropdownContent}>
-                    {/* <Text style={styles.categoryEmoji}>
-                      {categories.find(cat => cat.id === category)?.icon || '🍎'}
-                    </Text> */}
                     <Text style={styles.modernDropdownText}>
                       {categories.find(cat => cat.id === category)?.name || category}
                     </Text>
@@ -430,11 +815,14 @@ const AddFruitScreen = ({ navigation }) => {
               {/* Grade Selection */}
               <View style={styles.modernInputContainer}>
                 <Text style={styles.modernLabel}>
-                  <Ionicons name="star-outline" size={16} color="#00C851" /> Quality Grade
+                  <Ionicons name="star-outline" size={16} color="#00C851" /> Quality Grade *
                 </Text>
                 <TouchableOpacity
                   style={styles.modernDropdown}
                   onPress={() => setShowGradeModal(true)}
+                  accessible={true}
+                  accessibilityLabel="Select quality grade"
+                  accessibilityHint="Opens grade selection modal"
                 >
                   <View style={styles.dropdownContent}>
                     <View style={[
@@ -452,11 +840,14 @@ const AddFruitScreen = ({ navigation }) => {
               {/* Quantity Selection */}
               <View style={styles.modernInputContainer}>
                 <Text style={styles.modernLabel}>
-                  <Ionicons name="scale-outline" size={16} color="#00C851" /> Available Quantity
+                  <Ionicons name="scale-outline" size={16} color="#00C851" /> Available Quantity *
                 </Text>
                 <TouchableOpacity
                   style={styles.modernDropdown}
                   onPress={() => setShowQuantityModal(true)}
+                  accessible={true}
+                  accessibilityLabel="Select available quantity"
+                  accessibilityHint="Opens quantity selection modal"
                 >
                   <View style={styles.dropdownContent}>
                     <Text style={styles.quantityIcon}>⚖️</Text>
@@ -472,12 +863,18 @@ const AddFruitScreen = ({ navigation }) => {
               <View style={styles.modernSectionContainer}>
                 <View style={styles.sectionHeader}>
                   <Text style={styles.modernSectionTitle}>
-                    <Ionicons name="location-outline" size={18} color="#00C851" /> Farm Location
+                    <Ionicons name="location-outline" size={18} color="#00C851" /> Farm Location *
                   </Text>
                   <TouchableOpacity
-                    style={styles.singleLocationButton}
+                    style={[
+                      styles.singleLocationButton,
+                      isGettingLocation && styles.locationButtonDisabled
+                    ]}
                     onPress={handleGetLocation}
                     disabled={isGettingLocation}
+                    accessible={true}
+                    accessibilityLabel="Get current location"
+                    accessibilityHint="Automatically fills location fields using GPS"
                   >
                     {isGettingLocation ? (
                       <ActivityIndicator size="small" color="#FFFFFF" />
@@ -494,84 +891,109 @@ const AddFruitScreen = ({ navigation }) => {
                   📍 Auto-fill your farm location using GPS and Google Maps
                 </Text>
 
+                {locationError ? (
+                  <Text style={styles.locationErrorText}>
+                    ⚠️ {locationError}
+                  </Text>
+                ) : null}
+
                 <View style={styles.locationGrid}>
                   <View style={[styles.modernInputContainer, styles.halfWidth]}>
-                    <Text style={styles.modernLabel}>City/Village</Text>
+                    <Text style={styles.modernLabel}>City/Village *</Text>
                     <TextInput
+                      ref={(ref) => inputRefs.current.city = ref}
                       style={[
                         styles.modernInput,
-                        focusedInput === 'city' && styles.modernInputFocused
+                        focusedInput === 'city' && styles.modernInputFocused,
+                        (showValidationErrors || touchedFields.city) && validationErrors.city && styles.modernInputError
                       ]}
                       value={city}
-                      onChangeText={setCity}
-                      onFocus={() => setFocusedInput('city')}
+                      onChangeText={(value) => handleInputChange('city', value)}
+                      onFocus={() => handleInputFocus('city')}
                       onBlur={() => setFocusedInput('')}
                       placeholder="City name"
                       placeholderTextColor="#94A3B8"
                       autoCapitalize="words"
                       returnKeyType="next"
-                      editable={false}
+                      onSubmitEditing={() => inputRefs.current.district?.focus()}
                     />
+                    {(showValidationErrors || touchedFields.city) && validationErrors.city && (
+                      <Text style={styles.errorText}>{validationErrors.city}</Text>
+                    )}
                   </View>
 
                   <View style={[styles.modernInputContainer, styles.halfWidth]}>
-                    <Text style={styles.modernLabel}>District</Text>
+                    <Text style={styles.modernLabel}>District *</Text>
                     <TextInput
+                      ref={(ref) => inputRefs.current.district = ref}
                       style={[
                         styles.modernInput,
-                        focusedInput === 'district' && styles.modernInputFocused
+                        focusedInput === 'district' && styles.modernInputFocused,
+                        (showValidationErrors || touchedFields.district) && validationErrors.district && styles.modernInputError
                       ]}
                       value={district}
-                      onChangeText={setDistrict}
-                      onFocus={() => setFocusedInput('district')}
+                      onChangeText={(value) => handleInputChange('district', value)}
+                      onFocus={() => handleInputFocus('district')}
                       onBlur={() => setFocusedInput('')}
                       placeholder="District"
                       placeholderTextColor="#94A3B8"
                       autoCapitalize="words"
                       returnKeyType="next"
-                      editable={false}
+                      onSubmitEditing={() => inputRefs.current.state?.focus()}
                     />
+                    {(showValidationErrors || touchedFields.district) && validationErrors.district && (
+                      <Text style={styles.errorText}>{validationErrors.district}</Text>
+                    )}
                   </View>
                 </View>
 
                 <View style={styles.locationGrid}>
                   <View style={[styles.modernInputContainer, styles.halfWidth]}>
-                    <Text style={styles.modernLabel}>State</Text>
+                    <Text style={styles.modernLabel}>State *</Text>
                     <TextInput
+                      ref={(ref) => inputRefs.current.state = ref}
                       style={[
                         styles.modernInput,
-                        focusedInput === 'state' && styles.modernInputFocused
+                        focusedInput === 'state' && styles.modernInputFocused,
+                        (showValidationErrors || touchedFields.state) && validationErrors.state && styles.modernInputError
                       ]}
                       value={state}
-                      onChangeText={setState}
-                      onFocus={() => setFocusedInput('state')}
+                      onChangeText={(value) => handleInputChange('state', value)}
+                      onFocus={() => handleInputFocus('state')}
                       onBlur={() => setFocusedInput('')}
                       placeholder="State"
                       placeholderTextColor="#94A3B8"
                       autoCapitalize="words"
                       returnKeyType="next"
-                      editable={false}
+                      onSubmitEditing={() => inputRefs.current.pincode?.focus()}
                     />
+                    {(showValidationErrors || touchedFields.state) && validationErrors.state && (
+                      <Text style={styles.errorText}>{validationErrors.state}</Text>
+                    )}
                   </View>
 
                   <View style={[styles.modernInputContainer, styles.halfWidth]}>
-                    <Text style={styles.modernLabel}>Pincode</Text>
+                    <Text style={styles.modernLabel}>Pincode *</Text>
                     <TextInput
+                      ref={(ref) => inputRefs.current.pincode = ref}
                       style={[
                         styles.modernInput,
-                        focusedInput === 'pincode' && styles.modernInputFocused
+                        focusedInput === 'pincode' && styles.modernInputFocused,
+                        (showValidationErrors || touchedFields.pincode) && validationErrors.pincode && styles.modernInputError
                       ]}
                       value={pincode}
-                      onChangeText={setPincode}
-                      onFocus={() => setFocusedInput('pincode')}
+                      onChangeText={(value) => handleInputChange('pincode', value)}
+                      onFocus={() => handleInputFocus('pincode')}
                       onBlur={() => setFocusedInput('')}
                       placeholder="123456"
                       placeholderTextColor="#94A3B8"
                       keyboardType="numeric"
                       maxLength={6}
-                      returnKeyType="next"
-                      editable={false}
+                      returnKeyType="done"
                     />
+                    {(showValidationErrors || touchedFields.pincode) && validationErrors.pincode && (
+                      <Text style={styles.errorText}>{validationErrors.pincode}</Text>
+                    )}
                   </View>
                 </View>
               </View>
@@ -580,30 +1002,33 @@ const AddFruitScreen = ({ navigation }) => {
               <View style={styles.modernInputContainer}>
                 <View style={styles.descriptionHeader}>
                   <Text style={styles.modernLabel}>
-                    <Ionicons name="document-text-outline" size={16} color="#00C851" /> Description
+                    <Ionicons name="document-text-outline" size={16} color="#00C851" /> Description *
+                    <Text style={styles.characterCount}>
+                      ({description.length}/20 chars)
+                    </Text>
                   </Text>
                   <TouchableOpacity
                     ref={infoIconRef}
                     style={styles.infoButton}
-                    onPress={() => {
-                      infoIconRef.current.measure((fx, fy, width, height, px, py) => {
-                        setTooltipPosition({ x: px, y: py });
-                        setShowDescriptionTooltip(true);
-                      });
-                    }}
+                    onPress={handleTooltipPress}
+                    accessible={true}
+                    accessibilityLabel="Description help"
+                    accessibilityHint="Shows tips for writing a good description"
                   >
                     <Ionicons name="help-circle-outline" size={16} color="#64748B" />
                   </TouchableOpacity>
                 </View>
                 <View style={[
                   styles.modernDescriptionContainer,
-                  focusedInput === 'description' && styles.modernInputFocused
+                  focusedInput === 'description' && styles.modernInputFocused,
+                  (showValidationErrors || touchedFields.description) && validationErrors.description && styles.modernInputError
                 ]}>
                   <TextInput
+                    ref={(ref) => inputRefs.current.description = ref}
                     style={styles.modernDescriptionInput}
                     value={description}
-                    onChangeText={setDescription}
-                    onFocus={() => setFocusedInput('description')}
+                    onChangeText={(value) => handleInputChange('description', value)}
+                    onFocus={() => handleInputFocus('description')}
                     onBlur={() => setFocusedInput('')}
                     placeholder="Describe your fruit quality, taste, harvesting details..."
                     placeholderTextColor="#94A3B8"
@@ -613,52 +1038,103 @@ const AddFruitScreen = ({ navigation }) => {
                     returnKeyType="done"
                   />
                 </View>
+                {(showValidationErrors || touchedFields.description) && validationErrors.description && (
+                  <Text style={styles.errorText}>{validationErrors.description}</Text>
+                )}
               </View>
             </View>
           </ScrollView>
         </Animated.View>
 
         {/* Modern Continue Button */}
-        <View style={styles.modernButtonContainer}>
+        <Animated.View style={[
+          styles.modernButtonContainer,
+          {
+            transform: [{ translateY: buttonAnimY }]
+          }
+        ]}>
           <TouchableOpacity
             style={[
               styles.modernContinueButton,
-              !isFormValid && styles.modernButtonDisabled
+              (!isFormValid || isSubmitting) && styles.modernButtonDisabled
             ]}
             onPress={handleContinue}
-            disabled={!isFormValid}
+            disabled={!isFormValid || isSubmitting}
+            accessible={true}
+            accessibilityLabel={isFormValid ? "Continue to photos" : "Form incomplete"}
+            accessibilityHint={isFormValid ? "Proceeds to photo upload screen" : "Complete all required fields first"}
           >
-            <Ionicons
-              name="arrow-forward"
-              size={20}
-              color="#FFFFFF"
-              style={styles.buttonIcon}
-            />
-            <Text style={styles.modernButtonText}>Continue to Photos</Text>
+            {isSubmitting ? (
+              <ActivityIndicator size="small" color="#FFFFFF" style={styles.buttonIcon} />
+            ) : (
+              <Ionicons
+                name="arrow-forward"
+                size={20}
+                color="#FFFFFF"
+                style={styles.buttonIcon}
+              />
+            )}
+            <Text style={styles.modernButtonText}>
+              {isSubmitting ? 'Processing...' : 'Continue to Photos'}
+            </Text>
           </TouchableOpacity>
 
           <Text style={styles.buttonHelpText}>
             {isFormValid
               ? "All details look good! Let's add some photos"
-              : "Please fill all required fields to continue"
+              : (() => {
+                  const currentError = Object.values(validationErrors)[0];
+                  const currentField = Object.keys(validationErrors)[0];
+                  
+                  if (currentError && currentField) {
+                    let fieldName = currentField;
+                    switch (currentField) {
+                      case 'fruitName':
+                        fieldName = 'fruit name';
+                        break;
+                      case 'description':
+                        fieldName = 'description';
+                        break;
+                      case 'city':
+                        fieldName = 'city/village';
+                        break;
+                      case 'district':
+                        fieldName = 'district';
+                        break;
+                      case 'state':
+                        fieldName = 'state';
+                        break;
+                      case 'pincode':
+                        fieldName = 'pincode';
+                        break;
+                    }
+                    return `Please complete: ${fieldName}`;
+                  }
+                  return "Please fill all required fields to continue";
+                })()
             }
           </Text>
-        </View>
+        </Animated.View>
 
         {/* Modern Category Modal */}
         <Modal
           transparent={true}
           animationType="slide"
           visible={showCategoryModal}
-          onRequestClose={() => setShowCategoryModal(false)}
+          onRequestClose={() => closeModal('category')}
         >
-          <View style={styles.modernModalOverlay}>
+          <Pressable
+            style={styles.modernModalOverlay}
+            onPress={() => closeModal('category')}
+          >
             <View style={styles.modernModalContent}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modernModalTitle}>Select Category</Text>
                 <TouchableOpacity
                   style={styles.modalCloseIcon}
-                  onPress={() => setShowCategoryModal(false)}
+                  onPress={() => closeModal('category')}
+                  accessible={true}
+                  accessibilityLabel="Close modal"
                 >
                   <Ionicons name="close" size={24} color="#64748B" />
                 </TouchableOpacity>
@@ -667,17 +1143,19 @@ const AddFruitScreen = ({ navigation }) => {
               <ScrollView style={styles.modalScrollView}>
                 {categories.map((cat, index) => (
                   <TouchableOpacity
-                    key={index}
+                    key={cat.id}
                     style={[
                       styles.modernModalOption,
                       category === cat.id && styles.modernSelectedOption
                     ]}
                     onPress={() => {
                       setCategory(cat.id);
-                      setShowCategoryModal(false);
+                      closeModal('category');
                     }}
+                    accessible={true}
+                    accessibilityLabel={`Select ${cat.name}`}
+                    accessibilityRole="button"
                   >
-                    {/* <Text style={styles.categoryEmojiLarge}>{cat.icon}</Text> */}
                     <View style={styles.optionTextContainer}>
                       <Text style={[
                         styles.modernOptionText,
@@ -693,7 +1171,7 @@ const AddFruitScreen = ({ navigation }) => {
                 ))}
               </ScrollView>
             </View>
-          </View>
+          </Pressable>
         </Modal>
 
         {/* Modern Grade Modal */}
@@ -701,15 +1179,20 @@ const AddFruitScreen = ({ navigation }) => {
           transparent={true}
           animationType="slide"
           visible={showGradeModal}
-          onRequestClose={() => setShowGradeModal(false)}
+          onRequestClose={() => closeModal('grade')}
         >
-          <View style={styles.modernModalOverlay}>
+          <Pressable
+            style={styles.modernModalOverlay}
+            onPress={() => closeModal('grade')}
+          >
             <View style={styles.modernModalContent}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modernModalTitle}>Select Quality Grade</Text>
                 <TouchableOpacity
                   style={styles.modalCloseIcon}
-                  onPress={() => setShowGradeModal(false)}
+                  onPress={() => closeModal('grade')}
+                  accessible={true}
+                  accessibilityLabel="Close modal"
                 >
                   <Ionicons name="close" size={24} color="#64748B" />
                 </TouchableOpacity>
@@ -718,15 +1201,18 @@ const AddFruitScreen = ({ navigation }) => {
               <ScrollView style={styles.modalScrollView}>
                 {grades.map((gradeOption, index) => (
                   <TouchableOpacity
-                    key={index}
+                    key={gradeOption.id}
                     style={[
                       styles.modernModalOption,
                       grade === gradeOption.id && styles.modernSelectedOption
                     ]}
                     onPress={() => {
                       setGrade(gradeOption.id);
-                      setShowGradeModal(false);
+                      closeModal('grade');
                     }}
+                    accessible={true}
+                    accessibilityLabel={`Select ${gradeOption.name} - ${gradeOption.desc}`}
+                    accessibilityRole="button"
                   >
                     <View style={[
                       styles.gradeIndicatorLarge,
@@ -748,7 +1234,7 @@ const AddFruitScreen = ({ navigation }) => {
                 ))}
               </ScrollView>
             </View>
-          </View>
+          </Pressable>
         </Modal>
 
         {/* Modern Quantity Modal */}
@@ -756,15 +1242,20 @@ const AddFruitScreen = ({ navigation }) => {
           transparent={true}
           animationType="slide"
           visible={showQuantityModal}
-          onRequestClose={() => setShowQuantityModal(false)}
+          onRequestClose={() => closeModal('quantity')}
         >
-          <View style={styles.modernModalOverlay}>
+          <Pressable
+            style={styles.modernModalOverlay}
+            onPress={() => closeModal('quantity')}
+          >
             <View style={styles.modernModalContent}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modernModalTitle}>Select Quantity</Text>
                 <TouchableOpacity
                   style={styles.modalCloseIcon}
-                  onPress={() => setShowQuantityModal(false)}
+                  onPress={() => closeModal('quantity')}
+                  accessible={true}
+                  accessibilityLabel="Close modal"
                 >
                   <Ionicons name="close" size={24} color="#64748B" />
                 </TouchableOpacity>
@@ -773,15 +1264,18 @@ const AddFruitScreen = ({ navigation }) => {
               <ScrollView style={styles.modalScrollView}>
                 {quantities.map((qty, index) => (
                   <TouchableOpacity
-                    key={index}
+                    key={qty.id}
                     style={[
                       styles.modernModalOption,
                       quantity === qty.id && styles.modernSelectedOption
                     ]}
                     onPress={() => {
                       setQuantity(qty.id);
-                      setShowQuantityModal(false);
+                      closeModal('quantity');
                     }}
+                    accessible={true}
+                    accessibilityLabel={`Select ${qty.name} - ${qty.desc}`}
+                    accessibilityRole="button"
                   >
                     <Text style={styles.quantityIconLarge}>⚖️</Text>
                     <View style={styles.optionTextContainer}>
@@ -800,7 +1294,7 @@ const AddFruitScreen = ({ navigation }) => {
                 ))}
               </ScrollView>
             </View>
-          </View>
+          </Pressable>
         </Modal>
 
         {/* Modern Description Tooltip */}
@@ -808,20 +1302,22 @@ const AddFruitScreen = ({ navigation }) => {
           transparent
           animationType="fade"
           visible={showDescriptionTooltip}
-          onRequestClose={() => setShowDescriptionTooltip(false)}
+          onRequestClose={() => closeModal('tooltip')}
         >
           <TouchableOpacity
             style={styles.modernTooltipOverlay}
-            onPressOut={() => setShowDescriptionTooltip(false)}
+            onPress={() => closeModal('tooltip')}
             activeOpacity={1}
+            accessible={true}
+            accessibilityLabel="Close tooltip"
           >
             <View
               style={[
                 styles.modernTooltipBox,
                 {
                   position: 'absolute',
-                  top: tooltipPosition.y - 80,
-                  left: Math.max(20, Math.min(tooltipPosition.x - 140, screenWidth - 300)),
+                  top: tooltipPosition.y,
+                  left: tooltipPosition.x,
                 }
               ]}
             >
@@ -832,7 +1328,7 @@ const AddFruitScreen = ({ navigation }) => {
           </TouchableOpacity>
         </Modal>
 
-      </KeyboardAvoidingView>
+      </View>
     </SafeAreaView>
   );
 };
@@ -978,6 +1474,35 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
 
+  modernInputError: {
+    borderColor: '#EF4444',
+    backgroundColor: '#FEF2F2',
+  },
+  errorText: {
+    color: '#EF4444',
+    fontSize: 12,
+    marginTop: 4,
+    marginLeft: 4,
+    fontWeight: '500',
+  },
+  characterCount: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontWeight: '400',
+    marginLeft: 4,
+  },
+  locationErrorText: {
+    color: '#F59E0B',
+    fontSize: 12,
+    marginBottom: 8,
+    fontStyle: 'italic',
+  },
+  locationButtonDisabled: {
+    backgroundColor: '#9CA3AF',
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+
   // Modern Dropdown Styles
   modernDropdownContainer: {
     marginBottom: 24,
@@ -1073,8 +1598,8 @@ const styles = StyleSheet.create({
     marginHorizontal: -6,
   },
   halfWidth: {
-    width: '50%',
-    paddingHorizontal: 6,
+    flex: 1,
+    minWidth: Dimensions.get('window').width / 2.3,
   },
 
   // Dropdown Content Styles
@@ -1137,7 +1662,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
     paddingTop: 12,
-    paddingBottom: 12, // Minimal padding since tab bar is hidden
+    paddingBottom: 20, // Will be dynamically adjusted
     borderTopWidth: 1,
     borderTopColor: '#E5E7EB',
     shadowColor: '#000',

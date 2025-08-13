@@ -1,3 +1,19 @@
+/**
+ * Navigation Service
+ * A centralized service for handling navigation actions outside of React components
+ */
+
+import React from 'react';
+import {
+  CommonActions,
+  createNavigationContainerRef,
+  StackActions,
+} from '@react-navigation/native';
+import { RootStackParamList } from './types';
+
+// Create a navigation reference that can be used outside of React components
+export const navigationRef = createNavigationContainerRef<RootStackParamList>();
+
 // --- Notification navigation cold start support ---
 export const isNavigationReady = { current: false };
 export const pendingNotificationData = { current: null as any };
@@ -43,7 +59,6 @@ export function handleNotificationNavigation(data: any, notificationTabEmitter?:
           break;
           
         case 'HomeScreen':
-        case 'Home':
           console.log('🔔 Navigating to Home screen from notification');
           navigationRef.navigate('Main', {
             screen: 'BuyerTabs',
@@ -86,21 +101,6 @@ export function handleNotificationNavigation(data: any, notificationTabEmitter?:
     console.log('🔔 Navigation not ready, queued data:', data);
   }
 }
-/**
- * Navigation Service
- * A centralized service for handling navigation actions outside of React components
- */
-
-import React from 'react';
-import {
-  CommonActions,
-  createNavigationContainerRef,
-  StackActions,
-} from '@react-navigation/native';
-import { RootStackParamList } from './types';
-
-// Create a navigation reference that can be used outside of React components
-export const navigationRef = createNavigationContainerRef<RootStackParamList>();
 
 /**
  * Navigate to a specific route

@@ -230,3 +230,6 @@ export type Theme = 'light' | 'dark' | 'system';
 
 // Re-export all navigation types
 export * from '../navigation/types';
+
+// Re-export auth types
+export * from './auth';

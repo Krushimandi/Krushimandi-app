@@ -458,7 +458,8 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
             <TouchableOpacity onPress={showHelp} style={styles.helpButton}>
               <Ionicons name="help-circle-outline" size={24} color="#007E2F" />
             </TouchableOpacity>
-          </View>          <ScrollView
+          </View>
+          <ScrollView
             style={styles.scrollView}
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
@@ -467,14 +468,16 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
             nestedScrollEnabled={true}
             keyboardDismissMode="none"
             automaticallyAdjustKeyboardInsets={false}
-          ><Animated.View
-            style={[
-              styles.content,
-              {
-                opacity: fadeAnim,
-                transform: [{ translateY: slideAnim }]
-              }]}
-          >              <Text style={styles.heading}>
+          >
+            <Animated.View
+              style={[
+                styles.content,
+                {
+                  opacity: fadeAnim,
+                  transform: [{ translateY: slideAnim }]
+                }]}
+            >              
+            <Text style={styles.heading}>
                 {userRole && typeof userRole === 'string' ? `Introduce yourself as a ${userRole}` : 'Introduce yourself'}
               </Text>
               <Text style={styles.subtext}>
@@ -582,7 +585,9 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
 
 
             </Animated.View>
-          </ScrollView>          {/* Next Button */}
+          </ScrollView>
+
+          {/* Next Button */}
           <View style={styles.buttonContainer}>
             <TouchableOpacity
               style={[styles.nextButton, !isFormValid && styles.nextButtonDisabled]}
