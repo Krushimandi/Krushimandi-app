@@ -63,6 +63,25 @@ const convertFirestoreNotification = (fsNotification: FirestoreNotification): No
 };
 
 /**
+ * Filter function to ensure only user-specific notifications
+ */
+const isUserSpecificNotification = (notification: FirestoreNotification, userId: string): boolean => {
+    // Explicitly exclude any universal notifications
+    if (notification.to === 'all' || notification.to === 'universal' || notification.to === 'public') {
+        console.log('🚫 Filtering out universal notification:', notification.id);
+        return false;
+    }
+    
+    // Only include notifications specifically for this user
+    if (notification.to !== userId) {
+        console.log('🚫 Filtering out notification not for current user:', notification.id);
+        return false;
+    }
+    
+    return true;
+};
+
+/**
  * Notify all listeners of notification changes
  */
 const notifyListeners = () => {
@@ -96,10 +115,15 @@ export const loadNotificationsFromFirestore = async (): Promise<void> => {
         console.log('📬 Loading notifications from Firestore...');
         const firestoreNotifications = await firestoreNotificationService.loadUserNotifications(currentUser.uid);
         
-        // Convert and update local cache
-        notifications = firestoreNotifications.map(convertFirestoreNotification);
+        // Filter out any universal notifications and convert
+        const userSpecificNotifications = firestoreNotifications.filter(notification => 
+            isUserSpecificNotification(notification, currentUser.uid)
+        );
         
-        console.log('✅ Loaded', notifications.length, 'notifications from Firestore');
+        notifications = userSpecificNotifications.map(convertFirestoreNotification);
+        
+        console.log('✅ Loaded', notifications.length, 'user-specific notifications from Firestore');
+        console.log('🔒 Filtered out', firestoreNotifications.length - userSpecificNotifications.length, 'universal notifications');
         notifyListeners();
     } catch (error) {
         console.error('❌ Error loading notifications from Firestore:', error);
@@ -121,8 +145,16 @@ export const subscribeToNotificationUpdates = (): (() => void) => {
     return firestoreNotificationService.subscribeToNotifications(
         currentUser.uid,
         (firestoreNotifications) => {
-            // Convert and update local cache
-            notifications = firestoreNotifications.map(convertFirestoreNotification);
+            // Filter out any universal notifications and convert
+            const userSpecificNotifications = firestoreNotifications.filter(notification => 
+                isUserSpecificNotification(notification, currentUser.uid)
+            );
+            
+            notifications = userSpecificNotifications.map(convertFirestoreNotification);
+            
+            console.log('🔄 Real-time update: Loaded', notifications.length, 'user-specific notifications');
+            console.log('🔒 Filtered out', firestoreNotifications.length - userSpecificNotifications.length, 'universal notifications');
+            
             notifyListeners();
         }
     );

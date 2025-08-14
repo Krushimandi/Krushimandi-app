@@ -358,12 +358,23 @@ const NotificationScreen: React.FC<NotificationScreenProps> = ({ navigation }) =
             console.log('🔍 NotificationScreen user-specific filtering verification:');
             console.log('👤 Current user ID:', currentUser?.uid);
             console.log('📱 Filtered notifications count:', notifications.length);
-            console.log('🔄 First notification:', {
-                id: notifications[0].id,
-                title: notifications[0].title,
-                userId: notifications[0].userId,
-                recipientId: notifications[0].recipientId,
-                message: notifications[0].message || notifications[0].body
+            
+            // Check each notification to ensure it belongs to current user
+            notifications.forEach((notification, index) => {
+                console.log(`� Notification ${index + 1}:`, {
+                    id: notification.id,
+                    title: notification.title,
+                    userId: notification.userId,
+                    recipientId: notification.recipientId,
+                    to: (notification as any).to,
+                    isUserSpecific: notification.userId === currentUser?.uid || notification.recipientId === currentUser?.uid
+                });
+                
+                // Alert if we find a notification that doesn't belong to current user
+                if (notification.userId !== currentUser?.uid && notification.recipientId !== currentUser?.uid) {
+                    console.error('🚨 FOUND NON-USER-SPECIFIC NOTIFICATION:', notification);
+                    console.error('🚨 This should not happen - notification filtering failed!');
+                }
             });
             
             // Verify all notifications belong to current user
@@ -371,6 +382,11 @@ const NotificationScreen: React.FC<NotificationScreenProps> = ({ navigation }) =
                 n.userId === currentUser?.uid || n.recipientId === currentUser?.uid
             );
             console.log('✅ All notifications belong to current user:', allBelongToUser);
+            
+            if (!allBelongToUser) {
+                console.error('🚨 CRITICAL: Some notifications do not belong to current user!');
+                console.error('🚨 This indicates a serious privacy issue in notification filtering');
+            }
         } else {
             console.log('📭 NotificationScreen: No user-specific notifications found');
             console.log('👤 Current user ID:', currentUser?.uid);

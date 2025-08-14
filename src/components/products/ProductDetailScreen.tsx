@@ -1,4 +1,4 @@
-import React, { useState, ReactElement, useRef, useEffect, useMemo } from 'react';
+import React, { useState, ReactElement, useRef, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -31,10 +31,12 @@ import { useRequests } from '../../hooks/useRequests';
 import { useAuthState } from '../providers/AuthStateProvider';
 import SendRequestModal from '../requests/SendRequestModal';
 import { CreateRequestInput } from '../../types/Request';
+import ErrorBoundary from '../common/ErrorBoundary';
 
 const { width, height } = Dimensions.get('window');
 
-interface Product extends Fruit {
+// Enhanced Product interface with proper typing
+interface Product extends Omit<Fruit, 'rating' | 'reviewCount'> {
   // Additional display properties for compatibility
   rating?: number;
   reviewCount?: number;
@@ -48,75 +50,71 @@ interface Product extends Fruit {
   farmer_rating?: number;
 }
 
+// Input validation helper
+const validateRouteParams = (params: any): { isValid: boolean; product?: any; error?: string } => {
+  if (!params) {
+    return { isValid: false, error: 'No route parameters provided' };
+  }
+  
+  if (!params.product) {
+    return { isValid: false, error: 'No product data in route parameters' };
+  }
+  
+  const product = params.product;
+  if (!product.id && !params.productId) {
+    return { isValid: false, error: 'Product ID is required but not provided' };
+  }
+  
+  return { isValid: true, product };
+};
+
 type ProductDetailScreenProps = {
   navigation: StackNavigationProp<BuyerStackParamList, 'ProductDetail'>;
   route: RouteProp<BuyerStackParamList, 'ProductDetail'>;
 };
 
 const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, route }) => {
-  const [isFavorite, setIsFavorite] = useState<boolean>(false);
-  const [selectedImageIndex, setSelectedImageIndex] = useState<number>(0);
-  const [isWishlistLoading, setIsWishlistLoading] = useState<boolean>(false);
-  const [currentLikes, setCurrentLikes] = useState<number>(0);
-  const [farmerData, setFarmerData] = useState<any>(null);
-  const [farmerReviews, setFarmerReviews] = useState<any[]>([]);
-  const [isFarmerDataLoading, setIsFarmerDataLoading] = useState<boolean>(true);
-
-  // Request-related states
-  const [showRequestModal, setShowRequestModal] = useState<boolean>(false);
-  const [requestCount, setRequestCount] = useState<number>(0);
-  const [hasExistingRequestForProduct, setHasExistingRequestForProduct] = useState<boolean>(false);
-  const [isCheckingExistingRequest, setIsCheckingExistingRequest] = useState<boolean>(true);
-  const { user, userRole } = useAuthState();
-  const { createRequest, getProductRequestCounts, hasExistingRequest } = useRequests();
-
-  // Get raw product data from route params
-  const rawProduct = route?.params?.product;
-  // Debug the incoming product data
-  console.log('🔍 Raw product data received:', rawProduct);
-  console.log('🔍 Product ID from params:', rawProduct?.id);
-  console.log('🔍 Route params keys:', route?.params ? Object.keys(route.params) : 'No params');
-  console.log('🔍 All route params:', route?.params);
-
-  // Check if we have valid product data
-  if (!rawProduct) {
-    console.error('❌ No product data at all received.');
-    console.error('❌ Route params:', route?.params);
-    // Show error and navigate back
+  // Component mounted flag to prevent memory leaks
+  const isMountedRef = useRef(true);
+  
+  // Validate route params first
+  const routeValidation = useMemo(() => validateRouteParams(route?.params), [route?.params]);
+  
+  // Early return with error handling for invalid params
+  if (!routeValidation.isValid) {
+    console.error('❌ Route validation failed:', routeValidation.error);
+    
     useEffect(() => {
       Alert.alert(
         'Error',
-        'Product information not found. Please try again.',
-        [{ text: 'OK', onPress: () => navigation.goBack() }]
+        routeValidation.error || 'Product information not found. Please try again.',
+        [{ text: 'OK', onPress: () => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('BuyerTabs' as never) }]
       );
-    }, []);
+    }, [routeValidation.error, navigation]);
 
-    // Return a minimal component while navigating back
+    // Return minimal error component
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-          >
-            <Ionicons name="arrow-back" size={24} color="#007E2F" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Product Details</Text>
-          <View style={{ width: 40 }} />
-        </View>
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <Text>No product data found</Text>
-        </View>
-      </SafeAreaView>
+      <ErrorBoundary fallback={<Text>Error loading product details</Text>}>
+        <SafeAreaView style={styles.container}>
+          <View style={styles.header}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('BuyerTabs' as never)}
+            >
+              <Ionicons name="arrow-back" size={24} color="#007E2F" />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Product Details</Text>
+            <View style={{ width: 40 }} />
+          </View>
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            <Text>Loading product information...</Text>
+          </View>
+        </SafeAreaView>
+      </ErrorBoundary>
     );
   }
 
-  // If we have product data but no ID, let's still try to proceed with what we have
-  if (!rawProduct.id) {
-    console.warn('⚠️ Product data received but no ID found.');
-    console.warn('⚠️ Raw product:', rawProduct);
-    console.warn('⚠️ Will try to proceed with available data...');
-  }
+  const rawProduct = routeValidation.product;
 
   // Product data with actual data (fallback ID if missing)
   const product: Product = {
@@ -158,6 +156,128 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
   const relativeTime = getRelativeTime(product.created_at);
   const [topText, bottomText] = getDisplayParts(relativeTime);
 
+  // Consolidated state management
+  const [screenState, setScreenState] = useState(() => ({
+    isFavorite: false,
+    selectedImageIndex: 0,
+    isWishlistLoading: false,
+    currentLikes: product.likes || 0,
+    farmerData: null as any,
+    farmerReviews: [] as any[],
+    isFarmerDataLoading: true,
+    showRequestModal: false,
+    requestCount: 0,
+    hasExistingRequestForProduct: false,
+    isCheckingExistingRequest: true,
+  }));
+
+  // Auth context
+  const { user, userRole } = useAuthState();
+  const { createRequest, getProductRequestCounts, hasExistingRequest } = useRequests();
+
+  // Destructure state for easier access
+  const {
+    isFavorite,
+    selectedImageIndex,
+    isWishlistLoading,
+    currentLikes,
+    farmerData,
+    farmerReviews,
+    isFarmerDataLoading,
+    showRequestModal,
+    requestCount,
+    hasExistingRequestForProduct,
+    isCheckingExistingRequest,
+  } = screenState;
+
+  // Cleanup effect
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  // Safe state updater to prevent memory leaks
+  const safeSetState = useCallback((updater: (prev: typeof screenState) => typeof screenState) => {
+    if (isMountedRef.current) {
+      setScreenState(updater);
+    }
+  }, []);
+
+  // Helper functions for common state updates
+  const setCurrentLikes = useCallback((likes: number) => {
+    safeSetState(prev => ({ ...prev, currentLikes: likes }));
+  }, [safeSetState]);
+
+  const setIsFavorite = useCallback((favorite: boolean) => {
+    safeSetState(prev => ({ ...prev, isFavorite: favorite }));
+  }, [safeSetState]);
+
+  const setSelectedImageIndex = useCallback((index: number) => {
+    safeSetState(prev => ({ ...prev, selectedImageIndex: index }));
+  }, [safeSetState]);
+
+  const setIsWishlistLoading = useCallback((loading: boolean) => {
+    safeSetState(prev => ({ ...prev, isWishlistLoading: loading }));
+  }, [safeSetState]);
+
+  const setFarmerData = useCallback((data: any) => {
+    safeSetState(prev => ({ ...prev, farmerData: data }));
+  }, [safeSetState]);
+
+  const setFarmerReviews = useCallback((reviews: any[]) => {
+    safeSetState(prev => ({ ...prev, farmerReviews: reviews }));
+  }, [safeSetState]);
+
+  const setIsFarmerDataLoading = useCallback((loading: boolean) => {
+    safeSetState(prev => ({ ...prev, isFarmerDataLoading: loading }));
+  }, [safeSetState]);
+
+  const setShowRequestModal = useCallback((show: boolean) => {
+    safeSetState(prev => ({ ...prev, showRequestModal: show }));
+  }, [safeSetState]);
+
+  const setRequestCount = useCallback((count: number) => {
+    safeSetState(prev => ({ ...prev, requestCount: count }));
+  }, [safeSetState]);
+
+  const setHasExistingRequestForProduct = useCallback((hasExisting: boolean) => {
+    safeSetState(prev => ({ ...prev, hasExistingRequestForProduct: hasExisting }));
+  }, [safeSetState]);
+
+  const setIsCheckingExistingRequest = useCallback((checking: boolean) => {
+    safeSetState(prev => ({ ...prev, isCheckingExistingRequest: checking }));
+  }, [safeSetState]);
+
+  // Stable callbacks with memory leak prevention
+  const handleBackPress = useCallback(() => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      navigation.navigate('BuyerTabs' as never);
+    }
+  }, [navigation]);
+
+  const handleImageChange = useCallback((index: number) => {
+    setSelectedImageIndex(index);
+  }, [setSelectedImageIndex]);
+
+  // Memoized calculations to prevent unnecessary computations
+  const minQuantity = useMemo(() => {
+    return Array.isArray(product.quantity) ? product.quantity[0] : 1;
+  }, [product.quantity]);
+
+  const swipeThreshold = useMemo(() => {
+    return width * 0.3; // 30% of screen width
+  }, [width]);
+
+  // Memoized product validation
+  const hasValidProductData = useMemo(() => {
+    return !!(product.id && product.name && product.farmer_id);
+  }, [product.id, product.name, product.farmer_id]);
+
+  // Animation values for the swipe-to-request button
+  const pan = useRef(new Animated.Value(0)).current;
 
   console.log('✅ Final product object:', {
     id: product.id,
@@ -205,15 +325,13 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
     }
   };
 
-  // Initialize selected quantity with minimum quantity (ensure it's valid)
-  const minQuantity = Array.isArray(product.quantity) ? product.quantity[0] : 1;
-
-  // Animation values for the swipe-to-request button
-  const pan = useRef(new Animated.Value(0)).current;
-  const swipeThreshold = width * 0.3; // 30% of screen width
-
   // Check wishlist status on component mount and increment view count
   useEffect(() => {
+    if (!hasValidProductData) {
+      console.warn('⚠️ Skipping wishlist/view initialization - invalid product data');
+      return;
+    }
+
     // Debug authentication
     const user = auth.currentUser;
     console.log('🔐 Current user:', user ? `${user.uid}` : 'Not authenticated');
@@ -226,7 +344,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
     checkWishlistStatus();
     incrementViewCount();
     fetchFarmerData();
-  }, [product.id, product.farmer_id]);
+  }, [product.id, product.farmer_id, hasValidProductData]);
 
   // Load request counts for farmers (only if user is a farmer viewing their own product)
   useEffect(() => {
@@ -645,7 +763,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
       const requestId = await createRequest(requestData);
       if (requestId) {
         // Update local request count
-        setRequestCount(prev => prev + 1);
+        setRequestCount(requestCount + 1);
 
         // Update existing request status
         setHasExistingRequestForProduct(true);
@@ -686,15 +804,35 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar
-        backgroundColor="#FFFFFF"
-        translucent={false}
-        barStyle="dark-content"
-      />
+    <ErrorBoundary fallback={
+      <SafeAreaView style={styles.container}>
+        <StatusBar backgroundColor="#FFFFFF" translucent={false} barStyle="dark-content" />
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
+            <Ionicons name="arrow-back" size={24} color="#007E2F" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Product Details</Text>
+          <View style={{ width: 40 }} />
+        </View>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+          <Text style={{ fontSize: 18, textAlign: 'center', marginBottom: 20 }}>
+            Something went wrong while loading product details.
+          </Text>
+          <TouchableOpacity onPress={handleBackPress} style={{ backgroundColor: '#007E2F', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 }}>
+            <Text style={{ color: 'white', fontWeight: 'bold' }}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    }>
+      <SafeAreaView style={styles.container}>
+        <StatusBar
+          backgroundColor="#FFFFFF"
+          translucent={false}
+          barStyle="dark-content"
+        />
 
-      {/* Header with Back Button and Title */}
-      <View style={styles.header}>
+        {/* Header with Back Button and Title */}
+        <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
@@ -727,8 +865,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
       <ScrollView
         style={styles.content}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 120 }} // Ensure content is scrollable
-      >
+       >
         {/* Modern Product Image Section */}
         <View style={styles.modernImageSection}>
           {product.image_urls && product.image_urls.length > 0 ? (
@@ -1356,6 +1493,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
         }}
       />
     </SafeAreaView>
+    </ErrorBoundary>
   );
 };
 

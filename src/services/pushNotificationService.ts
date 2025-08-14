@@ -44,6 +44,9 @@ class PushNotificationService {
             // Get FCM token
             await this.getFCMToken();
 
+            // Clean up universal topic subscriptions to ensure user-specific notifications only
+            await this.cleanupUniversalTopicSubscriptions();
+
             // Set up message handlers
             this.setupMessageHandlers();
 
@@ -54,6 +57,29 @@ class PushNotificationService {
             console.log('✅ Push notification service initialized successfully');
         } catch (error) {
             console.error('❌ Failed to initialize push notification service:', error);
+        }
+    }
+
+    /**
+     * Clean up universal topic subscriptions to ensure user-specific notifications only
+     */
+    private async cleanupUniversalTopicSubscriptions(): Promise<void> {
+        try {
+            console.log('🧹 Cleaning up universal topic subscriptions...');
+            
+            // Unsubscribe from universal topics that might be causing shared notifications
+            await messaging().unsubscribeFromTopic('all_users');
+            await messaging().unsubscribeFromTopic('general');
+            await messaging().unsubscribeFromTopic('universal');
+            await messaging().unsubscribeFromTopic('public');
+            
+            console.log('✅ Unsubscribed from universal notification topics');
+            
+            // Note: The Firestore queries already filter by user ID, so no cleanup needed there
+            // The client-side filtering ensures only user-specific notifications are displayed
+            
+        } catch (error) {
+            console.error('❌ Error cleaning up universal topic subscriptions:', error);
         }
     }
 

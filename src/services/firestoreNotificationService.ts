@@ -61,13 +61,18 @@ class FirestoreNotificationService {
 
       snapshot.forEach((doc: any) => {
         const data = doc.data();
-        notifications.push({
-          id: doc.id,
-          ...data
-        } as FirestoreNotification);
+        // Double-check: exclude any notifications with to="all" just in case
+        if (data.to === userId && data.to !== 'all') {
+          notifications.push({
+            id: doc.id,
+            ...data
+          } as FirestoreNotification);
+        }
       });
 
       console.log('✅ Loaded', notifications.length, 'user-specific notifications from Firestore');
+      console.log('🔒 All notifications verified to belong to user:', userId);
+      
       return notifications;
 
     } catch (error) {
@@ -100,13 +105,17 @@ class FirestoreNotificationService {
         
         snapshot.forEach((doc: any) => {
           const data = doc.data();
-          notifications.push({
-            id: doc.id,
-            ...data
-          } as FirestoreNotification);
+          // Double-check: exclude any notifications with to="all" just in case
+          if (data.to === userId && data.to !== 'all') {
+            notifications.push({
+              id: doc.id,
+              ...data
+            } as FirestoreNotification);
+          }
         });
 
         console.log('🔄 Real-time update:', notifications.length, 'user-specific notifications');
+        console.log('🔒 All notifications verified to belong to user:', userId);
         callback(notifications);
       }, (error) => {
         console.error('❌ Notification listener error:', error);
