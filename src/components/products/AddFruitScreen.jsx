@@ -27,7 +27,8 @@ import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { Colors } from '../../constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTabBarControl } from '../../utils/navigationControls';
-import { getCurrentLocation, reverseGeocode, getFastLocation, checkAndPromptGPSSettings, testReverseGeocode } from '../../utils/permissions';
+import { getCurrentLocation, reverseGeocode, getFastLocation, checkAndPromptGPSSettings, testReverseGeocode, getLocationWithCache } from '../../utils/permissions';
+import { initializeLocationCache } from '../../utils/locationCache';
 
 // Debounce utility function with cancel method
 const debounce = (func, wait) => {
@@ -382,102 +383,109 @@ const AddFruitScreen = ({ navigation }) => {
         return; // User chose to fill manually or went to settings
       }
 
-      console.log('Getting high-accuracy GPS location...');
-      const location = await getCurrentLocation();
-
-      if (location) {
+      console.log('Getting high-accuracy cached location...');
+      
+      // Use cached location method for faster response
+      const result = await getLocationWithCache();
+      
+      if (result && result.location && result.locationData) {
+        const { location, locationData } = result;
+        
         setCurrentLocation({ lat: location.latitude, lng: location.longitude });
 
-        // Use fast location method to get address from coordinates
-        const locationData = await getFastLocation(location.latitude, location.longitude);
-        if (locationData) {
-          console.log('Address data received:', locationData);
+        // Always fill city (fallback to district if city is empty)
+        const cityToFill = locationData.city || locationData.district || 'Current Area';
 
-          // Always fill city (fallback to district if city is empty)
-          const cityToFill = locationData.city || locationData.district || 'Current Area';
+        setCity(cityToFill);
+        setDistrict(locationData.district || cityToFill);
+        setState(locationData.state || 'India');
+        setPincode(locationData.pincode || '');
 
-          setCity(cityToFill);
-          setDistrict(locationData.district || cityToFill);
-          setState(locationData.state || 'India');
-          setPincode(locationData.pincode || '');
+        // Clear any location errors
+        setLocationError('');
 
-          // Clear any location errors
-          setLocationError('');
+        // Enhanced success message with cache and accuracy info
+        const locationSource = location.source ? ` (${location.source})` : '';
+        let accuracyInfo = '';
+        let dataQuality = '';
+        let cacheInfo = '';
 
-          // Enhanced success message with accuracy info
-          const locationSource = location.source ? ` (${location.source})` : '';
-          let accuracyInfo = '';
-          let dataQuality = '';
-
-          // Determine accuracy feedback
-          if (location.accuracy) {
-            if (location.accuracy < 10) {
-              accuracyInfo = ' 📍 Excellent accuracy';
-            } else if (location.accuracy < 50) {
-              accuracyInfo = ' 📍 Good accuracy';
-            } else if (location.accuracy < 100) {
-              accuracyInfo = ' 📍 Fair accuracy';
-            } else {
-              accuracyInfo = ' 📍 Basic accuracy';
-            }
-          }
-
-          switch (locationData.source) {
-            case 'google':
-              dataQuality = ' 🌐 Verified address';
-              break;
-            case 'coordinate-fallback':
-              dataQuality = ' 🗺️ Regional area';
-              break;
-            case 'gps-fallback':
-              dataQuality = ' 📡 GPS coordinates only';
-              break;
-            default:
-              dataQuality = '';
-          }
-
-          // Show location quality and tips for improvement
-          let message = `Auto-filled: ${cityToFill}, ${locationData.district}, ${locationData.state}${locationData.pincode ? ' - ' + locationData.pincode : ''}${locationSource}${accuracyInfo}${dataQuality}`;
-          
-          // Add specific advice based on data quality
-          if (locationData.source === 'coordinate-fallback' || locationData.source === 'gps-fallback') {
-            message += '\n\n⚠️ Address lookup failed - showing approximate location. Please verify and correct the address details manually.';
-            
-            if (locationData.note) {
-              message += `\n\n💡 ${locationData.note}`;
-            }
-          } else if (location.source === 'Network' || (location.accuracy && location.accuracy > 50)) {
-            message += '\n\n💡 For better accuracy: Move outdoors with clear sky view and enable "High Accuracy" GPS mode in settings.';
-          }
-
-          Alert.alert(
-            locationData.source === 'google' ? 'Address Found!' : 'Location Found!',
-            message,
-            [
-              { text: 'OK' },
-              // Add test button for debugging in development
-              ...(locationData.source !== 'google' ? [{
-                text: 'Debug Info',
-                onPress: async () => {
-                  console.log('🧪 Running location debug test...');
-                  const testResults = await testReverseGeocode(location.latitude, location.longitude);
-                  Alert.alert(
-                    'Debug Results',
-                    `API Key: ${testResults.tests?.apiKeyAvailable ? 'Available' : 'Missing'}\nReverse Geocode: ${testResults.tests?.reverseGeocode?.success ? 'Success' : 'Failed'}\nError: ${testResults.error || 'None'}`,
-                    [{ text: 'OK' }]
-                  );
-                }
-              }] : [])
-            ]
-          );
+        // Add cache information
+        if (locationData.source === 'cache' || locationData.source === 'cache-address') {
+          const ageMinutes = Math.floor((locationData.cacheAge || 0) / (1000 * 60));
+          cacheInfo = ageMinutes < 1 ? ' ⚡ Instant' : ` ⚡ Cached (${ageMinutes}m old)`;
         } else {
-          setLocationError('Address lookup failed - please enter manually');
-          Alert.alert(
-            'Location Found',
-            'GPS coordinates obtained but address details unavailable. Please fill manually.',
-            [{ text: 'OK' }]
-          );
+          cacheInfo = ' 🔄 Fresh data';
         }
+
+        // Determine accuracy feedback
+        if (location.accuracy) {
+          if (location.accuracy < 10) {
+            accuracyInfo = ' 📍 Excellent accuracy';
+          } else if (location.accuracy < 50) {
+            accuracyInfo = ' 📍 Good accuracy';
+          } else if (location.accuracy < 100) {
+            accuracyInfo = ' 📍 Fair accuracy';
+          } else {
+            accuracyInfo = ' 📍 Basic accuracy';
+          }
+        }
+
+        switch (locationData.source) {
+          case 'google':
+            dataQuality = ' 🌐 Verified address';
+            break;
+          case 'coordinate-fallback':
+            dataQuality = ' 🗺️ Regional area';
+            break;
+          case 'gps-fallback':
+            dataQuality = ' 📡 GPS coordinates only';
+            break;
+          default:
+            dataQuality = '';
+        }
+
+        // Show location quality and tips for improvement
+        let message = `Auto-filled: ${cityToFill}, ${locationData.district}, ${locationData.state}${locationData.pincode ? ' - ' + locationData.pincode : ''}${locationSource}${accuracyInfo}${dataQuality}`;
+        
+        // Add specific advice based on data quality
+        if (locationData.source === 'coordinate-fallback' || locationData.source === 'gps-fallback') {
+          message += '\n\n⚠️ Address lookup failed - showing approximate location. Please verify and correct the address details manually.';
+          
+          if (locationData.note) {
+            message += `\n\n💡 ${locationData.note}`;
+          }
+        } else if (location.source === 'Network' || (location.accuracy && location.accuracy > 50)) {
+          message += '\n\n💡 For better accuracy: Move outdoors with clear sky view and enable "High Accuracy" GPS mode in settings.';
+        }
+
+        Alert.alert(
+          locationData.source === 'google' ? 'Address Found!' : 'Location Found!',
+          message,
+          [
+            { text: 'OK' },
+            // Add test button for debugging in development
+            ...(locationData.source !== 'google' ? [{
+              text: 'Debug Info',
+              onPress: async () => {
+                console.log('🧪 Running location debug test...');
+                const testResults = await testReverseGeocode(location.latitude, location.longitude);
+                Alert.alert(
+                  'Debug Results',
+                  `API Key: ${testResults.tests?.apiKeyAvailable ? 'Available' : 'Missing'}\nReverse Geocode: ${testResults.tests?.reverseGeocode?.success ? 'Success' : 'Failed'}\nError: ${testResults.error || 'None'}`,
+                  [{ text: 'OK' }]
+                );
+              }
+            }] : [])
+          ]
+        );
+      } else {
+        setLocationError('Address lookup failed - please enter manually');
+        Alert.alert(
+          'Location Found',
+          'GPS coordinates obtained but address details unavailable. Please fill manually.',
+          [{ text: 'OK' }]
+        );
       }
     } catch (error) {
       console.error('Location error:', error);
@@ -525,7 +533,7 @@ const AddFruitScreen = ({ navigation }) => {
           ]
         );
       } else {
-        // Generic location error
+        // Other location errors
         Alert.alert(
           'Location Error',
           message,
@@ -666,6 +674,20 @@ const AddFruitScreen = ({ navigation }) => {
       useNativeDriver: false,
     }).start();
   }, [progress, slideAnim]);
+
+  // Initialize location cache on component mount for faster location responses
+  useEffect(() => {
+    const initializeCache = async () => {
+      try {
+        await initializeLocationCache();
+        console.log('📍 Location cache initialized for faster responses');
+      } catch (error) {
+        console.log('📍 Location cache initialization skipped:', error.message);
+      }
+    };
+
+    initializeCache();
+  }, []);
 
   // Keyboard handling with improved logic
   useEffect(() => {
