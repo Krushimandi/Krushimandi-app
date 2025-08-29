@@ -49,51 +49,51 @@ const fruitCategories = [
 
 // Sort options with security validation
 const sortOptions = [
-  { 
-    key: 'newest', 
-    label: 'Newest First', 
+  {
+    key: 'newest',
+    label: 'Newest First',
     icon: 'time-outline',
     description: 'Most recently added',
     sortFn: (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)
   },
-  { 
-    key: 'oldest', 
-    label: 'Oldest First', 
+  {
+    key: 'oldest',
+    label: 'Oldest First',
     icon: 'hourglass-outline',
     description: 'Earliest listings first',
     sortFn: (a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0)
   },
-  { 
-    key: 'price_high', 
-    label: 'Price: High to Low', 
+  {
+    key: 'price_high',
+    label: 'Price: High to Low',
     icon: 'trending-up-outline',
     description: 'Highest price first',
     sortFn: (a, b) => (parseFloat(b.price_per_kg) || 0) - (parseFloat(a.price_per_kg) || 0)
   },
-  { 
-    key: 'price_low', 
-    label: 'Price: Low to High', 
+  {
+    key: 'price_low',
+    label: 'Price: Low to High',
     icon: 'trending-down-outline',
     description: 'Lowest price first',
     sortFn: (a, b) => (parseFloat(a.price_per_kg) || 0) - (parseFloat(b.price_per_kg) || 0)
   },
-  { 
-    key: 'views', 
-    label: 'Most Viewed', 
+  {
+    key: 'views',
+    label: 'Most Viewed',
     icon: 'eye-outline',
     description: 'Popular listings first',
     sortFn: (a, b) => (parseInt(b.views) || 0) - (parseInt(a.views) || 0)
   },
-  { 
-    key: 'likes', 
-    label: 'Most Liked', 
+  {
+    key: 'likes',
+    label: 'Most Liked',
     icon: 'heart-outline',
     description: 'Most appreciated listings',
     sortFn: (a, b) => (parseInt(b.likes) || 0) - (parseInt(a.likes) || 0)
   },
-  { 
-    key: 'quantity', 
-    label: 'Most Available', 
+  {
+    key: 'quantity',
+    label: 'Most Available',
     icon: 'layers-outline',
     description: 'Largest quantity first',
     sortFn: (a, b) => {
@@ -102,9 +102,9 @@ const sortOptions = [
       return qtyB - qtyA;
     }
   },
-  { 
-    key: 'alphabetical', 
-    label: 'A to Z', 
+  {
+    key: 'alphabetical',
+    label: 'A to Z',
     icon: 'text-outline',
     description: 'Alphabetical order',
     sortFn: (a, b) => (a.name || '').toLowerCase().localeCompare((b.name || '').toLowerCase())
@@ -190,15 +190,15 @@ const FarmerHomeScreen = () => {
   // Always fetch fresh profile on mount
   useEffect(() => {
     let isMounted = true;
-    
+
     const initializeScreen = async () => {
       if (isMounted) {
         await loadUserProfile(true);
       }
     };
-    
+
     initializeScreen();
-    
+
     return () => {
       isMounted = false;
     };
@@ -208,16 +208,16 @@ const FarmerHomeScreen = () => {
   useFocusEffect(
     useCallback(() => {
       let isMounted = true;
-      
+
       const handleFocus = async () => {
         showTabBar();
         if (isMounted && userProfile?.uid) {
           await loadUserProfile(true);
         }
       };
-      
+
       handleFocus();
-      
+
       return () => {
         isMounted = false;
       };
@@ -294,7 +294,7 @@ const FarmerHomeScreen = () => {
       index: 0,
       routes: [{ name: 'AuthStack' }],
     });
-    
+
     Toast.show({
       type: 'error',
       visibilityTime: 1000,
@@ -350,7 +350,7 @@ const FarmerHomeScreen = () => {
   // Load farmer's fruits from Firebase with cleanup
   const loadFarmerFruits = useCallback(async () => {
     let isMounted = true;
-    
+
     try {
       if (!userProfile?.uid) {
         console.log('❌ No user profile available for loading fruits');
@@ -408,7 +408,7 @@ const FarmerHomeScreen = () => {
   // Refresh function for pull-to-refresh with cleanup
   const handleRefresh = useCallback(async () => {
     let isMounted = true;
-    
+
     try {
       if (isMounted && userProfile?.uid) {
         // Use Promise.allSettled for concurrent loading but with proper error handling
@@ -428,7 +428,7 @@ const FarmerHomeScreen = () => {
         });
       }
     }
-    
+
     return () => {
       isMounted = false;
     };
@@ -485,7 +485,7 @@ const FarmerHomeScreen = () => {
   // Handle fruit status updates (mark as sold, inactive, etc.)
   const handleFruitStatusUpdate = useCallback(async (fruitId, newStatus) => {
     let isMounted = true;
-    
+
     try {
       console.log('🔄 Updating fruit status...', { fruitId, newStatus });
 
@@ -638,18 +638,12 @@ const FarmerHomeScreen = () => {
 
     setSortBy(sortKey);
     setShowSortModal(false);
-    
+
     // Show feedback to user
-    const selectedOption = sortOptions.find(option => option.key === sortKey);
-    if (selectedOption) {
-      Toast.show({
-        type: 'info',
-        text1: 'Sorted',
-        text2: selectedOption.label,
-        position: 'bottom',
-        visibilityTime: 1000,
-      });
-    }
+    // const selectedOption = sortOptions.find(option => option.key === sortKey);
+    // if (selectedOption) {
+    //   // We can use selectedOption.label for lable.
+    // }
   }, []);
 
   // Memoized filtered and sorted results to prevent unnecessary recalculations
@@ -676,595 +670,599 @@ const FarmerHomeScreen = () => {
   return (
     <ErrorBoundary>
       <SafeAreaView style={styles.safeArea}>
-      <StatusBar
-        backgroundColor="#FFFFFF"
-        translucent={false}
-        barStyle="dark-content"
-      />
+        <StatusBar
+          backgroundColor="#FFFFFF"
+          translucent={false}
+          barStyle="dark-content"
+        />
 
-      <Animated.ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollViewContent}
-        scrollEventThrottle={1} // Reduced for smoother animation
-        bounces={true} // Enable bounce for better feel
-        refreshing={loadingFruits}
-        onRefresh={handleRefresh}
-        nestedScrollEnabled={true}
-        onScroll={Animated.event(
-          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-          {
-            useNativeDriver: false, // Height animations require layout thread
-            listener: (event) => {
-              const currentScrollY = event.nativeEvent.contentOffset.y;
-              // Update fixed header visibility state - throttled to prevent excessive updates
-              const shouldShowFixedHeader = currentScrollY > headerConstants.HEADER_SCROLL_DISTANCE * 0.7;
-              
-              // Only update state if it actually changed to prevent unnecessary re-renders
-              setIsFixedHeaderVisible(prev => prev !== shouldShowFixedHeader ? shouldShowFixedHeader : prev);
-            }
-          }
-        )}
-        refreshControl={
-          <RefreshControl
-            refreshing={loadingFruits}
-            onRefresh={handleRefresh}
-            colors={[Colors.light.primary]}
-            tintColor={Colors.light.primary}
-            title="Loading fruits..."
-            titleColor={Colors.light.primary}
-            progressBackgroundColor="#FFFFFF"
-          />
-        }
-      >
-        {/* Collapsible Header */}
-        <Animated.View style={[
-          styles.header,
-          {
-            height: headerHeight,
-            paddingTop: insets.top, // Use safe area insets
-            backgroundColor: '#FFFFFF', // Ensure background stays white
-          }
-        ]}>
-          <Animated.View style={[
-            styles.headerContent,
+        <Animated.ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollViewContent}
+          scrollEventThrottle={1} // Reduced for smoother animation
+          bounces={true} // Enable bounce for better feel
+          nestedScrollEnabled={true}
+          onScroll={Animated.event(
+            [{ nativeEvent: { contentOffset: { y: scrollY } } }],
             {
-              opacity: headerOpacity,
-              backgroundColor: 'transparent', // Prevent double background
+              useNativeDriver: false, // Height animations require layout thread
+              listener: (event) => {
+                const currentScrollY = event.nativeEvent.contentOffset.y;
+                // Update fixed header visibility state - throttled to prevent excessive updates
+                const shouldShowFixedHeader = currentScrollY > headerConstants.HEADER_SCROLL_DISTANCE * 0.7;
+
+                // Only update state if it actually changed to prevent unnecessary re-renders
+                setIsFixedHeaderVisible(prev => prev !== shouldShowFixedHeader ? shouldShowFixedHeader : prev);
+              }
+            }
+          )}
+          refreshControl={
+            <RefreshControl
+              refreshing={loadingFruits}
+              onRefresh={handleRefresh}
+              colors={[Colors.light.primary]}
+              tintColor={Colors.light.primary}
+              title="Loading fruits..."
+              titleColor={Colors.light.primary}
+              progressBackgroundColor="#FFFFFF"
+              progressViewOffset={120}
+              progressViewTop={120}
+              pullToRefreshThreshold={80}          // Distance to pull before refresh triggers
+              refreshThreshold={100}               // Minimum pull distance for refresh
+              distanceToRefresh={120}              // Distance to pull for visual feedback
+            />
+          }
+        >
+          {/* Collapsible Header */}
+          <Animated.View style={[
+            styles.header,
+            {
+              height: headerHeight,
+              paddingTop: insets.top, // Use safe area insets
+              backgroundColor: '#FFFFFF', // Ensure background stays white
             }
           ]}>
-            <View style={styles.headerRow}>
-              <View style={styles.profileContainer}>
-                {userProfile?.profileImage ? (
-                  <TouchableOpacity
-                    onPress={() => safeNavigate('ProfileScreen')}
-                    style={styles.profileImageButton}
-                    activeOpacity={0.7}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                  >
-                    <Image
-                      pointerEvents="none"
-                      source={{ uri: userProfile.profileImage }}
-                      style={styles.profileImage}
-                    />
-                  </TouchableOpacity>
-                ) : (
-                  <TouchableOpacity
-                    style={styles.profilePlaceholderButton}
-                    onPress={() => safeNavigate('ProfileScreen')}
-                    activeOpacity={0.7}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                  >
-                    <View style={styles.profilePlaceholder}>
-                      <Octicons
-                        name="person"
-                        size={24}
-                        color="#000"
+            <Animated.View style={[
+              styles.headerContent,
+              {
+                opacity: headerOpacity,
+                backgroundColor: 'transparent', // Prevent double background
+              }
+            ]}>
+              <View style={styles.headerRow}>
+                <View style={styles.profileContainer}>
+                  {userProfile?.profileImage ? (
+                    <TouchableOpacity
+                      onPress={() => safeNavigate('ProfileScreen')}
+                      style={styles.profileImageButton}
+                      activeOpacity={0.7}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      <Image
+                        pointerEvents="none"
+                        source={{ uri: userProfile.profileImage }}
+                        style={styles.profileImage}
                       />
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity
+                      style={styles.profilePlaceholderButton}
+                      onPress={() => safeNavigate('ProfileScreen')}
+                      activeOpacity={0.7}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      <View style={styles.profilePlaceholder}>
+                        <Octicons
+                          name="person"
+                          size={24}
+                          color="#000"
+                        />
+                      </View>
+                    </TouchableOpacity>
+                  )}
+                  <TouchableOpacity
+                    style={styles.userInfo}
+                    onPress={() => safeNavigate('ProfileScreen')}
+                    activeOpacity={0.8}
+                    hitSlop={{ top: 10, bottom: 10, left: 0, right: 10 }}
+                  >
+                    <Text style={styles.welcome}>
+                      Namste, {getDisplayName}!
+                    </Text>
+                    <View style={styles.locationContainer}>
+                      <Text style={styles.location}>
+                        {userProfile?.location ?
+                          `${userProfile.location.village || ''}, ${userProfile.location.state || ''}`.replace(/, $/, '')
+                          : 'Paithan, Maharashtra'}
+                      </Text>
+                      <Icon name="chevron-down" size={12} color="#505050" />
                     </View>
                   </TouchableOpacity>
-                )}
+                </View>
                 <TouchableOpacity
-                  style={styles.userInfo}
-                  onPress={() => safeNavigate('ProfileScreen')}
-                  activeOpacity={0.8}
-                  hitSlop={{ top: 10, bottom: 10, left: 0, right: 10 }}
+                  onPress={() => safeNavigate('Notification')}
+                  style={styles.notificationIconButton}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
-                  <Text style={styles.welcome}>
-                    Namste, {getDisplayName}!
-                  </Text>
-                  <View style={styles.locationContainer}>
-                    <Text style={styles.location}>
-                      {userProfile?.location ? 
-                        `${userProfile.location.village || ''}, ${userProfile.location.state || ''}`.replace(/, $/, '') 
-                        : 'Paithan, Maharashtra'}
-                    </Text>
-                    <Icon name="chevron-down" size={12} color="#505050" />
-                  </View>
+                  <Icon name="notifications-outline" size={24} color="#000" />
                 </TouchableOpacity>
               </View>
-              <TouchableOpacity
-                onPress={() => safeNavigate('Notification')}
-                style={styles.notificationIconButton}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Icon name="notifications-outline" size={24} color="#000" />
-              </TouchableOpacity>
-            </View>
 
-            {/* Search */}
-            <View style={styles.searchRow}>
-              <View style={styles.searchBox}>
-                <Icon name="search" size={20} color="#939393" style={{ marginLeft: 12 }} />
-                <TextInput
-                  placeholder="Search fruits, location, grade..."
-                  placeholderTextColor="#939393"
-                  style={styles.searchInput}
-                  value={searchQuery}
-                  onChangeText={handleSearchChange}
-                  returnKeyType="search"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  accessible={true}
-                  accessibilityLabel="Search input"
-                  accessibilityHint="Enter keywords to search for fruits"
-                />
-                {searchQuery.length > 0 && (
-                  <TouchableOpacity
-                    onPress={clearSearch}
-                    style={styles.clearSearchButton}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  >
-                    <Icon name="close-circle" size={18} color="#939393" />
-                  </TouchableOpacity>
-                )}
-              </View>
-
-              <TouchableOpacity 
-                style={[
-                  styles.sortBtn,
-                  sortBy !== 'newest' && styles.sortBtnActive
-                ]}
-                onPress={() => setShowSortModal(true)}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                accessible={true}
-                accessibilityLabel="Sort listings"
-                accessibilityHint="Tap to open sort options"
-              >
-                <Icon name="swap-vertical-outline" size={20} color={Colors.light.primaryDark} />
-                {sortBy !== 'newest' && (
-                  <View style={styles.sortActiveDot} />
-                )}
-              </TouchableOpacity>
-            </View>
-          </Animated.View>
-        </Animated.View>
-
-        {/* Fruit Categories */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Fruit Categories</Text>
-          </View>
-
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.categoriesContainer}
-          >
-            {fruitCategories.map((item, index) => (
-              <TouchableOpacity
-                key={index}
-                style={[
-                  styles.categoryCard,
-                  selectedCategory === item.type && styles.selectedCategoryCard
-                ]}
-                onPress={() => setSelectedCategory(item.type)}
-              >
-
-                {item.name === 'All Fruits' ? (
-                  <Icon name="apps-outline" size={22} color={"#505050"} style={[styles.categoryIcon, {
-                    marginHorizontal: 6,
-                  }]} />
-                ) : (
-                  <Image source={item.icon} style={styles.categoryImage} />
-                )}
-                <Text style={[
-                  styles.categoryText,
-                  selectedCategory === item.type && styles.selectedCategoryText
-                ]}>{item.name}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-
-        {/* My Listings Section */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <View>
-              <Text style={styles.sectionTitle}>My Listings</Text>
-              {(searchQuery || selectedCategory !== 'all' || sortBy !== 'newest') && (
-                <Text style={styles.searchResultsText}>
-                  {searchQuery && `"${searchQuery.length > 10 ? searchQuery.slice(0, 10) + '...' : searchQuery}" • `}
-                  {selectedCategory !== 'all' && `${selectedCategory} • `}
-                  {sortBy !== 'newest' && `${sortOptions.find(opt => opt.key === sortBy)?.label} • `}
-                  {!showHistory
-                    ? filteredActiveFruits.length
-                    : filteredFruitHistory.length} results
-                </Text>
-              )}
-            </View>
-            <View style={styles.tabContainer}>
-              <TouchableOpacity
-                style={[styles.tab, !showHistory && styles.activeTab]}
-                onPress={() => setShowHistory(false)}
-              >
-                <Text style={[styles.tabText, !showHistory && styles.activeTabText]}>
-                  Active ({filteredActiveFruits.length})
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.tab, showHistory && styles.activeTab]}
-                onPress={() => setShowHistory(true)}
-              >
-                <Text style={[styles.tabText, showHistory && styles.activeTabText]}>
-                  History ({filteredFruitHistory.length})
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {!showHistory ? (
-            // Active Listings
-            <View>
-              {loadingFruits ? (
-                <LoadingFruits />
-              ) : activeFruits.length === 0 ? (
-                <View style={styles.emptyState}>
-                  <Icon name="leaf-outline" size={64} color="#E0E0E0" />
-                  <Text style={styles.emptyStateText}>No Active Listings</Text>
-                  <Text style={styles.emptyStateSubtext}>
-                    You haven't listed any fruits yet.{'\n'}
-                    Start by adding your first fruit listing.
-                  </Text>
-                  <TouchableOpacity
-                    style={styles.refreshButton}
-                    onPress={handleRefresh}
-                  >
-                    <Icon name="refresh-outline" size={20} color='#505050' />
-                    <Text style={styles.refreshButtonText}>Refresh</Text>
-                  </TouchableOpacity>
-                </View>
-              ) : filteredActiveFruits.length === 0 ? (
-                <View style={styles.emptyState}>
-                  <Icon name="search-outline" size={64} color="#E0E0E0" />
-                  <Text style={styles.emptyStateText}>No Results Found</Text>
-                  <Text style={styles.emptyStateSubtext}>
-                    {searchQuery ? `No fruits match "${searchQuery}"` : `No ${selectedCategory === 'all' ? '' : selectedCategory + ' '}fruits found`}
-                    {'\n'}Try adjusting your search or filters.
-                  </Text>
-                  {(searchQuery || selectedCategory !== 'all') && (
+              {/* Search */}
+              <View style={styles.searchRow}>
+                <View style={styles.searchBox}>
+                  <Icon name="search" size={20} color="#939393" style={{ marginLeft: 12 }} />
+                  <TextInput
+                    placeholder="Search fruits, location, grade..."
+                    placeholderTextColor="#939393"
+                    style={styles.searchInput}
+                    value={searchQuery}
+                    onChangeText={handleSearchChange}
+                    returnKeyType="search"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    accessible={true}
+                    accessibilityLabel="Search input"
+                    accessibilityHint="Enter keywords to search for fruits"
+                  />
+                  {searchQuery.length > 0 && (
                     <TouchableOpacity
-                      style={styles.refreshButton}
-                      onPress={() => {
-                        setSearchQuery('');
-                        setSelectedCategory('all');
-                        setSortBy('newest');
-                      }}
+                      onPress={clearSearch}
+                      style={styles.clearSearchButton}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     >
-                      <Icon name="refresh-outline" size={20} color='#505050' />
-                      <Text style={styles.refreshButtonText}>Clear Filters</Text>
+                      <Icon name="close-circle" size={18} color="#939393" />
                     </TouchableOpacity>
                   )}
                 </View>
-              ) : (
-                <FlatList
-                  nestedScrollEnabled={true}
-                  key={selectedCategory} // Force re-render when category changes
-                  data={filteredActiveFruits}
-                  keyExtractor={(item) => item.id || item._id || `fruit_${Math.random()}`}
-                  numColumns={2}
-                  showsVerticalScrollIndicator={false}
-                  columnWrapperStyle={styles.fruitRow}
-                  refreshing={loadingFruits}
-                  onRefresh={handleRefresh}
-                  renderItem={({ item }) => (
+
+                <TouchableOpacity
+                  style={[
+                    styles.sortBtn,
+                    // sortBy !== 'newest' && styles.sortBtnActive
+                  ]}
+                  onPress={() => setShowSortModal(true)}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  accessible={true}
+                  accessibilityLabel="Sort listings"
+                  accessibilityHint="Tap to open sort options"
+                >
+                  <Icon name="swap-vertical-outline" size={20} color={Colors.light.primaryDark} />
+                  {sortBy !== 'newest' && (
+                    <View style={styles.sortActiveDot} />
+                  )}
+                </TouchableOpacity>
+              </View>
+            </Animated.View>
+          </Animated.View>
+
+          {/* Fruit Categories */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Fruit Categories</Text>
+            </View>
+
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.categoriesContainer}
+            >
+              {fruitCategories.map((item, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={[
+                    styles.categoryCard,
+                    selectedCategory === item.type && styles.selectedCategoryCard
+                  ]}
+                  onPress={() => setSelectedCategory(item.type)}
+                >
+
+                  {item.name === 'All Fruits' ? (
+                    <Icon name="apps-outline" size={22} color={"#505050"} style={[styles.categoryIcon, {
+                      marginHorizontal: 6,
+                    }]} />
+                  ) : (
+                    <Image source={item.icon} style={styles.categoryImage} />
+                  )}
+                  <Text style={[
+                    styles.categoryText,
+                    selectedCategory === item.type && styles.selectedCategoryText
+                  ]}>{item.name}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+
+          {/* My Listings Section */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <View>
+                <Text style={styles.sectionTitle}>My Listings</Text>
+                {(searchQuery || selectedCategory !== 'all' || sortBy !== 'newest') && (
+                  <Text style={styles.searchResultsText}>
+                    {searchQuery && `"${searchQuery.length > 10 ? searchQuery.slice(0, 10) + '...' : searchQuery}" • `}
+                    {selectedCategory !== 'all' && `${selectedCategory} • `}
+                    {sortBy !== 'newest' && `${sortOptions.find(opt => opt.key === sortBy)?.label} • `}
+                    {!showHistory
+                      ? filteredActiveFruits.length
+                      : filteredFruitHistory.length} results
+                  </Text>
+                )}
+              </View>
+              <View style={styles.tabContainer}>
+                <TouchableOpacity
+                  style={[styles.tab, !showHistory && styles.activeTab]}
+                  onPress={() => setShowHistory(false)}
+                >
+                  <Text style={[styles.tabText, !showHistory && styles.activeTabText]}>
+                    Active ({filteredActiveFruits.length})
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.tab, showHistory && styles.activeTab]}
+                  onPress={() => setShowHistory(true)}
+                >
+                  <Text style={[styles.tabText, showHistory && styles.activeTabText]}>
+                    History ({filteredFruitHistory.length})
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {!showHistory ? (
+              // Active Listings
+              <View>
+                {loadingFruits ? (
+                  <LoadingFruits />
+                ) : activeFruits.length === 0 ? (
+                  <View style={styles.emptyState}>
+                    <Icon name="leaf-outline" size={64} color="#E0E0E0" />
+                    <Text style={styles.emptyStateText}>No Active Listings</Text>
+                    <Text style={styles.emptyStateSubtext}>
+                      You haven't listed any fruits yet.{'\n'}
+                      Start by adding your first fruit listing.
+                    </Text>
                     <TouchableOpacity
-                      style={styles.fruitCard}
-                      activeOpacity={0.9}
-                      onPress={() => safeNavigate('ProductDetailsFarmer', {
-                        productId: item.id,
-                        product: item
-                      })}
-                      onLongPress={() => markFruitAsSold(item)}
+                      style={styles.refreshButton}
+                      onPress={handleRefresh}
                     >
-                      <View style={styles.fruitImageContainer}>
+                      <Icon name="refresh-outline" size={20} color='#505050' />
+                      <Text style={styles.refreshButtonText}>Refresh</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : filteredActiveFruits.length === 0 ? (
+                  <View style={styles.emptyState}>
+                    <Icon name="search-outline" size={64} color="#E0E0E0" />
+                    <Text style={styles.emptyStateText}>No Results Found</Text>
+                    <Text style={styles.emptyStateSubtext}>
+                      {searchQuery ? `No fruits match "${searchQuery}"` : `No ${selectedCategory === 'all' ? '' : selectedCategory + ' '}fruits found`}
+                      {'\n'}Try adjusting your search or filters.
+                    </Text>
+                    {(searchQuery || selectedCategory !== 'all') && (
+                      <TouchableOpacity
+                        style={styles.refreshButton}
+                        onPress={() => {
+                          setSearchQuery('');
+                          setSelectedCategory('all');
+                          setSortBy('newest');
+                        }}
+                      >
+                        <Icon name="refresh-outline" size={20} color='#505050' />
+                        <Text style={styles.refreshButtonText}>Clear Filters</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                ) : (
+                  <FlatList
+                    nestedScrollEnabled={true}
+                    key={selectedCategory} // Force re-render when category changes
+                    data={filteredActiveFruits}
+                    keyExtractor={(item) => item.id || item._id || `fruit_${Math.random()}`}
+                    numColumns={2}
+                    showsVerticalScrollIndicator={false}
+                    columnWrapperStyle={styles.fruitRow}
+                    renderItem={({ item }) => (
+                      <TouchableOpacity
+                        style={styles.fruitCard}
+                        activeOpacity={0.9}
+                        onPress={() => safeNavigate('ProductDetailsFarmer', {
+                          productId: item.id,
+                          product: item
+                        })}
+                        onLongPress={() => markFruitAsSold(item)}
+                      >
+                        <View style={styles.fruitImageContainer}>
+                          <Image
+                            source={{
+                              uri: (item.image_urls && item.image_urls[0]) || 'https://via.placeholder.com/150'
+                            }}
+                            style={styles.fruitImage}
+                            defaultSource={require('../../assets/fruits/banana.png')}
+                            onError={(error) => {
+                              console.log('Image load error for fruit:', item.id, error);
+                            }}
+                          />
+                          <View style={styles.statusBadge}>
+                            <View style={[styles.statusDot, { backgroundColor: '#4CAF50' }]} />
+                            <Text style={styles.statusText}>Live</Text>
+                          </View>
+                        </View>
+
+                        <View style={styles.fruitDetails}>
+                          <Text style={styles.fruitName} numberOfLines={1}>
+                            {item.name || 'Unnamed Fruit'}
+                          </Text>
+                          <Text style={styles.dateText}>
+                            {getRelativeTime(item.created_at || new Date().toISOString())}
+                          </Text>
+
+                          <View style={styles.priceRow}>
+                            <Text style={styles.fruitPrice}>
+                              {formatPrice(item.price_per_kg || 0)}
+                            </Text>
+                            <Text style={styles.gradeText}>Grade {item.grade || 'A'}</Text>
+                          </View>
+
+                          <View style={styles.statsRow}>
+                            <View style={styles.statItem}>
+                              <Icon name="eye-outline" size={12} color="#757575" />
+                              <Text style={styles.statText}>{item.views || 0}</Text>
+                            </View>
+                            <View style={styles.statItem}>
+                              <Icon name="heart-outline" size={12} color="#757575" />
+                              <Text style={styles.statText}>{item.likes || 0}</Text>
+                            </View>
+                            <Text style={styles.availableText}>
+                              {formatFruitQuantity(item.quantity || [0, 0])}
+                            </Text>
+                          </View>
+                        </View>
+                      </TouchableOpacity>
+                    )}
+                  />
+                )}
+              </View>
+            ) : (
+              // History Listings
+              <View>
+                {loadingFruits ? (
+                  <LoadingFruits />
+                ) : fruitHistory.length === 0 ? (
+                  <View style={styles.emptyState}>
+                    <Icon name="time-outline" size={64} color="#E0E0E0" />
+                    <Text style={styles.emptyStateText}>No History Yet</Text>
+                    <Text style={styles.emptyStateSubtext}>
+                      Your past listings will appear here.{'\n'}
+                      Start listing fruits to build your history.
+                    </Text>
+                    <TouchableOpacity
+                      style={styles.refreshButton}
+                      onPress={handleRefresh}
+                    >
+                      <Icon name="refresh-outline" size={20} color='#505050' />
+                      <Text style={styles.refreshButtonText}>Refresh</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : filteredFruitHistory.length === 0 ? (
+                  <View style={styles.emptyState}>
+                    <Icon name="search-outline" size={64} color="#E0E0E0" />
+                    <Text style={styles.emptyStateText}>No Results Found</Text>
+                    <Text style={styles.emptyStateSubtext}>
+                      {searchQuery ? `No history matches "${searchQuery}"` : `No ${selectedCategory === 'all' ? '' : selectedCategory + ' '}history found`}
+                      {'\n'}Try adjusting your search or filters.
+                    </Text>
+                    {(searchQuery || selectedCategory !== 'all') && (
+                      <TouchableOpacity
+                        style={styles.refreshButton}
+                        onPress={() => {
+                          setSearchQuery('');
+                          setSelectedCategory('all');
+                          setSortBy('newest');
+                        }}
+                      >
+                        <Icon name="refresh-outline" size={20} color='#505050' />
+                        <Text style={styles.refreshButtonText}>Clear Filters</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                ) : (
+                  <FlatList
+                    nestedScrollEnabled={true}
+                    data={filteredFruitHistory}
+                    keyExtractor={(item) => item.id || item._id || `history_${Math.random()}`}
+                    showsVerticalScrollIndicator={false}
+                    refreshing={loadingFruits}
+                    onRefresh={handleRefresh}
+                    renderItem={({ item }) => (
+                      <TouchableOpacity
+                        style={styles.historyCard}
+                        activeOpacity={0.7}
+                        onPress={() => safeNavigate('ProductDetailsFarmer', {
+                          productId: item.id,
+                          product: item
+                        })}
+                      >
                         <Image
                           source={{
                             uri: (item.image_urls && item.image_urls[0]) || 'https://via.placeholder.com/150'
                           }}
-                          style={styles.fruitImage}
+                          style={styles.historyImage}
                           defaultSource={require('../../assets/fruits/banana.png')}
                           onError={(error) => {
-                            console.log('Image load error for fruit:', item.id, error);
+                            console.log('History image load error for fruit:', item.id, error);
                           }}
                         />
-                        <View style={styles.statusBadge}>
-                          <View style={[styles.statusDot, { backgroundColor: '#4CAF50' }]} />
-                          <Text style={styles.statusText}>Live</Text>
-                        </View>
-                      </View>
-
-                      <View style={styles.fruitDetails}>
-                        <Text style={styles.fruitName} numberOfLines={1}>
-                          {item.name || 'Unnamed Fruit'}
-                        </Text>
-                        <Text style={styles.dateText}>
-                          {getRelativeTime(item.created_at || new Date().toISOString())}
-                        </Text>
-
-                        <View style={styles.priceRow}>
-                          <Text style={styles.fruitPrice}>
+                        <View style={styles.historyDetails}>
+                          <View style={styles.historyHeader}>
+                            <Text style={styles.historyName} numberOfLines={1}>
+                              {item.name || 'Unnamed Fruit'}
+                            </Text>
+                            <View style={[styles.historyStatusBadge,
+                            item.status === 'sold' ? styles.soldOutBadge : styles.expiredBadge]}>
+                              <Text style={[styles.historyStatusText,
+                              item.status === 'sold' ? styles.soldOutText : styles.expiredText]}>
+                                {item.status === 'sold' ? 'Sold Out' : 'Expired'}
+                              </Text>
+                            </View>
+                          </View>
+                          <Text style={styles.historyDate}>
+                            {getRelativeTime(item.created_at || new Date().toISOString())}
+                          </Text>
+                          <Text style={styles.historyPrice}>
                             {formatPrice(item.price_per_kg || 0)}
                           </Text>
-                          <Text style={styles.gradeText}>Grade {item.grade || 'A'}</Text>
-                        </View>
 
-                        <View style={styles.statsRow}>
-                          <View style={styles.statItem}>
-                            <Icon name="eye-outline" size={12} color="#757575" />
-                            <Text style={styles.statText}>{item.views || 0}</Text>
-                          </View>
-                          <View style={styles.statItem}>
-                            <Icon name="heart-outline" size={12} color="#757575" />
-                            <Text style={styles.statText}>{item.likes || 0}</Text>
-                          </View>
-                          <Text style={styles.availableText}>
-                            {formatFruitQuantity(item.quantity || [0, 0])}
-                          </Text>
-                        </View>
-                      </View>
-                    </TouchableOpacity>
-                  )}
-                />
-              )}
-            </View>
-          ) : (
-            // History Listings
-            <View>
-              {loadingFruits ? (
-                <LoadingFruits />
-              ) : fruitHistory.length === 0 ? (
-                <View style={styles.emptyState}>
-                  <Icon name="time-outline" size={64} color="#E0E0E0" />
-                  <Text style={styles.emptyStateText}>No History Yet</Text>
-                  <Text style={styles.emptyStateSubtext}>
-                    Your past listings will appear here.{'\n'}
-                    Start listing fruits to build your history.
-                  </Text>
-                  <TouchableOpacity
-                    style={styles.refreshButton}
-                    onPress={handleRefresh}
-                  >
-                    <Icon name="refresh-outline" size={20} color='#505050' />
-                    <Text style={styles.refreshButtonText}>Refresh</Text>
-                  </TouchableOpacity>
-                </View>
-              ) : filteredFruitHistory.length === 0 ? (
-                <View style={styles.emptyState}>
-                  <Icon name="search-outline" size={64} color="#E0E0E0" />
-                  <Text style={styles.emptyStateText}>No Results Found</Text>
-                  <Text style={styles.emptyStateSubtext}>
-                    {searchQuery ? `No history matches "${searchQuery}"` : `No ${selectedCategory === 'all' ? '' : selectedCategory + ' '}history found`}
-                    {'\n'}Try adjusting your search or filters.
-                  </Text>
-                  {(searchQuery || selectedCategory !== 'all') && (
-                    <TouchableOpacity
-                      style={styles.refreshButton}
-                      onPress={() => {
-                        setSearchQuery('');
-                        setSelectedCategory('all');
-                        setSortBy('newest');
-                      }}
-                    >
-                      <Icon name="refresh-outline" size={20} color='#505050' />
-                      <Text style={styles.refreshButtonText}>Clear Filters</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              ) : (
-                <FlatList
-                  nestedScrollEnabled={true}
-                  data={filteredFruitHistory}
-                  keyExtractor={(item) => item.id || item._id || `history_${Math.random()}`}
-                  showsVerticalScrollIndicator={false}
-                  refreshing={loadingFruits}
-                  onRefresh={handleRefresh}
-                  renderItem={({ item }) => (
-                    <TouchableOpacity
-                      style={styles.historyCard}
-                      activeOpacity={0.7}
-                      onPress={() => safeNavigate('ProductDetailsFarmer', {
-                        productId: item.id,
-                        product: item
-                      })}
-                    >
-                      <Image
-                        source={{
-                          uri: (item.image_urls && item.image_urls[0]) || 'https://via.placeholder.com/150'
-                        }}
-                        style={styles.historyImage}
-                        defaultSource={require('../../assets/fruits/banana.png')}
-                        onError={(error) => {
-                          console.log('History image load error for fruit:', item.id, error);
-                        }}
-                      />
-                      <View style={styles.historyDetails}>
-                        <View style={styles.historyHeader}>
-                          <Text style={styles.historyName} numberOfLines={1}>
-                            {item.name || 'Unnamed Fruit'}
-                          </Text>
-                          <View style={[styles.historyStatusBadge,
-                          item.status === 'sold' ? styles.soldOutBadge : styles.expiredBadge]}>
-                            <Text style={[styles.historyStatusText,
-                            item.status === 'sold' ? styles.soldOutText : styles.expiredText]}>
-                              {item.status === 'sold' ? 'Sold Out' : 'Expired'}
-                            </Text>
+                          <View style={styles.historyStats}>
+                            <View style={styles.historyStat}>
+                              <Icon name="eye-outline" size={12} color="#757575" />
+                              <Text style={styles.historyStatText}>{item.views || 0} views</Text>
+                            </View>
+                            <View style={styles.historyStat}>
+                              <Icon name="heart-outline" size={12} color="#757575" />
+                              <Text style={styles.historyStatText}>{item.likes || 0} likes</Text>
+                            </View>
+                            <View style={styles.historyStat}>
+                              <Icon name="location-outline" size={12} color="#757575" />
+                              <Text style={styles.historyStatText}>
+                                {formatLocation(item.location || {})}
+                              </Text>
+                            </View>
                           </View>
                         </View>
-                        <Text style={styles.historyDate}>
-                          {getRelativeTime(item.created_at || new Date().toISOString())}
-                        </Text>
-                        <Text style={styles.historyPrice}>
-                          {formatPrice(item.price_per_kg || 0)}
-                        </Text>
-
-                        <View style={styles.historyStats}>
-                          <View style={styles.historyStat}>
-                            <Icon name="eye-outline" size={12} color="#757575" />
-                            <Text style={styles.historyStatText}>{item.views || 0} views</Text>
-                          </View>
-                          <View style={styles.historyStat}>
-                            <Icon name="heart-outline" size={12} color="#757575" />
-                            <Text style={styles.historyStatText}>{item.likes || 0} likes</Text>
-                          </View>
-                          <View style={styles.historyStat}>
-                            <Icon name="location-outline" size={12} color="#757575" />
-                            <Text style={styles.historyStatText}>
-                              {formatLocation(item.location || {})}
-                            </Text>
-                          </View>
-                        </View>
-                      </View>
-                      <TouchableOpacity
-                        style={styles.relistButton}
-                        onPress={() => reactivateFruit(item)}
-                      >
-                        <Icon name="refresh-outline" size={16} color={Colors.light.primary} />
+                        <TouchableOpacity
+                          style={styles.relistButton}
+                          onPress={() => reactivateFruit(item)}
+                        >
+                          <Icon name="refresh-outline" size={16} color={Colors.light.primary} />
+                        </TouchableOpacity>
                       </TouchableOpacity>
-                    </TouchableOpacity>
-                  )}
-                />
-              )}
-            </View>
-          )}
-        </View>
-      </Animated.ScrollView>
-
-      {/* Fixed Header Title - Shows on scroll */}
-      <Animated.View
-        style={[
-          styles.fixedHeaderTitle,
-          {
-            opacity: titleOpacity,
-            transform: [{ translateY: titleTranslateY }],
-            paddingTop: insets.top + 8, // Adjusted padding
-            height: headerConstants.HEADER_MIN_HEIGHT,
-            backgroundColor: '#FFFFFF', // Ensure solid background
-            // Animated shadow and elevation
-            shadowOpacity: fixedHeaderShadowOpacity,
-            elevation: fixedHeaderElevation, // For Android
-          }
-        ]}
-        pointerEvents={isFixedHeaderVisible ? 'auto' : 'none'} // Only allow touch when sufficiently visible
-      >
-        <Image source={require('../../assets/icon.png')} style={styles.fixedHeaderImage} />
-        <TouchableOpacity
-          style={styles.notificationIconButton}
-          onPress={() => safeNavigate('Notification')}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Icon name="notifications-outline" size={24} color="#000" />
-        </TouchableOpacity>
-
-        {/* Animated Border */}
-        <Animated.View
-          style={{
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            height: 1,
-            backgroundColor: '#EFEFEF',
-            opacity: fixedHeaderBorderOpacity,
-          }}
-        />
-      </Animated.View>
-
-      {/* Sort Modal */}
-      <Modal
-        visible={showSortModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowSortModal(false)}
-        statusBarTranslucent={true}
-      >
-        <TouchableOpacity 
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setShowSortModal(false)}
-        >
-          <View style={styles.sortModal}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Sort By</Text>
-              <TouchableOpacity
-                style={styles.modalCloseButton}
-                onPress={() => setShowSortModal(false)}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Icon name="close" size={20} color="#757575" />
-              </TouchableOpacity>
-            </View>
-            
-            <ScrollView 
-              style={styles.sortOptionsContainer}
-              showsVerticalScrollIndicator={false}
-            >
-              {sortOptions.map((option) => (
-                <TouchableOpacity
-                  key={option.key}
-                  style={[
-                    styles.sortOption, 
-                    sortBy === option.key && styles.selectedSort
-                  ]}
-                  onPress={() => handleSortSelection(option.key)}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.sortOptionContent}>
-                    <Icon 
-                      name={option.icon} 
-                      size={18} 
-                      color={sortBy === option.key ? Colors.light.primary : '#757575'} 
-                    />
-                    <View style={styles.sortOptionText}>
-                      <Text style={[
-                        styles.sortOptionLabel, 
-                        sortBy === option.key && styles.selectedSortLabel
-                      ]}>
-                        {option.label}
-                      </Text>
-                      <Text style={styles.sortOptionDescription}>
-                        {option.description}
-                      </Text>
-                    </View>
-                  </View>
-                  {sortBy === option.key && (
-                    <Icon name="checkmark-circle" size={20} color={Colors.light.primary} />
-                  )}
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-            
-            <View style={styles.modalFooter}>
-              <TouchableOpacity
-                style={styles.modalCancelButton}
-                onPress={() => setShowSortModal(false)}
-              >
-                <Text style={styles.modalCancelText}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
+                    )}
+                  />
+                )}
+              </View>
+            )}
           </View>
-        </TouchableOpacity>
-      </Modal>
-    </SafeAreaView>
+        </Animated.ScrollView>
+
+        {/* Fixed Header Title - Shows on scroll */}
+        <Animated.View
+          style={[
+            styles.fixedHeaderTitle,
+            {
+              opacity: titleOpacity,
+              transform: [{ translateY: titleTranslateY }],
+              paddingTop: insets.top + 8, // Adjusted padding
+              height: headerConstants.HEADER_MIN_HEIGHT,
+              backgroundColor: '#FFFFFF', // Ensure solid background
+              // Animated shadow and elevation
+              shadowOpacity: fixedHeaderShadowOpacity,
+              elevation: fixedHeaderElevation, // For Android
+            }
+          ]}
+          pointerEvents={isFixedHeaderVisible ? 'auto' : 'none'} // Only allow touch when sufficiently visible
+        >
+          <Image source={require('../../assets/icon.png')} style={styles.fixedHeaderImage} />
+          <TouchableOpacity
+            style={styles.notificationIconButton}
+            onPress={() => safeNavigate('Notification')}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Icon name="notifications-outline" size={24} color="#000" />
+          </TouchableOpacity>
+
+          {/* Animated Border */}
+          <Animated.View
+            style={{
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              height: 1,
+              backgroundColor: '#EFEFEF',
+              opacity: fixedHeaderBorderOpacity,
+            }}
+          />
+        </Animated.View>
+
+        {/* Sort Modal */}
+        <Modal
+          visible={showSortModal}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setShowSortModal(false)}
+          statusBarTranslucent={true}
+        >
+          <TouchableOpacity
+            style={styles.modalOverlay}
+            activeOpacity={1}
+            onPress={() => setShowSortModal(false)}
+          >
+            <View style={styles.sortModal}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Sort By</Text>
+                <TouchableOpacity
+                  style={styles.modalCloseButton}
+                  onPress={() => setShowSortModal(false)}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Icon name="close" size={20} color="#757575" />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView
+                style={styles.sortOptionsContainer}
+                showsVerticalScrollIndicator={false}
+              >
+                {sortOptions.map((option) => (
+                  <TouchableOpacity
+                    key={option.key}
+                    style={[
+                      styles.sortOption,
+                      sortBy === option.key && styles.selectedSort
+                    ]}
+                    onPress={() => handleSortSelection(option.key)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.sortOptionContent}>
+                      <Icon
+                        name={option.icon}
+                        size={18}
+                        color={sortBy === option.key ? '#111111' : '#757575'}
+                      />
+                      <View style={styles.sortOptionText}>
+                        <Text style={[
+                          styles.sortOptionLabel,
+                          sortBy === option.key && styles.selectedSortLabel
+                        ]}>
+                          {option.label}
+                        </Text>
+                        <Text style={styles.sortOptionDescription}>
+                          {option.description}
+                        </Text>
+                      </View>
+                    </View>
+                    {sortBy === option.key && (
+                      <Icon name="checkmark-circle" size={20} color='#111111' />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
+              <View style={styles.modalFooter}>
+                <TouchableOpacity
+                  style={styles.modalResetButton}
+                  onPress={() => {
+                    setSortBy('newest');
+                    setShowSortModal(false);
+                  }}
+                >
+                  <Text style={styles.modalResetText}>Reset</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </TouchableOpacity>
+        </Modal>
+      </SafeAreaView>
     </ErrorBoundary>
   );
 };
@@ -1275,7 +1273,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   scrollViewContent: {
-    paddingBottom: 50,
+    paddingBottom: 90,
   },
   header: {
     backgroundColor: '#FFFFFF',
@@ -1314,7 +1312,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingBottom: 12,
     zIndex: 1000, // High z-index to stay on top
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -1436,11 +1433,11 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(76, 175, 80, 0.2)',
     position: 'relative',
   },
-  sortBtnActive: {
-    backgroundColor: Colors.light.primary,
-    borderColor: Colors.light.primaryDark,
-    shadowOpacity: 0.25,
-  },
+  // sortBtnActive: {
+  //   backgroundColor: Colors.light.primary,
+  //   borderColor: Colors.light.primaryDark,
+  //   shadowOpacity: 0.25,
+  // },
   sortActiveDot: {
     position: 'absolute',
     top: 6,
@@ -1795,12 +1792,6 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
 
-  fixedHeaderImage: {
-    width: 140,
-    height: 32,
-    resizeMode: 'contain',
-  },
-
   // Sort Modal Styles
   modalOverlay: {
     flex: 1,
@@ -1872,7 +1863,6 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   selectedSortLabel: {
-    color: Colors.light.primaryDark,
     fontWeight: '700',
   },
   sortOptionDescription: {
@@ -1887,14 +1877,14 @@ const styles = StyleSheet.create({
     borderTopColor: '#F0F0F0',
     backgroundColor: '#FAFAFA',
   },
-  modalCancelButton: {
+  modalResetButton: {
     backgroundColor: '#F5F5F5',
     paddingVertical: 12,
     paddingHorizontal: 24,
     borderRadius: 8,
     alignItems: 'center',
   },
-  modalCancelText: {
+  modalResetText: {
     fontSize: 16,
     fontWeight: '600',
     color: '#666666',

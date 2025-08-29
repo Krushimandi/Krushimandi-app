@@ -134,7 +134,6 @@ const ProductDetailsFarmer = ({ route, navigation }) => {
 📍 Location: ${product.location ? formatLocation(product.location) : 'Available'}
 💰 Price: ${formatPrice(product.price_per_kg || 0)} per kg
 📦 Quantity: ${product.quantity ? formatFruitQuantity(product.quantity) : (product.available || 'Available')}
-⭐ Grade: ${product.grade || 'A'}
 🌱 Type: ${product.type ? product.type.charAt(0).toUpperCase() + product.type.slice(1) : (product.category || 'Fresh Fruit')}
 
 ${product.description ? `📝 Description: ${product.description}\n` : ''}📅 Available: ${product.availability_date ? new Date(product.availability_date).toLocaleDateString() : 'Now'}
@@ -474,7 +473,7 @@ Contact for more details and bulk orders!
 
             <View style={styles.priceContainer}>
               <Text style={styles.currentPrice}>{formatPrice(product.price_per_kg || 0)}</Text>
-              <Text style={styles.gradeText}>Grade {product.grade || 'A'}</Text>
+              {/* <Text style={styles.gradeText}>Grade {product.grade || 'A'}</Text> */}
             </View>
           </View>
 
@@ -563,7 +562,7 @@ Contact for more details and bulk orders!
               </View>
             </View>
 
-            <View style={styles.detailDivider} />
+            {/* <View style={styles.detailDivider} />
 
             <View style={styles.detailRow}>
               <View style={styles.detailIcon}>
@@ -573,7 +572,7 @@ Contact for more details and bulk orders!
                 <Text style={styles.detailLabel}>Quality Grade</Text>
                 <Text style={styles.detailValue}>Grade {product.grade || 'A'}</Text>
               </View>
-            </View>
+            </View> */}
 
             <View style={styles.detailDivider} />
 

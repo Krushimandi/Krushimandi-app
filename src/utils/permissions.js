@@ -25,7 +25,8 @@
 
 import { Platform, PermissionsAndroid, Alert, Linking } from 'react-native';
 import Geolocation from '@react-native-community/geolocation';
-import { GOOGLE_MAPS_API_KEY } from '../config';
+import { config } from '../config';
+import { getFastCachedLocation } from './locationCache';
 
 /**
  * Get Android API level
@@ -206,12 +207,36 @@ export const ensureImagePickerPermissions = async () => {
  */
 export const checkAndPromptGPSSettings = async () => {
   return new Promise((resolve) => {
-    // Quick test to see if location services are working
+    // Quick test to see if location services are working with high accuracy
     Geolocation.getCurrentPosition(
       (position) => {
-        // GPS is working
-        console.log('GPS is enabled and working');
-        resolve(true);
+        // GPS is working - check accuracy quality
+        console.log('GPS is enabled and working. Accuracy:', position.coords.accuracy, 'meters');
+        
+        // If accuracy is poor, suggest settings improvement
+        if (position.coords.accuracy > 100) {
+          Alert.alert(
+            'Improve Location Accuracy',
+            'Your GPS is working but accuracy can be improved.\n\nFor better results:\n• Move outdoors with clear sky view\n• Enable "High Accuracy" GPS mode\n• Turn off battery optimization for this app',
+            [
+              { text: 'Continue Anyway', onPress: () => resolve(true) },
+              { 
+                text: 'GPS Settings', 
+                onPress: () => {
+                  if (Platform.OS === 'android') {
+                    Linking.sendIntent('android.settings.LOCATION_SOURCE_SETTINGS')
+                      .catch(() => Linking.openSettings());
+                  } else {
+                    Linking.openSettings();
+                  }
+                  resolve(true); // Continue after they check settings
+                } 
+              }
+            ]
+          );
+        } else {
+          resolve(true);
+        }
       },
       (error) => {
         console.log('GPS check error:', error);
@@ -219,12 +244,12 @@ export const checkAndPromptGPSSettings = async () => {
         if (error.code === 2) {
           // Location services are disabled
           Alert.alert(
-            'Enable GPS',
-            'Please enable location services in your device settings.',
+            'Enable High-Accuracy GPS',
+            'For the most accurate farm location:\n\n• Turn ON Location Services\n• Select "High Accuracy" mode\n• Move to an outdoor area\n\nThis helps buyers find your exact farm location.',
             [
               { text: 'Fill Manually', style: 'cancel', onPress: () => resolve(false) },
               { 
-                text: 'Open Settings', 
+                text: 'GPS Settings', 
                 onPress: () => {
                   if (Platform.OS === 'android') {
                     Linking.sendIntent('android.settings.LOCATION_SOURCE_SETTINGS')
@@ -242,16 +267,23 @@ export const checkAndPromptGPSSettings = async () => {
           );
         } else if (error.code === 1) {
           // Permission issue
-          resolve(false);
+          Alert.alert(
+            'Location Permission Required',
+            'Please enable location permissions to auto-fill your farm details accurately.',
+            [
+              { text: 'Fill Manually', onPress: () => resolve(false) },
+              { text: 'Grant Permission', onPress: () => resolve(true) }
+            ]
+          );
         } else {
           // Other error, let the main location function handle it
           resolve(true);
         }
       },
       {
-        enableHighAccuracy: false,
-        timeout: 2000, // Quick check
-        maximumAge: 300000
+        enableHighAccuracy: true, // Test high accuracy GPS
+        timeout: 5000, // Quick check
+        maximumAge: 60000
       }
     );
   });
@@ -365,9 +397,9 @@ export const getQuickLocation = async () => {
  */
 export const getCurrentLocation = async (options = {}) => {
   const defaultOptions = {
-    enableHighAccuracy: false, // Start with network-based location for speed
-    timeout: 4000, // Fast network location - 4 seconds
-    maximumAge: 60000, // Allow location up to 1 minute old for speed
+    enableHighAccuracy: true, // Enable GPS for better accuracy
+    timeout: 15000, // Longer timeout for GPS - 15 seconds
+    maximumAge: 30000, // Use fresher location data - 30 seconds max age
     showLocationDialog: true,
     forceRequestLocation: true,
     ...options
@@ -382,45 +414,45 @@ export const getCurrentLocation = async (options = {}) => {
         return;
       }
 
-      console.log('Permission granted, getting location with network priority...');
+      console.log('Permission granted, getting high-accuracy GPS location...');
 
-      // First attempt: Network/WiFi/Cell Tower location (fast and works indoors)
+      // First attempt: High-accuracy GPS location (best accuracy)
       Geolocation.getCurrentPosition(
         (position) => {
-          console.log('Network location obtained:', position.coords);
+          console.log('High-accuracy GPS location obtained:', position.coords);
           resolve({
             latitude: position.coords.latitude,
             longitude: position.coords.longitude,
             accuracy: position.coords.accuracy,
-            source: 'Network'
+            source: 'GPS-High-Accuracy'
           });
         },
         (error) => {
-          console.warn('Network location failed, trying GPS...', error);
+          console.warn('High-accuracy GPS failed, trying network location...', error);
 
-          // Second attempt: High accuracy GPS (outdoor use)
+          // Second attempt: Network/WiFi/Cell Tower location (faster fallback)
           Geolocation.getCurrentPosition(
             (position) => {
-              console.log('GPS location obtained:', position.coords);
+              console.log('Network location obtained:', position.coords);
               resolve({
                 latitude: position.coords.latitude,
                 longitude: position.coords.longitude,
                 accuracy: position.coords.accuracy,
-                source: 'GPS'
+                source: 'Network'
               });
             },
             (fallbackError) => {
-              console.warn('GPS also failed, trying last chance...', fallbackError);
+              console.warn('Network location also failed, trying permissive GPS...', fallbackError);
 
-              // Third attempt: Any available location (very permissive)
+              // Third attempt: Permissive GPS (any available location)
               Geolocation.getCurrentPosition(
                 (position) => {
-                  console.log('Last chance location obtained:', position.coords);
+                  console.log('Permissive location obtained:', position.coords);
                   resolve({
                     latitude: position.coords.latitude,
                     longitude: position.coords.longitude,
                     accuracy: position.coords.accuracy,
-                    source: 'LastChance',
+                    source: 'GPS-Permissive',
                     fallback: true
                   });
                 },
@@ -433,19 +465,19 @@ export const getCurrentLocation = async (options = {}) => {
                   switch (finalError.code) {
                     case 1: // PERMISSION_DENIED
                       errorMessage = 'Location access denied. Please enable location permissions in settings.';
-                      userFriendlyMessage = 'Please enable location permissions in your device settings.';
+                      userFriendlyMessage = 'Please enable location permissions in your device settings and restart the app.';
                       break;
                     case 2: // POSITION_UNAVAILABLE
                       errorMessage = 'GPS is turned off or location services are disabled.';
-                      userFriendlyMessage = 'Please turn on GPS/Location Services in your device settings to auto-fill location details.';
+                      userFriendlyMessage = 'Please turn on GPS/Location Services in your device settings. For best accuracy, enable "High Accuracy" mode.';
                       break;
                     case 3: // TIMEOUT
-                      errorMessage = 'Location request timed out. Poor signal quality.';
-                      userFriendlyMessage = 'Location services are responding slowly. Try moving to an area with better signal.';
+                      errorMessage = 'Location request timed out. Poor GPS signal.';
+                      userFriendlyMessage = 'GPS signal is weak. Try moving outdoors or to an area with clear sky view for better GPS reception.';
                       break;
                     default:
                       errorMessage = 'Location services unavailable.';
-                      userFriendlyMessage = 'Location services are not working properly. Please try again or fill details manually.';
+                      userFriendlyMessage = 'Location services are not working properly. Please check your GPS settings and try again.';
                   }
 
                   const err = new Error(errorMessage);
@@ -456,27 +488,27 @@ export const getCurrentLocation = async (options = {}) => {
                 {
                   // Last chance: Very permissive settings
                   enableHighAccuracy: false,
-                  timeout: 3000, // Quick timeout
-                  maximumAge: 300000, // Accept even 5 minute old location
+                  timeout: 8000,
+                  maximumAge: 600000, // Accept even 10 minute old location
                   showLocationDialog: false
                 }
               );
             },
             {
-              // GPS fallback: Higher accuracy but slower
-              enableHighAccuracy: true,
-              timeout: 6000, // GPS timeout
-              maximumAge: 120000, // Accept 2 minute old GPS location
+              // Network fallback: Faster but less accurate
+              enableHighAccuracy: false,
+              timeout: 8000,
+              maximumAge: 60000,
               showLocationDialog: true
             }
           );
         },
-        defaultOptions
+        defaultOptions // High accuracy GPS first
       );
     } catch (error) {
       console.error('Location function error:', error);
       const err = new Error('Something went wrong while getting your location.');
-      err.userMessage = 'There was a technical error. Please try again or fill location details manually.';
+      err.userMessage = 'There was a technical error. Please check your GPS settings and try again.';
       reject(err);
     }
   });
@@ -491,28 +523,36 @@ export const getCurrentLocation = async (options = {}) => {
  */
 export const reverseGeocode = async (latitude, longitude) => {
   try {
-    console.log(`🗺️ Getting accurate location for: ${latitude}, ${longitude}`);
+    console.log(`🗺️ Getting accurate address for coordinates: ${latitude}, ${longitude}`);
 
-    // Enhanced timeout for better accuracy (3 seconds)
+    if (!config.GOOGLE_MAPS_API_KEY) {
+      console.error('❌ Google Maps API key not found');
+      throw new Error('Google Maps API key not configured');
+    }
+
+    // Enhanced timeout for better accuracy (5 seconds)
     const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Location timeout')), 3000);
+      setTimeout(() => reject(new Error('Google Maps API timeout')), 5000);
     });
 
-    // Enhanced API call with all possible result types for maximum granular detail
-    const googlePromise = fetch(
-      `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${GOOGLE_MAPS_API_KEY}&language=en&region=IN&result_type=street_address|route|intersection|political|country|administrative_area_level_1|administrative_area_level_2|administrative_area_level_3|colloquial_area|locality|sublocality|neighborhood|premise|subpremise|postal_code|natural_feature|airport|park|point_of_interest`
-    );
+    // Enhanced API call with specific parameters for Indian addresses
+    const apiUrl = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${config.GOOGLE_MAPS_API_KEY}&language=en&region=IN&result_type=street_address|route|intersection|political|country|administrative_area_level_1|administrative_area_level_2|administrative_area_level_3|colloquial_area|locality|sublocality|neighborhood|premise|subpremise|postal_code`;
+    
+    console.log('🌐 Calling Google Geocoding API...');
+    const googlePromise = fetch(apiUrl);
 
     const googleResponse = await Promise.race([googlePromise, timeoutPromise]);
     
     if (!googleResponse.ok) {
-      throw new Error(`Google API HTTP error: ${googleResponse.status}`);
+      throw new Error(`Google API HTTP error: ${googleResponse.status} - ${googleResponse.statusText}`);
     }
 
     const googleData = await googleResponse.json();
     console.log('🌐 Google Geocoding response status:', googleData.status);
 
-    if (googleData.status === 'OK' && googleData.results.length > 0) {
+    if (googleData.status === 'OK' && googleData.results && googleData.results.length > 0) {
+      console.log('✅ Google API returned', googleData.results.length, 'results');
+      
       // Process multiple results to get the most accurate data
       let bestResult = null;
       let city = '';
@@ -522,33 +562,28 @@ export const reverseGeocode = async (latitude, longitude) => {
 
       // Try to find the best result with most complete information
       for (const result of googleData.results) {
-        const components = result.address_components;
+        const components = result.address_components || [];
         let tempCity = '';
         let tempDistrict = '';
         let tempState = '';
         let tempPincode = '';
 
-        components.forEach(component => {
-          const types = component.types;
-          const longName = component.long_name;
+        console.log('📍 Processing result:', result.formatted_address);
 
-          // Enhanced city/village detection with granular priority system
-          // Priority: sublocality_level_3 > sublocality_level_2 > sublocality_level_1 > neighborhood > route > locality
-          if (types.includes('sublocality_level_2')) {
-            // Most specific area/neighborhood (e.g., "Satav Nagar")
+        components.forEach(component => {
+          const types = component.types || [];
+          const longName = component.long_name;
+          const shortName = component.short_name;
+
+          console.log(`  - ${longName} (${types.join(', ')})`);
+
+          // Enhanced city/village detection with priority system
+          if (types.includes('sublocality_level_3') || types.includes('sublocality_level_2')) {
+            // Most specific area/neighborhood
             if (!tempCity) tempCity = longName;
           }
           else if (types.includes('sublocality_level_1')) {
-            // Sub-area within locality (e.g., "Hadapsar")
-            if (!tempCity) {
-              tempCity = longName;
-            } else {
-              // Combine with existing for more detail (e.g., "Satav Nagar, Hadapsar")
-              tempCity = `${tempCity}, ${longName}`;
-            }
-          }
-          else if (types.includes('sublocality_level_1')) {
-            // Broader sub-locality
+            // Sub-area within locality
             if (!tempCity) {
               tempCity = longName;
             } else if (!tempCity.includes(longName)) {
@@ -557,31 +592,27 @@ export const reverseGeocode = async (latitude, longitude) => {
           }
           else if (types.includes('neighborhood')) {
             // Neighborhood level
-            if (!tempCity) {
-              tempCity = longName;
-            } else if (!tempCity.includes(longName)) {
-              tempCity = `${tempCity}, ${longName}`;
-            }
+            if (!tempCity) tempCity = longName;
           }
           else if (types.includes('route')) {
             // Street/road level - only if no other city info
             if (!tempCity) tempCity = longName;
           }
           else if (types.includes('locality')) {
-            // This would be "Pune" - use as district if tempCity already has specific area
-            if (tempCity && !tempDistrict) {
-              tempDistrict = longName; // "Pune" becomes district
-            } else if (!tempCity) {
-              tempCity = longName; // Fallback if no specific area found
+            // This is usually the main city name (like "Pune")
+            if (!tempCity) {
+              tempCity = longName;
+            } else if (!tempDistrict) {
+              tempDistrict = longName; // Use as district if city already has specific area
             }
           }
 
-          // Enhanced district detection - prefer locality over administrative_area_level_2 for Indian cities
-          if (types.includes('locality') && !tempDistrict) {
-            tempDistrict = longName; // "Pune" as district
+          // District detection - prefer locality over administrative levels
+          if (types.includes('administrative_area_level_2') && !tempDistrict) {
+            tempDistrict = longName;
           }
-          else if (types.includes('administrative_area_level_2') && !tempDistrict) {
-            tempDistrict = longName; // Fallback to admin level 2
+          else if (types.includes('locality') && !tempDistrict && tempCity !== longName) {
+            tempDistrict = longName;
           }
 
           // State detection
@@ -595,113 +626,39 @@ export const reverseGeocode = async (latitude, longitude) => {
           }
         });
 
+        console.log(`📋 Extracted - City: ${tempCity}, District: ${tempDistrict}, State: ${tempState}, Pincode: ${tempPincode}`);
+
         // Use this result if it has more complete information
-        if (tempCity && tempState && (!bestResult || (tempDistrict && tempPincode))) {
+        if (tempState && (tempCity || tempDistrict)) {
           city = tempCity;
           district = tempDistrict;
           state = tempState;
           pincode = tempPincode;
           bestResult = result;
+          
+          // If we have good data, break early
+          if (tempCity && tempDistrict && tempPincode) {
+            break;
+          }
         }
       }
 
-      // Fallback logic if we don't have complete data from any single result
-      if (!city || !district || !state) {
-        console.log('🔄 Using enhanced fallback logic to complete address...');
-        
-        // Combine data from all results with priority for granular location
-        let fallbackCity = '';
-        let fallbackDistrict = '';
-        let fallbackState = '';
-        let fallbackPincode = '';
-
-        googleData.results.forEach(result => {
-          result.address_components.forEach(component => {
-            const types = component.types;
-            const longName = component.long_name;
-
-            // Enhanced fallback for city/village with granular details
-            if (!fallbackCity) {
-              if (types.includes('sublocality_level_3') || types.includes('sublocality_level_2') || types.includes('sublocality_level_1')) {
-                fallbackCity = longName;
-              } else if (types.includes('neighborhood')) {
-                fallbackCity = longName;
-              } else if (types.includes('route')) {
-                fallbackCity = longName;
-              }
-            } else {
-              // Add additional locality details if they're more specific
-              if (types.includes('sublocality_level_3') || types.includes('sublocality_level_2')) {
-                if (!fallbackCity.includes(longName)) {
-                  fallbackCity = `${longName}, ${fallbackCity}`;
-                }
-              }
-            }
-
-            // Fallback for district - prefer locality over administrative levels
-            if (!fallbackDistrict) {
-              if (types.includes('locality')) {
-                fallbackDistrict = longName;
-              } else if (types.includes('administrative_area_level_2')) {
-                fallbackDistrict = longName;
-              }
-            }
-
-            if (!fallbackState && types.includes('administrative_area_level_1')) {
-              fallbackState = longName;
-            }
-            if (!fallbackPincode && types.includes('postal_code')) {
-              fallbackPincode = longName;
-            }
-          });
-        });
-
-        // Use fallback data if original data is incomplete
-        if (!city) city = fallbackCity;
-        if (!district) district = fallbackDistrict;
-        if (!state) state = fallbackState;
-        if (!pincode) pincode = fallbackPincode;
+      // Smart fallback logic if we don't have complete data
+      if (!city && district) {
+        city = district;
+      }
+      if (!district && city) {
+        district = city;
       }
 
-      // Final fallback: intelligently parse formatted address for granular location
+      // Parse formatted address as fallback
       if (!city && bestResult?.formatted_address) {
         const addressParts = bestResult.formatted_address.split(',');
         if (addressParts.length > 0) {
-          // Take the first part as it's usually the most specific location
-          const firstPart = addressParts[0].trim();
-          
-          // If we have multiple address parts, try to combine first two for more context
-          if (addressParts.length > 1 && firstPart.length < 20) {
-            const secondPart = addressParts[1].trim();
-            // Avoid duplicating district names
-            if (secondPart !== district && !secondPart.toLowerCase().includes('division')) {
-              city = `${firstPart}, ${secondPart}`;
-            } else {
-              city = firstPart;
-            }
-          } else {
-            city = firstPart;
+          city = addressParts[0].trim();
+          if (addressParts.length > 1 && !district) {
+            district = addressParts[1].trim();
           }
-        }
-      }
-
-      // Enhanced smart fallback logic for missing components
-      if (!city && district) {
-        city = district; // Use district as city if city is missing
-      }
-      if (!district && city) {
-        // If city contains comma, extract district from the latter part
-        if (city.includes(',')) {
-          const parts = city.split(',');
-          const lastPart = parts[parts.length - 1].trim();
-          // Check if last part could be district (not too generic)
-          if (lastPart.length > 3 && !lastPart.toLowerCase().includes('nagar') && !lastPart.toLowerCase().includes('road')) {
-            district = lastPart;
-          } else {
-            district = city; // Use full city as district
-          }
-        } else {
-          district = city; // Use city as district if district is missing
         }
       }
 
@@ -714,7 +671,7 @@ export const reverseGeocode = async (latitude, longitude) => {
         accuracy: 'high'
       };
 
-      console.log('📍 Enhanced location data:', locationData);
+      console.log('✅ Final address data:', locationData);
 
       // Validate that we have essential information
       if (locationData.state && (locationData.city || locationData.district)) {
@@ -725,22 +682,26 @@ export const reverseGeocode = async (latitude, longitude) => {
           timestamp: Date.now()
         };
       } else {
-        console.warn('⚠️ Incomplete location data:', locationData);
+        console.warn('⚠️ Incomplete address data:', locationData);
+        throw new Error('Incomplete address information received');
       }
+      
     } else {
       console.warn('❌ Google Geocoding API error:', googleData.status, googleData.error_message);
       
       if (googleData.status === 'OVER_QUERY_LIMIT') {
         throw new Error('Location service temporarily unavailable. Please try again later.');
       } else if (googleData.status === 'REQUEST_DENIED') {
-        throw new Error('Location service access denied. Please check your connection.');
+        throw new Error('Location service access denied. Please check API configuration.');
+      } else if (googleData.status === 'ZERO_RESULTS') {
+        throw new Error('No address found for this location. Try moving to a different area.');
+      } else {
+        throw new Error(`Location service error: ${googleData.status}`);
       }
     }
 
-    return null;
-
   } catch (error) {
-    console.error('🚨 Location detection failed:', error.message);
+    console.error('🚨 Address lookup failed:', error.message);
     throw error; // Re-throw to allow caller to handle
   }
 };
@@ -753,42 +714,80 @@ export const reverseGeocode = async (latitude, longitude) => {
  */
 export const getFastLocation = async (latitude, longitude) => {
   try {
-    console.log('⚡ Getting fast location with enhanced accuracy...');
+    console.log('⚡ Getting address from coordinates with enhanced accuracy...');
     
-    // Try enhanced Google API
-    const result = await reverseGeocode(latitude, longitude);
-    if (result) {
-      console.log('✅ Fast location successful:', result);
+    // Try enhanced Google API with longer timeout for better results
+    const result = await Promise.race([
+      reverseGeocode(latitude, longitude),
+      new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Address lookup timeout')), 10000); // 10 second timeout
+      })
+    ]);
+    
+    if (result && result.city && result.state) {
+      console.log('✅ Address lookup successful:', result);
       return result;
     }
 
-    // If Google fails, provide smart fallback location
-    console.log('⚠️ Google API failed, using smart fallback');
+    throw new Error('Incomplete address data received');
+
+  } catch (error) {
+    console.warn('🚨 Address lookup failed:', error.message);
+    
+    // Provide informative fallback based on coordinates
+    let areaName = 'Your Location';
+    let regionInfo = 'Unknown Area';
+    
+    // Enhanced coordinate-based region detection for India
+    if (latitude >= 8.0 && latitude <= 37.0 && longitude >= 68.0 && longitude <= 97.0) {
+      // Indian coordinate bounds - provide regional context
+      if (latitude >= 28.0 && latitude <= 31.0 && longitude >= 76.0 && longitude <= 78.0) {
+        regionInfo = 'Delhi/NCR Region';
+        areaName = 'Near Delhi';
+      } else if (latitude >= 18.0 && latitude <= 20.0 && longitude >= 72.0 && longitude <= 73.5) {
+        regionInfo = 'Mumbai Region';
+        areaName = 'Near Mumbai';
+      } else if (latitude >= 12.5 && latitude <= 13.5 && longitude >= 77.0 && longitude <= 78.0) {
+        regionInfo = 'Bangalore Region';
+        areaName = 'Near Bangalore';
+      } else if (latitude >= 17.0 && latitude <= 18.0 && longitude >= 78.0 && longitude <= 79.0) {
+        regionInfo = 'Hyderabad Region';
+        areaName = 'Near Hyderabad';
+      } else if (latitude >= 18.0 && latitude <= 19.0 && longitude >= 73.5 && longitude <= 74.5) {
+        regionInfo = 'Pune Region';
+        areaName = 'Near Pune';
+      } else if (latitude >= 22.0 && latitude <= 23.0 && longitude >= 72.0 && longitude <= 73.0) {
+        regionInfo = 'Ahmedabad Region';
+        areaName = 'Near Ahmedabad';
+      } else if (latitude >= 26.0 && latitude <= 27.0 && longitude >= 75.0 && longitude <= 76.0) {
+        regionInfo = 'Jaipur Region';
+        areaName = 'Near Jaipur';
+      } else {
+        // Generic region with coordinates for reference
+        regionInfo = `Coordinates ${latitude.toFixed(2)}°N, ${longitude.toFixed(2)}°E`;
+        areaName = 'GPS Location';
+      }
+    } else {
+      // Outside India
+      regionInfo = `Location ${latitude.toFixed(2)}°N, ${longitude.toFixed(2)}°E`;
+      areaName = 'Current Location';
+    }
+    
     const fallbackData = {
-      city: 'Current Location',
-      district: 'Unknown District',
+      city: areaName,
+      district: regionInfo,
       state: 'India',
       pincode: '',
-      formattedAddress: 'Current Location, India',
-      source: 'fallback',
+      formattedAddress: `${areaName}, ${regionInfo}, India (GPS: ${latitude.toFixed(4)}, ${longitude.toFixed(4)})`,
+      source: 'coordinate-fallback',
       confidence: 'low',
-      accuracy: 'basic'
+      accuracy: 'regional',
+      coordinates: { latitude, longitude },
+      note: 'Please verify and correct the address manually'
     };
 
+    console.log('📍 Using coordinate-based fallback:', fallbackData);
     return fallbackData;
-  } catch (error) {
-    console.warn('🚨 Fast location failed:', error.message);
-    // Return basic location data as absolute fallback
-    return {
-      city: 'Current Location',
-      district: 'Unknown District', 
-      state: 'India',
-      pincode: '',
-      formattedAddress: 'Current Location, India',
-      source: 'fallback',
-      confidence: 'low',
-      accuracy: 'basic'
-    };
   }
 };
 
@@ -801,4 +800,107 @@ export const getFastLocation = async (latitude, longitude) => {
 export const getDetailedLocation = async (latitude, longitude) => {
   // Use the same function as reverseGeocode for consistency
   return await reverseGeocode(latitude, longitude);
+};
+
+/**
+ * Debug function to test reverse geocoding with coordinates
+ * Usage: Call this function with your coordinates to test address lookup
+ * @param {number} latitude 
+ * @param {number} longitude 
+ * @returns {Promise<object>} Complete test results
+ */
+export const testReverseGeocode = async (latitude, longitude) => {
+  console.log('🧪 Testing reverse geocoding for coordinates:', latitude, longitude);
+  
+  const results = {
+    coordinates: { latitude, longitude },
+    timestamp: new Date().toISOString(),
+    tests: {}
+  };
+  
+  try {
+    // Test Google API configuration
+    console.log('🔑 API Key available:', !!config.GOOGLE_MAPS_API_KEY);
+    results.tests.apiKeyAvailable = !!config.GOOGLE_MAPS_API_KEY;
+    
+    if (!config.GOOGLE_MAPS_API_KEY) {
+      results.error = 'Google Maps API key not configured';
+      return results;
+    }
+    
+    // Test reverse geocoding
+    console.log('🌐 Testing reverse geocoding...');
+    const reverseGeocodeResult = await reverseGeocode(latitude, longitude);
+    results.tests.reverseGeocode = {
+      success: true,
+      data: reverseGeocodeResult
+    };
+    
+    // Test fast location
+    console.log('⚡ Testing fast location...');
+    const fastLocationResult = await getFastLocation(latitude, longitude);
+    results.tests.fastLocation = {
+      success: true,
+      data: fastLocationResult
+    };
+    
+    console.log('✅ All tests completed successfully');
+    results.success = true;
+    
+  } catch (error) {
+    console.error('❌ Test failed:', error.message);
+    results.error = error.message;
+    results.success = false;
+  }
+  
+  console.log('📋 Test Results:', JSON.stringify(results, null, 2));
+  return results;
+};
+
+/**
+ * Get current location and address with intelligent caching
+ * This is the main function to use in your components for fast location access
+ * @param {object} options - Options for location request
+ * @returns {Promise<object>} Location and address data
+ */
+export const getLocationWithCache = async (options = {}) => {
+  try {
+    console.log('⚡ Getting location with caching...');
+    
+    const result = await getFastCachedLocation(options);
+    
+    // Return in the format expected by existing components
+    return {
+      location: {
+        latitude: result.location.latitude,
+        longitude: result.location.longitude,
+        accuracy: result.location.accuracy,
+        source: result.location.source
+      },
+      locationData: {
+        city: result.address.city || '',
+        district: result.address.district || '',
+        state: result.address.state || '',
+        pincode: result.address.pincode || '',
+        formattedAddress: result.address.formattedAddress || '',
+        source: result.source,
+        cacheAge: result.cacheAge
+      }
+    };
+    
+  } catch (error) {
+    console.error('❌ Cached location failed, falling back to regular method:', error);
+    
+    // Fallback to original method
+    const location = await getCurrentLocation();
+    if (location) {
+      const locationData = await getFastLocation(location.latitude, location.longitude);
+      return {
+        location: location,
+        locationData: locationData
+      };
+    }
+    
+    throw error;
+  }
 };

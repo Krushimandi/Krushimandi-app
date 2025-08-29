@@ -339,7 +339,7 @@ export default function PriceSelectionScreen({ navigation, route }) {
         // Basic fruit info
         name: productData?.name || '',
         type: productData?.type || '',
-        grade: productData?.grade || 'A',
+        // grade: productData?.grade || 'A',
         description: productData?.description || '',
         
         // Quantity and pricing
@@ -464,9 +464,9 @@ export default function PriceSelectionScreen({ navigation, route }) {
 
           <View style={styles.priceContainer}>
             <Text style={styles.fruitPrice}>₹{selectedPrice || smartPricing.recommended}/kg</Text>
-            <Text style={styles.fruitTons}>
+            {/* <Text style={styles.fruitTons}>
               {fruitQuantity ? `${fruitQuantity[0]}-${fruitQuantity[1]} tons` : 'Grade ' + productData?.grade}
-            </Text>
+            </Text> */}
           </View>
         </TouchableOpacity>
 

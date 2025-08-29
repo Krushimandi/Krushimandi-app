@@ -12,6 +12,7 @@ import {
     ScrollView,
     Dimensions,
     Modal,
+    ActivityIndicator,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -29,7 +30,11 @@ const PhotoUploadScreen = ({ navigation, route }) => {
     const { showTabBar, hideTabBar } = useTabBarControl();
     const [uploadedPhotos, setUploadedPhotos] = useState([]); // Array of {uri, firebaseUrl, uploading}
     const [uploadProgress, setUploadProgress] = useState({}); // Track upload progress per photo
+    const [showUploadProgress, setShowUploadProgress] = useState(false); // Show progress only when user clicks Next
+    const [pendingUploads, setPendingUploads] = useState(new Set()); // Track which photos are still uploading
+    const [uploadTasks, setUploadTasks] = useState({}); // Track Firebase upload tasks for cancellation
     const maxPhotos = 4; // Increased to 4 photos
+    const minPhotos = 2; // Minimum required photos
     const [progress, setProgress] = useState(0.33); // Start from 33%
     const [imagePickerModalVisible, setImagePickerModalVisible] = useState(false);
     const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
@@ -53,7 +58,7 @@ const PhotoUploadScreen = ({ navigation, route }) => {
                 800, // maxWidth
                 800, // maxHeight
                 'JPEG', // format
-                80, // quality (0-100)
+                60, // quality (0-100)
                 0, // rotation
                 undefined, // outputPath
                 false, // keepMeta
@@ -71,20 +76,37 @@ const PhotoUploadScreen = ({ navigation, route }) => {
 
     // Upload image to Firebase Storage
     const uploadImageToFirebase = async (imageUri, photoIndex) => {
+        console.log(`🔄 Starting upload for index: ${photoIndex}, URI: ${imageUri.substring(0, 50)}...`);
+        
+        // Double-check that we should proceed with this upload
+        if (pendingUploads.has(photoIndex)) {
+            console.log(`⚠️ Upload already pending for index ${photoIndex}, skipping duplicate`);
+            return;
+        }
+        
         try {
-            setIsUploading(true);
+            // Add to pending uploads immediately
+            setPendingUploads(prev => {
+                const newSet = new Set([...prev, photoIndex]);
+                console.log(`➕ Added index ${photoIndex} to pending uploads. Total pending: ${newSet.size}`);
+                console.log(`📋 All pending uploads:`, Array.from(newSet));
+                return newSet;
+            });
             
-            // Compress image first
+            // Compress image first for faster upload and smaller file size
+            console.log(`🗜️ Compressing image for index ${photoIndex}...`);
             const compressedUri = await compressImage(imageUri);
+            console.log(`✅ Image compressed for index ${photoIndex}`);
             
-            // Generate unique filename
+            // Generate unique filename with timestamp to avoid conflicts
             const userId = await AsyncStorage.getItem('userData').then(data => {
                 const user = JSON.parse(data || '{}');
                 return user.uid || 'anonymous';
             });
             
             const timestamp = Date.now();
-            const filename = `fruits/${userId}/${timestamp}_${photoIndex}.jpg`;
+            const randomId = Math.random().toString(36).substring(7);
+            const filename = `fruits/${userId}/${timestamp}_${randomId}_${photoIndex}.jpg`;
             
             // Create Firebase storage reference
             const reference = storage().ref(filename);
@@ -92,13 +114,21 @@ const PhotoUploadScreen = ({ navigation, route }) => {
             // Upload file with progress tracking
             const uploadTask = reference.putFile(compressedUri);
             
-            // Track upload progress
+            // Store upload task for cancellation
+            setUploadTasks(prev => ({
+                ...prev,
+                [photoIndex]: uploadTask
+            }));
+            
+            // Track upload progress (only if showing progress)
             uploadTask.on('state_changed', (snapshot) => {
-                const uploadProgressPercent = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                setUploadProgress(prev => ({
-                    ...prev,
-                    [photoIndex]: uploadProgressPercent
-                }));
+                if (showUploadProgress) {
+                    const uploadProgressPercent = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                    setUploadProgress(prev => ({
+                        ...prev,
+                        [photoIndex]: Math.round(uploadProgressPercent)
+                    }));
+                }
             });
             
             // Wait for upload to complete
@@ -107,7 +137,8 @@ const PhotoUploadScreen = ({ navigation, route }) => {
             // Get download URL
             const downloadURL = await reference.getDownloadURL();
             
-            console.log('Image uploaded successfully:', downloadURL);
+            console.log(`✅ Image uploaded successfully for index: ${photoIndex}`);
+            console.log(`🔗 Download URL: ${downloadURL.substring(0, 50)}...`);
             
             // Update photo state with Firebase URL
             setUploadedPhotos(prev => {
@@ -118,11 +149,37 @@ const PhotoUploadScreen = ({ navigation, route }) => {
                         firebaseUrl: downloadURL,
                         uploading: false
                     };
+                    console.log(`📝 Updated photo at index ${photoIndex} with download URL. Upload complete!`);
+                } else {
+                    console.error(`❌ ERROR: No photo found at index ${photoIndex} when trying to update with download URL`);
+                    console.log(`📊 Current photos state:`, newPhotos.map((p, i) => ({ index: i, hasPhoto: !!p })));
+                    // Create the photo object if it doesn't exist (shouldn't happen but safety net)
+                    newPhotos[photoIndex] = {
+                        uri: imageUri,
+                        firebaseUrl: downloadURL,
+                        uploading: false,
+                        uploadFailed: false
+                    };
+                    console.log(`🔧 Created missing photo object at index ${photoIndex}`);
                 }
                 return newPhotos;
             });
             
-            // Clear progress
+            // Remove from pending uploads and upload tasks
+            setPendingUploads(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(photoIndex);
+                console.log(`➖ Removed index ${photoIndex} from pending uploads. Remaining: ${newSet.size}`);
+                return newSet;
+            });
+            
+            setUploadTasks(prev => {
+                const newTasks = { ...prev };
+                delete newTasks[photoIndex];
+                return newTasks;
+            });
+            
+            // Clear progress for this photo
             setUploadProgress(prev => {
                 const newProgress = { ...prev };
                 delete newProgress[photoIndex];
@@ -132,10 +189,15 @@ const PhotoUploadScreen = ({ navigation, route }) => {
             return downloadURL;
             
         } catch (error) {
-            console.error('Firebase upload error:', error);
-            Alert.alert('Upload Error', 'Failed to upload image. Please try again.');
+            console.error(`❌ Firebase upload error for index: ${photoIndex}`, error);
             
-            // Mark as failed
+            // Check if it was cancelled
+            if (error.code === 'storage/cancelled') {
+                console.log(`🚫 Upload cancelled for index: ${photoIndex}`);
+                return null;
+            }
+            
+            // Mark as failed and remove from pending uploads
             setUploadedPhotos(prev => {
                 const newPhotos = [...prev];
                 if (newPhotos[photoIndex]) {
@@ -144,24 +206,58 @@ const PhotoUploadScreen = ({ navigation, route }) => {
                         uploading: false,
                         uploadFailed: true
                     };
+                    console.log(`💥 Marked photo at index ${photoIndex} as failed`);
+                } else {
+                    console.error(`❌ ERROR: Cannot mark failed - no photo at index ${photoIndex}`);
                 }
                 return newPhotos;
             });
             
+            setPendingUploads(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(photoIndex);
+                console.log(`➖ Removed failed upload index ${photoIndex} from pending. Remaining: ${newSet.size}`);
+                return newSet;
+            });
+            
+            setUploadTasks(prev => {
+                const newTasks = { ...prev };
+                delete newTasks[photoIndex];
+                return newTasks;
+            });
+            
             return null;
-        } finally {
-            setIsUploading(false);
         }
     };
 
     const handlePhotoUpload = (index) => {
-        if (uploadedPhotos.length < maxPhotos || uploadedPhotos[index]) {
-            setCurrentPhotoIndex(index);
-            // setImagePickerModalVisible(true);
-            handleImagePickerOption('camera');
-        } else {
-            Alert.alert('Maximum Reached', 'You have uploaded the maximum number of photos!');
+        console.log(`📸 handlePhotoUpload called with index: ${index}`);
+        
+        // Find the first empty slot that should be filled
+        const nextSlotToFill = getNextAvailableSlot();
+        
+        // Only allow clicking on the next slot to fill
+        if (index !== nextSlotToFill) {
+            console.log(`❌ Can only fill slot ${nextSlotToFill} next, clicked: ${index}`);
+            return; // Do nothing if wrong slot clicked
         }
+        
+        // Proceed with photo upload for the correct slot
+        setCurrentPhotoIndex(nextSlotToFill);
+        console.log(`📍 Set currentPhotoIndex to: ${nextSlotToFill}`);
+        
+        // Directly open camera instead of showing modal
+        handleImagePickerOption('camera');
+    };
+
+    // Helper function to find the next slot that should be filled
+    const getNextAvailableSlot = () => {
+        for (let i = 0; i < maxPhotos; i++) {
+            if (!uploadedPhotos[i]) {
+                return i;
+            }
+        }
+        return 0; // Fallback to first slot
     };
 
     const handleImagePickerOption = async (option) => {
@@ -195,7 +291,55 @@ const PhotoUploadScreen = ({ navigation, route }) => {
 
             if (response.assets && response.assets[0]) {
                 const imageUri = response.assets[0].uri;
-                console.log('Selected image URI:', imageUri);
+                const targetIndex = currentPhotoIndex;
+                console.log(`📷 Selected image URI: ${imageUri.substring(0, 50)}...`);
+                console.log(`🎯 Target index: ${targetIndex}`);
+
+                // Verify this is still the correct slot to fill (safety check)
+                const nextSlotToFill = getNextAvailableSlot();
+                if (targetIndex !== nextSlotToFill && !uploadedPhotos[targetIndex]) {
+                    console.log(`⚠️ Target index ${targetIndex} is not the next slot to fill (${nextSlotToFill}). Correcting...`);
+                    setCurrentPhotoIndex(nextSlotToFill);
+                    // Use the correct slot
+                    const correctedIndex = nextSlotToFill;
+                    
+                    // Create photo object for correct slot
+                    const photoObj = {
+                        uri: imageUri,
+                        firebaseUrl: null,
+                        uploading: true,
+                        uploadFailed: false
+                    };
+
+                    // Place photo at correct slot
+                    setUploadedPhotos(prev => {
+                        const newPhotos = [...prev];
+                        while (newPhotos.length <= correctedIndex) {
+                            newPhotos.push(null);
+                        }
+                        newPhotos[correctedIndex] = photoObj;
+                        console.log(`✅ Photo object placed at corrected index: ${correctedIndex}`);
+                        return newPhotos;
+                    });
+
+                    // Start upload for correct slot
+                    uploadImageToFirebase(imageUri, correctedIndex);
+                    return;
+                }
+
+                // For normal case (filling the next available slot)
+                // Cancel any existing upload at this index (safety check)
+                if (pendingUploads.has(targetIndex)) {
+                    const uploadTask = uploadTasks[targetIndex];
+                    if (uploadTask) {
+                        uploadTask.cancel();
+                    }
+                    setPendingUploads(prev => {
+                        const newSet = new Set(prev);
+                        newSet.delete(targetIndex);
+                        return newSet;
+                    });
+                }
 
                 // Create photo object immediately
                 const photoObj = {
@@ -205,29 +349,25 @@ const PhotoUploadScreen = ({ navigation, route }) => {
                     uploadFailed: false
                 };
 
-                // Update the photos array
-                const newPhotos = [...uploadedPhotos];
-
-                // If we're editing an existing photo
-                if (uploadedPhotos[currentPhotoIndex]) {
-                    newPhotos[currentPhotoIndex] = photoObj;
-                } else {
-                    // Add new photo at the first available slot
-                    const emptyIndex = newPhotos.findIndex(photo => !photo);
-                    if (emptyIndex !== -1) {
-                        newPhotos[emptyIndex] = photoObj;
-                    } else {
-                        newPhotos.push(photoObj);
+                // Update photos array - place photo object at target index
+                setUploadedPhotos(prev => {
+                    const newPhotos = [...prev];
+                    
+                    // Ensure array is large enough for target index
+                    while (newPhotos.length <= targetIndex) {
+                        newPhotos.push(null);
                     }
-                }
+                    
+                    // Place the photo object at the target index
+                    newPhotos[targetIndex] = photoObj;
+                    console.log(`✅ Photo object placed at index: ${targetIndex}`);
+                    return newPhotos;
+                });
 
-                setUploadedPhotos(newPhotos);
+                console.log(`🚀 Starting Firebase upload for index: ${targetIndex}`);
 
-                // Start Firebase upload in background
-                const photoIndex = uploadedPhotos[currentPhotoIndex] ? currentPhotoIndex : 
-                    (newPhotos.findIndex(photo => photo && photo.uri === imageUri));
-                
-                uploadImageToFirebase(imageUri, photoIndex);
+                // Start upload process in background
+                uploadImageToFirebase(imageUri, targetIndex);
                 
             } else {
                 console.log('No image selected');
@@ -243,91 +383,144 @@ const PhotoUploadScreen = ({ navigation, route }) => {
     };
 
     const removePhoto = (index) => {
-        const newPhotos = [...uploadedPhotos];
-        newPhotos.splice(index, 1);
-        setUploadedPhotos(newPhotos);
+        console.log(`🗑️ Removing photo at index: ${index}`);
+        
+        // Cancel upload if it's still uploading
+        if (pendingUploads.has(index)) {
+            const uploadTask = uploadTasks[index];
+            if (uploadTask) {
+                uploadTask.cancel();
+                console.log(`❌ Cancelled upload for index: ${index}`);
+            }
+        }
+        
+        // Remove from pending uploads if it's still uploading
+        setPendingUploads(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(index);
+            console.log(`➖ Removed index ${index} from pending uploads`);
+            return newSet;
+        });
+        
+        // Clear upload progress and task
+        setUploadProgress(prev => {
+            const newProgress = { ...prev };
+            delete newProgress[index];
+            return newProgress;
+        });
+        
+        setUploadTasks(prev => {
+            const newTasks = { ...prev };
+            delete newTasks[index];
+            return newTasks;
+        });
+        
+        // Remove photo and shift all later photos forward to maintain sequential order
+        setUploadedPhotos(prev => {
+            const newPhotos = [...prev];
+            // Remove the photo at index
+            newPhotos.splice(index, 1);
+            // Fill remaining slots with null to maintain array length
+            while (newPhotos.length < maxPhotos) {
+                newPhotos.push(null);
+            }
+            console.log(`🔄 Photo removed from index ${index} and array shifted. Updated array:`, 
+                newPhotos.map((p, i) => ({ index: i, hasPhoto: !!p })));
+            return newPhotos;
+        });
     };
 
     const handleContinue = async () => {
-        // Check if we have at least one photo with successful upload
-        const successfulUploads = uploadedPhotos.filter(photo => photo && photo.firebaseUrl);
+        // Count photos that have been selected (not null)
+        const selectedPhotos = uploadedPhotos.filter(photo => photo !== null && photo !== undefined);
+        const stillUploading = pendingUploads.size > 0;
         
-        if (successfulUploads.length >= 1) {
-            await AsyncStorage.setItem('authStep', 'done');
+        // If images are still uploading, show progress and wait
+        if (stillUploading) {
+            setShowUploadProgress(true);
+            Alert.alert(
+                'Images Uploading', 
+                `Please wait for ${pendingUploads.size} image${pendingUploads.size > 1 ? 's' : ''} to finish uploading before continuing.`,
+                [{ text: 'Wait' }]
+            );
+            return;
+        }
+        
+        // Check minimum photo requirement after all uploads are done
+        if (selectedPhotos.length < minPhotos) {
+            Alert.alert(
+                'More Photos Required', 
+                `Please upload at least ${minPhotos} photos to continue. You currently have ${selectedPhotos.length} photo${selectedPhotos.length !== 1 ? 's' : ''}.`,
+                [{ text: 'OK' }]
+            );
+            return;
+        }
+        
+        if (selectedPhotos.length >= minPhotos) {
+            // Extract Firebase URLs or use local URIs as fallback
+            const photoUrls = selectedPhotos.map(photo => photo.firebaseUrl || photo.uri);
+            proceedWithPhotos(photoUrls);
+        }
+    };
+    
+    const proceedWithPhotos = async (successfulUploads) => {
+        await AsyncStorage.setItem('authStep', 'done');
 
-            // Format according to Fruit schema from types/fruit.ts
-            const completeProductData = {
-                // Will be set by Firestore when saving
-                id: '', 
-                
-                // Basic fruit info
-                name: fruitData?.name || '',
-                type: fruitData?.type || fruitData?.category || '',
-                grade: fruitData?.grade || 'A',
-                description: fruitData?.description || '',
-                
-                // Quantity and pricing
-                quantity: fruitData?.quantity || [0, 0],
-                price_per_kg: 0, // Will be set in PriceSelectionScreen
-                
-                // Availability and images
-                availability_date: new Date().toISOString(),
-                image_urls: successfulUploads.map(photo => photo.firebaseUrl),
-                
-                // Location info
-                location: {
-                    village: fruitData?.location?.village || '',
-                    district: fruitData?.location?.district || '',
-                    state: fruitData?.location?.state || '',
-                    pincode: fruitData?.location?.pincode || '',
-                    lat: fruitData?.location?.lat || 0,
-                    lng: fruitData?.location?.lng || 0
-                },
-                
-                // User reference
-                farmer_id: fruitData?.farmer_id || '',
-                
-                // Status and metadata
-                status: 'active',
-                views: 0,
-                likes: 0,
-                
-                // Timestamps - will be updated when saving to Firebase
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
-                
-                // Additional metadata for UI (not part of schema but useful)
-                categoryInfo: fruitData?.categoryInfo,
-                gradeInfo: fruitData?.gradeInfo,
-                createdBy: fruitData?.createdBy
-            };
-
-            console.log('Complete product data prepared:', completeProductData);
-
-            // Navigate to price selection screen with the complete data
-            navigation.navigate('PriceSelection', { productData: completeProductData });
-
-            // Optional feedback
-            if (successfulUploads.length < maxPhotos) {
-                console.log(`Continuing with ${successfulUploads.length} out of ${maxPhotos} possible photos`);
-            }
-        } else {
-            // Check if images are still uploading
-            const stillUploading = uploadedPhotos.some(photo => photo && photo.uploading);
+        // Format according to Fruit schema from types/fruit.ts
+        const completeProductData = {
+            // Will be set by Firestore when saving
+            id: '', 
             
-            if (stillUploading) {
-                Alert.alert(
-                    'Images Uploading', 
-                    'Please wait for images to finish uploading before continuing.',
-                    [{ text: 'OK' }]
-                );
-            } else {
-                Alert.alert(
-                    'Upload Required', 
-                    'Please upload at least one photo successfully to continue. Try uploading again if any failed.',
-                    [{ text: 'OK' }]
-                );
-            }
+            // Basic fruit info
+            name: fruitData?.name || '',
+            type: fruitData?.type || fruitData?.category || '',
+            // grade: fruitData?.grade || 'A',
+            description: fruitData?.description || '',
+            
+            // Quantity and pricing
+            quantity: fruitData?.quantity || [0, 0],
+            price_per_kg: 0, // Will be set in PriceSelectionScreen
+            
+            // Availability and images
+            availability_date: new Date().toISOString(),
+            image_urls: successfulUploads, // These are now Firebase URLs or local URIs
+            
+            // Location info
+            location: {
+                village: fruitData?.location?.village || '',
+                district: fruitData?.location?.district || '',
+                state: fruitData?.location?.state || '',
+                pincode: fruitData?.location?.pincode || '',
+                lat: fruitData?.location?.lat || 0,
+                lng: fruitData?.location?.lng || 0
+            },
+            
+            // User reference
+            farmer_id: fruitData?.farmer_id || '',
+            
+            // Status and metadata
+            status: 'active',
+            views: 0,
+            likes: 0,
+            
+            // Timestamps - will be updated when saving to Firebase
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            
+            // Additional metadata for UI (not part of schema but useful)
+            categoryInfo: fruitData?.categoryInfo,
+            // gradeInfo: fruitData?.gradeInfo,
+            createdBy: fruitData?.createdBy
+        };
+
+        console.log('Complete product data prepared:', completeProductData);
+
+        // Navigate to price selection screen with the complete data
+        navigation.navigate('PriceSelection', { productData: completeProductData });
+
+        // Optional feedback
+        if (successfulUploads.length < maxPhotos) {
+            console.log(`Continuing with ${successfulUploads.length} out of ${maxPhotos} possible photos`);
         }
     };
 
@@ -337,126 +530,75 @@ const PhotoUploadScreen = ({ navigation, route }) => {
     };
 
     const handleSkip = () => {
-        Alert.alert(
-            'Skip Photo Upload',
-            'Are you sure you want to continue without adding photos? Photos help attract more buyers.',
-            [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'Continue Without Photos',
-                    style: 'destructive',
-                    onPress: async () => {
-                        // Create product data without photos following schema
-                        const basicProductData = {
-                            id: '',
-                            name: fruitData?.name || '',
-                            type: fruitData?.type || fruitData?.category || '',
-                            grade: fruitData?.grade || 'A',
-                            description: fruitData?.description || '',
-                            quantity: fruitData?.quantity || [0, 0],
-                            price_per_kg: 0,
-                            availability_date: new Date().toISOString(),
-                            image_urls: [], // Empty array for no photos
-                            location: {
-                                village: fruitData?.location?.village || '',
-                                district: fruitData?.location?.district || '',
-                                state: fruitData?.location?.state || '',
-                                pincode: fruitData?.location?.pincode || '',
-                                lat: fruitData?.location?.lat || 0,
-                                lng: fruitData?.location?.lng || 0
-                            },
-                            farmer_id: fruitData?.farmer_id || '',
-                            status: 'active',
-                            views: 0,
-                            likes: 0,
-                            created_at: new Date().toISOString(),
-                            updated_at: new Date().toISOString(),
-                            // Additional metadata
-                            categoryInfo: fruitData?.categoryInfo,
-                            gradeInfo: fruitData?.gradeInfo,
-                            createdBy: fruitData?.createdBy
-                        };
-
-                        // Navigate to price selection screen
-                        navigation.navigate('PriceSelection', { productData: basicProductData });
-                    }
-                },
-            ]
-        );
+        // Skip is now disabled - this function should not be called
+        return;
     };
 
     const renderPhotoSlot = (index) => {
         const photo = uploadedPhotos[index];
-        const hasPhoto = !!photo;
-        const isUploading = photo?.uploading || false;
-        const uploadFailed = photo?.uploadFailed || false;
-        const uploadProgressPercent = uploadProgress[index] || 0;
+        const photoUri = photo?.uri;
+        const isPending = pendingUploads.has(index);
+        const isUploading = photo?.uploading || isPending;
+        const nextSlotToFill = getNextAvailableSlot();
+        const isClickable = index === nextSlotToFill;
+        const isDisabled = !isClickable && !photo;
         
         return (
-            <TouchableOpacity
-                key={index}
+            <TouchableOpacity 
+                key={index} 
                 style={[
-                    styles.photoSlot, 
-                    hasPhoto && styles.photoSlotFilled,
-                    uploadFailed && styles.photoSlotError
+                    styles.photoSlot,
+                    photo && styles.photoSlotFilled,
+                    isDisabled && styles.photoSlotDisabled,
+                    isClickable && !photo && styles.photoSlotNext
                 ]}
                 onPress={() => handlePhotoUpload(index)}
-                disabled={isUploading}
+                disabled={isDisabled}
             >
-                {hasPhoto ? (
+                {photo ? (
                     <View style={styles.photoContainer}>
-                        <Image
-                            source={{ uri: photo.uri }}
-                            style={styles.photoImage}
-                            resizeMode="cover"
-                            onError={(error) => {
-                                console.log('Image load error:', error);
+                        <Image source={{ uri: photoUri }} style={styles.uploadedPhoto} />
+                        {isUploading && (
+                            <View style={styles.uploadingOverlay}>
+                                <ActivityIndicator color="#FFF" size="small" />
+                                <Text style={styles.uploadingText}>Uploading...</Text>
+                            </View>
+                        )}
+                        <TouchableOpacity 
+                            style={styles.editButton}
+                            onPress={(e) => {
+                                e.stopPropagation();
                                 removePhoto(index);
                             }}
-                        />
-                        
-                        {/* Upload Progress Overlay */}
-                        {isUploading && (
-                            <View style={styles.uploadOverlay}>
-                                <View style={styles.progressCircle}>
-                                    <Text style={styles.progressText}>{Math.round(uploadProgressPercent)}%</Text>
-                                </View>
-                            </View>
-                        )}
-                        
-                        {/* Upload Success Indicator */}
-                        {photo.firebaseUrl && !isUploading && (
-                            <View style={styles.successIndicator}>
-                                <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />
-                            </View>
-                        )}
-                        
-                        {/* Upload Failed Indicator */}
-                        {uploadFailed && (
-                            <View style={styles.errorIndicator}>
-                                <Ionicons name="alert-circle" size={24} color="#F44336" />
-                            </View>
-                        )}
-                        
-                        {!isUploading && (
-                            <>
-                                <TouchableOpacity style={styles.editButton} onPress={() => handlePhotoUpload(index)}>
-                                    <Ionicons name="create-outline" size={16} color="#666" />
-                                </TouchableOpacity>
-                                <TouchableOpacity style={styles.removeButton} onPress={() => removePhoto(index)}>
-                                    <Ionicons name="close-circle" size={20} color="#f00" />
-                                </TouchableOpacity>
-                            </>
-                        )}
+                        >
+                            <MaterialCommunityIcons 
+                                name="close-circle" 
+                                size={24} 
+                                color="#ff4444" 
+                            />
+                        </TouchableOpacity>
                     </View>
                 ) : (
-                    <View style={styles.addPhotoContent}>
-                        <Ionicons name="camera-outline" size={32} color="#999" />
+                    <View style={styles.placeholderContent}>
+                        <Ionicons 
+                            name="camera-outline" 
+                            size={30} 
+                            color={isDisabled ? "#ccc" : "#666"} 
+                        />
+                        <Text style={[
+                            styles.placeholderText,
+                            isDisabled && styles.placeholderTextDisabled
+                        ]}>
+                            Photo {index + 1}
+                        </Text>
                     </View>
                 )}
             </TouchableOpacity>
         );
     };
+
+    // Calculate the number of photos that have been selected (not necessarily uploaded)
+    const filledCount = uploadedPhotos.filter(photo => photo !== null && photo !== undefined).length;
 
     return (
         <SafeAreaView style={styles.safeArea}>
@@ -469,16 +611,21 @@ const PhotoUploadScreen = ({ navigation, route }) => {
                 </TouchableOpacity>
                 <Text style={styles.headerText}>Add Photos</Text>
                 <TouchableOpacity
-                    style={[styles.skipButton, uploadedPhotos.filter(p => p?.firebaseUrl).length >= 1 && styles.nextButton]}
-                    onPress={uploadedPhotos.filter(p => p?.firebaseUrl).length >= 1 ? handleContinue : handleSkip}
+                    style={[
+                        styles.skipButton, 
+                        (filledCount >= 2 && pendingUploads.size === 0) && styles.nextButton,
+                        (filledCount < 2 || pendingUploads.size > 0) && styles.disabledButton
+                    ]}
+                    onPress={(filledCount >= 2 && pendingUploads.size === 0) ? handleContinue : null}
+                    disabled={filledCount < 2 || pendingUploads.size > 0}
                 >
                     <Text style={[
                         styles.skipText,
-                        uploadedPhotos.filter(p => p?.firebaseUrl).length >= 1 && styles.nextText
-                    ]}>
-                        {uploadedPhotos.filter(p => p?.firebaseUrl).length >= 1 ? 'Next' : 'Skip'}
+                        (filledCount >= 2 && pendingUploads.size === 0) && styles.nextText,
+                        (filledCount < 2 || pendingUploads.size > 0) && styles.disabledButtonText
+                    ]}>Next
                     </Text>
-                    {uploadedPhotos.filter(p => p?.firebaseUrl).length >= 1 && (
+                    {(filledCount >= 2 && pendingUploads.size === 0) && (
                         <Ionicons name="arrow-forward" size={18} color="#FFFFFF" style={{ marginLeft: 4 }} />
                     )}
                 </TouchableOpacity>
@@ -510,7 +657,8 @@ const PhotoUploadScreen = ({ navigation, route }) => {
                                 color="#4CAF50"
                             />
                             <Text style={styles.fruitInfoText}>
-                                {fruitData.type}: {fruitData.quantity[0]}-{fruitData.quantity[1]} tons (Grade {fruitData.grade})
+                                {fruitData.type}: {fruitData.quantity[0]}-{fruitData.quantity[1]} tons 
+                                {/* (Grade {fruitData.grade}) */}
                             </Text>
                         </View>
                     </View>
@@ -530,28 +678,24 @@ const PhotoUploadScreen = ({ navigation, route }) => {
                 <View style={styles.stepInfo}>
                     <View style={styles.stepBadge}>
                         <Text style={styles.stepNumber}>
-                            {`${uploadedPhotos.filter(p => p?.firebaseUrl).length}/${maxPhotos}`}
+                        {`${uploadedPhotos.filter(Boolean).length}/${maxPhotos}`}
                         </Text>
                     </View>
                     <Text style={styles.description}>
                         {(() => {
                             const totalPhotos = uploadedPhotos.filter(Boolean).length;
-                            const uploadedCount = uploadedPhotos.filter(p => p?.firebaseUrl).length;
-                            const uploadingCount = uploadedPhotos.filter(p => p?.uploading).length;
-                            const failedCount = uploadedPhotos.filter(p => p?.uploadFailed).length;
+                            const uploadingCount = pendingUploads.size;
 
                             if (totalPhotos === 0) {
-                                return "This is the fun part. Let's start with adding fruit photos to attract buyers.";
+                                return `Upload at least ${minPhotos} photos to showcase your fruit quality and attract buyers.`;
                             } else if (uploadingCount > 0) {
-                                return `Uploading ${uploadingCount} photo${uploadingCount > 1 ? 's' : ''}... Please wait.`;
-                            } else if (failedCount > 0) {
-                                return `${failedCount} photo${failedCount > 1 ? 's' : ''} failed to upload. Tap to retry.`;
-                            } else if (uploadedCount > 0 && uploadedCount < 3) {
-                                return `Looking good! Add ${maxPhotos - uploadedCount} more photos to showcase your product better.`;
-                            } else if (uploadedCount >= 3 && uploadedCount < maxPhotos) {
-                                return 'Almost there! One more photo will complete your collection.';
-                            } else if (uploadedCount === maxPhotos) {
-                                return 'Perfect! Your fruit listing is now complete with all photos.';
+                                return `${uploadingCount} photo${uploadingCount > 1 ? 's are' : ' is'} uploading in background...`;
+                            } else if (totalPhotos < minPhotos) {
+                                return `Upload ${minPhotos - totalPhotos} more photo${minPhotos - totalPhotos > 1 ? 's' : ''} to meet minimum requirement.`;
+                            } else if (totalPhotos >= minPhotos && totalPhotos < maxPhotos) {
+                                return `Great! You can add ${maxPhotos - totalPhotos} more photo${maxPhotos - totalPhotos > 1 ? 's' : ''} to showcase better.`;
+                            } else if (totalPhotos === maxPhotos) {
+                                return 'Perfect! Your fruit listing is complete with all photos.';
                             } else {
                                 return "Upload photos to continue.";
                             }
@@ -710,6 +854,13 @@ const styles = StyleSheet.create({
         color: '#FFFFFF',
         fontWeight: '700',
     },
+    disabledButton: {
+        backgroundColor: '#CCC',
+        opacity: 0.6,
+    },
+    disabledButtonText: {
+        color: '#888',
+    },
     fruitInfoCard: {
         backgroundColor: '#F5F5F5',
         borderRadius: 12,
@@ -767,8 +918,18 @@ const styles = StyleSheet.create({
     },
     photoSlotFilled: {
         borderStyle: 'solid',
-        borderColor: '#00d4aa',
+        borderColor: '#f5f5f5',
         backgroundColor: '#fff',
+    },
+    photoSlotDisabled: {
+        backgroundColor: '#f9f9f9',
+        borderColor: '#e5e5e5',
+        opacity: 0.5,
+    },
+    photoSlotNext: {
+        backgroundColor: '#f0f0f0',
+        borderColor: '#00d4aa',
+        borderWidth: 3,
     },
     photoSlotError: {
         borderColor: '#F44336',
@@ -777,6 +938,19 @@ const styles = StyleSheet.create({
     addPhotoContent: {
         justifyContent: 'center',
         alignItems: 'center',
+    },
+    placeholderContent: {
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    placeholderText: {
+        fontSize: 12,
+        color: '#666',
+        marginTop: 8,
+        textAlign: 'center',
+    },
+    placeholderTextDisabled: {
+        color: '#ccc',
     },
     photoContainer: {
         width: '100%',
@@ -828,6 +1002,19 @@ const styles = StyleSheet.create({
         backgroundColor: '#FFFFFF',
         borderRadius: 12,
         padding: 2,
+    },
+    uploadingIndicator: {
+        position: 'absolute',
+        top: 8,
+        right: 8,
+        backgroundColor: '#FFFFFF',
+        borderRadius: 12,
+        padding: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.2,
+        shadowRadius: 2,
+        elevation: 2,
     },
     editButton: {
         position: 'absolute',
@@ -965,6 +1152,36 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         color: '#F44336',
         marginLeft: 8,
+    },
+    uploadedPhoto: {
+        width: '100%',
+        height: '100%',
+        borderRadius: 14,
+    },
+    uploadingOverlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.6)',
+        borderRadius: 14,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    uploadingText: {
+        color: '#FFF',
+        fontSize: 12,
+        marginTop: 8,
+        fontWeight: '600',
+    },
+    editButton: {
+        position: 'absolute',
+        top: 8,
+        right: 8,
+        backgroundColor: 'rgba(255, 255, 255, 0.9)',
+        borderRadius: 12,
+        padding: 4,
     },
 });
 

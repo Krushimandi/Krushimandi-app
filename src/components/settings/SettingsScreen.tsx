@@ -204,6 +204,7 @@ const SettingsScreen: React.FC = () => {
   };
 
   const settingsGroups = [
+    // grey color : #6B7280
     {
       title: 'Account',
       items: [
@@ -252,41 +253,41 @@ const SettingsScreen: React.FC = () => {
         // },
       ],
     },
-    {
-      title: 'App Preferences',
-      items: [
-        {
-          id: 'notifications',
-          title: 'Push Notifications',
-          subtitle: 'Get notified about new deals and updates',
-          icon: 'notifications-outline',
-          type: 'toggle' as const,
-          value: notificationsEnabled,
-          onToggle: handleNotificationToggle,
-          color: '#43B86C',
-        },
-        {
-          id: 'darkmode',
-          title: 'Dark Mode',
-          subtitle: 'Switch between light and dark theme',
-          icon: 'moon-outline',
-          type: 'toggle' as const,
-          value: darkModeEnabled,
-          onToggle: handleDarkModeToggle,
-          color: '#43B86C',
-        },
-        // {
-        //   id: 'location',
-        //   title: 'Location Services',
-        //   subtitle: 'Find nearby farmers and buyers',
-        //   icon: 'location-outline',
-        //   type: 'toggle' as const,
-        //   value: locationEnabled,
-        //   onToggle: handleLocationToggle,
-        //   color: '#43B86C',
-        // },
-      ],
-    },
+    // {
+    //   title: 'App Preferences',
+    //   items: [
+    //     {
+    //       id: 'notifications',
+    //       title: 'Push Notifications',
+    //       subtitle: 'Get notified about new deals and updates',
+    //       icon: 'notifications-outline',
+    //       type: 'toggle' as const,
+    //       value: notificationsEnabled,
+    //       onToggle: handleNotificationToggle,
+    //       color: '#43B86C',
+    //     },
+    //     {
+    //       id: 'darkmode',
+    //       title: 'Dark Mode',
+    //       subtitle: 'Switch between light and dark theme',
+    //       icon: 'moon-outline',
+    //       type: 'toggle' as const,
+    //       value: darkModeEnabled,
+    //       onToggle: handleDarkModeToggle,
+    //       color: '#43B86C',
+    //     },
+    //     // {
+    //     //   id: 'location',
+    //     //   title: 'Location Services',
+    //     //   subtitle: 'Find nearby farmers and buyers',
+    //     //   icon: 'location-outline',
+    //     //   type: 'toggle' as const,
+    //     //   value: locationEnabled,
+    //     //   onToggle: handleLocationToggle,
+    //     //   color: '#43B86C',
+    //     // },
+    //   ],
+    // },
     {
       title: 'Support & Info',
       items: [
@@ -297,7 +298,7 @@ const SettingsScreen: React.FC = () => {
           icon: 'help-circle-outline',
           type: 'navigation' as const,
           action: () => navigation.navigate('HelpScreen'),
-          color: '#6B7280',
+          color: '#43B86C',
         },
         {
           id: 'feedback',
@@ -306,7 +307,7 @@ const SettingsScreen: React.FC = () => {
           icon: 'chatbubble-outline',
           type: 'navigation' as const,
           action: () => { openFeedbackModal() },
-          color: '#6B7280',
+          color: '#43B86C',
         },
         {
           id: 'terms',
@@ -315,7 +316,7 @@ const SettingsScreen: React.FC = () => {
           icon: 'document-text-outline',
           type: 'navigation' as const,
           action: () => navigation.navigate('PrivacyPolicy'),
-          color: '#6B7280',
+          color: '#43B86C',
         },
         {
           id: 'about',
@@ -324,7 +325,7 @@ const SettingsScreen: React.FC = () => {
           icon: 'information-circle-outline',
           type: 'navigation' as const,
           action: () => navigation.navigate('About'),
-          color: '#6B7280',
+          color: '#43B86C',
         },
       ],
     },
@@ -355,7 +356,6 @@ const SettingsScreen: React.FC = () => {
 
   const renderSettingItem = (item: SettingItem, index: number) => {
     const isDestructive = item.id === 'logout' || item.id === 'delete';
-
     return (
       <TouchableOpacity
         key={item.id}
@@ -789,12 +789,11 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     padding: 24,
     elevation: 6,
-    shadowColor: '#43B86C',
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.1)',
+    borderWidth: 0,
   },
   userHeader: {
     flexDirection: 'row',
@@ -914,13 +913,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
     overflow: 'hidden',
-    elevation: 4,
-    shadowColor: '#43B86C',
+    elevation: 6,
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.05)',
+    borderWidth: 0,
   },
   settingItem: {
     flexDirection: 'row',
