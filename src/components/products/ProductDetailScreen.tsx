@@ -1325,7 +1325,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                         })()}
                       </Text>
 
-                      <View style={styles.farmerRatingContainer}>
+                      {/* <View style={styles.farmerRatingContainer}>
                         <View style={styles.modernStarsContainer}>
                           {renderStars(farmerData?.average_rating || product.farmer_rating || 4.0)}
                         </View>
@@ -1335,7 +1335,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                         <Text style={styles.reviewCountText}>
                           ({farmerData?.total_reviews || farmerReviews.length || 0} reviews)
                         </Text>
-                      </View>
+                      </View> */}
 
                       {/* Farmer Stats */}
                       <View style={styles.farmerStatsRow}>
@@ -1371,6 +1371,13 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                       </Text>
                     </View>
                   )}
+                  
+                  {/* Rate this farmer button */}
+                  {/* <View style={styles.farmerActionsContainer}>
+                    <TouchableOpacity style={styles.rateFarmerButton}>
+                      <Text style={styles.rateFarmerButtonText}>Rate this farmer</Text>
+                    </TouchableOpacity>
+                  </View> */}
                 </View>
 
                 {/* Modern Reviews Section */}
@@ -2644,6 +2651,24 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666666',
     lineHeight: 20,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  farmerActionsContainer: {
+    flexDirection: 'row',
+    // marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+  },
+  rateFarmerButton: {
+    backgroundColor: 'transparent',
+    paddingHorizontal: 0,
+    // paddingVertical: 8,
+  },
+  rateFarmerButtonText: {
+    fontSize: 14,
+    color: '#1E90FF',
+    fontWeight: '700',
     fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
   modernReviewsHeader: {

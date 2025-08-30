@@ -110,7 +110,7 @@ const MyOrdersScreen = () => {
   } = useNotifications() || {};
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeFilter, setActiveFilter] = useState('all');
+  const [activeFilter, setActiveFilter] = useState('processing');
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
 
@@ -166,18 +166,12 @@ const MyOrdersScreen = () => {
   };
 
   // Filter orders based on selected status
-  const filteredOrders = activeFilter === 'all'
-    ? orders.filter(order =>
-      order.productName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+  const filteredOrders = orders.filter(order =>
+    order.status === activeFilter &&
+    (order.productName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       order.orderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.seller.toLowerCase().includes(searchQuery.toLowerCase())
-    )
-    : orders.filter(order =>
-      order.status === activeFilter &&
-      (order.productName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        order.orderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        order.seller.toLowerCase().includes(searchQuery.toLowerCase()))
-    );
+      order.seller.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
 
   // View order details
   const viewOrderDetails = (order) => {
@@ -682,9 +676,7 @@ const MyOrdersScreen = () => {
       <Text style={styles.emptyText}>
         {searchQuery
           ? `No orders match "${searchQuery}"`
-          : activeFilter === 'all'
-            ? "You haven't placed any orders yet"
-            : `You don't have any ${activeFilter} orders`}
+          : `You don't have any ${activeFilter} orders`}
       </Text>
       {!searchQuery && (
         <TouchableOpacity
@@ -771,10 +763,8 @@ const MyOrdersScreen = () => {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.filtersScrollContent}
         >
-          <FilterButton title="All" value="all" count={orderStats.total} />
           <FilterButton title="Processing" value="processing" count={orderStats.processing} />
           <FilterButton title="Delivered" value="delivered" count={orderStats.delivered} />
-          <FilterButton title="Canceled" value="canceled" count={orderStats.canceled} />
         </ScrollView>
       </View>
 

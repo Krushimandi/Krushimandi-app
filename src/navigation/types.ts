@@ -46,6 +46,7 @@ export type RootStackParamList = {
     buyerId: string;
     buyerName?: string;
   };
+  ReviewTest: undefined; // Test screen for review system
 };
 
 // Auth Stack

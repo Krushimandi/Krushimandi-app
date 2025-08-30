@@ -910,7 +910,7 @@ const BuyerHomeScreen = () => {
                     <Text style={styles.fruitTons}>
                       {formatFruitQuantity(item.quantity)}
                     </Text>
-                    {renderStars(4.8)} {/* Default rating for now */}
+                    {/* {renderStars(4.8)} Default rating for now */}
                   </View>
                 </TouchableOpacity>
               ))
