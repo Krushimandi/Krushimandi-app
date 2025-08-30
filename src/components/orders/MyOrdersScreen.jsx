@@ -27,6 +27,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 import { useNavigation } from '@react-navigation/native';
+import firestore from '@react-native-firebase/firestore';
 import { Colors } from '../../constants';
 import { useTabBarControl } from '../../utils/navigationControls.ts';
 import NotificationBadge from '../common/NotificationBadge.tsx';
@@ -64,6 +65,7 @@ const mapAcceptedRequestsToOrders = (requests) => {
     .filter(r => r.status === 'accepted')
     .map(r => ({
       id: r.id,
+      farmerId: r.farmerId, // Add farmerId for fetching farmer details
       productName: r.productSnapshot?.name || 'Unknown Product',
       orderNumber: r.id, // Firestore does not provide orderNumber, use id
       quantity: Array.isArray(r.quantity)
@@ -77,7 +79,6 @@ const mapAcceptedRequestsToOrders = (requests) => {
         : require('../../assets/fruit_placeholder.png'),
       status: r.status,
       seller: r.productSnapshot?.farmerName || 'Unknown Farmer',
-      farmerPhone: r.buyerDetails?.phone || '',
       farmerLocation: r.productSnapshot?.farmerLocation || 'Unknown Location',
       // Use createdAt (Firestore Timestamp) instead of createdAtString
       dateOrdered: r.createdAt ? getDateFromTimestamp(r.createdAt).toLocaleString() : '',
@@ -194,93 +195,133 @@ const MyOrdersScreen = () => {
   };
 
   // Handle contacting seller
-  const handleContactSeller = (order) => {
-    if (!order.farmerPhone) {
-      Alert.alert('Error', 'Phone number not available for this seller');
-      return;
+  const handleContactSeller = async (order) => {
+    try {
+      // Get the farmer ID from the order
+      const farmerId = order.farmerId;
+      
+      if (!farmerId) {
+        Alert.alert(
+          'Contact Information Missing', 
+          'Unable to identify the farmer for this order.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
+      // Show loading while fetching farmer phone
+      const loadingTimeout = setTimeout(() => {
+        Alert.alert(
+          'Getting Contact Info',
+          'Fetching farmer contact details...',
+          [],
+          { cancelable: false }
+        );
+      }, 500);
+
+      // Fetch farmer's actual phone number from Firestore
+      const farmerPhoneNumber = await getFarmerPhoneNumber(farmerId);
+      
+      // Clear loading
+      clearTimeout(loadingTimeout);
+
+      if (!farmerPhoneNumber) {
+        Alert.alert(
+          'Contact Information Unavailable', 
+          `Sorry, we couldn't find a phone number for ${order.seller}.\n\nYou may need to contact them through other means or check back later.`
+        );
+        return;
+      }
+
+      // Clean the phone number (remove any non-digit characters except +)
+      const cleanPhone = farmerPhoneNumber.replace(/[^\d+]/g, '');
+
+      // Create a demo message
+      const demoMessage = `Hello ${order.seller}! 👋\n\nI have a question about my order:\n• Order: ${order.orderNumber}\n• Product: ${order.productName}\n• Quantity: ${order.quantity}\n\nCould you please provide an update on the delivery status?\n\nThank you! 😊`;
+
+      // Encode the message for URL
+      const encodedMessage = encodeURIComponent(demoMessage);
+      const smsUrl = `sms:${cleanPhone}?body=${encodedMessage}`;
+
+      console.log('📱 Attempting to open SMS with:', `sms:${cleanPhone}?body=<message>`);
+
+      // First try to open SMS directly
+      Linking.openURL(smsUrl)
+        .then(() => {
+          console.log('✅ SMS app opened successfully');
+        })
+        .catch((error) => {
+          console.error('❌ SMS failed, trying alternative methods:', error);
+
+          // Fallback 1: Try without body parameter (some devices don't support it)
+          const simpleSmsUrl = `sms:${cleanPhone}`;
+          Linking.openURL(simpleSmsUrl)
+            .then(() => {
+              console.log('✅ SMS opened with simple format');
+              // Show the message for user to copy
+              Alert.alert(
+                'Message App Opened',
+                `Please copy and paste this message:\n\n${demoMessage}`,
+                [
+                  {
+                    text: 'Copy Message',
+                    onPress: () => {
+                      Clipboard.setString(demoMessage);
+                      Alert.alert('Message Copied!', 'The message has been copied to your clipboard.');
+                    }
+                  },
+                  { text: 'OK' }
+                ]
+              );
+            })
+            .catch((fallbackError) => {
+              console.error('❌ All SMS methods failed:', fallbackError);
+
+              // Final fallback: Show options to user
+              Alert.alert(
+                'Message Seller',
+                `Send a message to ${order.seller}\n\nPhone: ${farmerPhoneNumber}`,
+                [
+                  {
+                    text: 'Cancel',
+                    style: 'cancel'
+                  },
+                  {
+                    text: 'Copy Number & Message',
+                    onPress: () => {
+                      const fullText = `Phone: ${farmerPhoneNumber}\n\nMessage:\n${demoMessage}`;
+                      Clipboard.setString(fullText);
+                      Alert.alert(
+                        'Copied!',
+                        'Phone number and message have been copied to your clipboard.\n\nYou can now paste them in your messaging app.'
+                      );
+                    }
+                  },
+                  {
+                    text: 'Try SMS Again',
+                    onPress: () => {
+                      // Try one more time with different format
+                      Linking.openURL(`sms://${cleanPhone}`)
+                        .catch(() => {
+                          Alert.alert(
+                            'Unable to Open Messaging',
+                            `Please manually message: ${farmerPhoneNumber}\n\nOr copy the demo message from the options above.`
+                          );
+                        });
+                    }
+                  }
+                ]
+              );
+            });
+        });
+
+    } catch (error) {
+      console.error('❌ Error in handleContactSeller:', error);
+      Alert.alert(
+        'Connection Error',
+        'Something went wrong while trying to get the farmer\'s contact information. Please check your internet connection and try again.'
+      );
     }
-
-    // Clean the phone number (remove any non-digit characters except +)
-    const cleanPhone = order.farmerPhone.replace(/[^\d+]/g, '');
-
-    // Create a demo message
-    const demoMessage = `Hello ${order.seller}! 👋\n\nI have a question about my order:\n• Order: ${order.orderNumber}\n• Product: ${order.productName}\n• Quantity: ${order.quantity}\n\nCould you please provide an update on the delivery status?\n\nThank you! 😊`;
-
-    // Encode the message for URL
-    const encodedMessage = encodeURIComponent(demoMessage);
-    const smsUrl = `sms:${cleanPhone}?body=${encodedMessage}`;
-
-    console.log('Attempting to open SMS with:', smsUrl);
-
-    // First try to open SMS directly
-    Linking.openURL(smsUrl)
-      .then(() => {
-        console.log('SMS app opened successfully');
-      })
-      .catch((error) => {
-        console.error('SMS failed, trying alternative methods:', error);
-
-        // Fallback 1: Try without body parameter (some devices don't support it)
-        const simpleSmsUrl = `sms:${cleanPhone}`;
-        Linking.openURL(simpleSmsUrl)
-          .then(() => {
-            console.log('SMS opened with simple format');
-            // Show the message for user to copy
-            Alert.alert(
-              'Message App Opened',
-              `Please copy and paste this message:\n\n${demoMessage}`,
-              [
-                {
-                  text: 'Copy Message',
-                  onPress: () => {
-                    Clipboard.setString(demoMessage);
-                    Alert.alert('Message Copied!', 'The message has been copied to your clipboard.');
-                  }
-                },
-                { text: 'OK' }
-              ]
-            );
-          })
-          .catch((fallbackError) => {
-            console.error('All SMS methods failed:', fallbackError);
-
-            // Final fallback: Show options to user
-            Alert.alert(
-              'Message Seller',
-              `Send a message to ${order.seller}?\n\nPhone: ${order.farmerPhone}`,
-              [
-                {
-                  text: 'Cancel',
-                  style: 'cancel'
-                },
-                {
-                  text: 'Copy Number & Message',
-                  onPress: () => {
-                    const fullText = `Phone: ${order.farmerPhone}\n\nMessage:\n${demoMessage}`;
-                    Clipboard.setString(fullText);
-                    Alert.alert(
-                      'Copied!',
-                      'Phone number and message have been copied to your clipboard.\n\nYou can now paste them in your messaging app.'
-                    );
-                  }
-                },
-                {
-                  text: 'Try SMS Again',
-                  onPress: () => {
-                    // Try one more time with different format
-                    Linking.openURL(`sms://${cleanPhone}`)
-                      .catch(() => {
-                        Alert.alert(
-                          'Unable to Open Messaging',
-                          `Please manually message: ${order.farmerPhone}\n\nOr copy the demo message from the options above.`
-                        );
-                      });
-                  }
-                }
-              ]
-            );
-          });
-      });
   };
 
   // Handle writing review
@@ -307,73 +348,201 @@ const MyOrdersScreen = () => {
     // navigation.navigate('Browse', { category: order.category, search: order.productName });
   };
 
-  // Handle direct call to farmer
-  const handleCallFarmer = (order) => {
-    if (!order.farmerPhone) {
-      Alert.alert('Error', 'Phone number not available for this farmer');
-      return;
+  // Fetch farmer phone number from Firestore
+  const getFarmerPhoneNumber = async (farmerId) => {
+    try {
+      console.log('🔍 Fetching farmer phone number for ID:', farmerId);
+      
+      if (!farmerId || farmerId.trim() === '') {
+        console.log('⚠️ Invalid farmer ID provided');
+        return null;
+      }
+      
+      // Try to get from farmers collection first
+      const farmerDoc = await firestore().collection('farmers').doc(farmerId).get();
+      
+      if (farmerDoc.exists()) {
+        const farmerData = farmerDoc.data();
+        console.log('👨‍🌾 Farmer data found:', {
+          name: farmerData.displayName || farmerData.name,
+          hasPhone: !!(farmerData.phoneNumber || farmerData.phone || farmerData.mobile)
+        });
+        
+        // Check multiple possible phone field names
+        const phoneNumber = farmerData.phoneNumber || farmerData.phone || farmerData.mobile;
+        
+        if (phoneNumber) {
+          console.log('📱 Found phone number:', phoneNumber.replace(/(\d{3})\d{4}(\d{3})/, '$1****$2')); // Log masked phone for privacy
+          return phoneNumber;
+        } else {
+          console.log('📵 No phone number found in farmer data');
+          return null;
+        }
+      } else {
+        console.log('⚠️ Farmer document not found for ID:', farmerId);
+        return null;
+      }
+    } catch (error) {
+      console.error('❌ Error fetching farmer phone number:', error);
+      return null;
     }
+  };
 
-    // Clean the phone number (remove any non-digit characters except +)
-    const cleanPhone = order.farmerPhone.replace(/[^\d+]/g, '');
-    const phoneUrl = `tel:${cleanPhone}`;
+  // Handle direct call to farmer
+  const handleCallFarmer = async (order) => {
+    try {
+      // First, try to get the farmer ID from the order
+      const farmerId = order.farmerId;
+      
+      if (!farmerId) {
+        Alert.alert(
+          'Contact Information Missing', 
+          'Unable to identify the farmer for this order. Please try using the message feature instead.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { 
+              text: 'Send Message', 
+              onPress: () => handleContactSeller(order)
+            }
+          ]
+        );
+        return;
+      }
 
-    console.log('Attempting to call:', phoneUrl);
+      // Show loading indicator
+      const loadingAlert = setTimeout(() => {
+        Alert.alert(
+          'Getting Contact Info',
+          'Fetching farmer contact details...',
+          [],
+          { cancelable: false }
+        );
+      }, 500); // Show loading only if it takes more than 500ms
 
-    // First try to open directly
-    Linking.openURL(phoneUrl)
-      .then(() => {
-        console.log('Phone call initiated successfully');
-      })
-      .catch((error) => {
-        console.error('Direct call failed, trying alternative methods:', error);
+      // Fetch farmer's actual phone number from Firestore
+      const farmerPhoneNumber = await getFarmerPhoneNumber(farmerId);
+      
+      // Clear any loading alerts
+      clearTimeout(loadingAlert);
 
-        // Fallback 1: Try with different URL format
-        const alternativeUrl = `telprompt:${cleanPhone}`;
-        Linking.openURL(alternativeUrl)
-          .then(() => {
-            console.log('Phone call initiated with telprompt');
-          })
-          .catch((fallbackError) => {
-            console.error('Fallback call also failed:', fallbackError);
+      if (!farmerPhoneNumber) {
+        Alert.alert(
+          'Contact Information Unavailable', 
+          `Sorry, we couldn't find a phone number for ${order.seller}.\n\nYou can try contacting them through the message feature instead.`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { 
+              text: 'Send Message', 
+              onPress: () => handleContactSeller(order)
+            }
+          ]
+        );
+        return;
+      }
 
-            // Fallback 2: Show options to user
-            Alert.alert(
-              'Call Farmer',
-              `Would you like to call ${order.seller}?\n\nPhone: ${order.farmerPhone}`,
-              [
-                {
-                  text: 'Cancel',
-                  style: 'cancel'
-                },
-                {
-                  text: 'Copy Number',
-                  onPress: () => {
-                    // Copy number to clipboard and show confirmation
-                    Clipboard.setString(order.farmerPhone);
-                    Alert.alert(
-                      'Number Copied!',
-                      `${order.farmerPhone} has been copied to your clipboard.\n\nYou can now paste it in your phone dialer.`
-                    );
+      // Clean the phone number (remove any non-digit characters except +)
+      const cleanPhone = farmerPhoneNumber.replace(/[^\d+]/g, '');
+      
+      if (!cleanPhone || cleanPhone.length < 10) {
+        Alert.alert(
+          'Invalid Phone Number', 
+          `The phone number for ${order.seller} appears to be invalid.\n\nPlease try contacting them through the message feature.`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { 
+              text: 'Send Message', 
+              onPress: () => handleContactSeller(order)
+            }
+          ]
+        );
+        return;
+      }
+
+      const phoneUrl = `tel:${cleanPhone}`;
+      console.log('📞 Attempting to call farmer via:', phoneUrl);
+
+      // First try to open directly
+      Linking.openURL(phoneUrl)
+        .then(() => {
+          console.log('✅ Phone call initiated successfully');
+        })
+        .catch((error) => {
+          console.error('❌ Direct call failed, trying alternative methods:', error);
+
+          // Fallback 1: Try with different URL format for iOS
+          const alternativeUrl = `telprompt:${cleanPhone}`;
+          Linking.openURL(alternativeUrl)
+            .then(() => {
+              console.log('✅ Phone call initiated with telprompt');
+            })
+            .catch((fallbackError) => {
+              console.error('❌ Fallback call also failed:', fallbackError);
+
+              // Fallback 2: Show options to user
+              Alert.alert(
+                'Call Farmer',
+                `Contact ${order.seller}\n\nPhone: ${farmerPhoneNumber}\n\nWould you like to call this number?`,
+                [
+                  {
+                    text: 'Cancel',
+                    style: 'cancel'
+                  },
+                  {
+                    text: 'Copy Number',
+                    onPress: () => {
+                      Clipboard.setString(farmerPhoneNumber);
+                      Alert.alert(
+                        'Number Copied!',
+                        `${farmerPhoneNumber} has been copied to your clipboard.\n\nYou can now paste it in your phone dialer.`
+                      );
+                    }
+                  },
+                  {
+                    text: 'Call Now',
+                    onPress: () => {
+                      // Try one more time with basic tel: format
+                      Linking.openURL(`tel:${farmerPhoneNumber}`)
+                        .catch(() => {
+                          Alert.alert(
+                            'Unable to Make Call',
+                            `Your device may not support automatic dialing.\n\nPlease manually dial: ${farmerPhoneNumber}`,
+                            [
+                              { 
+                                text: 'Copy Number',
+                                onPress: () => {
+                                  Clipboard.setString(farmerPhoneNumber);
+                                  Alert.alert('Number Copied!', 'You can now paste it in your phone dialer.');
+                                }
+                              },
+                              { text: 'OK' }
+                            ]
+                          );
+                        });
+                    }
                   }
-                },
-                {
-                  text: 'Try Again',
-                  onPress: () => {
-                    // Try one more time with basic tel: format
-                    Linking.openURL(`tel:${order.farmerPhone}`)
-                      .catch(() => {
-                        Alert.alert(
-                          'Unable to Make Call',
-                          `Please manually dial: ${order.farmerPhone}\n\nYour device may not support automatic dialing.`
-                        );
-                      });
-                  }
-                }
-              ]
-            );
-          });
-      });
+                ]
+              );
+            });
+        });
+
+    } catch (error) {
+      console.error('❌ Error in handleCallFarmer:', error);
+      Alert.alert(
+        'Connection Error',
+        'Something went wrong while trying to get the farmer\'s contact information. Please check your internet connection and try again.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { 
+            text: 'Send Message Instead', 
+            onPress: () => handleContactSeller(order)
+          },
+          { 
+            text: 'Retry', 
+            onPress: () => handleCallFarmer(order)
+          }
+        ]
+      );
+    }
   };
 
   // Status badge based on order status
@@ -520,10 +689,10 @@ const MyOrdersScreen = () => {
       {!searchQuery && (
         <TouchableOpacity
           style={styles.browseButton}
-          onPress={() => navigation.navigate('Browse')}
+          onPress={() => navigation.navigate('Home')}
         >
           <Icon name="storefront-outline" size={18} color="#FFFFFF" />
-          <Text style={styles.browseButtonText}>Start Shopping</Text>
+          <Text style={styles.browseButtonText}>Explore Market</Text>
         </TouchableOpacity>
       )}
     </View>

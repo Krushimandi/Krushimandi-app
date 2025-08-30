@@ -967,10 +967,10 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
           <View style={styles.modernProductHeaderSection}>
             <Text style={styles.modernProductName}>{product.name}</Text>
             <View style={styles.modernGradeTypeContainer}>
-              <View style={styles.modernGradeBadge}>
+              {/* <View style={styles.modernGradeBadge}>
                 <Ionicons name="ribbon" size={14} color="#007E2F" />
                 <Text style={styles.modernGradeText}>Grade {product.grade}</Text>
-              </View>
+              </View> */}
               <View style={styles.modernTypeBadge}>
                 <Ionicons name="leaf" size={14} color="#666666" />
                 <Text style={styles.modernTypeText}>{product.type}</Text>
@@ -1121,7 +1121,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                 </View>
               </View>
 
-              <View style={styles.modernDetailCard}>
+              {/* <View style={styles.modernDetailCard}>
                 <View style={styles.modernDetailIconContainer}>
                   <Ionicons name="ribbon-outline" size={22} color="#007E2F" />
                 </View>
@@ -1129,7 +1129,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                   <Text style={styles.modernDetailLabel}>Quality Grade</Text>
                   <Text style={styles.modernDetailValue}>Grade {product.grade}</Text>
                 </View>
-              </View>
+              </View> */}
 
               {/* Status */}
               <View style={[styles.modernDetailCard, styles.fullWidthCard]}>
