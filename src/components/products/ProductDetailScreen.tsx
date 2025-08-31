@@ -1275,14 +1275,6 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                     <View style={styles.loadingAvatar}>
                       <View style={styles.loadingIndicator} />
                     </View>
-<<<<<<< HEAD
-                    <View style={styles.farmerLoadingInfo}>
-                      <View style={styles.loadingTextLine} />
-                      <View style={styles.loadingTextLineShort} />
-                      <View style={styles.loadingTextLineTiny} />
-                    </View>
-                  </View>
-=======
 
                     <View style={styles.modernFarmerInfo}>
                       <Text style={styles.modernFarmerName}>
@@ -1345,14 +1337,13 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                       </Text>
                     </View>
                   )}
-                  
+
                   {/* Rate this farmer button */}
                   {/* <View style={styles.farmerActionsContainer}>
                     <TouchableOpacity style={styles.rateFarmerButton}>
                       <Text style={styles.rateFarmerButtonText}>Rate this farmer</Text>
                     </TouchableOpacity>
                   </View> */}
->>>>>>> 305cfaad52bc67eccdec878a9340de82a9bd2001
                 </View>
               ) : (
                 <>
