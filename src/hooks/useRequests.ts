@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import auth from '@react-native-firebase/auth';
 import { requestService } from '../services/requestService';
 import { requestNotificationService } from '../services/requestNotificationService';
 import { Request, RequestStatus, CreateRequestInput, RequestResponseInput, RequestFilters, ProductRequestCount } from '../types/Request';
@@ -15,9 +16,13 @@ export const useRequests = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Resolve the active UID from Firebase Auth first, then fallback to context
+  const getActiveUid = () => auth().currentUser?.uid || user?.uid || null;
+
   // Create a new request
   const createRequest = useCallback(async (input: CreateRequestInput): Promise<string | null> => {
-    if (!user?.uid) {
+    const uid = getActiveUid();
+    if (!uid) {
       setError('User not authenticated');
       return null;
     }
@@ -25,7 +30,7 @@ export const useRequests = () => {
     try {
       setLoading(true);
       setError(null);
-      const requestId = await requestService.createRequest(user.uid, input);
+  const requestId = await requestService.createRequest(uid, input);
       
       if (requestId) {
         // Get the created request to access product snapshot and farmer details
@@ -34,7 +39,7 @@ export const useRequests = () => {
           if (createdRequest) {
             await requestNotificationService.sendRequestCreatedNotification({
               requestId,
-              buyerId: user.uid,
+              buyerId: uid,
               farmerId: createdRequest.farmerId,
               productName: createdRequest.productSnapshot.name,
               farmerName: createdRequest.productSnapshot.farmerName,
@@ -60,16 +65,17 @@ export const useRequests = () => {
     } finally {
       setLoading(false);
     }
-  }, [user?.uid, user?.name]);
+  }, [user?.name]);
 
   // Load buyer's requests
   const loadBuyerRequests = useCallback(async (filters?: RequestFilters): Promise<void> => {
-    if (!user?.uid) return;
+    const uid = getActiveUid();
+    if (!uid) return;
 
     try {
       setLoading(true);
       setError(null);
-      const buyerRequests = await requestService.getBuyerRequests(user.uid, filters);
+  const buyerRequests = await requestService.getBuyerRequests(uid, filters);
       setRequests(buyerRequests);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load requests';
@@ -77,17 +83,18 @@ export const useRequests = () => {
     } finally {
       setLoading(false);
     }
-  }, [user?.uid]);
+  }, []);
 
   // Load farmer's requests
   const loadFarmerRequests = useCallback(async (filters?: RequestFilters): Promise<void> => {
-    if (!user?.uid) return;
+    const uid = getActiveUid();
+    if (!uid) return;
 
     try {
       setLoading(true);
       setError(null);
-      console.log(user.uid, filters);
-      const farmerRequests = await requestService.getFarmerRequests(user.uid, filters);
+  console.log(uid, filters);
+  const farmerRequests = await requestService.getFarmerRequests(uid, filters);
       setRequests(farmerRequests);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load requests';
@@ -95,11 +102,12 @@ export const useRequests = () => {
     } finally {
       setLoading(false);
     }
-  }, [user?.uid]);
+  }, []);
 
   // Respond to a request (farmer action)
   const respondToRequest = useCallback(async (input: RequestResponseInput): Promise<boolean> => {
-    if (!user?.uid) {
+    const uid = getActiveUid();
+    if (!uid) {
       console.error('❌ No user UID for respond to request');
       setError('User not authenticated');
       return false;
@@ -107,14 +115,14 @@ export const useRequests = () => {
 
     try {
       console.log('🔄 useRequests: Responding to request:', {
-        userId: user.uid,
+  userId: uid,
         userRole: user.role,
         input
       });
 
       setLoading(true);
       setError(null);
-      await requestService.respondToRequest(user.uid, input);
+  await requestService.respondToRequest(uid, input);
       
       // Send notification to buyer
       try {
@@ -124,7 +132,7 @@ export const useRequests = () => {
             await requestNotificationService.sendRequestAcceptedNotification({
               requestId: input.requestId,
               buyerId: request.buyerId,
-              farmerId: user.uid,
+              farmerId: uid,
               productName: request.productSnapshot.name,
               farmerName: user.name || 'Unknown Farmer',
               buyerName: request.buyerDetails.name,
@@ -155,7 +163,7 @@ export const useRequests = () => {
       console.log('✅ useRequests: Request response successful, refreshing farmer requests...');
       
       // Refresh requests after responding
-      await loadFarmerRequests();
+  await loadFarmerRequests();
       
       console.log('✅ useRequests: Farmer requests refreshed');
       
@@ -171,11 +179,12 @@ export const useRequests = () => {
     } finally {
       setLoading(false);
     }
-  }, [user?.uid, user?.name]);
+  }, [user?.name]);
 
   // Cancel a request (buyer action)
   const cancelRequest = useCallback(async (requestId: string): Promise<boolean> => {
-    if (!user?.uid) {
+    const uid = getActiveUid();
+    if (!uid) {
       setError('User not authenticated');
       return false;
     }
@@ -185,16 +194,16 @@ export const useRequests = () => {
       setError(null);
       
       // Get request details before canceling for notification
-      const request = await requestService.getRequest(requestId);
+  const request = await requestService.getRequest(requestId);
       
-      await requestService.cancelRequest(user.uid, requestId);
+  await requestService.cancelRequest(uid, requestId);
       
       // Send notification to farmer
       if (request) {
         try {
           await requestNotificationService.sendRequestCancelledNotification({
             requestId,
-            buyerId: user.uid,
+            buyerId: uid,
             farmerId: request.farmerId,
             productName: request.productSnapshot.name,
             farmerName: request.productSnapshot.farmerName,
@@ -209,7 +218,7 @@ export const useRequests = () => {
       }
       
       // Refresh requests after canceling
-      await loadBuyerRequests();
+  await loadBuyerRequests();
       
       return true;
     } catch (err) {
@@ -219,11 +228,12 @@ export const useRequests = () => {
     } finally {
       setLoading(false);
     }
-  }, [user?.uid, user?.name]);
+  }, [user?.name]);
 
   // Resend a request (buyer action)
   const resendRequest = useCallback(async (requestId: string): Promise<string | null> => {
-    if (!user?.uid) {
+    const uid = getActiveUid();
+    if (!uid) {
       setError('User not authenticated');
       return null;
     }
@@ -235,14 +245,14 @@ export const useRequests = () => {
       // Get original request details for notification
       const originalRequest = await requestService.getRequest(requestId);
       
-      const newRequestId = await requestService.resendRequest(user.uid, requestId);
+  const newRequestId = await requestService.resendRequest(uid, requestId);
       
       // Send notification to farmer about resent request
       if (newRequestId && originalRequest) {
         try {
           await requestNotificationService.sendRequestResentNotification({
             requestId: newRequestId,
-            buyerId: user.uid,
+            buyerId: uid,
             farmerId: originalRequest.farmerId,
             productName: originalRequest.productSnapshot.name,
             farmerName: originalRequest.productSnapshot.farmerName,
@@ -256,7 +266,7 @@ export const useRequests = () => {
       }
       
       // Refresh requests after resending
-      await loadBuyerRequests();
+  await loadBuyerRequests();
       
       return newRequestId;
     } catch (err) {
@@ -266,7 +276,7 @@ export const useRequests = () => {
     } finally {
       setLoading(false);
     }
-  }, [user?.uid, user?.name]);
+  }, [user?.name]);
 
   // Get product request counts
   const getProductRequestCounts = useCallback(async (productIds: string[]): Promise<ProductRequestCount[]> => {
@@ -298,17 +308,18 @@ export const useRequests = () => {
 
   // Check if buyer has existing request for a product
   const hasExistingRequest = useCallback(async (productId: string): Promise<boolean> => {
-    if (!user?.uid) {
+    const uid = getActiveUid();
+    if (!uid) {
       return false;
     }
 
     try {
-      return await requestService.hasExistingRequest(user.uid, productId);
+      return await requestService.hasExistingRequest(uid, productId);
     } catch (error) {
       console.error('Error checking existing request:', error);
       return false;
     }
-  }, [user?.uid]);
+  }, []);
 
   return {
     requests,

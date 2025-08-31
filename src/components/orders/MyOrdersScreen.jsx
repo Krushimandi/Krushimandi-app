@@ -40,33 +40,34 @@ import { useNotifications } from '../../hooks/useNotifications';
 
 const getDateFromTimestamp = (timestamp) => {
   let dateObj;
-  if (!timestamp) dateObj = new Date();
-  else if (typeof timestamp === 'string') dateObj = new Date(timestamp);
-  else if (timestamp.toDate && typeof timestamp.toDate === 'function') dateObj = timestamp.toDate();
-  else if (timestamp.seconds) dateObj = new Date(timestamp.seconds * 1000);
-  else dateObj = new Date(timestamp);
 
-  // Format: YYYY-MM-DD HH:MM AM/PM (no seconds)
+  if (!timestamp) dateObj = new Date();
+  else if (timestamp.toDate) dateObj = timestamp.toDate(); // Firestore Timestamp
+  else if (timestamp.seconds) dateObj = new Date(timestamp.seconds * 1000); // Firestore object
+  else if (timestamp._seconds) dateObj = new Date(timestamp._seconds * 1000); // JSON exported object
+  else dateObj = new Date(timestamp); // string ya Date handle ho jayega
+
+  // Format: YYYY-MM-DD HH:MM AM/PM
   const year = dateObj.getFullYear();
   const month = String(dateObj.getMonth() + 1).padStart(2, '0');
   const day = String(dateObj.getDate()).padStart(2, '0');
+
   let hours = dateObj.getHours();
   const minutes = String(dateObj.getMinutes()).padStart(2, '0');
   const ampm = hours >= 12 ? 'PM' : 'AM';
-  hours = hours % 12;
-  hours = hours ? hours : 12; // the hour '0' should be '12'
+  hours = hours % 12 || 12;
   const hourStr = String(hours).padStart(2, '0');
+
   return `${year}-${month}-${day} ${hourStr}:${minutes} ${ampm}`;
 };
-
 
 // Normalize backend request status to UI order status without changing styles
 const toUiStatus = (status) => {
   const s = (status || '').toLowerCase();
   if (['delivered', 'completed', 'complete'].includes(s)) return 'delivered';
   if (['cancelled', 'canceled'].includes(s)) return 'canceled';
-  // Treat all other in-progress states (accepted, pending, processing, shipped, etc.) as processing
-  return 'processing';
+  // Treat all other in-progress states (accepted, pending, accepted, shipped, etc.) as accepted
+  return 'accepted';
 };
 
 // Helper to map requests to order data (include all, then map to UI statuses)
@@ -121,7 +122,7 @@ const MyOrdersScreen = () => {
   const reconcileBadge = useOrdersBadgeStore(s => s.reconcileFromRequests);
   const markSeen = useOrdersBadgeStore(s => s.markSeen);
   const [loading, setLoading] = useState(true);
-  const [activeFilter, setActiveFilter] = useState('processing');
+  const [activeFilter, setActiveFilter] = useState('accepted');
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
 
@@ -175,7 +176,7 @@ const MyOrdersScreen = () => {
     return {
       total: orders.length,
       delivered: orders.filter(o => o.status === 'delivered').length,
-      processing: orders.filter(o => o.status === 'processing').length,
+      accepted: orders.filter(o => o.status === 'accepted').length,
       canceled: orders.filter(o => o.status === 'canceled').length,
     };
   };
@@ -188,10 +189,10 @@ const MyOrdersScreen = () => {
       order.seller.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
-  // When user views the Processing tab, mark visible accepted requests as seen
+  // When user views the accepted tab, mark visible accepted requests as seen
   useEffect(() => {
-    if (activeFilter !== 'processing') return;
-    // Determine which orders correspond to accepted requests (processing bucket in UI)
+    if (activeFilter !== 'accepted') return;
+    // Determine which orders correspond to accepted requests (accepted bucket in UI)
     const visibleIds = filteredOrders.map(o => o.id);
     if (visibleIds.length > 0) {
       markSeen(visibleIds);
@@ -218,10 +219,10 @@ const MyOrdersScreen = () => {
     try {
       // Get the farmer ID from the order
       const farmerId = order.farmerId;
-      
+
       if (!farmerId) {
         Alert.alert(
-          'Contact Information Missing', 
+          'Contact Information Missing',
           'Unable to identify the farmer for this order.',
           [{ text: 'OK' }]
         );
@@ -240,13 +241,13 @@ const MyOrdersScreen = () => {
 
       // Fetch farmer's actual phone number from Firestore
       const farmerPhoneNumber = await getFarmerPhoneNumber(farmerId);
-      
+
       // Clear loading
       clearTimeout(loadingTimeout);
 
       if (!farmerPhoneNumber) {
         Alert.alert(
-          'Contact Information Unavailable', 
+          'Contact Information Unavailable',
           `Sorry, we couldn't find a phone number for ${order.seller}.\n\nYou may need to contact them through other means or check back later.`
         );
         return;
@@ -371,25 +372,25 @@ const MyOrdersScreen = () => {
   const getFarmerPhoneNumber = async (farmerId) => {
     try {
       console.log('🔍 Fetching farmer phone number for ID:', farmerId);
-      
+
       if (!farmerId || farmerId.trim() === '') {
         console.log('⚠️ Invalid farmer ID provided');
         return null;
       }
-      
+
       // Try to get from farmers collection first
       const farmerDoc = await firestore().collection('farmers').doc(farmerId).get();
-      
+
       if (farmerDoc.exists()) {
         const farmerData = farmerDoc.data();
         console.log('👨‍🌾 Farmer data found:', {
           name: farmerData.displayName || farmerData.name,
           hasPhone: !!(farmerData.phoneNumber || farmerData.phone || farmerData.mobile)
         });
-        
+
         // Check multiple possible phone field names
         const phoneNumber = farmerData.phoneNumber || farmerData.phone || farmerData.mobile;
-        
+
         if (phoneNumber) {
           console.log('📱 Found phone number:', phoneNumber.replace(/(\d{3})\d{4}(\d{3})/, '$1****$2')); // Log masked phone for privacy
           return phoneNumber;
@@ -412,15 +413,15 @@ const MyOrdersScreen = () => {
     try {
       // First, try to get the farmer ID from the order
       const farmerId = order.farmerId;
-      
+
       if (!farmerId) {
         Alert.alert(
-          'Contact Information Missing', 
+          'Contact Information Missing',
           'Unable to identify the farmer for this order. Please try using the message feature instead.',
           [
             { text: 'Cancel', style: 'cancel' },
-            { 
-              text: 'Send Message', 
+            {
+              text: 'Send Message',
               onPress: () => handleContactSeller(order)
             }
           ]
@@ -440,18 +441,18 @@ const MyOrdersScreen = () => {
 
       // Fetch farmer's actual phone number from Firestore
       const farmerPhoneNumber = await getFarmerPhoneNumber(farmerId);
-      
+
       // Clear any loading alerts
       clearTimeout(loadingAlert);
 
       if (!farmerPhoneNumber) {
         Alert.alert(
-          'Contact Information Unavailable', 
+          'Contact Information Unavailable',
           `Sorry, we couldn't find a phone number for ${order.seller}.\n\nYou can try contacting them through the message feature instead.`,
           [
             { text: 'Cancel', style: 'cancel' },
-            { 
-              text: 'Send Message', 
+            {
+              text: 'Send Message',
               onPress: () => handleContactSeller(order)
             }
           ]
@@ -461,15 +462,15 @@ const MyOrdersScreen = () => {
 
       // Clean the phone number (remove any non-digit characters except +)
       const cleanPhone = farmerPhoneNumber.replace(/[^\d+]/g, '');
-      
+
       if (!cleanPhone || cleanPhone.length < 10) {
         Alert.alert(
-          'Invalid Phone Number', 
+          'Invalid Phone Number',
           `The phone number for ${order.seller} appears to be invalid.\n\nPlease try contacting them through the message feature.`,
           [
             { text: 'Cancel', style: 'cancel' },
-            { 
-              text: 'Send Message', 
+            {
+              text: 'Send Message',
               onPress: () => handleContactSeller(order)
             }
           ]
@@ -526,7 +527,7 @@ const MyOrdersScreen = () => {
                             'Unable to Make Call',
                             `Your device may not support automatic dialing.\n\nPlease manually dial: ${farmerPhoneNumber}`,
                             [
-                              { 
+                              {
                                 text: 'Copy Number',
                                 onPress: () => {
                                   Clipboard.setString(farmerPhoneNumber);
@@ -551,12 +552,12 @@ const MyOrdersScreen = () => {
         'Something went wrong while trying to get the farmer\'s contact information. Please check your internet connection and try again.',
         [
           { text: 'Cancel', style: 'cancel' },
-          { 
-            text: 'Send Message Instead', 
+          {
+            text: 'Send Message Instead',
             onPress: () => handleContactSeller(order)
           },
-          { 
-            text: 'Retry', 
+          {
+            text: 'Retry',
             onPress: () => handleCallFarmer(order)
           }
         ]
@@ -569,8 +570,8 @@ const MyOrdersScreen = () => {
     switch (status) {
       case 'delivered':
         return { color: '#4CAF50', text: 'Delivered', icon: 'checkmark-circle' };
-      case 'processing':
-        return { color: '#2196F3', text: 'Processing', icon: 'time' };
+      case 'accepted':
+        return { color: '#2196F3', text: 'Accepted', icon: 'time' };
       case 'canceled':
         return { color: '#F44336', text: 'Canceled', icon: 'close-circle' };
       default:
@@ -721,7 +722,7 @@ const MyOrdersScreen = () => {
     <SafeAreaView style={styles.container}>
       <StatusBar
         backgroundColor="#FFFFFF"
-        
+
         barStyle="dark-content"
       />
 
@@ -731,7 +732,7 @@ const MyOrdersScreen = () => {
           <View>
             <Text style={styles.headerTitle}>My Orders</Text>
             <Text style={styles.headerSubtitle}>
-              {orderStats.total} orders • {orderStats.processing} active           </Text>
+              {orderStats.total} orders • {orderStats.accepted} active           </Text>
           </View>
           <TouchableOpacity
             onPress={() => {
@@ -788,7 +789,7 @@ const MyOrdersScreen = () => {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.filtersScrollContent}
         >
-          <FilterButton title="Processing" value="processing" count={orderStats.processing} />
+          <FilterButton title="Accepted" value="accepted" count={orderStats.accepted} />
           <FilterButton title="Delivered" value="delivered" count={orderStats.delivered} />
         </ScrollView>
       </View>

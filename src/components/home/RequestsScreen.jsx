@@ -48,11 +48,14 @@ const RequestsScreen = () => {
 
   // Debug: Log requests state changes
   useEffect(() => {
+    const nonActiveRequests = requests.filter(r => r.status !== 'accepted');
     console.log('📊 Requests state updated:', {
-      count: requests.length,
+      count: nonActiveRequests.length,
+      totalCount: requests.length,
+      acceptedCount: requests.filter(r => r.status === 'accepted').length,
       loading,
       userRole: user?.role,
-      requestsPreview: requests.slice(0, 2).map(r => ({
+      requestsPreview: nonActiveRequests.slice(0, 2).map(r => ({
         id: r.id,
         productName: r.productSnapshot?.name,
         status: r.status
@@ -116,7 +119,8 @@ const RequestsScreen = () => {
       if (user.role === 'buyer') {
         console.log('👤 Loading buyer requests...');
         await loadBuyerRequests();
-        console.log('✅ Buyer requests loaded, count:', requests.length);
+        const nonActiveCount = requests.filter(r => r.status !== 'accepted').length;
+        console.log('✅ Buyer requests loaded, total:', requests.length, 'displayed:', nonActiveCount);
       } else {
         console.log('⚠️ This is a buyer-only screen. User role:', user.role);
       }
@@ -186,7 +190,7 @@ const RequestsScreen = () => {
 
   // Get statistics
   const stats = useMemo(() => {
-    const total = requests.length;
+    const total = requests.filter(r => r.status !== 'accepted').length; // Exclude accepted requests
     const pending = requests.filter(r => r.status === RequestStatus.PENDING).length;
     const accepted = requests.filter(r => r.status === RequestStatus.ACCEPTED).length;
     const cancelled = requests.filter(r => r.status === RequestStatus.CANCELLED).length;
@@ -347,10 +351,11 @@ const RequestsScreen = () => {
       if (typeof timestamp === 'string') return new Date(timestamp);
       if (timestamp.toDate && typeof timestamp.toDate === 'function') return timestamp.toDate();
       if (timestamp.seconds) return new Date(timestamp.seconds * 1000);
+      if (timestamp._seconds) return new Date(timestamp._seconds * 1000);
       return new Date(timestamp);
     };
 
-    const requestDate = getDateFromTimestamp(item.createdAt);
+    const requestDate = getDateFromTimestamp(item.updatedAt);
 
     return (
       <Animated.View
@@ -409,9 +414,9 @@ const RequestsScreen = () => {
               <Text style={styles.quantity}>{quantity}</Text>
             </View>
             <Text style={styles.date}>
-              {requestDate.toLocaleDateString('en-US', {
-                month: 'short',
+              {requestDate.toLocaleDateString('en-IN', {
                 day: 'numeric',
+                month: 'short',
                 year: requestDate.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined
               })}
             </Text>
@@ -515,7 +520,7 @@ const RequestsScreen = () => {
     <View style={styles.container}>
       <StatusBar
         backgroundColor="#FFFFFF"
-        
+
         barStyle="dark-content"
       />
 

@@ -220,13 +220,6 @@ class PersistentAuthManager {
       // Try to reload user to check if account still exists
       await currentUser.reload();
 
-      // Check if user is disabled
-      if (currentUser.disabled) {
-        this.logSecure('🚫 User account is disabled');
-        await this.disablePersistentLogin();
-        return false;
-      }
-
       // Update validation timestamp
       this.authState.lastValidationAt = new Date().toISOString();
       await this.saveAuthState();
@@ -242,7 +235,7 @@ class PersistentAuthManager {
       }
 
       // Even if validation fails due to network, allow persistent login to continue
-      this.logSecure('⚠️ Validation failed but maintaining session:', error?.message);
+      this.logSecure('⚠️ Validation failed but maintaining session:', (error as Error)?.message || 'Unknown error');
       return true;
     }
   }

@@ -213,22 +213,12 @@ const BuyerProfileScreen: React.FC<BuyerProfileScreenProps> = ({ route }) => {
             case 'about':
                 return (
                     <View style={styles.tabContent}>
-                        <View style={styles.aboutSection}>
-                            <Text style={styles.sectionTitle}>About</Text>
-                            <Text style={styles.bioText}>
-                                {profile?.bio || 'No bio available'}
-                            </Text>
-                        </View>
 
                         <View style={styles.contactSection}>
                             <Text style={styles.sectionTitle}>Contact Information</Text>
                             <View style={styles.contactItem}>
                                 <Icon name="call" size={20} color="#6B7280" />
                                 <Text style={styles.contactText}>{profile?.phone || 'Not provided'}</Text>
-                            </View>
-                            <View style={styles.contactItem}>
-                                <Icon name="mail" size={20} color="#6B7280" />
-                                <Text style={styles.contactText}>{profile?.email || 'Not provided'}</Text>
                             </View>
                             <View style={styles.contactItem}>
                                 <Icon name="location" size={20} color="#6B7280" />
@@ -414,7 +404,7 @@ const BuyerProfileScreen: React.FC<BuyerProfileScreenProps> = ({ route }) => {
                     <Icon name="arrow-back" size={24} color="#111827" />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>
-                    {profile?.name || 'Unknown User'}
+                    {'Buyer Profile'}
                 </Text>
                 <TouchableOpacity style={styles.shareButton} onPress={handleShare}>
                     <Icon name="share-outline" size={20} color="#111827" />
@@ -787,7 +777,7 @@ const styles = StyleSheet.create({
     headerTitle: {
         fontSize: 18,
         fontWeight: '600',
-        color: '#111827',
+        color: '#FFFFFF',
         textAlign: 'center',
         flex: 1,
     },

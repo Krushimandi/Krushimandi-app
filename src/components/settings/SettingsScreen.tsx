@@ -327,16 +327,6 @@ const SettingsScreen: React.FC = () => {
           action: () => navigation.navigate('About'),
           color: '#43B86C',
         },
-        {
-          id: 'reviewTest',
-          title: 'Review System Test',
-          subtitle: 'Test and manage review data (Dev Tool)',
-          icon: 'flask-outline',
-          type: 'navigation' as const,
-          action: () => (navigation as any).navigate('ReviewTest'),
-          color: '#8B5CF6',
-          badge: 'DEV',
-        },
       ],
     },
     {

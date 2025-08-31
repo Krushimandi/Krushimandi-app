@@ -117,8 +117,8 @@ class RequestService {
                 quantityUnit: input.quantityUnit || 'ton',
                 message: input.message || '',
                 status: RequestStatus.PENDING,
-                createdAt: serverTimestamp(),
-                updatedAt: serverTimestamp(),
+                createdAt: Timestamp.fromDate(new Date(Date.now())),
+                updatedAt: Timestamp.fromDate(new Date(Date.now())),
                 expiresAt: Timestamp.fromDate(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)), // 7 days from now
                 productSnapshot: {
                     name: fruitData!.name || 'Unknown Fruit',
