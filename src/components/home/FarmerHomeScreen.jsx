@@ -149,7 +149,7 @@ const FarmerHomeScreen = () => {
 
   useFocusEffect(
     useCallback(() => {
-     return () => {
+      return () => {
         // This event triggers when the screen is unfocused
         // changeNavigationBarColor('#000000', false);
       };
@@ -895,7 +895,9 @@ const FarmerHomeScreen = () => {
               <View>
                 <Text style={styles.sectionTitle}>My Listings</Text>
                 {(searchQuery || selectedCategory !== 'all' || sortBy !== 'newest') && (
-                  <Text style={styles.searchResultsText}>
+                  <Text
+                    numberOfLines={2}
+                    style={styles.searchResultsText}>
                     {searchQuery && `"${searchQuery.length > 10 ? searchQuery.slice(0, 10) + '...' : searchQuery}" • `}
                     {selectedCategory !== 'all' && `${selectedCategory} • `}
                     {sortBy !== 'newest' && `${sortOptions.find(opt => opt.key === sortBy)?.label} • `}
@@ -1484,6 +1486,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#757575',
     marginTop: 2,
+    maxWidth: 145,
+    overflow: 'hidden',
+    display: 'flex',
     fontStyle: 'italic',
   },
   viewAll: {
