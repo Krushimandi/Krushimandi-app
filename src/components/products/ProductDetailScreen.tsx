@@ -806,7 +806,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
   return (
     <ErrorBoundary fallback={
       <SafeAreaView style={styles.container}>
-        <StatusBar backgroundColor="#FFFFFF" translucent={false} barStyle="dark-content" />
+        <StatusBar backgroundColor="#FFFFFF"  barStyle="dark-content" />
         <View style={styles.header}>
           <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
             <Ionicons name="arrow-back" size={24} color="#007E2F" />
@@ -827,7 +827,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
       <SafeAreaView style={styles.container}>
         <StatusBar
           backgroundColor="#FFFFFF"
-          translucent={false}
+          
           barStyle="dark-content"
         />
 
@@ -1269,7 +1269,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
             <View style={styles.modernDetailSection}>
               <Text style={styles.modernSectionTitle}>Farmer Information</Text>
 
-              {isFarmerDataLoading ? (
+        {isFarmerDataLoading ? (
                 <View style={styles.modernFarmerCard}>
                   <View style={styles.farmerLoadingContainer}>
                     <View style={styles.loadingAvatar}>
@@ -1280,70 +1280,13 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                       <Text style={styles.modernFarmerName}>
                         {(() => {
                           const displayName = farmerData?.displayName || 'Unknown Farmer';
-                          console.log('🔍 Farmer name display logic:', {
-                            'farmerData?.displayName': farmerData?.displayName,
-                            'product.farmer_name': product.farmer_name,
-                            'final_display_name': displayName,
-                            'farmerData_exists': !!farmerData,
-                            'farmerData_keys': farmerData ? Object.keys(farmerData) : null
-                          });
                           return displayName;
                         })()}
                       </Text>
-
-                      {/* <View style={styles.farmerRatingContainer}>
-                        <View style={styles.modernStarsContainer}>
-                          {renderStars(farmerData?.average_rating || product.farmer_rating || 4.0)}
-                        </View>
-                        <Text style={styles.modernRatingText}>
-                          {(farmerData?.average_rating || product.farmer_rating || 4.0).toFixed(1)}
-                        </Text>
-                        <Text style={styles.reviewCountText}>
-                          ({farmerData?.total_reviews || farmerReviews.length || 0} reviews)
-                        </Text>
-                      </View> */}
-
-                      {/* Farmer Stats */}
-                      <View style={styles.farmerStatsRow}>
-                        {farmerData?.experience_years && (
-                          <View style={styles.statItem}>
-                            <Ionicons name="calendar-outline" size={14} color="#666666" />
-                            <Text style={styles.statText}>{farmerData.experience_years}y exp</Text>
-                          </View>
-                        )}
-                        {farmerData?.total_products && (
-                          <View style={styles.statItem}>
-                            <Ionicons name="leaf-outline" size={14} color="#666666" />
-                            <Text style={styles.statText}>{farmerData.total_products} products</Text>
-                          </View>
-                        )}
-                        {farmerData?.location && (
-                          <View style={styles.statItem}>
-                            <Ionicons name="location-outline" size={14} color="#666666" />
-                            <Text style={styles.statText}>
-                              {farmerData.location.village}, {farmerData.location.district}
-                            </Text>
-                          </View>
-                        )}
-                      </View>
+            {/* Only show avatar + name in loading state; extra info hidden */}
                     </View>
                   </View>
-
-                  {/* Farmer Description */}
-                  {farmerData?.description && (
-                    <View style={styles.farmerDescriptionContainer}>
-                      <Text style={styles.farmerDescription} numberOfLines={3}>
-                        {farmerData.description}
-                      </Text>
-                    </View>
-                  )}
-
-                  {/* Rate this farmer button */}
-                  {/* <View style={styles.farmerActionsContainer}>
-                    <TouchableOpacity style={styles.rateFarmerButton}>
-                      <Text style={styles.rateFarmerButtonText}>Rate this farmer</Text>
-                    </TouchableOpacity>
-                  </View> */}
+          {/* Farmer Description hidden as per requirement */}
                 </View>
               ) : (
                 <>
@@ -1366,11 +1309,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                               }</Text>
                           )}
                         </View>
-                        {farmerData?.is_verified && (
-                          <View style={styles.verificationBadge}>
-                            <Ionicons name="checkmark-circle" size={16} color="#4CAF50" />
-                          </View>
-                        )}
+            {/* Verification badge hidden - show only avatar and name */}
                       </View>
 
                       <View style={styles.modernFarmerInfo}>
@@ -1388,52 +1327,10 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                           })()}
                         </Text>
 
-                        <View style={styles.farmerRatingContainer}>
-                          <View style={styles.modernStarsContainer}>
-                            {renderStars(farmerData?.average_rating || product.farmer_rating || 4.0)}
-                          </View>
-                          <Text style={styles.modernRatingText}>
-                            {(farmerData?.average_rating || product.farmer_rating || 4.0).toFixed(1)}
-                          </Text>
-                          <Text style={styles.reviewCountText}>
-                            ({farmerData?.total_reviews || farmerReviews.length || 0} reviews)
-                          </Text>
-                        </View>
-
-                        {/* Farmer Stats */}
-                        <View style={styles.farmerStatsRow}>
-                          {farmerData?.experience_years && (
-                            <View style={styles.statItem}>
-                              <Ionicons name="calendar-outline" size={14} color="#666666" />
-                              <Text style={styles.statText}>{farmerData.experience_years}y exp</Text>
-                            </View>
-                          )}
-                          {farmerData?.total_products && (
-                            <View style={styles.statItem}>
-                              <Ionicons name="leaf-outline" size={14} color="#666666" />
-                              <Text style={styles.statText}>{farmerData.total_products} products</Text>
-                            </View>
-                          )}
-                          {farmerData?.location && (
-                            <View style={styles.statItem}>
-                              <Ionicons name="location-outline" size={14} color="#666666" />
-                              <Text style={styles.statText}>
-                                {farmerData.location.city}, {farmerData.location.district}
-                              </Text>
-                            </View>
-                          )}
-                        </View>
+            {/* Only show name */}
                       </View>
                     </View>
-
-                    {/* Farmer Description */}
-                    {farmerData?.description && (
-                      <View style={styles.farmerDescriptionContainer}>
-                        <Text style={styles.farmerDescription} numberOfLines={3}>
-                          {farmerData.description}
-                        </Text>
-                      </View>
-                    )}
+          {/* Farmer Description hidden as per requirement */}
                   </View>
 
                   {/* Modern Reviews Section */}
@@ -1491,12 +1388,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                 </>
               )}
 
-              <View style={styles.modernContactNote}>
-                <Ionicons name="chatbubble-outline" size={20} color="#007E2F" />
-                <Text style={styles.modernContactText}>
-                  Contact this farmer to place your order or ask questions about the product.
-                </Text>
-              </View>
+              {/* Contact note hidden in Farmer Information section */}
             </View>
           </View>
         </ScrollView>
@@ -2616,22 +2508,22 @@ const styles = StyleSheet.create({
   },
   modernFarmerHeader: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 16,
+    alignItems: 'center',
+    // marginBottom: 8,
   },
   modernFarmerAvatar: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: '#007E2F',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+    marginRight: 12,
     shadowColor: '#007E2F',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.18,
+    shadowRadius: 6,
+    elevation: 3,
   },
   farmerProfileImage: {
     width: '100%',
@@ -2659,7 +2551,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: '#000000',
-    marginBottom: 8,
+    marginBottom: 0,
     fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
   farmerRatingContainer: {

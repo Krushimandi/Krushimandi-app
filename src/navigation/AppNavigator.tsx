@@ -16,7 +16,6 @@ import HelpGuide from '../components/Help/HelpGuide';
 import FaqDetail from '../components/Help/FaqDetail';
 import LanguagesScreen from '../components/ProfileScreen/LanguagesScreen';
 import PrivacyPolicyScreen from '../components/ProfileScreen/PrivacyPolicyScreen';
-import ReviewTestScreen from '../components/test/ReviewTestScreen';
 
 // Navigation provider
 import { NavigationProvider } from './NavigationProvider';
@@ -30,6 +29,7 @@ import BuyerStack from './buyer/BuyerStack';
 import { RootStackParamList } from './types';
 import { AuthBootstrapState } from '../utils/authBootstrap';
 import { useAuthState } from '../components/providers/AuthStateProvider';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const RootStack = createStackNavigator<RootStackParamList>();
 
@@ -64,12 +64,12 @@ const AppNavigator: React.FC<AppNavigatorProps> = ({ bootstrapState }) => {
     const finalIsAuthenticated = contextAuth !== null ? contextAuth : bootstrapState.isAuthenticated;
     const finalUserRole = userRole || bootstrapState.userRole;
     const finalUser = user || bootstrapState.user;
-    
+
     // Enhanced validation for proper authentication state
     const hasValidFirebaseAuth = finalUser && finalUser.uid;
     const hasValidRole = finalUserRole && (finalUserRole === 'buyer' || finalUserRole === 'farmer');
     const isFullyAuthenticated = finalIsAuthenticated && hasValidFirebaseAuth && hasValidRole;
-    
+
     return {
       isAuthenticated: finalIsAuthenticated,
       userRole: finalUserRole,
@@ -136,14 +136,14 @@ const AppNavigator: React.FC<AppNavigatorProps> = ({ bootstrapState }) => {
       });
       return AuthNavigator;
     }
-    
+
     // return FarmerStack;
     switch (authState.userRole) {
       case 'buyer':
         console.log('📱 Routing to BuyerStack for buyer role');
         return BuyerStack;
       case 'farmer':
-        console.log('🌾 Routing to FarmerStack for farmer role');  
+        console.log('🌾 Routing to FarmerStack for farmer role');
         return FarmerStack;
       default:
         console.warn('⚠️ Invalid or missing user role, routing to AuthNavigator:', authState.userRole);
@@ -153,8 +153,8 @@ const AppNavigator: React.FC<AppNavigatorProps> = ({ bootstrapState }) => {
 
   // Show loading while authentication state is being determined
   if (isLoading || !bootstrapState.isReady) {
-    console.log('⏳ Showing loading screen:', { 
-      isLoading, 
+    console.log('⏳ Showing loading screen:', {
+      isLoading,
       bootstrapReady: bootstrapState.isReady,
       reason: !bootstrapState.isReady ? 'Bootstrap not ready' : 'Auth loading'
     });
@@ -173,6 +173,9 @@ const AppNavigator: React.FC<AppNavigatorProps> = ({ bootstrapState }) => {
     hasFirebaseSync: authState.authSource === 'context'
   });
 
+
+  const insets = useSafeAreaInsets();
+
   return (
     <NavigationProvider>
       <NavigationContainer
@@ -180,18 +183,6 @@ const AppNavigator: React.FC<AppNavigatorProps> = ({ bootstrapState }) => {
         ref={navigationRef}
         onReady={() => {
           isNavigationReady.current = true;
-          console.log('🧭 Navigation ready - Complete state sync:', {
-            initialRoute: initialRouteName,
-            isAuthenticated: authState.isAuthenticated,
-            userRole: authState.userRole,
-            hasFirebaseAuth: authState.hasValidFirebaseAuth,
-            hasValidRole: authState.hasValidRole,
-            isFullyAuth: authState.isFullyAuthenticated,
-            stackComponent: MainStackComponent.name || 'Unknown',
-            navigationKey,
-            authSource: authState.authSource
-          });
-          
           // Handle pending notifications with auth state validation
           if (pendingNotificationData.current) {
             if (authState.isFullyAuthenticated) {
@@ -205,7 +196,10 @@ const AppNavigator: React.FC<AppNavigatorProps> = ({ bootstrapState }) => {
         }}
       >
         <RootStack.Navigator
-          screenOptions={{ headerShown: false }}
+          screenOptions={{
+            headerShown: false,
+            cardStyle: { paddingBottom: insets.bottom * 0.6, backgroundColor: '#FFFFFF'},
+          }}
           initialRouteName={initialRouteName}
         >
           <RootStack.Screen name="Auth" component={AuthNavigator} />
@@ -222,7 +216,6 @@ const AppNavigator: React.FC<AppNavigatorProps> = ({ bootstrapState }) => {
           <RootStack.Screen name="ProfileSettings" component={SettingsScreen} />
           <RootStack.Screen name="ProfileScreen" component={SettingsScreen} options={{ presentation: 'modal' }} />
           <RootStack.Screen name="BuyerProfile" component={BuyerProfileScreen} />
-          <RootStack.Screen name="ReviewTest" component={ReviewTestScreen} options={{ headerShown: true, title: 'Review System Test' }} />
         </RootStack.Navigator>
       </NavigationContainer>
     </NavigationProvider>

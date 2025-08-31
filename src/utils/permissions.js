@@ -244,8 +244,8 @@ export const checkAndPromptGPSSettings = async () => {
         if (error.code === 2) {
           // Location services are disabled
           Alert.alert(
-            'Enable High-Accuracy GPS',
-            'For the most accurate farm location:\n\n• Turn ON Location Services\n• Select "High Accuracy" mode\n• Move to an outdoor area\n\nThis helps buyers find your exact farm location.',
+            'Enable GPS',
+            'Turn ON Location Services.',
             [
               { text: 'Fill Manually', style: 'cancel', onPress: () => resolve(false) },
               { 

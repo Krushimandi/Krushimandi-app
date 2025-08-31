@@ -459,33 +459,19 @@ const AddFruitScreen = ({ navigation }) => {
           message += '\n\n💡 For better accuracy: Move outdoors with clear sky view and enable "High Accuracy" GPS mode in settings.';
         }
 
-        Alert.alert(
-          locationData.source === 'google' ? 'Address Found!' : 'Location Found!',
-          message,
-          [
-            { text: 'OK' },
-            // Add test button for debugging in development
-            ...(locationData.source !== 'google' ? [{
-              text: 'Debug Info',
-              onPress: async () => {
-                console.log('🧪 Running location debug test...');
-                const testResults = await testReverseGeocode(location.latitude, location.longitude);
-                Alert.alert(
-                  'Debug Results',
-                  `API Key: ${testResults.tests?.apiKeyAvailable ? 'Available' : 'Missing'}\nReverse Geocode: ${testResults.tests?.reverseGeocode?.success ? 'Success' : 'Failed'}\nError: ${testResults.error || 'None'}`,
-                  [{ text: 'OK' }]
-                );
-              }
-            }] : [])
-          ]
-        );
+        // Alert.alert(
+        //   locationData.source === 'google' ? 'Address Found!' : 'Location Found!',
+        //   message,
+        //   [
+        //     { text: 'OK' }]
+        // );
       } else {
         setLocationError('Address lookup failed - please enter manually');
-        Alert.alert(
-          'Location Found',
-          'GPS coordinates obtained but address details unavailable. Please fill manually.',
-          [{ text: 'OK' }]
-        );
+        // Alert.alert(
+        //   'Location Found',
+        //   'GPS coordinates obtained but address details unavailable. Please fill manually.',
+        //   [{ text: 'OK' }]
+        // );
       }
     } catch (error) {
       console.error('Location error:', error);
@@ -520,7 +506,7 @@ const AddFruitScreen = ({ navigation }) => {
         // Permission denied
         Alert.alert(
           'Location Permission Required',
-          'Location permission is required to auto-fill farm location details. Please grant location permission in your device settings.',
+          'Please grant location permission in your device settings.',
           [
             { text: 'Fill Manually', style: 'cancel' },
             {
@@ -815,7 +801,7 @@ const AddFruitScreen = ({ navigation }) => {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar
         backgroundColor="#FFFFFF"
-        translucent={false}
+
         barStyle="dark-content"
       />
       <View style={styles.container}>

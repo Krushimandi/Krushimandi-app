@@ -13,8 +13,8 @@ import {
   OTPVerificationScreen,
   RoleSelectionScreen,
   IntroduceYourselfScreen,
+  FruitsScreen,
 } from '../components/auth';
-import { FruitsScreen } from '../components/fruitIntrest';
 
 // Types
 import { AuthStackParamList } from '../types';

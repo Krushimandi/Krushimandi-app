@@ -9,10 +9,10 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import { Fruit } from '../../types';
 import { Fruits } from '../../constants/Fruits';
 import { setAuthStep } from '../../utils/authFlow';
+import { updateUserInFirestore, getUserFromAsyncStorage, saveUserToAsyncStorage, cleanupUnusedBuyerFields } from '../../services/firebaseService';
+import { auth } from '../../config/firebase';
 
 interface FruitsScreenProps {
   navigation?: any;
@@ -27,8 +27,8 @@ const FruitsScreen: React.FC<FruitsScreenProps> = ({ navigation }) => {
   );
 
   const handleFruitSelection = (fruitId: number) => {
-    setSelectedFruits(prev => 
-      prev.includes(fruitId) 
+    setSelectedFruits(prev =>
+      prev.includes(fruitId)
         ? prev.filter(id => id !== fruitId)
         : [...prev, fruitId]
     );
@@ -36,9 +36,47 @@ const FruitsScreen: React.FC<FruitsScreenProps> = ({ navigation }) => {
 
   const handleContinue = async () => {
     try {
-      // Complete the auth flow for buyers
+      const user = auth.currentUser;
+      if (!user) {
+        console.warn('No authenticated user found while saving preferred fruits');
+      }
+
+      // Derive selected fruit names from ids
+      const selectedFruitNames = Fruits.filter(f => selectedFruits.includes(f.id)).map(f => f.name);
+
+      // Load local user data to know role and merge locally
+      const localUser: any = await getUserFromAsyncStorage();
+      const userRole = (localUser as any)?.userRole || 'buyer';
+
+      if (user?.uid) {
+        try {
+          await updateUserInFirestore(user.uid, userRole, { PreferedFruits: selectedFruitNames });
+          // Clean up old/unused fields for buyers
+          if (userRole === 'buyer') {
+            await cleanupUnusedBuyerFields(user.uid);
+          }
+        } catch (e) {
+          console.warn('Failed to update Firestore for preferred fruits, will keep local only for now:', e);
+        }
+      }
+
+      // Save into local cache immediately for offline-first UX
+      await saveUserToAsyncStorage({
+        ...(localUser || {}),
+        uid: user?.uid || (localUser as any)?.uid,
+        displayName: (localUser as any)?.displayName,
+        firstName: (localUser as any)?.firstName,
+        lastName: (localUser as any)?.lastName,
+        phoneNumber: (localUser as any)?.phoneNumber,
+        userRole,
+        profileImage: (localUser as any)?.profileImage,
+        isProfileComplete: true,
+        PreferedFruits: selectedFruitNames,
+      } as any);
+
+      // Complete the auth flow
       await setAuthStep('Complete');
-      console.log('✅ Buyer fruits selection complete - navigating to Main app');
+      console.log('✅ Buyer fruits selection saved and auth completed');
     } catch (error) {
       console.error('❌ Error completing auth flow:', error);
     }
@@ -46,8 +84,6 @@ const FruitsScreen: React.FC<FruitsScreenProps> = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      
-
       {/* Title */}
       <Text style={styles.title}>Choose Your Favorite Fruits</Text>
       <Text style={styles.subtitle}>Select fruits you're interested in buying</Text>
@@ -76,7 +112,7 @@ const FruitsScreen: React.FC<FruitsScreenProps> = ({ navigation }) => {
           return (
             <TouchableOpacity
               style={[
-                styles.card, 
+                styles.card,
                 { backgroundColor: item.bgColor },
                 isSelected && styles.selectedCard
               ]}
@@ -84,7 +120,6 @@ const FruitsScreen: React.FC<FruitsScreenProps> = ({ navigation }) => {
             >
               <Image source={item.image} style={styles.image} />
               <Text style={styles.name}>{item.name}</Text>
-              <Text style={styles.price}>{item.price}</Text>
               {isSelected && (
                 <View style={styles.selectedIndicator}>
                   <Ionicons name="checkmark" size={20} color="#FFF" />
@@ -94,7 +129,7 @@ const FruitsScreen: React.FC<FruitsScreenProps> = ({ navigation }) => {
           );
         }}
       />
-      
+
       {/* Continue Button */}
       <View style={styles.continueContainer}>
         <TouchableOpacity style={styles.continueButton} onPress={handleContinue}>
@@ -201,10 +236,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  price: {
-    fontSize: 14,
-    color: '#777',
-  },
+
   gridContainer: {
     paddingHorizontal: 16,
     paddingBottom: 16,

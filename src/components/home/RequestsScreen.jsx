@@ -1,5 +1,5 @@
-// Request Screen for Buyer 
-// In this screen requests are displayed sended by  buyer only
+// Request Screen for Buyer
+// In this screen requests are displayed sent by buyer only
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
@@ -515,7 +515,7 @@ const RequestsScreen = () => {
     <View style={styles.container}>
       <StatusBar
         backgroundColor="#FFFFFF"
-        translucent={false}
+        
         barStyle="dark-content"
       />
 
@@ -534,7 +534,7 @@ const RequestsScreen = () => {
             </TouchableOpacity>
 
             {/* Debug: Test Notification Button - Remove in production */}
-            <TouchableOpacity
+            {/* <TouchableOpacity
               style={[styles.sortButton, styles.testNotificationButton]}
               onPress={async () => {
                 const success = await sendTestNotification();
@@ -547,7 +547,7 @@ const RequestsScreen = () => {
               }}
             >
               <Icon name="notifications-outline" size={20} color="#FFFFFF" />
-            </TouchableOpacity>
+            </TouchableOpacity> */}
           </View>
         </View>
         <Text style={styles.headerSubtitle}>

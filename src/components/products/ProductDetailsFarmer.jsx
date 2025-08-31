@@ -355,7 +355,6 @@ Contact for more details and bulk orders!
     <SafeAreaView style={styles.container}>
       <StatusBar
         backgroundColor="#FFFFFF"
-        translucent={false}
         barStyle="dark-content"
       />
 

@@ -35,6 +35,7 @@ import NotificationBadge from '../common/NotificationBadge.tsx';
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 import { useRequests } from '../../hooks/useRequests';
+import { useOrdersBadgeStore } from '../../store';
 import { useNotifications } from '../../hooks/useNotifications';
 
 const getDateFromTimestamp = (timestamp) => {
@@ -59,10 +60,18 @@ const getDateFromTimestamp = (timestamp) => {
 };
 
 
-// Helper to map accepted requests to order data
-const mapAcceptedRequestsToOrders = (requests) => {
-  return requests
-    .filter(r => r.status === 'accepted')
+// Normalize backend request status to UI order status without changing styles
+const toUiStatus = (status) => {
+  const s = (status || '').toLowerCase();
+  if (['delivered', 'completed', 'complete'].includes(s)) return 'delivered';
+  if (['cancelled', 'canceled'].includes(s)) return 'canceled';
+  // Treat all other in-progress states (accepted, pending, processing, shipped, etc.) as processing
+  return 'processing';
+};
+
+// Helper to map requests to order data (include all, then map to UI statuses)
+const mapRequestsToOrders = (requests) => {
+  return (requests || [])
     .map(r => ({
       id: r.id,
       farmerId: r.farmerId, // Add farmerId for fetching farmer details
@@ -77,11 +86,11 @@ const mapAcceptedRequestsToOrders = (requests) => {
       image: r.productSnapshot?.imageUrl
         ? { uri: r.productSnapshot.imageUrl }
         : require('../../assets/fruit_placeholder.png'),
-      status: r.status,
+      status: toUiStatus(r.status),
       seller: r.productSnapshot?.farmerName || 'Unknown Farmer',
       farmerLocation: r.productSnapshot?.farmerLocation || 'Unknown Location',
       // Use createdAt (Firestore Timestamp) instead of createdAtString
-      dateOrdered: r.createdAt ? getDateFromTimestamp(r.createdAt).toLocaleString() : '',
+      dateOrdered: r.createdAt ? getDateFromTimestamp(r.createdAt) : '',
       // dateOrdered: r.createdAtString ? getDateFromTimestamp(r.createdAtString)
       //   : 'Unavailable',
       deliveryAddress: r.buyerDetails?.location || '',
@@ -109,6 +118,8 @@ const MyOrdersScreen = () => {
     loading: notificationsLoading = false
   } = useNotifications() || {};
   const [orders, setOrders] = useState([]);
+  const reconcileBadge = useOrdersBadgeStore(s => s.reconcileFromRequests);
+  const markSeen = useOrdersBadgeStore(s => s.markSeen);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState('processing');
   const [searchQuery, setSearchQuery] = useState('');
@@ -122,7 +133,9 @@ const MyOrdersScreen = () => {
 
   // Map requests to orders whenever requests change
   useEffect(() => {
-    setOrders(mapAcceptedRequestsToOrders(requests));
+    setOrders(mapRequestsToOrders(requests));
+    // Reconcile local badge state using raw requests (no remote fetch)
+    reconcileBadge(requests);
     setLoading(requestsLoading);
   }, [requests, requestsLoading]);
 
@@ -147,7 +160,9 @@ const MyOrdersScreen = () => {
         // Refresh notifications to update unread count
         notifications.length > 0 ? Promise.resolve() : Promise.resolve()
       ]);
-      setOrders(mapAcceptedRequestsToOrders(requests));
+      setOrders(mapRequestsToOrders(requests));
+      // Reconcile after refresh as well
+      reconcileBadge(requests);
     } catch (error) {
       console.error('Error refreshing data:', error);
     } finally {
@@ -172,6 +187,16 @@ const MyOrdersScreen = () => {
       order.orderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
       order.seller.toLowerCase().includes(searchQuery.toLowerCase()))
   );
+
+  // When user views the Processing tab, mark visible accepted requests as seen
+  useEffect(() => {
+    if (activeFilter !== 'processing') return;
+    // Determine which orders correspond to accepted requests (processing bucket in UI)
+    const visibleIds = filteredOrders.map(o => o.id);
+    if (visibleIds.length > 0) {
+      markSeen(visibleIds);
+    }
+  }, [activeFilter, filteredOrders, markSeen]);
 
   // View order details
   const viewOrderDetails = (order) => {
@@ -696,7 +721,7 @@ const MyOrdersScreen = () => {
     <SafeAreaView style={styles.container}>
       <StatusBar
         backgroundColor="#FFFFFF"
-        translucent={false}
+        
         barStyle="dark-content"
       />
 
@@ -799,18 +824,19 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 24,
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 16 : 16,
-    paddingBottom: 20,
+    paddingBottom: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.05,
     shadowRadius: 10,
-    elevation: 3,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F08C',
   },
   headerTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   headerTitle: {
     fontSize: 28,
@@ -822,7 +848,7 @@ const styles = StyleSheet.create({
   headerSubtitle: {
     fontSize: 15,
     color: '#64748B',
-    marginTop: 4,
+    marginTop: 2,
     fontWeight: '600',
     letterSpacing: -0.1,
   },
@@ -888,7 +914,7 @@ const styles = StyleSheet.create({
   },
   filtersContainer: {
     backgroundColor: '#FFFFFF',
-    paddingBottom: 16,
+    paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#E2E8F0',
   },

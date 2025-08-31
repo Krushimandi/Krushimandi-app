@@ -834,7 +834,7 @@ const NotificationScreen: React.FC<NotificationScreenProps> = ({ navigation }) =
                     <>
                         <StatusBar
                             backgroundColor="#FFFFFF"
-                            translucent={false}
+                            
                             barStyle="dark-content"
                         />
 
@@ -857,7 +857,6 @@ const NotificationScreen: React.FC<NotificationScreenProps> = ({ navigation }) =
             </View>
             {/* Filter Tabs */}
             <View style={styles.filterOuterContainer}>
-               
                 <ScrollView
                     horizontal
                     showsHorizontalScrollIndicator={false}
@@ -1073,7 +1072,6 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 3 },
         shadowOpacity: 0.05,
         shadowRadius: 10,
-        elevation: 3,
     },
     headerTop: {
         flexDirection: 'row',
@@ -1107,9 +1105,10 @@ const styles = StyleSheet.create({
     filterOuterContainer: {
         backgroundColor: 'white',
         borderBottomWidth: 1,
+        borderTopWidth: 1,
         borderBottomColor: '#EEEEEE',
+        borderTopColor: '#EEEEEE8C',
         paddingVertical: 8,
-        paddingBottom: 12,
     },
     filterHeaderContainer: {
         flexDirection: 'row',

@@ -123,7 +123,7 @@ const NotificationDetail: React.FC<NotificationDetailProps> = ({ navigation, rou
     <SafeAreaView style={styles.container} edges={['top']}>
       <StatusBar
         backgroundColor="#FFFFFF"
-        translucent={false}
+        
         barStyle="dark-content"
       />
 

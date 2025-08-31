@@ -329,7 +329,7 @@ class AuthBootstrap {
               id: (userProfile as any).uid,
               firstName: (userProfile as any).firstName,
               lastName: (userProfile as any).lastName,
-              email: (userProfile as any).email,
+              email: (userProfile as any).email || '',
               phone: (userProfile as any).phoneNumber,
               userType: profileRole as 'farmer' | 'buyer',
               status: 'active',

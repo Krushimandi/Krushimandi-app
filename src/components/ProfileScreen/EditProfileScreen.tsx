@@ -299,7 +299,7 @@ const EditProfileScreen = () => {
       <StatusBar
         barStyle="light-content"
         backgroundColor="#43B86C"
-        translucent={false}
+        
       />
       {/* Header */}
       <View style={styles.headerContainer}>

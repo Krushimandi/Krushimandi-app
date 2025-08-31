@@ -13,6 +13,7 @@ import { BuyerHomeScreen, RequestsScreen } from '../../components/home';
 import { MyOrdersScreen } from '../../components/orders';
 import { ProductDetailScreen } from '../../components/products';
 import NotificationBadge from '../../components/common/NotificationBadge';
+import { useOrdersBadgeStore } from '../../store';
 
 // Hooks
 import { useAppStore } from '../../store';
@@ -33,6 +34,7 @@ const CustomTabBarIcon = ({ focused, color, size, route }: any) => {
   const animatedValue = React.useRef(new Animated.Value(0)).current;
   const scaleValue = React.useRef(new Animated.Value(1)).current;
   const bounceValue = React.useRef(new Animated.Value(0)).current;
+  const unseenOrders = useOrdersBadgeStore(s => s.unseenCount);
 
   React.useEffect(() => {
     if (focused) {
@@ -98,7 +100,7 @@ const CustomTabBarIcon = ({ focused, color, size, route }: any) => {
         <Octicons name="home" size={size} color={color} />
       );
       break;
-    case 'Orders':
+  case 'Orders':
       iconComponent = (
         <View style={{ position: 'relative' }}>
           {focused ? (
@@ -106,7 +108,7 @@ const CustomTabBarIcon = ({ focused, color, size, route }: any) => {
           ) : (
             <MaterialDesignIcons name="shopping-outline" size={size} color={color} />
           )}
-          <NotificationBadge size="small" count={3} />
+      <NotificationBadge size="small" count={unseenOrders} />
         </View>
       );
       break;
@@ -315,7 +317,8 @@ const styles = StyleSheet.create({
   },
   androidBackground: {
     flex: 1,
-    borderRadius: 25,
+    borderTopLeftRadius: 25,
+    borderTopRightRadius: 25,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,

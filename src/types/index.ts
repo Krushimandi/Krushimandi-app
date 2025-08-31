@@ -55,7 +55,6 @@ export interface Product {
 export type LegacyFruit = {
   id: number;
   name: string;
-  price: string;
   image: any;
   bgColor: string;
   description: string;

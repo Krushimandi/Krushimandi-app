@@ -1,28 +1,5 @@
 /**
  * KrushiMandi App - Enhanced with Comprehensive Error Handling & Performance Optimizations
- * 
- * ✅ IMPROVEMENTS IMPLEMENTED:
- * - Memory leak prevention with proper cleanup functions
- * - Comprehensive error boundaries and safe async operations
- * - Race condition prevention with mounting state tracking
- * - Enhanced notification handling with fallbacks
- * - Performance optimizations with memoization
- * - Input validation and security measures
- * - Graceful failure handling with user-friendly error screens
- * - Proper timeout handling for async operations
- * - Accessibility improvements and status announcements
- * 
- * 🔒 SECURITY FEATURES:
- * - Input validation for all external data
- * - Safe error handling without data exposure
- * - Timeout protection for async operations
- * - Validated FCM token handling
- * 
- * 🎯 PERFORMANCE FEATURES:
- * - Memoized functions and values
- * - Proper cleanup to prevent memory leaks
- * - Optimized re-render prevention
- * - Efficient state management
  */
 
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
@@ -50,7 +27,6 @@ import ErrorBoundary from './src/components/common/ErrorBoundary';
 
 // In App.js or index.js
 import { LogBox, Appearance } from 'react-native';
-
 const App: React.FC = () => {
     LogBox.ignoreAllLogs(true); // Hide all warnings
 
@@ -60,7 +36,7 @@ const App: React.FC = () => {
     const [bootstrapState, setBootstrapState] = useState<AuthBootstrapState | null>(null);
     const [isInitializing, setIsInitializing] = useState(true);
     const [initializationError, setInitializationError] = useState<string | null>(null);
-    
+
     // Refs for cleanup tracking
     const isMounted = useRef(true);
     const cleanupFunctions = useRef<Array<() => void>>([]);
@@ -71,7 +47,7 @@ const App: React.FC = () => {
         if (isBootstrapped && !isInitializing) {
             const initTime = Date.now() - appStartTime.current;
             console.log(`🚀 App fully initialized in ${initTime}ms`);
-            
+
             // Report to analytics if available
             // analytics.timing('app_initialization', initTime);
         }
@@ -144,11 +120,11 @@ const App: React.FC = () => {
     // Initialize network monitoring on app start with comprehensive error handling
     useEffect(() => {
         let isEffectMounted = true;
-        
+
         const initializeApp = async () => {
             try {
                 if (!isMounted.current || !isEffectMounted) return;
-                
+
                 setIsInitializing(true);
                 setInitializationError(null);
 
@@ -174,7 +150,7 @@ const App: React.FC = () => {
                 console.log('🔒 Initializing persistent authentication...');
                 const authPromise = Promise.race([
                     persistentAuthManager.initialize(),
-                    new Promise((_, reject) => 
+                    new Promise((_, reject) =>
                         setTimeout(() => reject(new Error('Auth initialization timeout')), 3000) // Reduced from 10s to 3s
                     )
                 ]);
@@ -299,12 +275,12 @@ const App: React.FC = () => {
     useEffect(() => {
         if (fcmToken && typeof fcmToken === 'string' && fcmToken.length > 0) {
             console.log('🔔 FCM Token received:', fcmToken.substring(0, 20) + '...');
-            
+
             // Validate token format (basic check)
             if (fcmToken.length < 100) {
                 console.warn('⚠️ FCM Token seems too short, might be invalid');
             }
-            
+
             // TODO: Send this token to your backend server for push notification targeting
             // Example: sendTokenToBackend(fcmToken);
         } else if (fcmToken === null) {
@@ -315,7 +291,7 @@ const App: React.FC = () => {
     // Enhanced push notification initialization - NON-BLOCKING
     useEffect(() => {
         let isEffectMounted = true;
-        
+
         const initializePushNotifications = async () => {
             try {
                 if (isPushInitialized && isEffectMounted) {
@@ -323,18 +299,18 @@ const App: React.FC = () => {
                     console.log('🔔 Permission status:', permissionStatus);
 
                     // Delay permission request to not block splash screen
-                    if (permissionStatus === 'unknown' && 
+                    if (permissionStatus === 'unknown' &&
                         typeof requestPushPermission === 'function') {
-                        
+
                         // Request permission after app is fully loaded
                         setTimeout(async () => {
                             if (!isEffectMounted) return;
-                            
+
                             try {
                                 const granted = await requestPushPermission();
                                 if (isEffectMounted) {
                                     console.log('🔔 Push permission requested:', granted ? 'granted' : 'denied');
-                                    
+
                                     if (!granted) {
                                         // Show user-friendly message about notification benefits
                                         Toast.show({
@@ -377,7 +353,7 @@ const App: React.FC = () => {
     const handleBootstrapComplete = useCallback((state: AuthBootstrapState) => {
         try {
             if (!isMounted.current) return;
-            
+
             // Validate bootstrap state
             if (!state || typeof state !== 'object') {
                 console.error('❌ Invalid bootstrap state received:', state);
@@ -390,7 +366,7 @@ const App: React.FC = () => {
                 userRole: state.user?.userRole || 'unknown',
                 timestamp: new Date().toISOString()
             });
-            
+
             setBootstrapState(state);
             setIsBootstrapped(true);
             setInitializationError(null);
@@ -406,7 +382,7 @@ const App: React.FC = () => {
         setIsBootstrapped(false);
         setBootstrapState(null);
         setIsInitializing(true);
-        
+
         // Restart initialization process
         console.log('🔄 Restarting app initialization...');
     }, []);
@@ -421,24 +397,24 @@ const App: React.FC = () => {
                         backgroundColor={isDark ? Colors.dark.background : Colors.light.background}
                         translucent
                     />
-                    <View style={{ 
-                        flex: 1, 
-                        justifyContent: 'center', 
-                        alignItems: 'center', 
+                    <View style={{
+                        flex: 1,
+                        justifyContent: 'center',
+                        alignItems: 'center',
                         backgroundColor: themeColors.backgroundColor,
                         paddingHorizontal: 20
                     }}>
-                        <Text style={{ 
-                            fontSize: 18, 
-                            fontWeight: '600', 
+                        <Text style={{
+                            fontSize: 18,
+                            fontWeight: '600',
                             color: themeColors.textColor,
                             marginBottom: 12,
                             textAlign: 'center'
                         }}>
                             Initialization Failed
                         </Text>
-                        <Text style={{ 
-                            fontSize: 14, 
+                        <Text style={{
+                            fontSize: 14,
                             color: themeColors.textSecondary,
                             marginBottom: 24,
                             textAlign: 'center',
@@ -455,10 +431,10 @@ const App: React.FC = () => {
                             }}
                             onPress={handleInitializationRetry}
                         >
-                            <Text style={{ 
-                                color: '#FFFFFF', 
-                                fontSize: 16, 
-                                fontWeight: '600' 
+                            <Text style={{
+                                color: '#FFFFFF',
+                                fontSize: 16,
+                                fontWeight: '600'
                             }}>
                                 Try Again
                             </Text>
@@ -491,7 +467,9 @@ const App: React.FC = () => {
     // App is bootstrapped, show main navigation
     return (
         <ErrorBoundary>
-            <GestureHandlerRootView style={{ flex: 1 }} onLayout={() => { }}>
+            <GestureHandlerRootView style={{
+                flex: 1,
+            }} onLayout={() => { }}>
                 <StatusBar
                     barStyle={isDark ? 'light-content' : 'dark-content'}
                     backgroundColor={isDark ? Colors.dark.background : Colors.light.background}

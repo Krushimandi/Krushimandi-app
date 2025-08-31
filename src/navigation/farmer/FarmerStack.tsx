@@ -28,7 +28,6 @@ import { MainTabParamList, FruitStackParamList, FarmerProductStackParamList } fr
 // Constants
 import { Colors } from '../../constants';
 import Icon from 'react-native-vector-icons/Ionicons';
-
 const MainTab = createBottomTabNavigator<MainTabParamList>();
 const FruitStack = createStackNavigator<FruitStackParamList>();
 const FarmerMainStack = createStackNavigator<FarmerProductStackParamList>();
@@ -235,7 +234,9 @@ const FarmerTabNavigator = () => {
           ) : (
             <View style={[
               farmerStyles.androidBackground,
-              { backgroundColor: isDark ? '#1C1C1E' : '#FFFFFF' }
+              {
+                backgroundColor: isDark ? '#1C1C1E' : '#FFFFFF',
+              }
             ]} />
           ),
         tabBarIcon: ({ focused, color, size }) => (
@@ -278,6 +279,7 @@ const FarmerTabNavigator = () => {
 
 // Main Farmer Stack with Product Detail Screen
 const FarmerStack = () => {
+
   return (
     <FarmerMainStack.Navigator screenOptions={{ headerShown: false }}>
       <FarmerMainStack.Screen name="FarmerTabs" component={FarmerTabNavigator} />
@@ -336,7 +338,8 @@ const farmerStyles = StyleSheet.create({
   },
   androidBackground: {
     flex: 1,
-    borderRadius: 25,
+    borderTopLeftRadius: 25,
+    borderTopRightRadius: 25,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,

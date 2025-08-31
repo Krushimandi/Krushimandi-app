@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Animated,
   Image,
+  ScrollView,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -56,14 +57,14 @@ const RoleSelectionScreen = ({ navigation }) => {
       try {
         // Save role to dedicated localStorage
         await saveUserRole(selectedRole);
-        
+
         // Also save to userData for backward compatibility
         const userData = {
           userRole: selectedRole,
           createdAt: new Date().toISOString()
         };
         await AsyncStorage.setItem('userData', JSON.stringify(userData));
-        
+
         // Update auth step
         await setAuthStep('RoleSelected');
 
@@ -77,14 +78,16 @@ const RoleSelectionScreen = ({ navigation }) => {
     }
   };
 
-  const showHelp = () => {
-    // Could show help modal
-    console.log('Help pressed');
-  };
+  // const showHelp = () => {
+  //   // Could show help modal
+  //   console.log('Help pressed');
+  // };
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <StatusBar
+        barStyle="dark-content"
+        backgroundColor="#FFFFFF" />
 
       <View style={styles.innerContainer}>
         {/* Header */}
@@ -93,104 +96,109 @@ const RoleSelectionScreen = ({ navigation }) => {
             <Ionicons name="arrow-back" size={24} color="#333" />
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={showHelp} style={styles.helpButton}>
+          {/* <TouchableOpacity onPress={showHelp} style={styles.helpButton}>
             <Ionicons name="help-circle-outline" size={24} color="#007E2F" />
-          </TouchableOpacity>
+          </TouchableOpacity> */}
         </View>
 
-        {/* Main Content */}
-        <Animated.View
-          style={[
-            styles.content,
-            {
-              opacity: fadeAnim,
-              transform: [
-                { translateY: slideAnim },
-                { scale: scaleAnim }
-              ]
-            }
-          ]}
+        {/* Main Content (scrollable) */}
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
         >
-          {/* Illustration */}
-          <View style={styles.illustrationContainer}>
-            <View style={styles.illustrationBackground}>
-              {/* Placeholder illustration - you can replace with actual image */}
-              <Image
-                source={require('../../assets/images/illus.png')}
-                style={{ width: 280, height: 280 }}
-                resizeMode="center"
-              />
+          <Animated.View
+            style={[
+              styles.content,
+              {
+                opacity: fadeAnim,
+                transform: [
+                  { translateY: slideAnim },
+                  { scale: scaleAnim }
+                ]
+              }
+            ]}
+          >
+            {/* Illustration */}
+            <View style={styles.illustrationContainer}>
+              <View style={styles.illustrationBackground}>
+                {/* Placeholder illustration - you can replace with actual image */}
+                <Image
+                  source={require('../../assets/images/illus.png')}
+                  style={{ width: 280, height: 280 }}
+                  resizeMode="center"
+                />
+              </View>
             </View>
-          </View>
 
-          {/* Title and Description */}
-          <View style={styles.textContainer}>
-            <Text style={styles.heading}>Choose your role</Text>
-            <Text style={styles.subtext}>
-              Select <Text style={styles.highlightText}>Farmer</Text> if you want to sell fruits
-            </Text>
-            <Text style={styles.subtext}>
-              or <Text style={styles.highlightText}>Buyer</Text> if you want to purchase
-            </Text>
-          </View>
-
-          {/* Role Selection Cards */}
-          <View style={styles.roleContainer}>
-            {/* Farmer Card */}
-            <TouchableOpacity
-              style={[
-                styles.roleCard,
-                styles.farmerCard,
-                selectedRole === 'farmer' && styles.roleCardSelected
-              ]}
-              onPress={() => handleRoleSelect('farmer')}
-              activeOpacity={0.8}
-            >
-              <View style={[styles.roleIcon, styles.farmerIcon]}>
-                <Ionicons name="leaf" size={32} color="#007E2F" />
-              </View>
-              <Text style={[styles.roleText, selectedRole === 'farmer' && styles.roleTextSelected]}>
-                Farmer
+            {/* Title and Description */}
+            <View style={styles.textContainer}>
+              <Text style={styles.heading}>Choose your role</Text>
+              <Text style={styles.subtext}>
+                Select <Text style={styles.highlightText}>Farmer</Text> if you want to sell fruits
               </Text>
-              {selectedRole === 'farmer' && (
-                <View style={styles.selectedIndicator}>
-                  <Ionicons name="checkmark-circle" size={24} color="#007E2F" />
-                </View>
-              )}
-            </TouchableOpacity>
-
-            {/* Buyer Card */}
-            <TouchableOpacity
-              style={[
-                styles.roleCard,
-                styles.buyerCard,
-                selectedRole === 'buyer' && styles.roleCardSelected
-              ]}
-              onPress={() => handleRoleSelect('buyer')}
-              activeOpacity={0.8}
-            >
-              <View style={[styles.roleIcon, styles.buyerIcon]}>
-                <Ionicons name="storefront" size={32} color="#FF6B6B" />
-              </View>
-              <Text style={[styles.roleText, selectedRole === 'buyer' && styles.roleTextSelected]}>
-                Buyer
+              <Text style={styles.subtext}>
+                or <Text style={styles.highlightText}>Buyer</Text> if you want to purchase
               </Text>
-              {selectedRole === 'buyer' && (
-                <View style={styles.selectedIndicator}>
-                  <Ionicons name="checkmark-circle" size={24} color="#FF6B6B" />
-                </View>
-              )}
-            </TouchableOpacity>
-          </View>
+            </View>
 
-          {/* Security note */}
-          <View style={styles.securityNote}>
-            <Ionicons name="shield-checkmark" size={16} color="#007E2F" />
-            <Text style={styles.securityText}>
-              You can change your role later in settings if needed
-            </Text>
-          </View>
-        </Animated.View>
+            {/* Role Selection Cards */}
+            <View style={styles.roleContainer}>
+              {/* Farmer Card */}
+              <TouchableOpacity
+                style={[
+                  styles.roleCard,
+                  styles.farmerCard,
+                  selectedRole === 'farmer' && styles.roleCardSelected
+                ]}
+                onPress={() => handleRoleSelect('farmer')}
+                activeOpacity={0.8}
+              >
+                <View style={[styles.roleIcon, styles.farmerIcon]}>
+                  <Ionicons name="leaf" size={32} color="#007E2F" />
+                </View>
+                <Text style={[styles.roleText, selectedRole === 'farmer' && styles.roleTextSelected]}>
+                  Farmer
+                </Text>
+                {selectedRole === 'farmer' && (
+                  <View style={styles.selectedIndicator}>
+                    <Ionicons name="checkmark-circle" size={24} color="#007E2F" />
+                  </View>
+                )}
+              </TouchableOpacity>
+
+              {/* Buyer Card */}
+              <TouchableOpacity
+                style={[
+                  styles.roleCard,
+                  styles.buyerCard,
+                  selectedRole === 'buyer' && styles.roleCardSelected
+                ]}
+                onPress={() => handleRoleSelect('buyer')}
+                activeOpacity={0.8}
+              >
+                <View style={[styles.roleIcon, styles.buyerIcon]}>
+                  <Ionicons name="storefront" size={32} color="#FF6B6B" />
+                </View>
+                <Text style={[styles.roleText, selectedRole === 'buyer' && styles.roleTextSelected]}>
+                  Buyer
+                </Text>
+                {selectedRole === 'buyer' && (
+                  <View style={styles.selectedIndicator}>
+                    <Ionicons name="checkmark-circle" size={24} color="#FF6B6B" />
+                  </View>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            {/* Security note */}
+            <View style={styles.securityNote}>
+              <Ionicons name="shield-checkmark" size={16} color="#007E2F" />
+              <Text style={styles.securityText}>
+                You can change your role later in settings if needed
+              </Text>
+            </View>
+          </Animated.View>
+        </ScrollView>
 
         {/* Get Started Button */}
         <View style={styles.buttonContainer}>
@@ -250,6 +258,10 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     paddingTop: 20,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 120, // Prevent content from being hidden behind the bottom button
   },
   illustrationContainer: {
     marginBottom: 40,

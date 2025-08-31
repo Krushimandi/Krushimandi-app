@@ -14,6 +14,7 @@ import storage from '@react-native-firebase/storage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert } from 'react-native';
 import { clearUserRole } from '../utils/userRoleStorage';
+import firestore from '@react-native-firebase/firestore';
 import NetInfo from '@react-native-community/netinfo';
 import { auth as firebaseAuth, firestore as firebaseFirestore } from '../config/firebase';
 import { persistentAuthManager } from '../utils/persistentAuthManager';
@@ -419,11 +420,9 @@ export const saveUserToFirestore = async (userData) => {
       lastName: userData.lastName,
       displayName: `${userData.firstName} ${userData.lastName}`,
       phoneNumber: userData.phoneNumber,
-      email: userData.email || null,
       userRole: userData.userRole,
       profileImage: userData.profileImage || null,
       isProfileComplete: userData.isProfileComplete || false,
-      isEmailVerified: userData.isEmailVerified || false,
       isPhoneVerified: userData.isPhoneVerified || true,
       createdAt: firestoreServerTimestamp(),
       updatedAt: firestoreServerTimestamp(),
@@ -436,9 +435,9 @@ export const saveUserToFirestore = async (userData) => {
         farmLocation: userData.farmLocation || null,
       }),
       ...(userData.userRole === 'buyer' && {
-        businessDetails: userData.businessDetails || null,
-        preferredCrops: userData.preferredCrops || [],
-        businessLocation: userData.businessLocation || null,
+  businessType: userData.businessType || null,
+  // Rename preferredCrops -> PreferedFruits per new schema
+  PreferedFruits: userData.PreferedFruits || userData.preferredCrops || [],
       }),
     };
 
@@ -511,6 +510,27 @@ export const updateUserInFirestore = async (userId, userRole, updateData) => {
 };
 
 /**
+ * Cleanup unused fields from buyer profile in Firestore
+ * Removes: email, businessLocation, isEmailVerified, businessDetails, preferredCrops
+ */
+export const cleanupUnusedBuyerFields = async (userId) => {
+  try {
+    const del = firestore.FieldValue.delete();
+    const userDocRef = doc(firebaseFirestore, COLLECTIONS.BUYERS, userId);
+    await updateDoc(userDocRef, {
+      email: del,
+      businessLocation: del,
+      isEmailVerified: del,
+      businessDetails: del,
+      preferredCrops: del,
+    });
+    console.log('🧹 Cleaned up unused buyer fields for:', userId);
+  } catch (error) {
+    console.warn('⚠️ Cleanup of unused buyer fields failed (non-blocking):', error?.message || error);
+  }
+};
+
+/**
  * Save user data to AsyncStorage
  * @param {object} userData - User data object
  * @returns {Promise<void>}
@@ -525,13 +545,17 @@ export const saveUserToAsyncStorage = async (userData) => {
       lastName: userData.lastName,
       displayName: userData.displayName,
       phoneNumber: userData.phoneNumber,
-      email: userData.email,
       userRole: userData.userRole,
       profileImage: userData.profileImage,
       isProfileComplete: userData.isProfileComplete,
       lastSyncAt: new Date().toISOString(),
       createdAt: userData.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
+      // Persist new buyer-specific optional fields and fruits preference when present
+      ...(userData.userRole === 'buyer' && {
+        businessType: userData.businessType || null,
+        PreferedFruits: userData.PreferedFruits || userData.preferredCrops || [],
+      }),
     };
 
     await AsyncStorage.setItem('userData', JSON.stringify(storageData));
@@ -678,10 +702,13 @@ export const syncUserProfile = async (profileData, onProgress = null) => {
       ...updatedData,
       uid: user.uid,
       phoneNumber: user.phoneNumber,
-      email: user.email,
-      isEmailVerified: user.emailVerified,
       isPhoneVerified: true,
       displayName: updatedData.displayName || `${updatedData.firstName} ${updatedData.lastName}`,
+      // carry forward fruits preference and optional businessType for buyers
+      ...(updatedData.userRole === 'buyer' && {
+        PreferedFruits: updatedData.PreferedFruits || updatedData.preferredCrops || [],
+        businessType: updatedData.businessType || null,
+      }),
     };
 
     if (isOnline) {

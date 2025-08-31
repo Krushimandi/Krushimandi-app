@@ -38,7 +38,7 @@ const PhotoUploadScreen = ({ navigation, route }) => {
     const [progress, setProgress] = useState(0.33); // Start from 33%
     const [imagePickerModalVisible, setImagePickerModalVisible] = useState(false);
     const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
-    const [isUploading, setIsUploading] = useState(false);
+    // Note: Per-photo upload state is tracked in uploadedPhotos/pendingUploads
     // Upload queue management
     const [uploadQueue, setUploadQueue] = useState([]); // Array of { index, uri, id }
     const queueRef = useRef([]);
@@ -56,6 +56,17 @@ const PhotoUploadScreen = ({ navigation, route }) => {
     useEffect(() => {
         // Hide tab bar for this screen
         hideTabBar();
+        // Restore tab bar and cancel any in-flight uploads on unmount
+        return () => {
+            try { showTabBar(); } catch {}
+            try {
+                Object.values(uploadTasks || {}).forEach(task => {
+                    if (task && typeof task.cancel === 'function') {
+                        task.cancel();
+                    }
+                });
+            } catch {}
+        };
     }, []);
 
     useEffect(() => {
@@ -259,11 +270,25 @@ const PhotoUploadScreen = ({ navigation, route }) => {
     // };
 
 
+    // Find the first empty slot to enforce sequential fill order
+    const getNextAvailableSlot = () => {
+        for (let i = 0; i < maxPhotos; i++) {
+            if (!uploadedPhotos[i]) return i;
+        }
+        return -1; // all filled
+    };
+
     const handlePhotoUpload = (index) => {
         console.log(`📸 handlePhotoUpload called with index: ${index}`);
 
         // Find the first empty slot that should be filled
         const nextSlotToFill = getNextAvailableSlot();
+
+        if (nextSlotToFill === -1) {
+            console.log('✅ All photo slots filled');
+            Alert.alert('All Photos Added', 'You have added the maximum number of photos.');
+            return;
+        }
 
         // Only allow clicking on the next slot to fill
         if (index !== nextSlotToFill) {
@@ -273,24 +298,8 @@ const PhotoUploadScreen = ({ navigation, route }) => {
 
         // Set current photo index and show modal
         setCurrentPhotoIndex(nextSlotToFill);
-        setImagePickerModalVisible(true); // Show modal instead of direct camera launch
+    setImagePickerModalVisible(true); // Show modal instead of direct camera launch
     };
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
     const handleImagePickerOption = async (option, targetIndexOverride) => {
         setImagePickerModalVisible(false);
@@ -481,18 +490,19 @@ const PhotoUploadScreen = ({ navigation, route }) => {
         await AsyncStorage.setItem('authStep', 'done');
 
         // Format according to Fruit schema from types/fruit.ts
-        const completeProductData = {
+    const safeLocation = fruitData?.location || {};
+    const completeProductData = {
             // Will be set by Firestore when saving
             id: '',
 
             // Basic fruit info
-            name: fruitData?.name || '',
-            type: fruitData?.type || fruitData?.category || '',
+            name: fruitData?.name || 'Fruit',
+            type: fruitData?.type || fruitData?.category || 'unknown',
             // grade: fruitData?.grade || 'A',
             description: fruitData?.description || '',
 
             // Quantity and pricing
-            quantity: fruitData?.quantity || [0, 0],
+            quantity: Array.isArray(fruitData?.quantity) ? fruitData.quantity : [0, 0],
             price_per_kg: 0, // Will be set in PriceSelectionScreen
 
             // Availability and images
@@ -501,12 +511,12 @@ const PhotoUploadScreen = ({ navigation, route }) => {
 
             // Location info
             location: {
-                city: fruitData?.location?.city || '',
-                district: fruitData?.location?.district || '',
-                state: fruitData?.location?.state || '',
-                pincode: fruitData?.location?.pincode || '',
-                lat: fruitData?.location?.lat || 0,
-                lng: fruitData?.location?.lng || 0
+                city: safeLocation?.city || '',
+                district: safeLocation?.district || '',
+                state: safeLocation?.state || '',
+                pincode: safeLocation?.pincode || '',
+                lat: typeof safeLocation?.lat === 'number' ? safeLocation.lat : 0,
+                lng: typeof safeLocation?.lng === 'number' ? safeLocation.lng : 0,
             },
 
             // User reference
@@ -582,8 +592,11 @@ const PhotoUploadScreen = ({ navigation, route }) => {
         const isPending = pendingUploads.has(index);
         const isUploading = photo?.uploading || isPending;
         const hasPhoto = !!photo;
-        const anyUploadsInProgress = pendingUploads.size > 0;
-        const isSlotDisabled = hasPhoto; // Disable only if this slot already has a photo
+        const nextIndexToFill = getNextAvailableSlot();
+        const isNextToFill = nextIndexToFill === index;
+        // Disable all empty slots except the next sequential one; filled slots are non-tappable
+        const isSlotDisabled = hasPhoto || !isNextToFill;
+        const placeholderDisabled = !hasPhoto && !isNextToFill;
 
         return (
             <TouchableOpacity
@@ -592,6 +605,7 @@ const PhotoUploadScreen = ({ navigation, route }) => {
                     styles.photoSlot,
                     photo && styles.photoSlotFilled,
                     !photo && styles.photoSlotEmpty,
+                    !photo && isNextToFill && styles.photoSlotNext,
                     isSlotDisabled && styles.photoSlotDisabled
                 ]}
                 onPress={() => handlePhotoUpload(index)}
@@ -625,11 +639,11 @@ const PhotoUploadScreen = ({ navigation, route }) => {
                         <Ionicons
                             name="camera-outline"
                             size={30}
-                            color={anyUploadsInProgress ? "#999" : "#666"}
+                            color={placeholderDisabled ? "#ccc" : "#666"}
                         />
                         <Text style={[
                             styles.placeholderText,
-                            anyUploadsInProgress && { color: '#999' }
+                            placeholderDisabled && styles.placeholderTextDisabled
                         ]}>
                             {`Photo ${index + 1}`}
                         </Text>
@@ -713,19 +727,21 @@ const PhotoUploadScreen = ({ navigation, route }) => {
 
 
 
-                <TouchableOpacity
-                    style={styles.modalOption}
-                    onPress={() => handleImagePickerOption('gallery')}
-                >
-                    <View style={styles.modalOptionIcon}>
-                        <Ionicons name="images" size={28} color="#2196F3" />
-                    </View>
-
-                    <View style={{ flexDirection: 'column' }}>
-                        <Text style={styles.modalOptionText}>Gallery</Text>
-                        <Text style={styles.modalOptionSubtext}>Choose from gallery</Text>
-                    </View>
-                </TouchableOpacity>
+                {/* Stray gallery button (duplicate of modal options) hidden after git conflict */}
+                {false && (
+                    <TouchableOpacity
+                        style={styles.modalOption}
+                        onPress={() => handleImagePickerOption('gallery')}
+                    >
+                        <View style={styles.modalOptionIcon}>
+                            <Ionicons name="images" size={28} color="#2196F3" />
+                        </View>
+                        <View style={{ flexDirection: 'column' }}>
+                            <Text style={styles.modalOptionText}>Gallery</Text>
+                            <Text style={styles.modalOptionSubtext}>Choose from gallery</Text>
+                        </View>
+                    </TouchableOpacity>
+                )}
 
 
 

@@ -24,6 +24,7 @@ import { getCompleteUserProfile, updateLastLogin, validateCurrentUser, updateUse
 import { getFruitsByFarmerOptimized, updateFruitStatus } from '../../services/fruitService';
 import auth from '@react-native-firebase/auth';
 import { Colors, } from '../../constants';
+import changeNavigationBarColor from 'react-native-navigation-bar-color';
 import { getHeaderConstants } from '../../constants/Layout';
 import { useTabBarControl } from '../../utils/navigationControls';
 import {
@@ -138,6 +139,21 @@ const FarmerHomeScreen = () => {
     React.useCallback(() => {
       showTabBar();
     }, [showTabBar])
+  );
+
+  React.useEffect(() => {
+    changeNavigationBarColor('#ffffff', true);
+    // 1st arg = color
+    // 2nd arg = light/dark icons (true = light icons, false = dark icons)
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+     return () => {
+        // This event triggers when the screen is unfocused
+        // changeNavigationBarColor('#000000', false);
+      };
+    }, [])
   );
 
   // Calculate header height and opacity based on scroll with proper constants
@@ -292,7 +308,7 @@ const FarmerHomeScreen = () => {
     // Fixed navigation - using proper reset navigation
     navigation.reset({
       index: 0,
-  routes: [{ name: 'Auth' }],
+      routes: [{ name: 'Auth' }],
     });
 
     Toast.show({
@@ -593,7 +609,7 @@ const FarmerHomeScreen = () => {
           fruitName.includes(query) ||
           fruitType.includes(query) ||
           fruitDescription.includes(query) ||
-          location.includes(query) 
+          location.includes(query)
           // || grade.includes(query)
         );
       });
@@ -669,10 +685,10 @@ const FarmerHomeScreen = () => {
 
   return (
     <ErrorBoundary>
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView
+        style={styles.safeArea}>
         <StatusBar
           backgroundColor="#FFFFFF"
-          translucent={false}
           barStyle="dark-content"
         />
 
@@ -718,7 +734,7 @@ const FarmerHomeScreen = () => {
             styles.header,
             {
               height: headerHeight,
-              paddingTop: insets.top, // Use safe area insets
+              paddingTop: insets.top + 4, // Use safe area insets
               backgroundColor: '#FFFFFF', // Ensure background stays white
             }
           ]}>
@@ -1151,7 +1167,7 @@ const FarmerHomeScreen = () => {
             {
               opacity: titleOpacity,
               transform: [{ translateY: titleTranslateY }],
-              paddingTop: insets.top + 8, // Adjusted padding
+              paddingTop: insets.top, // Adjusted padding
               height: headerConstants.HEADER_MIN_HEIGHT,
               backgroundColor: '#FFFFFF', // Ensure solid background
               // Animated shadow and elevation
@@ -1322,8 +1338,8 @@ const styles = StyleSheet.create({
     opacity: 1,
   },
   fixedHeaderImage: {
-    width: 152,
-    height: 56,
+    width: 150,
+    height: 54,
   },
   profileContainer: {
     flexDirection: 'row',
@@ -1381,7 +1397,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
-    marginTop: 16,
+    marginTop: 10,
   },
   searchBox: {
     flexDirection: 'row',

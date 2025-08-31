@@ -69,6 +69,7 @@ export const StorageKeys = {
   BIOMETRIC_ENABLED: '@krushimandi:biometric_enabled',
   NOTIFICATION_SETTINGS: '@krushimandi:notification_settings',
   APP_SETTINGS: '@krushimandi:app_settings',
+  ORDERS_BADGE_STATE: '@krushimandi:orders_badge_state',
 } as const;
 
 // Secure Storage Keys for sensitive data (using react-native-keychain)

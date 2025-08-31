@@ -12,8 +12,8 @@ export const getHeaderConstants = (safeAreaTop: number = 0) => {
   const safeTop = Math.max(safeAreaTop, statusBarHeight);
   
   return {
-    HEADER_MAX_HEIGHT: 136 + safeTop, // Increased for better proportion
-    HEADER_MIN_HEIGHT: 70 + safeTop,  // Increased min height
+    HEADER_MAX_HEIGHT: 132 + safeTop, // Increased for better proportion
+    HEADER_MIN_HEIGHT: 62 + safeTop,  // Increased min height
     HEADER_SCROLL_DISTANCE: 96, // Optimal scroll distance
     SAFE_AREA_TOP: safeTop,
   };
