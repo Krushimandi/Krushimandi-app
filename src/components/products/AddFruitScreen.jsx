@@ -384,13 +384,13 @@ const AddFruitScreen = ({ navigation }) => {
       }
 
       console.log('Getting high-accuracy cached location...');
-      
+
       // Use cached location method for faster response
       const result = await getLocationWithCache();
-      
+
       if (result && result.location && result.locationData) {
         const { location, locationData } = result;
-        
+
         setCurrentLocation({ lat: location.latitude, lng: location.longitude });
 
         // Always fill city (fallback to district if city is empty)
@@ -447,11 +447,11 @@ const AddFruitScreen = ({ navigation }) => {
 
         // Show location quality and tips for improvement
         let message = `Auto-filled: ${cityToFill}, ${locationData.district}, ${locationData.state}${locationData.pincode ? ' - ' + locationData.pincode : ''}${locationSource}${accuracyInfo}${dataQuality}`;
-        
+
         // Add specific advice based on data quality
         if (locationData.source === 'coordinate-fallback' || locationData.source === 'gps-fallback') {
           message += '\n\n⚠️ Address lookup failed - showing approximate location. Please verify and correct the address details manually.';
-          
+
           if (locationData.note) {
             message += `\n\n💡 ${locationData.note}`;
           }
@@ -1006,13 +1006,9 @@ const AddFruitScreen = ({ navigation }) => {
                     </TouchableOpacity>
                   </View>
 
-                  <Text style={styles.locationHelpText}>
+                  {/* <Text style={styles.locationHelpText}>
                     📍 Auto-fill your farm location using high-accuracy GPS and Google Maps
-                  </Text>
-                  <Text style={styles.locationTipText}>
-                    💡 For best results: Move outdoors, enable "High Accuracy" GPS mode, and ensure clear sky view
-                  </Text>
-
+                  </Text> */}
                   {locationError ? (
                     <Text style={styles.locationErrorText}>
                       ⚠️ {locationError}
@@ -1695,12 +1691,6 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     marginBottom: 4,
     fontStyle: 'italic',
-  },
-  locationTipText: {
-    fontSize: 11,
-    color: '#10B981',
-    marginBottom: 12,
-    fontWeight: '500',
   },
   locationGrid: {
     flexDirection: 'row',

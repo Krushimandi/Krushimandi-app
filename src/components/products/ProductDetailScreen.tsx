@@ -55,16 +55,16 @@ const validateRouteParams = (params: any): { isValid: boolean; product?: any; er
   if (!params) {
     return { isValid: false, error: 'No route parameters provided' };
   }
-  
+
   if (!params.product) {
     return { isValid: false, error: 'No product data in route parameters' };
   }
-  
+
   const product = params.product;
   if (!product.id && !params.productId) {
     return { isValid: false, error: 'Product ID is required but not provided' };
   }
-  
+
   return { isValid: true, product };
 };
 
@@ -76,14 +76,14 @@ type ProductDetailScreenProps = {
 const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, route }) => {
   // Component mounted flag to prevent memory leaks
   const isMountedRef = useRef(true);
-  
+
   // Validate route params first
   const routeValidation = useMemo(() => validateRouteParams(route?.params), [route?.params]);
-  
+
   // Early return with error handling for invalid params
   if (!routeValidation.isValid) {
     console.error('❌ Route validation failed:', routeValidation.error);
-    
+
     useEffect(() => {
       Alert.alert(
         'Error',
@@ -129,7 +129,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
     availability_date: rawProduct.availability_date || new Date().toISOString(),
     image_urls: rawProduct.image_urls || [],
     location: rawProduct.location || {
-      village: 'Unknown',
+      city: 'Unknown',
       district: 'Unknown',
       state: 'Unknown',
       pincode: '000000',
@@ -833,295 +833,295 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
 
         {/* Header with Back Button and Title */}
         <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Ionicons name="arrow-back" size={24} color="#007E2F" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Product Details</Text>
-        <TouchableOpacity
-          style={[
-            styles.favoriteButton,
-            isWishlistLoading && { opacity: 0.6 },
-            isFavorite && styles.favoriteButtonActive
-          ]}
-          onPress={handleWishlistToggle}
-          disabled={isWishlistLoading}
-          activeOpacity={0.7}
-        >
-          {isWishlistLoading ? (
-            <Ionicons name="heart-outline" size={24} color="#999999" />
-          ) : (
-            <Ionicons
-              name={isFavorite ? "heart" : "heart-outline"}
-              size={24}
-              color={isFavorite ? "#FF6B6B" : "#007E2F"}
-            />
-          )}
-        </TouchableOpacity>
-      </View>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Ionicons name="arrow-back" size={24} color="#007E2F" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Product Details</Text>
+          <TouchableOpacity
+            style={[
+              styles.favoriteButton,
+              isWishlistLoading && { opacity: 0.6 },
+              isFavorite && styles.favoriteButtonActive
+            ]}
+            onPress={handleWishlistToggle}
+            disabled={isWishlistLoading}
+            activeOpacity={0.7}
+          >
+            {isWishlistLoading ? (
+              <Ionicons name="heart-outline" size={24} color="#999999" />
+            ) : (
+              <Ionicons
+                name={isFavorite ? "heart" : "heart-outline"}
+                size={24}
+                color={isFavorite ? "#FF6B6B" : "#007E2F"}
+              />
+            )}
+          </TouchableOpacity>
+        </View>
 
-      <ScrollView
-        style={styles.content}
-        showsVerticalScrollIndicator={false}
-       >
-        {/* Modern Product Image Section */}
-        <View style={styles.modernImageSection}>
-          {product.image_urls && product.image_urls.length > 0 ? (
-            <>
-              {/* Main Image Container with Modern Design */}
+        <ScrollView
+          style={styles.content}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Modern Product Image Section */}
+          <View style={styles.modernImageSection}>
+            {product.image_urls && product.image_urls.length > 0 ? (
+              <>
+                {/* Main Image Container with Modern Design */}
+                <View style={styles.modernImageContainer}>
+                  <Image
+                    source={{ uri: product.image_urls[selectedImageIndex] }}
+                    style={styles.modernProductImage}
+                    resizeMode="cover"
+                  />
+
+                  {/* Status Badge - Modern Style */}
+                  <View style={styles.modernStatusBadge}>
+                    <View style={styles.statusIndicator} />
+                    <Text style={styles.modernStatusText}>{product.status?.toUpperCase()}</Text>
+                  </View>
+
+                  {/* Image Counter - Modern Style */}
+                  {product.image_urls.length > 1 && (
+                    <View style={styles.modernImageCounter}>
+                      <Text style={styles.modernImageCounterText}>
+                        {selectedImageIndex + 1}/{product.image_urls.length}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* Modern Thumbnail Carousel with Dots */}
+                {product.image_urls.length > 1 && (
+                  <View style={styles.modernThumbnailSection}>
+                    <FlatList
+                      data={product.image_urls}
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={styles.modernThumbnailContainer}
+                      keyExtractor={(item, index) => `image-${index}`}
+                      renderItem={({ item, index }) => (
+                        <TouchableOpacity
+                          style={[
+                            styles.modernThumbnailWrapper,
+                            selectedImageIndex === index && styles.modernSelectedThumbnail
+                          ]}
+                          onPress={() => setSelectedImageIndex(index)}
+                          activeOpacity={0.8}
+                        >
+                          <Image
+                            source={{ uri: item }}
+                            style={styles.modernThumbnailImage}
+                            resizeMode="cover"
+                          />
+                          {selectedImageIndex === index && (
+                            <View style={styles.thumbnailOverlay}>
+                              <Ionicons name="checkmark" size={16} color="#FFFFFF" />
+                            </View>
+                          )}
+                        </TouchableOpacity>
+                      )}
+                    />
+
+                    {/* Dots Indicator */}
+                    <View style={styles.dotsContainer}>
+                      {product.image_urls.map((_, index) => (
+                        <TouchableOpacity
+                          key={index}
+                          style={[
+                            styles.dot,
+                            selectedImageIndex === index && styles.activeDot
+                          ]}
+                          onPress={() => setSelectedImageIndex(index)}
+                        />
+                      ))}
+                    </View>
+                  </View>
+                )}
+              </>
+            ) : (
               <View style={styles.modernImageContainer}>
-                <Image
-                  source={{ uri: product.image_urls[selectedImageIndex] }}
-                  style={styles.modernProductImage}
-                  resizeMode="cover"
-                />
+                {/* Modern Fallback for no images */}
+                <View style={styles.modernImagePlaceholder}>
+                  <View style={styles.placeholderIconContainer}>
+                    <Ionicons name="image-outline" size={60} color="#007E2F" />
+                  </View>
+                  <Text style={styles.placeholderText}>No images available</Text>
+                </View>
 
-                {/* Status Badge - Modern Style */}
+                {/* Status Badge */}
                 <View style={styles.modernStatusBadge}>
                   <View style={styles.statusIndicator} />
                   <Text style={styles.modernStatusText}>{product.status?.toUpperCase()}</Text>
                 </View>
-
-                {/* Image Counter - Modern Style */}
-                {product.image_urls.length > 1 && (
-                  <View style={styles.modernImageCounter}>
-                    <Text style={styles.modernImageCounterText}>
-                      {selectedImageIndex + 1}/{product.image_urls.length}
-                    </Text>
-                  </View>
-                )}
-              </View>
-
-              {/* Modern Thumbnail Carousel with Dots */}
-              {product.image_urls.length > 1 && (
-                <View style={styles.modernThumbnailSection}>
-                  <FlatList
-                    data={product.image_urls}
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.modernThumbnailContainer}
-                    keyExtractor={(item, index) => `image-${index}`}
-                    renderItem={({ item, index }) => (
-                      <TouchableOpacity
-                        style={[
-                          styles.modernThumbnailWrapper,
-                          selectedImageIndex === index && styles.modernSelectedThumbnail
-                        ]}
-                        onPress={() => setSelectedImageIndex(index)}
-                        activeOpacity={0.8}
-                      >
-                        <Image
-                          source={{ uri: item }}
-                          style={styles.modernThumbnailImage}
-                          resizeMode="cover"
-                        />
-                        {selectedImageIndex === index && (
-                          <View style={styles.thumbnailOverlay}>
-                            <Ionicons name="checkmark" size={16} color="#FFFFFF" />
-                          </View>
-                        )}
-                      </TouchableOpacity>
-                    )}
-                  />
-
-                  {/* Dots Indicator */}
-                  <View style={styles.dotsContainer}>
-                    {product.image_urls.map((_, index) => (
-                      <TouchableOpacity
-                        key={index}
-                        style={[
-                          styles.dot,
-                          selectedImageIndex === index && styles.activeDot
-                        ]}
-                        onPress={() => setSelectedImageIndex(index)}
-                      />
-                    ))}
-                  </View>
-                </View>
-              )}
-            </>
-          ) : (
-            <View style={styles.modernImageContainer}>
-              {/* Modern Fallback for no images */}
-              <View style={styles.modernImagePlaceholder}>
-                <View style={styles.placeholderIconContainer}>
-                  <Ionicons name="image-outline" size={60} color="#007E2F" />
-                </View>
-                <Text style={styles.placeholderText}>No images available</Text>
-              </View>
-
-              {/* Status Badge */}
-              <View style={styles.modernStatusBadge}>
-                <View style={styles.statusIndicator} />
-                <Text style={styles.modernStatusText}>{product.status?.toUpperCase()}</Text>
-              </View>
-            </View>
-          )}
-        </View>
-
-        {/* Modern Product Info Card */}
-        <View style={styles.modernProductCard}>
-          {/* Product Header - Name, Grade, Type */}
-          <View style={styles.modernProductHeaderSection}>
-            <Text style={styles.modernProductName}>{product.name}</Text>
-            <View style={styles.modernGradeTypeContainer}>
-              {/* <View style={styles.modernGradeBadge}>
-                <Ionicons name="ribbon" size={14} color="#007E2F" />
-                <Text style={styles.modernGradeText}>Grade {product.grade}</Text>
-              </View> */}
-              <View style={styles.modernTypeBadge}>
-                <Ionicons name="leaf" size={14} color="#666666" />
-                <Text style={styles.modernTypeText}>{product.type}</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Modern Price Section */}
-          <View style={styles.modernPriceSection}>
-            <View style={styles.priceWithIcon}>
-              <Ionicons name="pricetag" size={20} color="#007E2F" />
-              <View style={styles.priceInfo}>
-                <Text style={styles.priceLabel}>Price per KG</Text>
-                <Text style={styles.modernPrice}>₹{product.price_per_kg}</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Modern Engagement Stats */}
-          <View style={styles.modernEngagementContainer}>
-            <View style={styles.engagementStatsWrapper}>
-              <View style={styles.modernEngagementStat}>
-                <View style={styles.engagementIconContainer}>
-                  <Ionicons name="eye" size={18} color="#007E2F" />
-                </View>
-                <View style={styles.engagementTextContainer}>
-                  <Text style={styles.modernEngagementNumber}>{product.views || 0}</Text>
-                  <Text style={styles.engagementLabel}>views</Text>
-                </View>
-              </View>
-
-              <View style={styles.statsDivider} />
-
-              <View style={styles.modernEngagementStat}>
-                <TouchableOpacity
-                  style={[
-                    styles.engagementIconContainer,
-                    {
-                      backgroundColor: isFavorite ? '#FFE8E8' : '#E8F5E8',
-                      opacity: isWishlistLoading ? 0.6 : 1.0,
-                      transform: [{ scale: isWishlistLoading ? 0.95 : 1.0 }]
-                    }
-                  ]}
-                  onPress={handleWishlistToggle}
-                  disabled={isWishlistLoading}
-                  activeOpacity={0.7}
-                >
-                  {isWishlistLoading ? (
-                    <Ionicons
-                      name="heart-outline"
-                      size={18}
-                      color="#999999"
-                    />
-                  ) : (
-                    <Ionicons
-                      name={isFavorite ? "heart" : "heart-outline"}
-                      size={18}
-                      color={isFavorite ? "#FF6B6B" : "#007E2F"}
-                    />
-                  )}
-                </TouchableOpacity>
-                <View style={styles.engagementTextContainer}>
-                  <Text style={[
-                    styles.modernEngagementNumber,
-                    isFavorite && { color: '#FF6B6B' },
-                    isWishlistLoading && { opacity: 0.6 }
-                  ]}>
-                    {currentLikes}
-                  </Text>
-                  <Text style={[
-                    styles.engagementLabel,
-                    isWishlistLoading && { opacity: 0.6 }
-                  ]}>
-                    likes
-                  </Text>
-                </View>
-              </View>
-
-              {/* Request Count - Only visible to farmers for their own products */}
-              {userRole === 'farmer' && user?.uid === product.farmer_id && (
-                <>
-                  <View style={styles.statsDivider} />
-                  <View style={styles.modernEngagementStat}>
-                    <View style={[
-                      styles.engagementIconContainer,
-                      { backgroundColor: '#FFF3E0' }
-                    ]}>
-                      <Ionicons name="mail-outline" size={18} color="#FF9800" />
-                    </View>
-                    <View style={styles.engagementTextContainer}>
-                      <Text style={[styles.modernEngagementNumber, { color: '#FF9800' }]}>
-                        {requestCount}
-                      </Text>
-                      <Text style={styles.engagementLabel}>requests</Text>
-                    </View>
-                  </View>
-                </>
-              )}
-
-              <View style={styles.statsDivider} />
-
-              <View style={styles.modernEngagementStat}>
-                <View style={styles.engagementIconContainer}>
-                  <Ionicons name="time" size={18} color="#007E2F" />
-                </View>
-                <View style={styles.engagementTextContainer}>
-                  <Text style={styles.modernEngagementNumber}>
-                    {topText}
-                  </Text>
-                  <Text style={styles.engagementLabel}>{bottomText}</Text>
-                </View>
-              </View>
-            </View>
-
-            {isFavorite && (
-              <View style={styles.modernWishlistBadge}>
-                <Ionicons name="heart" size={14} color="#FF6B6B" />
-                <Text style={styles.modernWishlistText}>In Wishlist</Text>
               </View>
             )}
           </View>
 
-          <View style={styles.modernDivider} />
-
-          {/* Description Section */}
-          {product.description && (
-            <>
-              <View style={styles.modernDetailSection}>
-                <Text style={styles.modernSectionTitle}>Description</Text>
-                <Text style={styles.descriptionText}>{product.description}</Text>
-              </View>
-              <View style={styles.modernDivider} />
-            </>
-          )}
-
-          {/* Modern Product Details Grid */}
-          <View style={styles.modernDetailSection}>
-            <Text style={styles.modernSectionTitle}>Product Details</Text>
-            <View style={styles.modernDetailsGrid}>
-              {/* Type and Grade */}
-              <View style={styles.modernDetailCard}>
-                <View style={styles.modernDetailIconContainer}>
-                  <Ionicons name="leaf-outline" size={22} color="#007E2F" />
-                </View>
-                <View style={styles.modernDetailContent}>
-                  <Text style={styles.modernDetailLabel}>Fruit Type</Text>
-                  <Text style={styles.modernDetailValue}>{product.type}</Text>
+          {/* Modern Product Info Card */}
+          <View style={styles.modernProductCard}>
+            {/* Product Header - Name, Grade, Type */}
+            <View style={styles.modernProductHeaderSection}>
+              <Text style={styles.modernProductName}>{product.name}</Text>
+              <View style={styles.modernGradeTypeContainer}>
+                {/* <View style={styles.modernGradeBadge}>
+                <Ionicons name="ribbon" size={14} color="#007E2F" />
+                <Text style={styles.modernGradeText}>Grade {product.grade}</Text>
+              </View> */}
+                <View style={styles.modernTypeBadge}>
+                  <Ionicons name="leaf" size={14} color="#666666" />
+                  <Text style={styles.modernTypeText}>{product.type}</Text>
                 </View>
               </View>
+            </View>
 
-              {/* <View style={styles.modernDetailCard}>
+            {/* Modern Price Section */}
+            <View style={styles.modernPriceSection}>
+              <View style={styles.priceWithIcon}>
+                <Ionicons name="pricetag" size={20} color="#007E2F" />
+                <View style={styles.priceInfo}>
+                  <Text style={styles.priceLabel}>Price per KG</Text>
+                  <Text style={styles.modernPrice}>₹{product.price_per_kg}</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Modern Engagement Stats */}
+            <View style={styles.modernEngagementContainer}>
+              <View style={styles.engagementStatsWrapper}>
+                <View style={styles.modernEngagementStat}>
+                  <View style={styles.engagementIconContainer}>
+                    <Ionicons name="eye" size={18} color="#007E2F" />
+                  </View>
+                  <View style={styles.engagementTextContainer}>
+                    <Text style={styles.modernEngagementNumber}>{product.views || 0}</Text>
+                    <Text style={styles.engagementLabel}>views</Text>
+                  </View>
+                </View>
+
+                <View style={styles.statsDivider} />
+
+                <View style={styles.modernEngagementStat}>
+                  <TouchableOpacity
+                    style={[
+                      styles.engagementIconContainer,
+                      {
+                        backgroundColor: isFavorite ? '#FFE8E8' : '#E8F5E8',
+                        opacity: isWishlistLoading ? 0.6 : 1.0,
+                        transform: [{ scale: isWishlistLoading ? 0.95 : 1.0 }]
+                      }
+                    ]}
+                    onPress={handleWishlistToggle}
+                    disabled={isWishlistLoading}
+                    activeOpacity={0.7}
+                  >
+                    {isWishlistLoading ? (
+                      <Ionicons
+                        name="heart-outline"
+                        size={18}
+                        color="#999999"
+                      />
+                    ) : (
+                      <Ionicons
+                        name={isFavorite ? "heart" : "heart-outline"}
+                        size={18}
+                        color={isFavorite ? "#FF6B6B" : "#007E2F"}
+                      />
+                    )}
+                  </TouchableOpacity>
+                  <View style={styles.engagementTextContainer}>
+                    <Text style={[
+                      styles.modernEngagementNumber,
+                      isFavorite && { color: '#FF6B6B' },
+                      isWishlistLoading && { opacity: 0.6 }
+                    ]}>
+                      {currentLikes}
+                    </Text>
+                    <Text style={[
+                      styles.engagementLabel,
+                      isWishlistLoading && { opacity: 0.6 }
+                    ]}>
+                      likes
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Request Count - Only visible to farmers for their own products */}
+                {userRole === 'farmer' && user?.uid === product.farmer_id && (
+                  <>
+                    <View style={styles.statsDivider} />
+                    <View style={styles.modernEngagementStat}>
+                      <View style={[
+                        styles.engagementIconContainer,
+                        { backgroundColor: '#FFF3E0' }
+                      ]}>
+                        <Ionicons name="mail-outline" size={18} color="#FF9800" />
+                      </View>
+                      <View style={styles.engagementTextContainer}>
+                        <Text style={[styles.modernEngagementNumber, { color: '#FF9800' }]}>
+                          {requestCount}
+                        </Text>
+                        <Text style={styles.engagementLabel}>requests</Text>
+                      </View>
+                    </View>
+                  </>
+                )}
+
+                <View style={styles.statsDivider} />
+
+                <View style={styles.modernEngagementStat}>
+                  <View style={styles.engagementIconContainer}>
+                    <Ionicons name="time" size={18} color="#007E2F" />
+                  </View>
+                  <View style={styles.engagementTextContainer}>
+                    <Text style={styles.modernEngagementNumber}>
+                      {topText}
+                    </Text>
+                    <Text style={styles.engagementLabel}>{bottomText}</Text>
+                  </View>
+                </View>
+              </View>
+
+              {isFavorite && (
+                <View style={styles.modernWishlistBadge}>
+                  <Ionicons name="heart" size={14} color="#FF6B6B" />
+                  <Text style={styles.modernWishlistText}>In Wishlist</Text>
+                </View>
+              )}
+            </View>
+
+            <View style={styles.modernDivider} />
+
+            {/* Description Section */}
+            {product.description && (
+              <>
+                <View style={styles.modernDetailSection}>
+                  <Text style={styles.modernSectionTitle}>Description</Text>
+                  <Text style={styles.descriptionText}>{product.description}</Text>
+                </View>
+                <View style={styles.modernDivider} />
+              </>
+            )}
+
+            {/* Modern Product Details Grid */}
+            <View style={styles.modernDetailSection}>
+              <Text style={styles.modernSectionTitle}>Product Details</Text>
+              <View style={styles.modernDetailsGrid}>
+                {/* Type and Grade */}
+                <View style={styles.modernDetailCard}>
+                  <View style={styles.modernDetailIconContainer}>
+                    <Ionicons name="leaf-outline" size={22} color="#007E2F" />
+                  </View>
+                  <View style={styles.modernDetailContent}>
+                    <Text style={styles.modernDetailLabel}>Fruit Type</Text>
+                    <Text style={styles.modernDetailValue}>{product.type}</Text>
+                  </View>
+                </View>
+
+                {/* <View style={styles.modernDetailCard}>
                 <View style={styles.modernDetailIconContainer}>
                   <Ionicons name="ribbon-outline" size={22} color="#007E2F" />
                 </View>
@@ -1131,368 +1131,368 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                 </View>
               </View> */}
 
-              {/* Status */}
-              <View style={[styles.modernDetailCard, styles.fullWidthCard]}>
-                <View style={[
-                  styles.modernDetailIconContainer,
-                  { backgroundColor: product.status === 'active' ? '#E8F5E8' : '#FFF3E0' }
-                ]}>
-                  <Ionicons
-                    name="checkmark-circle-outline"
-                    size={22}
-                    color={product.status === 'active' ? '#4CAF50' : '#FF9800'}
-                  />
-                </View>
-                <View style={styles.modernDetailContent}>
-                  <Text style={styles.modernDetailLabel}>Availability Status</Text>
-                  <Text style={[
-                    styles.modernDetailValue,
-                    {
-                      color: product.status === 'active' ? '#4CAF50' : '#FF9800',
-                      fontWeight: '700'
-                    }
+                {/* Status */}
+                <View style={[styles.modernDetailCard, styles.fullWidthCard]}>
+                  <View style={[
+                    styles.modernDetailIconContainer,
+                    { backgroundColor: product.status === 'active' ? '#E8F5E8' : '#FFF3E0' }
                   ]}>
-                    {product.status?.charAt(0).toUpperCase() + product.status?.slice(1) || 'Active'}
-                  </Text>
-                </View>
-              </View>
-            </View>
-          </View>
-
-          <View style={styles.modernDivider} />
-
-          {/* Quantity Information */}
-          <View style={styles.modernDetailSection}>
-            <Text style={styles.modernSectionTitle}>Available Quantity</Text>
-            <View style={styles.quantityCard}>
-              <View style={styles.quantityIconContainer}>
-                <Ionicons name="scale-outline" size={24} color="#007E2F" />
-              </View>
-              <View style={styles.quantityDetails}>
-                <Text style={styles.quantityText}>
-                  {formatFruitQuantity(product.quantity)}
-                </Text>
-                <Text style={styles.quantitySubtext}>Total available</Text>
-              </View>
-            </View>
-          </View>
-
-          <View style={styles.modernDivider} />
-
-          {/* Location Details - Modern with Privacy */}
-          <View style={styles.modernDetailSection}>
-            <Text style={styles.modernSectionTitle}>Location Details</Text>
-            <View style={styles.modernLocationCard}>
-              <View style={styles.locationIconContainer}>
-                <Ionicons name="location" size={24} color="#007E2F" />
-              </View>
-              <View style={styles.locationDetails}>
-                <Text style={styles.locationPrimary}>{product.location.village}</Text>
-                <Text style={styles.locationSecondary}>
-                  {product.location.district}, {product.location.state}
-                </Text>
-                <Text style={styles.locationTertiary}>
-                  PIN: {product.location.pincode}
-                </Text>
-                {/* Privacy: Don't show exact coordinates to buyers */}
-                <View style={styles.locationPrivacyNote}>
-                  <Ionicons name="shield-checkmark" size={14} color="#666666" />
-                  <Text style={styles.privacyText}>
-                    Exact location shared after order confirmation
-                  </Text>
-                </View>
-              </View>
-            </View>
-          </View>
-
-          <View style={styles.modernDivider} />
-
-          {/* Availability Information */}
-          <View style={styles.modernDetailSection}>
-            <Text style={styles.modernSectionTitle}>Availability</Text>
-            <View style={styles.availabilityCard}>
-              <View style={styles.availabilityRow}>
-                <Ionicons name="calendar-outline" size={20} color="#007E2F" />
-                <View style={styles.availabilityTextContainer}>
-                  <Text style={styles.availabilityLabel}>Available from</Text>
-                  <Text style={styles.availabilityValue}>
-                    {new Date(product.availability_date).toLocaleDateString('en-IN', {
-                      weekday: 'long',
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric'
-                    })}
-                  </Text>
-                </View>
-              </View>
-            </View>
-          </View>
-
-          <View style={styles.modernDivider} />
-
-          {/* Timestamps */}
-          <View style={styles.modernDetailSection}>
-            <Text style={styles.modernSectionTitle}>Listing Information</Text>
-            <View style={styles.timestampCard}>
-              <View style={styles.timestampRow}>
-                <Ionicons name="add-circle-outline" size={20} color="#666666" />
-                <View style={styles.timestampTextContainer}>
-                  <Text style={styles.timestampLabel}>Created</Text>
-                  <Text style={styles.timestampValue}>
-                    {new Date(product.created_at).toLocaleDateString('en-IN')} at{' '}
-                    {new Date(product.created_at).toLocaleTimeString('en-IN', {
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}
-                  </Text>
-                </View>
-              </View>
-              <View style={styles.timestampRow}>
-                <Ionicons name="create-outline" size={20} color="#666666" />
-                <View style={styles.timestampTextContainer}>
-                  <Text style={styles.timestampLabel}>Last updated</Text>
-                  <Text style={styles.timestampValue}>
-                    {new Date(product.updated_at).toLocaleDateString('en-IN')} at{' '}
-                    {new Date(product.updated_at).toLocaleTimeString('en-IN', {
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}
-                  </Text>
-                </View>
-              </View>
-            </View>
-          </View>
-
-          <View style={styles.modernDivider} />
-
-          {/* Modern Farmer Details Section */}
-          <View style={styles.modernDetailSection}>
-            <Text style={styles.modernSectionTitle}>Farmer Information</Text>
-
-            {isFarmerDataLoading ? (
-              <View style={styles.modernFarmerCard}>
-                <View style={styles.farmerLoadingContainer}>
-                  <View style={styles.loadingAvatar}>
-                    <View style={styles.loadingIndicator} />
+                    <Ionicons
+                      name="checkmark-circle-outline"
+                      size={22}
+                      color={product.status === 'active' ? '#4CAF50' : '#FF9800'}
+                    />
                   </View>
-                  <View style={styles.farmerLoadingInfo}>
-                    <View style={styles.loadingTextLine} />
-                    <View style={styles.loadingTextLineShort} />
-                    <View style={styles.loadingTextLineTiny} />
+                  <View style={styles.modernDetailContent}>
+                    <Text style={styles.modernDetailLabel}>Availability Status</Text>
+                    <Text style={[
+                      styles.modernDetailValue,
+                      {
+                        color: product.status === 'active' ? '#4CAF50' : '#FF9800',
+                        fontWeight: '700'
+                      }
+                    ]}>
+                      {product.status?.charAt(0).toUpperCase() + product.status?.slice(1) || 'Active'}
+                    </Text>
                   </View>
                 </View>
               </View>
-            ) : (
-              <>
+            </View>
+
+            <View style={styles.modernDivider} />
+
+            {/* Quantity Information */}
+            <View style={styles.modernDetailSection}>
+              <Text style={styles.modernSectionTitle}>Available Quantity</Text>
+              <View style={styles.quantityCard}>
+                <View style={styles.quantityIconContainer}>
+                  <Ionicons name="scale-outline" size={24} color="#007E2F" />
+                </View>
+                <View style={styles.quantityDetails}>
+                  <Text style={styles.quantityText}>
+                    {formatFruitQuantity(product.quantity)}
+                  </Text>
+                  <Text style={styles.quantitySubtext}>Total available</Text>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.modernDivider} />
+
+            {/* Location Details - Modern with Privacy */}
+            <View style={styles.modernDetailSection}>
+              <Text style={styles.modernSectionTitle}>Location Details</Text>
+              <View style={styles.modernLocationCard}>
+                <View style={styles.locationIconContainer}>
+                  <Ionicons name="location" size={24} color="#007E2F" />
+                </View>
+                <View style={styles.locationDetails}>
+                  <Text style={styles.locationPrimary}>{product.location.city}</Text>
+                  <Text style={styles.locationSecondary}>
+                    {product.location.district}, {product.location.state}
+                  </Text>
+                  <Text style={styles.locationTertiary}>
+                    PIN: {product.location.pincode}
+                  </Text>
+                  {/* Privacy: Don't show exact coordinates to buyers */}
+                  <View style={styles.locationPrivacyNote}>
+                    <Ionicons name="shield-checkmark" size={14} color="#666666" />
+                    <Text style={styles.privacyText}>
+                      Exact location shared after order confirmation
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.modernDivider} />
+
+            {/* Availability Information */}
+            <View style={styles.modernDetailSection}>
+              <Text style={styles.modernSectionTitle}>Availability</Text>
+              <View style={styles.availabilityCard}>
+                <View style={styles.availabilityRow}>
+                  <Ionicons name="calendar-outline" size={20} color="#007E2F" />
+                  <View style={styles.availabilityTextContainer}>
+                    <Text style={styles.availabilityLabel}>Available from</Text>
+                    <Text style={styles.availabilityValue}>
+                      {new Date(product.availability_date).toLocaleDateString('en-IN', {
+                        weekday: 'long',
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                      })}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.modernDivider} />
+
+            {/* Timestamps */}
+            <View style={styles.modernDetailSection}>
+              <Text style={styles.modernSectionTitle}>Listing Information</Text>
+              <View style={styles.timestampCard}>
+                <View style={styles.timestampRow}>
+                  <Ionicons name="add-circle-outline" size={20} color="#666666" />
+                  <View style={styles.timestampTextContainer}>
+                    <Text style={styles.timestampLabel}>Created</Text>
+                    <Text style={styles.timestampValue}>
+                      {new Date(product.created_at).toLocaleDateString('en-IN')} at{' '}
+                      {new Date(product.created_at).toLocaleTimeString('en-IN', {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.timestampRow}>
+                  <Ionicons name="create-outline" size={20} color="#666666" />
+                  <View style={styles.timestampTextContainer}>
+                    <Text style={styles.timestampLabel}>Last updated</Text>
+                    <Text style={styles.timestampValue}>
+                      {new Date(product.updated_at).toLocaleDateString('en-IN')} at{' '}
+                      {new Date(product.updated_at).toLocaleTimeString('en-IN', {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.modernDivider} />
+
+            {/* Modern Farmer Details Section */}
+            <View style={styles.modernDetailSection}>
+              <Text style={styles.modernSectionTitle}>Farmer Information</Text>
+
+              {isFarmerDataLoading ? (
                 <View style={styles.modernFarmerCard}>
-                  <View style={styles.modernFarmerHeader}>
-                    <View style={styles.farmerAvatarContainer}>
-                      <View style={[
-                        styles.modernFarmerAvatar,
-                        { backgroundColor: farmerData?.avatar_color || '#007E2F' }
-                      ]}>
-                        {farmerData?.profile_image_url ? (
-                          <Image
-                            source={{ uri: farmerData.profile_image_url }}
-                            style={styles.farmerProfileImage}
-                            resizeMode="cover"
-                          />
-                        ) : (
-                          <Text style={styles.modernFarmerAvatarText}>
-                            {(farmerData?.displayName || 'F').charAt(0).toUpperCase()
-                            }</Text>
-                        )}
-                      </View>
-                      {farmerData?.is_verified && (
-                        <View style={styles.verificationBadge}>
-                          <Ionicons name="checkmark-circle" size={16} color="#4CAF50" />
-                        </View>
-                      )}
+                  <View style={styles.farmerLoadingContainer}>
+                    <View style={styles.loadingAvatar}>
+                      <View style={styles.loadingIndicator} />
                     </View>
-
-                    <View style={styles.modernFarmerInfo}>
-                      <Text style={styles.modernFarmerName}>
-                        {(() => {
-                          const displayName = farmerData?.displayName || 'Unknown Farmer';
-                          console.log('🔍 Farmer name display logic:', {
-                            'farmerData?.displayName': farmerData?.displayName,
-                            'product.farmer_name': product.farmer_name,
-                            'final_display_name': displayName,
-                            'farmerData_exists': !!farmerData,
-                            'farmerData_keys': farmerData ? Object.keys(farmerData) : null
-                          });
-                          return displayName;
-                        })()}
-                      </Text>
-
-                      <View style={styles.farmerRatingContainer}>
-                        <View style={styles.modernStarsContainer}>
-                          {renderStars(farmerData?.average_rating || product.farmer_rating || 4.0)}
-                        </View>
-                        <Text style={styles.modernRatingText}>
-                          {(farmerData?.average_rating || product.farmer_rating || 4.0).toFixed(1)}
-                        </Text>
-                        <Text style={styles.reviewCountText}>
-                          ({farmerData?.total_reviews || farmerReviews.length || 0} reviews)
-                        </Text>
-                      </View>
-
-                      {/* Farmer Stats */}
-                      <View style={styles.farmerStatsRow}>
-                        {farmerData?.experience_years && (
-                          <View style={styles.statItem}>
-                            <Ionicons name="calendar-outline" size={14} color="#666666" />
-                            <Text style={styles.statText}>{farmerData.experience_years}y exp</Text>
-                          </View>
-                        )}
-                        {farmerData?.total_products && (
-                          <View style={styles.statItem}>
-                            <Ionicons name="leaf-outline" size={14} color="#666666" />
-                            <Text style={styles.statText}>{farmerData.total_products} products</Text>
-                          </View>
-                        )}
-                        {farmerData?.location && (
-                          <View style={styles.statItem}>
-                            <Ionicons name="location-outline" size={14} color="#666666" />
-                            <Text style={styles.statText}>
-                              {farmerData.location.village}, {farmerData.location.district}
-                            </Text>
-                          </View>
-                        )}
-                      </View>
+                    <View style={styles.farmerLoadingInfo}>
+                      <View style={styles.loadingTextLine} />
+                      <View style={styles.loadingTextLineShort} />
+                      <View style={styles.loadingTextLineTiny} />
                     </View>
                   </View>
-
-                  {/* Farmer Description */}
-                  {farmerData?.description && (
-                    <View style={styles.farmerDescriptionContainer}>
-                      <Text style={styles.farmerDescription} numberOfLines={3}>
-                        {farmerData.description}
-                      </Text>
-                    </View>
-                  )}
                 </View>
-
-                {/* Modern Reviews Section */}
-                {farmerReviews.length > 0 && (
-                  <>
-                    <View style={styles.modernReviewsHeader}>
-                      <Text style={styles.modernReviewsTitle}>Recent Reviews</Text>
-                      <View style={styles.reviewsCountBadge}>
-                        <Text style={styles.reviewsCountText}>{farmerReviews.length}</Text>
-                      </View>
-                    </View>
-
-                    <View style={styles.modernReviewsList}>
-                      {farmerReviews.slice(0, 3).map((review, index) => (
-                        <View key={review.id || index} style={styles.modernReviewItem}>
-                          <View style={styles.reviewHeader}>
-                            <View style={styles.reviewerAvatar}>
-                              <Text style={styles.reviewerAvatarText}>
-                                {(review.buyer_name || 'A').charAt(0).toUpperCase()
-                                }</Text>
-                            </View>
-                            <View style={styles.reviewInfo}>
-                              <View style={styles.reviewTopRow}>
-                                <Text style={styles.reviewerName}>
-                                  {review.buyer_name || 'Anonymous'}
-                                </Text>
-                                <Text style={styles.reviewDate}>
-                                  {review.created_at ? getRelativeTime(review.created_at) : 'Recently'}
-                                </Text>
-                              </View>
-                              <View style={styles.reviewRatingContainer}>
-                                {renderStars(review.rating || 4)}
-                              </View>
-                            </View>
-                          </View>
-                          {review.comment && (
-                            <Text style={styles.modernReviewComment} numberOfLines={2}>
-                              "{review.comment}"
-                            </Text>
+              ) : (
+                <>
+                  <View style={styles.modernFarmerCard}>
+                    <View style={styles.modernFarmerHeader}>
+                      <View style={styles.farmerAvatarContainer}>
+                        <View style={[
+                          styles.modernFarmerAvatar,
+                          { backgroundColor: farmerData?.avatar_color || '#007E2F' }
+                        ]}>
+                          {farmerData?.profile_image_url ? (
+                            <Image
+                              source={{ uri: farmerData.profile_image_url }}
+                              style={styles.farmerProfileImage}
+                              resizeMode="cover"
+                            />
+                          ) : (
+                            <Text style={styles.modernFarmerAvatarText}>
+                              {(farmerData?.displayName || 'F').charAt(0).toUpperCase()
+                              }</Text>
                           )}
                         </View>
-                      ))}
+                        {farmerData?.is_verified && (
+                          <View style={styles.verificationBadge}>
+                            <Ionicons name="checkmark-circle" size={16} color="#4CAF50" />
+                          </View>
+                        )}
+                      </View>
+
+                      <View style={styles.modernFarmerInfo}>
+                        <Text style={styles.modernFarmerName}>
+                          {(() => {
+                            const displayName = farmerData?.displayName || 'Unknown Farmer';
+                            console.log('🔍 Farmer name display logic:', {
+                              'farmerData?.displayName': farmerData?.displayName,
+                              'product.farmer_name': product.farmer_name,
+                              'final_display_name': displayName,
+                              'farmerData_exists': !!farmerData,
+                              'farmerData_keys': farmerData ? Object.keys(farmerData) : null
+                            });
+                            return displayName;
+                          })()}
+                        </Text>
+
+                        <View style={styles.farmerRatingContainer}>
+                          <View style={styles.modernStarsContainer}>
+                            {renderStars(farmerData?.average_rating || product.farmer_rating || 4.0)}
+                          </View>
+                          <Text style={styles.modernRatingText}>
+                            {(farmerData?.average_rating || product.farmer_rating || 4.0).toFixed(1)}
+                          </Text>
+                          <Text style={styles.reviewCountText}>
+                            ({farmerData?.total_reviews || farmerReviews.length || 0} reviews)
+                          </Text>
+                        </View>
+
+                        {/* Farmer Stats */}
+                        <View style={styles.farmerStatsRow}>
+                          {farmerData?.experience_years && (
+                            <View style={styles.statItem}>
+                              <Ionicons name="calendar-outline" size={14} color="#666666" />
+                              <Text style={styles.statText}>{farmerData.experience_years}y exp</Text>
+                            </View>
+                          )}
+                          {farmerData?.total_products && (
+                            <View style={styles.statItem}>
+                              <Ionicons name="leaf-outline" size={14} color="#666666" />
+                              <Text style={styles.statText}>{farmerData.total_products} products</Text>
+                            </View>
+                          )}
+                          {farmerData?.location && (
+                            <View style={styles.statItem}>
+                              <Ionicons name="location-outline" size={14} color="#666666" />
+                              <Text style={styles.statText}>
+                                {farmerData.location.city}, {farmerData.location.district}
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                      </View>
                     </View>
 
-                    {farmerReviews.length > 3 && (
-                      <TouchableOpacity style={styles.modernViewMoreButton}>
-                        <Text style={styles.modernViewMoreText}>
-                          View all {farmerReviews.length} reviews
+                    {/* Farmer Description */}
+                    {farmerData?.description && (
+                      <View style={styles.farmerDescriptionContainer}>
+                        <Text style={styles.farmerDescription} numberOfLines={3}>
+                          {farmerData.description}
                         </Text>
-                        <Ionicons name="chevron-forward" size={16} color="#007E2F" />
-                      </TouchableOpacity>
+                      </View>
                     )}
-                  </>
-                )}
-              </>
-            )}
+                  </View>
 
-            <View style={styles.modernContactNote}>
-              <Ionicons name="chatbubble-outline" size={20} color="#007E2F" />
-              <Text style={styles.modernContactText}>
-                Contact this farmer to place your order or ask questions about the product.
-              </Text>
+                  {/* Modern Reviews Section */}
+                  {farmerReviews.length > 0 && (
+                    <>
+                      <View style={styles.modernReviewsHeader}>
+                        <Text style={styles.modernReviewsTitle}>Recent Reviews</Text>
+                        <View style={styles.reviewsCountBadge}>
+                          <Text style={styles.reviewsCountText}>{farmerReviews.length}</Text>
+                        </View>
+                      </View>
+
+                      <View style={styles.modernReviewsList}>
+                        {farmerReviews.slice(0, 3).map((review, index) => (
+                          <View key={review.id || index} style={styles.modernReviewItem}>
+                            <View style={styles.reviewHeader}>
+                              <View style={styles.reviewerAvatar}>
+                                <Text style={styles.reviewerAvatarText}>
+                                  {(review.buyer_name || 'A').charAt(0).toUpperCase()
+                                  }</Text>
+                              </View>
+                              <View style={styles.reviewInfo}>
+                                <View style={styles.reviewTopRow}>
+                                  <Text style={styles.reviewerName}>
+                                    {review.buyer_name || 'Anonymous'}
+                                  </Text>
+                                  <Text style={styles.reviewDate}>
+                                    {review.created_at ? getRelativeTime(review.created_at) : 'Recently'}
+                                  </Text>
+                                </View>
+                                <View style={styles.reviewRatingContainer}>
+                                  {renderStars(review.rating || 4)}
+                                </View>
+                              </View>
+                            </View>
+                            {review.comment && (
+                              <Text style={styles.modernReviewComment} numberOfLines={2}>
+                                "{review.comment}"
+                              </Text>
+                            )}
+                          </View>
+                        ))}
+                      </View>
+
+                      {farmerReviews.length > 3 && (
+                        <TouchableOpacity style={styles.modernViewMoreButton}>
+                          <Text style={styles.modernViewMoreText}>
+                            View all {farmerReviews.length} reviews
+                          </Text>
+                          <Ionicons name="chevron-forward" size={16} color="#007E2F" />
+                        </TouchableOpacity>
+                      )}
+                    </>
+                  )}
+                </>
+              )}
+
+              <View style={styles.modernContactNote}>
+                <Ionicons name="chatbubble-outline" size={20} color="#007E2F" />
+                <Text style={styles.modernContactText}>
+                  Contact this farmer to place your order or ask questions about the product.
+                </Text>
+              </View>
             </View>
           </View>
-        </View>
-      </ScrollView>
+        </ScrollView>
 
-      {/* Modern Swipe to Request Action */}
-      <View style={styles.modernSwipeContainer}>
-        <View style={styles.modernSwipeTrack}>
-          <Animated.View
-            style={[
-              styles.modernSwipeThumb,
-              {
-                transform: [{ translateX: pan }],
-                backgroundColor: hasExistingRequestForProduct ? '#6B7280' : '#10B981'
+        {/* Modern Swipe to Request Action */}
+        <View style={styles.modernSwipeContainer}>
+          <View style={styles.modernSwipeTrack}>
+            <Animated.View
+              style={[
+                styles.modernSwipeThumb,
+                {
+                  transform: [{ translateX: pan }],
+                  backgroundColor: hasExistingRequestForProduct ? '#6B7280' : '#10B981'
+                }
+              ]}
+              {...panResponder.panHandlers}
+            >
+              <Ionicons
+                name={hasExistingRequestForProduct ? "checkmark" : "arrow-forward"}
+                size={24}
+                color="#FFFFFF"
+              />
+            </Animated.View>
+            <Text style={[
+              styles.modernSwipeText,
+              hasExistingRequestForProduct && { color: '#6B7280' }
+            ]}>
+              {isCheckingExistingRequest
+                ? 'Checking...'
+                : hasExistingRequestForProduct
+                  ? 'Request already sent'
+                  : 'Swipe to request'
               }
-            ]}
-            {...panResponder.panHandlers}
-          >
-            <Ionicons
-              name={hasExistingRequestForProduct ? "checkmark" : "arrow-forward"}
-              size={24}
-              color="#FFFFFF"
-            />
-          </Animated.View>
-          <Text style={[
-            styles.modernSwipeText,
-            hasExistingRequestForProduct && { color: '#6B7280' }
-          ]}>
-            {isCheckingExistingRequest
-              ? 'Checking...'
-              : hasExistingRequestForProduct
-                ? 'Request already sent'
-                : 'Swipe to request'
+            </Text>
+            <View style={styles.swipeGradientOverlay} />
+          </View>
+          <Text style={styles.modernSwipeInstruction}>
+            {hasExistingRequestForProduct
+              ? 'You have already sent a request for this product'
+              : `Swipe right to send a request to ${farmerData?.displayName || 'the farmer'}`
             }
           </Text>
-          <View style={styles.swipeGradientOverlay} />
         </View>
-        <Text style={styles.modernSwipeInstruction}>
-          {hasExistingRequestForProduct
-            ? 'You have already sent a request for this product'
-            : `Swipe right to send a request to ${farmerData?.displayName || 'the farmer'}`
-          }
-        </Text>
-      </View>
 
-      {/* Send Request Modal */}
-      <SendRequestModal
-        visible={showRequestModal}
-        onClose={() => setShowRequestModal(false)}
-        onSend={handleSendRequest}
-        product={{
-          id: product.id,
-          name: product.name,
-          price: product.price_per_kg,
-          priceUnit: 'kg',
-          farmerName: farmerData?.displayName || 'Unknown Farmer',
-          quantity: product.quantity,
-        }}
-      />
-    </SafeAreaView>
+        {/* Send Request Modal */}
+        <SendRequestModal
+          visible={showRequestModal}
+          onClose={() => setShowRequestModal(false)}
+          onSend={handleSendRequest}
+          product={{
+            id: product.id,
+            name: product.name,
+            price: product.price_per_kg,
+            priceUnit: 'kg',
+            farmerName: farmerData?.displayName || 'Unknown Farmer',
+            quantity: product.quantity,
+          }}
+        />
+      </SafeAreaView>
     </ErrorBoundary>
   );
 };

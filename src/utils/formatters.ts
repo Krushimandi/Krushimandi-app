@@ -88,7 +88,7 @@ export const formatLocation = (location: Fruit['location']): string => {
   if (!location) {
     return "Location not available";
   }
-  return `${location.village}, ${location.district}, ${location.state}`;
+  return `${location.city}, ${location.district}, ${location.state}`;
 };
 
 // Helper function to get days since created

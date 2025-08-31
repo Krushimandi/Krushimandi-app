@@ -176,13 +176,17 @@ const FarmerRequestsScreen = ({ route }: { route?: any }) => {
     // Load requests when component mounts or user changes
     useEffect(() => {
         if (user?.uid && user?.role === 'farmer') {
+            console.log('🔄 Loading farmer requests for user:', user.uid);
             loadRequests();
+        } else {
+            console.log('❌ User not ready or not a farmer:', { uid: user?.uid, role: user?.role });
         }
-    }, [user]);
+    }, [user?.uid, user?.role]);
 
     // Reload requests when screen comes into focus
     useFocusEffect(
         useCallback(() => {
+            console.log('🎯 Screen focused - reloading requests');
             if (user?.uid && user?.role === 'farmer') {
                 loadRequests();
             }
@@ -194,22 +198,34 @@ const FarmerRequestsScreen = ({ route }: { route?: any }) => {
                 setIsManageMode(false);
                 setSelectedRequests([]);
             };
-        }, [user, showTabBar])
+        }, [user?.uid, user?.role, showTabBar]) // Add proper dependencies
     );
 
-    const loadRequests = async () => {
+    const loadRequests = useCallback(async () => {
         try {
-            await loadFarmerRequests();
+            console.log('🔄 Starting to load farmer requests...');
+            const result = await loadFarmerRequests();
+            console.log('✅ Farmer requests loaded successfully:', result);
         } catch (error) {
-            console.error('Error loading farmer requests:', error);
+            console.error('❌ Error loading farmer requests:', error);
+            // Show user-friendly error message
+            Toast.show({
+                type: 'error',
+                text1: 'Error Loading Requests',
+                text2: 'Failed to load requests. Please try again.'
+            });
         }
-    };
+    }, [loadFarmerRequests]);
 
-    const onRefresh = async () => {
+    const onRefresh = useCallback(async () => {
+        console.log('🔄 Manual refresh triggered');
         setRefreshing(true);
-        await loadRequests();
-        setRefreshing(false);
-    };
+        try {
+            await loadRequests();
+        } finally {
+            setRefreshing(false);
+        }
+    }, [loadRequests]);
 
     // Clear product filter
     const clearProductFilter = () => {
@@ -666,7 +682,7 @@ const FarmerRequestsScreen = ({ route }: { route?: any }) => {
                 </View>
 
                 {/* Bulk Actions - Show when in manage mode */}
-                {isManageMode && selectedRequests.length > 0 && (
+                {isManageMode && requests.length > 0 && (
                     <View style={styles.bulkActionsHeader}>
                         <View style={styles.bulkActionsLeft}>
                             <Icon name="checkmark-circle" size={20} color={Colors.light.primary} />

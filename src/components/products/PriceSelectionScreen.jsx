@@ -11,12 +11,10 @@ import {
   ScrollView,
   Animated,
   TextInput,
-  Dimensions,
   Platform
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import Svg, { Path, Circle, G, Text as SvgText } from 'react-native-svg';
 import Icon from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '../../constants';
@@ -44,172 +42,26 @@ const getSmartPrice = (fruitCategory, variety) => {
   };
 };
 
-// Price Gauge Component
-const PriceGauge = ({ currentPrice, minPrice, maxPrice, recommendedPrice }) => {
-  const { width } = Dimensions.get('window');
-  const gaugeSize = width * 0.85; // Larger gauge
-  const radius = gaugeSize / 2 - 30;
-  const centerX = gaugeSize / 2;
-  const centerY = gaugeSize / 2; // Center for semi-circle
+// Price validation function
+const validatePrice = (price) => {
+  const numPrice = parseFloat(price);
 
-  // Calculate angle for current price
-  const realisticMin = minPrice * 0.9;  // 10% below min is considered unrealistically low
-  const realisticMax = maxPrice * 1.1;  // 10% above max is considered unrealistically high
+  // Check for invalid inputs
+  if (isNaN(numPrice) || numPrice < 0) {
+    return { isValid: false, message: 'Please enter a valid price.' };
+  }
 
-  let priceRatio = (currentPrice - realisticMin) / (realisticMax - realisticMin);
-  priceRatio = Math.max(0, Math.min(1, priceRatio));  // Clamp between 0 and 1
+  // Check minimum price
+  if (numPrice < 10) {
+    return { isValid: false, message: 'Minimum price is ₹10/kg.' };
+  }
 
-  const angle = 180 - (priceRatio * 180); // 180° left to 0° right
+  // Check maximum price
+  if (numPrice > 200) {
+    return { isValid: false, message: 'Maximum price is ₹200/kg.' };
+  }
 
-
-  // Get color and status based on price position
-  const getPriceStatus = () => {
-    if (priceRatio < 0.33) {
-      return {
-        color: '#FF6B6B',
-        status: 'Too Low',
-        chance: 'High chance to sell but low profit',
-        bgColor: '#FFE5E5'
-      };
-    }
-
-    if (priceRatio >= 0.33 && priceRatio < 0.66) {
-      return {
-        color: '#6BCF7F',
-        status: 'Good Price',
-        chance: 'Good visibility and fair price',
-        bgColor: '#E8F5E9'
-      };
-    }
-
-    if (priceRatio >= 0.66 && priceRatio <= 1) {
-      return {
-        color: '#FFD93D',
-        status: 'Balanced',
-        chance: 'Optimal price with buyer interest',
-        bgColor: '#FFFDE7'
-      };
-    }
-
-    // Fallback
-    return {
-      color: '#C62828',
-      status: 'Unrealistic',
-      chance: 'Check again',
-      bgColor: '#FFEBEE'
-    };
-  };
-
-
-  const { color, status, chance, bgColor } = getPriceStatus();
-
-  // Create improved arc paths for a proper semi-circle
-  const createArcPath = (startAngle, endAngle) => {
-    // Convert to radians and adjust for SVG coordinate system
-    const startRad = ((startAngle - 90) * Math.PI) / 180;
-    const endRad = ((endAngle - 90) * Math.PI) / 180;
-
-    const startX = centerX + radius * Math.cos(startRad);
-    const startY = centerY + radius * Math.sin(startRad);
-    const endX = centerX + radius * Math.cos(endRad);
-    const endY = centerY + radius * Math.sin(endRad);
-
-    const largeArcFlag = Math.abs(endAngle - startAngle) > 180 ? 1 : 0;
-
-    return `M ${startX} ${startY} A ${radius} ${radius} 0 ${largeArcFlag} 1 ${endX} ${endY}`;
-  };
-
-  // Calculate needle position (0° = left, 180° = right in our coordinate system)
-  const needleAngle = -angle;
-  const needleLength = radius - 15;
-
-  return (
-    <View style={styles.gaugeContainer}>
-      {/* Main price display at the top */}
-      <View style={styles.priceDisplayTop}>
-        <Text style={styles.currentPriceTextLarge}>₹{currentPrice.toFixed(2)}</Text>
-      </View>
-
-      <Svg width={gaugeSize} height={gaugeSize * 0.6} style={styles.gaugeSvg}>
-        {/* Background track - Full semi-circle */}
-        <Path
-          d={createArcPath(-90, 90)}
-          stroke="#F5F5F5"
-          strokeWidth="18"
-          fill="none"
-          strokeLinecap="round"
-        />
-
-        {/* Red section (0-60 degrees - Left side - Too High/Low) */}
-        <Path
-          d={createArcPath(-90, -30)}
-          stroke="#FF6B6B"
-          strokeWidth="18"
-          fill="none"
-          strokeLinecap="round"
-        />
-
-        {/* Yellow section (120-180 degrees - Right side - Average) */}
-        <Path
-          d={createArcPath(30, 90)}
-          stroke="#FFD93D"
-          strokeWidth="18"
-          fill="none"
-          strokeLinecap="round"
-        />
-
-        {/* Green section (60-120 degrees - Middle - Good Price) */}
-        <Path
-          d={createArcPath(-30, 30)}
-          stroke="#6BCF7F"
-          strokeWidth="18"
-          fill="none"
-          strokeLinecap="round"
-        />
-
-        {/* Needle */}
-        <G transform={`rotate(${needleAngle} ${centerX} ${centerY})`}>
-          <Path
-            d={`M ${centerX - 1} ${centerY - 3} L ${centerX + needleLength - 8} ${centerY - 1} L ${centerX + needleLength - 8} ${centerY + 1} L ${centerX - 1} ${centerY + 3} Z`}
-            fill="#2C3E50"
-          />
-          <Circle
-            cx={centerX + needleLength - 12}
-            cy={centerY}
-            r="6"
-            fill="#E74C3C"
-          />
-        </G>
-
-        {/* Center hub */}
-        <Circle
-          cx={centerX}
-          cy={centerY}
-          r="12"
-          fill="#2C3E50"
-        />
-        <Circle
-          cx={centerX}
-          cy={centerY}
-          r="6"
-          fill="#FFFFFF"
-        />
-      </Svg>
-
-      {/* Status display */}
-      <View style={[styles.statusContainer, { backgroundColor: bgColor }]}>
-        <Text style={[styles.priceStatusText, { color: color }]}>{status}</Text>
-        <Text style={styles.chanceText}>{chance}</Text>
-      </View>
-
-      {/* Gauge labels */}
-      <View style={styles.gaugeLabels}>
-        <Text style={[styles.labelText, { color: '#FF6B6B' }]}>Too High</Text>
-        <Text style={[styles.labelText, { color: '#6BCF7F' }]}>Good Price</Text>
-        <Text style={[styles.labelText, { color: '#FFD93D' }]}>Average</Text>
-      </View>
-    </View>
-  );
+  return { isValid: true, message: '' };
 };
 
 export default function PriceSelectionScreen({ navigation, route }) {
@@ -219,6 +71,7 @@ export default function PriceSelectionScreen({ navigation, route }) {
   const [showCustomInput, setShowCustomInput] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isHint, setIsHint] = useState(false);
+  const [priceError, setPriceError] = useState('');
   const timeoutRef = useRef(null);
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
@@ -283,7 +136,7 @@ export default function PriceSelectionScreen({ navigation, route }) {
   useFocusEffect(
     React.useCallback(() => {
       hideTabBar();
-      
+
       // Show tab bar when leaving screen
       return () => {
         showTabBar();
@@ -297,9 +150,15 @@ export default function PriceSelectionScreen({ navigation, route }) {
   };
 
   const handlePriceSelect = (price) => {
-    setSelectedPrice(price);
-    setCustomPrice(price.toString()); // Sync with custom input
-    setShowCustomInput(false);
+    const validation = validatePrice(price);
+    if (validation.isValid) {
+      setSelectedPrice(price);
+      setCustomPrice(price.toString()); // Sync with custom input
+      setShowCustomInput(false);
+      setPriceError('');
+    } else {
+      setPriceError(validation.message);
+    }
   };
 
   const handleCustomPrice = () => {
@@ -309,20 +168,35 @@ export default function PriceSelectionScreen({ navigation, route }) {
 
   const handleCustomPriceChange = (value) => {
     setCustomPrice(value);
+    setPriceError(''); // Clear error when user starts typing
+
     if (value && !isNaN(parseFloat(value))) {
-      setSelectedPrice(parseFloat(value));
+      const validation = validatePrice(value);
+      if (validation.isValid) {
+        setSelectedPrice(parseFloat(value));
+      } else {
+        setPriceError(validation.message);
+        setSelectedPrice(null);
+      }
     } else if (!value) {
-      // If input is cleared, reset to zero
-      setSelectedPrice();
-      setCustomPrice();
+      // If input is cleared, reset to null
+      setSelectedPrice(null);
+      setCustomPrice('');
     }
   };
 
   const handleContinue = async () => {
     const finalPrice = selectedPrice;
 
-    if (!finalPrice || finalPrice <= 0) {
-      Alert.alert('कृपया मूल्य चुनें', 'Please select a price for your fruit.');
+    // Validate price before proceeding
+    if (!finalPrice) {
+      Alert.alert('Please select a price', 'Please select a price for your fruit.');
+      return;
+    }
+
+    const validation = validatePrice(finalPrice);
+    if (!validation.isValid) {
+      Alert.alert('Invalid price', validation.message);
       return;
     }
 
@@ -333,7 +207,8 @@ export default function PriceSelectionScreen({ navigation, route }) {
       // Get current user data for farmer_id
       const userData = await AsyncStorage.getItem('userData');
       const user = userData ? JSON.parse(userData) : {};
-      
+      console.log("Data from AsyncStorage:", productData, user);
+
       // Prepare final fruit data according to Fruit schema
       const finalFruitData = {
         // Basic fruit info
@@ -341,28 +216,28 @@ export default function PriceSelectionScreen({ navigation, route }) {
         type: productData?.type || '',
         // grade: productData?.grade || 'A',
         description: productData?.description || '',
-        
+
         // Quantity and pricing
         quantity: productData?.quantity || [0, 0],
         price_per_kg: finalPrice,
-        
+
         // Availability and images - using Firebase URLs directly
         availability_date: new Date().toISOString(),
         image_urls: productData?.image_urls || [], // Already Firebase URLs from PhotoUploadScreen
-        
+
         // Location info
         location: {
-          village: productData?.location?.village || '',
+          city: productData?.location?.city || '',
           district: productData?.location?.district || '',
           state: productData?.location?.state || '',
           pincode: productData?.location?.pincode || '',
           lat: productData?.location?.lat || 0,
           lng: productData?.location?.lng || 0
         },
-        
+
         // User reference
-        farmer_id: user.uid || user.id || 'anonymous',
-        
+        farmer_id: user.uid || 'anonymous',
+
         // Status and metadata
         status: 'active',
         views: 0,
@@ -378,10 +253,10 @@ export default function PriceSelectionScreen({ navigation, route }) {
 
       // Success message
       Alert.alert(
-        '🎉 बधाई हो!',
-        `आपका ${productData?.name} ₹${finalPrice}/किग्रा पर लिस्ट हो गया है!`,
-        [{ 
-          text: 'Great!', 
+        '🎉 Success!',
+        `Your ${productData?.name} has been listed at ₹${finalPrice}/kg!`,
+        [{
+          text: 'Great!',
           onPress: () => {
             // Navigate back to farmer home and refresh
             navigation.reset({
@@ -412,7 +287,7 @@ export default function PriceSelectionScreen({ navigation, route }) {
         <View style={styles.loadingContainer}>
           <View style={styles.loadingCard}>
             <MaterialCommunityIcons name="leaf" size={56} color="#4CAF50" />
-            <Text style={styles.loadingTitle}>बाज़ार की जानकारी ले रहे हैं...</Text>
+            <Text style={styles.loadingTitle}>Fetching market info...</Text>
             <Text style={styles.loadingSubtitle}>Getting best price for you</Text>
 
             <View style={styles.loadingBar}>
@@ -447,7 +322,6 @@ export default function PriceSelectionScreen({ navigation, route }) {
           style={styles.fruitCard}
           activeOpacity={0.9}
         >
-          {console.log(fruitPhoto)          }
           <Image source={{ uri: fruitPhoto }} style={styles.fruitImage} />
 
           <View style={styles.fruitDetailsSection}>
@@ -457,8 +331,14 @@ export default function PriceSelectionScreen({ navigation, route }) {
             <View style={styles.locationRow}>
               <Icon name="location-outline" size={12} color="#505050" />
               <Text style={styles.fruitLocation}>
-                {productData?.location?.village}, {productData?.location?.district}
+                {[
+                  productData?.location?.city,
+                  productData?.location?.district,
+                ]
+                  .filter(val => val && val.trim())
+                  .join(", ")}
               </Text>
+
             </View>
           </View>
 
@@ -523,30 +403,17 @@ export default function PriceSelectionScreen({ navigation, route }) {
             </TouchableOpacity>
           </View>
 
+          {/* Error Message */}
+          {priceError ? (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>{priceError}</Text>
+            </View>
+          ) : null}
+
           {/* Simple Help Text */}
-          {isHint && <Text style={styles.helpText}>
-            💡 सलाह: आज के बाज़ार भाव के अनुसार ₹{smartPricing.recommended} सबसे अच्छा है
+          {isHint && !priceError && <Text style={styles.helpText}>
+            Tip: Enter a price that reflects the current market value.
           </Text>}
-        </View>
-
-        {/* Price Gauge Section - Direct part of screen */}
-        <PriceGauge
-          currentPrice={selectedPrice || smartPricing.recommended}
-          minPrice={smartPricing.min}
-          maxPrice={smartPricing.max}
-          recommendedPrice={smartPricing.recommended}
-        />
-
-        {/* Market Info - Simple section without card */}
-        <View style={styles.marketInfo}>
-          <View style={styles.marketRow}>
-            <Text style={styles.marketLabel}>Current mandi average</Text>
-            <Text style={styles.marketValue}>₹{Math.round(smartPricing.recommended * 0.85)}</Text>
-          </View>
-          <View style={styles.suggestionRow}>
-            <Text style={styles.suggestionLabel}>KrushiMandi suggested price range</Text>
-            <Text style={styles.suggestionRange}>₹{smartPricing.min} - {smartPricing.max}</Text>
-          </View>
         </View>
 
         {/* Simple Continue Button */}
@@ -604,110 +471,7 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
 
-  // Gauge Container
-  gaugeContainer: {
-    alignItems: 'center',
-    marginBottom: 12,
-    backgroundColor: 'white',
-    marginHorizontal: 4,
-    borderRadius: 16,
-    paddingVertical: 16,
-    paddingHorizontal: 12,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-  },
 
-  // Price Display (at the top of gauge)
-  priceDisplayTop: {
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  currentPriceTextLarge: {
-    fontSize: 42,
-    fontWeight: '800',
-    color: '#2C3E50',
-  },
-
-  // SVG Gauge
-  gaugeSvg: {
-    marginBottom: 12,
-  },
-
-  // Status Container (below gauge)
-  statusContainer: {
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginBottom: 10,
-  },
-  priceStatusText: {
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  chanceText: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
-  },
-
-  // Price Display (center of gauge) - keeping for backward compatibility
-  priceDisplay: {
-    position: 'absolute',
-    top: '40%',
-    alignItems: 'center',
-  },
-  currentPriceText: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: '#2C3E50',
-    marginBottom: 4,
-  },
-
-  // Gauge Labels
-  gaugeLabels: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '90%',
-    marginTop: 10,
-  },
-  labelText: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-
-  // Market Info
-  marketInfo: {
-    backgroundColor: 'white',
-    marginHorizontal: 4,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-  },
-  marketRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  marketLabel: {
-    fontSize: 14,
-    color: '#7F8C8D',
-  },
-  marketValue: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#2C3E50',
-  },
 
   // Price Options Row
   priceLabel: {
@@ -743,23 +507,7 @@ const styles = StyleSheet.create({
     color: '#2C3E50',
   },
 
-  // Suggestion Row
-  suggestionRow: {
-    alignItems: 'center',
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#E9ECEF',
-  },
-  suggestionLabel: {
-    fontSize: 13,
-    color: '#7F8C8D',
-    marginBottom: 4,
-  },
-  suggestionRange: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#2C3E50',
-  },
+
 
   // Custom Input Card
   customInputCard: {
@@ -774,6 +522,10 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#2C3E50',
     marginBottom: 4,
+  },
+  button: {
+    padding: 4,
+    borderRadius: 12,
   },
   customHint: {
     fontSize: 16,
@@ -858,23 +610,7 @@ const styles = StyleSheet.create({
     fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
 
-  // Custom Input
-  customButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F8F9FA',
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#E9ECEF',
-    borderStyle: 'dashed',
-  },
-  customButtonText: {
-    fontSize: 16,
-    color: '#7F8C8D',
-    marginLeft: 8,
-  },
+
   customInput: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -905,37 +641,13 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
 
-  // Fruit Display Card - Now below price
-  fruitCard: {
+  // Custom Input Card
+  customInputCard: {
     backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 12,
     elevation: 2,
-  },
-  fruitIcon: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: '#e8f5e8',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  fruitInfo: {
-    flex: 1,
-  },
-  fruitName: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#1a1a1a',
-    marginBottom: 4,
-  },
-  fruitQuantity: {
-    fontSize: 14,
-    color: '#666',
   },
 
   // Continue Button
@@ -965,6 +677,22 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginTop: 10,
     paddingHorizontal: 10,
+  },
+
+  // Error Message
+  errorContainer: {
+    backgroundColor: '#FFEBEE',
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 10,
+    borderLeftWidth: 4,
+    borderLeftColor: '#F44336',
+  },
+  errorText: {
+    color: '#C62828',
+    fontSize: 14,
+    fontWeight: '500',
+    textAlign: 'center',
   },
 
   // Loading Screen

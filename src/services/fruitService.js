@@ -176,7 +176,7 @@ export const createFruit = async (fruitData, imageUris = []) => {
       availability_date: fruitData.availability_date || now,
       image_urls: imageUrls,
       location: fruitData.location || {
-        village: '',
+        city: '',
         district: '',
         state: '',
         pincode: '',

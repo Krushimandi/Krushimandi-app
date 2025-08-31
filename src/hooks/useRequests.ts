@@ -86,6 +86,7 @@ export const useRequests = () => {
     try {
       setLoading(true);
       setError(null);
+      console.log(user.uid, filters);
       const farmerRequests = await requestService.getFarmerRequests(user.uid, filters);
       setRequests(farmerRequests);
     } catch (err) {

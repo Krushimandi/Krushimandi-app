@@ -128,7 +128,7 @@ class RequestService {
                     farmerName: farmerData!.name || farmerData!.displayName || 'Unknown Farmer',
                     farmerLocation: farmerData!.location ||
                         (fruitData!.location ?
-                            `${fruitData!.location.village}, ${fruitData!.location.district}, ${fruitData!.location.state}` :
+                            `${fruitData!.location.city}, ${fruitData!.location.district}, ${fruitData!.location.state}` :
                             'Unknown Location'),
                     imageUrl: fruitData!.image_urls && fruitData!.image_urls.length > 0 ? fruitData!.image_urls[0] : ''
                 },

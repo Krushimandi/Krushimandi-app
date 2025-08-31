@@ -65,6 +65,15 @@ export const isRoleSelected = async (): Promise<boolean> => {
 
     if (userData) {
       const user = JSON.parse(userData);
+      // Guard against stale data from previous session: ensure it belongs to current Firebase user
+      const currentUser = auth().currentUser;
+      if (currentUser && user?.uid && user.uid !== currentUser.uid) {
+        console.log('⚠️ Stale userData detected (UID mismatch). Ignoring cached role.', {
+          cachedUid: user.uid,
+          currentUid: currentUser.uid
+        });
+        return false;
+      }
       console.log('🔍 User role from AsyncStorage:', user.userRole);
       const isValid = !!(user.userRole && ['farmer', 'buyer'].includes(user.userRole));
       console.log('🔍 Role selection valid:', isValid);
@@ -92,35 +101,44 @@ export const isProfileCompleted = async (): Promise<boolean> => {
     if (userData) {
       const userProfile = JSON.parse(userData);
 
-      // Check if profile is marked as complete in local storage
-      if (userProfile.isProfileComplete === true) {
-        console.log('✅ Profile marked as complete in AsyncStorage');
-        return true;
-      }
+      // Ensure the cached profile belongs to the current Firebase user to avoid cross-account leakage
+      const currentUser = auth().currentUser;
+      if (currentUser && userProfile?.uid && userProfile.uid !== currentUser.uid) {
+        console.log('⚠️ Stale profile data detected (UID mismatch). Skipping cached profile.', {
+          cachedUid: userProfile.uid,
+          currentUid: currentUser.uid
+        });
+      } else {
+        // Check if profile is marked as complete in local storage
+        if (userProfile.isProfileComplete === true) {
+          console.log('✅ Profile marked as complete in AsyncStorage');
+          return true;
+        }
 
-      // Check if we have all required profile data locally
-      const hasFirstName = !!(userProfile.firstName && userProfile.firstName.trim());
-      const hasLastName = !!(userProfile.lastName && userProfile.lastName.trim());
-      const hasRole = !!(userProfile.userRole && ['farmer', 'buyer'].includes(userProfile.userRole));
+        // Check if we have all required profile data locally
+        const hasFirstName = !!(userProfile.firstName && userProfile.firstName.trim());
+        const hasLastName = !!(userProfile.lastName && userProfile.lastName.trim());
+        const hasRole = !!(userProfile.userRole && ['farmer', 'buyer'].includes(userProfile.userRole));
 
-      if (hasFirstName && hasLastName && hasRole) {
-        console.log('✅ Profile data complete in AsyncStorage:', {
+        if (hasFirstName && hasLastName && hasRole) {
+          console.log('✅ Profile data complete in AsyncStorage:', {
+            firstName: userProfile.firstName,
+            lastName: userProfile.lastName,
+            userRole: userProfile.userRole
+          });
+          return true;
+        }
+
+        // If we have partial data but Firebase user is missing, still consider it incomplete
+        console.log('⚠️ Partial profile data in AsyncStorage:', {
+          hasFirstName,
+          hasLastName,
+          hasRole,
           firstName: userProfile.firstName,
           lastName: userProfile.lastName,
           userRole: userProfile.userRole
         });
-        return true;
       }
-
-      // If we have partial data but Firebase user is missing, still consider it incomplete
-      console.log('⚠️ Partial profile data in AsyncStorage:', {
-        hasFirstName,
-        hasLastName,
-        hasRole,
-        firstName: userProfile.firstName,
-        lastName: userProfile.lastName,
-        userRole: userProfile.userRole
-      });
     }
 
     // Check Firebase user (as fallback or additional validation)
@@ -247,17 +265,8 @@ export const getAuthState = async (): Promise<UserAuthState> => {
         const userData = await AsyncStorage.getItem('userData');
         if (userData) {
           const userProfile = JSON.parse(userData);
-          if (userProfile.uid && userProfile.isProfileComplete) {
-            console.log('⚠️ Auth complete but Firebase user missing - continuing with stored data');
-            return {
-              isAuthenticated: true,
-              phoneVerified: true,
-              roleSelected: true,
-              profileCompleted: true,
-              currentStep: 'complete',
-              nextRoute: 'Main'
-            };
-          }
+          // Do NOT trust cached user if there's no current Firebase user; force re-auth to avoid wrong stack
+          console.log('⚠️ Auth complete but Firebase user missing - requiring re-auth to avoid stale routing');
         }
         
         console.log('❌ Auth steps complete but no valid user data - restarting auth');
@@ -269,14 +278,14 @@ export const getAuthState = async (): Promise<UserAuthState> => {
     console.log('  - Firebase user:', user ? user.uid : 'None');
 
     // If we have partial progress but no Firebase user, validate if user still exists
-    if ((phoneVerified || roleSelected || profileCompleted) && !user) {
+  if ((phoneVerified || roleSelected || profileCompleted) && !user) {
       console.log('⚠️ Partial auth state detected but no Firebase user - may need re-authentication');
 
       // Check if we have a valid user in AsyncStorage
       const userData = await AsyncStorage.getItem('userData');
       if (userData) {
         const userProfile = JSON.parse(userData);
-        if (userProfile.uid) {
+    if (userProfile.uid) {
           console.log('⚠️ Found user UID in AsyncStorage, but Firebase user missing. Auth may have expired.');
           // Reset auth state and restart from welcome
           return {
@@ -313,7 +322,28 @@ export const getAuthState = async (): Promise<UserAuthState> => {
     }
     // Step 4: If all main steps are complete, go to main app
     else if (phoneVerified && roleSelected && profileCompleted) {
-      console.log('✅ All main auth steps complete - going to main app');
+      console.log('✅ All main auth steps complete - validating user binding before main app');
+      const fbUser = auth().currentUser;
+      if (fbUser) {
+        const userData = await AsyncStorage.getItem('userData');
+        if (userData) {
+          const userProfile = JSON.parse(userData);
+          if (userProfile?.uid && userProfile.uid !== fbUser.uid) {
+            console.log('⚠️ UID mismatch between AsyncStorage and Firebase - restarting auth to avoid wrong routing', {
+              cachedUid: userProfile.uid,
+              currentUid: fbUser.uid
+            });
+            return {
+              isAuthenticated: false,
+              phoneVerified: false,
+              roleSelected: false,
+              profileCompleted: false,
+              currentStep: 'welcome',
+              nextRoute: 'Auth'
+            };
+          }
+        }
+      }
       return {
         isAuthenticated: true,
         phoneVerified: true,

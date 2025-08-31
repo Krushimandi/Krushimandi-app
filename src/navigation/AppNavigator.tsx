@@ -1,51 +1,4 @@
-/**
- * Root Navigator - Optimized Version
- * Main entry point for app navigation with consistent state mana  // Optimized navigation re-mount with throttling - only when necessary
-  const forceNavigationReMount = useCallback(() => {
-    setNavigationKey(prev => {
-      const newKey = prev + 1;
-      console.log('🔄 Force navigation re-mount:', newKey);
-      return newKey;
-    });
-  }, []);
-
-  useEffect(() => {
-    // Only process when not loading and bootstrap is ready
-    if (!isLoading && bootstrapState.isReady) {
-      const currentTime = Date.now();
-      const timeSinceLastUpdate = currentTime - lastAuthUpdate;
-      
-      // Throttle re-mounts to prevent excessive renders (minimum 500ms between updates)
-      if (timeSinceLastUpdate > 500) {
-        lastAuthUpdate = currentTime;
-        
-        console.log('🔄 Auth state evaluation:', {
-          isFullyAuthenticated: authState.isFullyAuthenticated,
-          previousState: previousAuthState,
-          stateChanged: authState.isFullyAuthenticated !== previousAuthState,
-          timeSinceLastUpdate,
-          shouldTriggerReMount: authState.isFullyAuthenticated !== previousAuthState
-        });
-        
-        // Only re-mount if there's a significant authentication state change
-        if (authState.isFullyAuthenticated !== previousAuthState) {
-          previousAuthState = authState.isFullyAuthenticated;
-          forceNavigationReMount();
-        }
-      }
-    }
-  }, [authState.isFullyAuthenticated, authState.userRole, isLoading, bootstrapState.isReady, forceNavigationReMount]);
-
-  // Handle cases where user role might be missing but user is authenticated
-  useEffect(() => {
-    if (authState.isAuthenticated && authState.hasValidFirebaseAuth && !authState.hasValidRole && !isLoading) {
-      console.log('⚠️ User authenticated but role missing, attempting to refresh user role');
-      refreshUserRole?.();
-    }
-  }, [authState.isAuthenticated, authState.hasValidFirebaseAuth, authState.hasValidRole, isLoading, refreshUserRole]);Firebase sync with bootstrap and context states
- */
-
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { navigationRef, isNavigationReady, pendingNotificationData, handleNotificationNavigation } from './navigationService';
@@ -148,25 +101,29 @@ const AppNavigator: React.FC<AppNavigatorProps> = ({ bootstrapState }) => {
     navigationKey
   });
 
-  // Optimized navigation re-mount - only when necessary
+  // Re-mount navigator when fully-authenticated state or role actually changes
+  const prevAuthRef = useRef<boolean | null>(null);
+  const prevRoleRef = useRef<'farmer' | 'buyer' | null>(null);
   useEffect(() => {
-    // Only force re-mount when there's a significant auth state change
-    const stateChanged = 
-      (authState.isAuthenticated !== (isAuthenticated || bootstrapState.isAuthenticated)) ||
-      (authState.userRole !== (userRole || bootstrapState.userRole));
-    
-    if (stateChanged && !isLoading) {
-      console.log('� Significant auth state change detected, re-mounting navigation:', {
-        previousAuth: isAuthenticated || bootstrapState.isAuthenticated,
-        currentAuth: authState.isAuthenticated,
-        previousRole: userRole || bootstrapState.userRole,
-        currentRole: authState.userRole,
-        navigationKey: navigationKey + 1
+    const prevAuth = prevAuthRef.current;
+    const prevRole = prevRoleRef.current;
+    const authChanged = prevAuth !== null && authState.isFullyAuthenticated !== prevAuth;
+    const roleChanged = prevRole !== null && authState.userRole !== prevRole;
+
+    if ((authChanged || roleChanged) && !isLoading) {
+      console.log('🔄 Auth/Role change detected, re-mounting navigation:', {
+        prevAuth,
+        currAuth: authState.isFullyAuthenticated,
+        prevRole,
+        currRole: authState.userRole,
+        nextKey: navigationKey + 1
       });
-      
       setNavigationKey(prev => prev + 1);
     }
-  }, [authState.isAuthenticated, authState.userRole, isLoading]);
+
+    prevAuthRef.current = authState.isFullyAuthenticated;
+    prevRoleRef.current = authState.userRole;
+  }, [authState.isFullyAuthenticated, authState.userRole, isLoading]);
 
   // Optimized stack component selection with memoization
   const getMainStackComponent = useCallback(() => {

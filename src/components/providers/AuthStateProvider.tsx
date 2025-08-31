@@ -99,8 +99,10 @@ export const AuthStateProvider: React.FC<AuthStateProviderProps> = ({
   } : null;
 
   const contextValue: AuthStateContextType = {
-    // Use Firebase auth state as the primary source of truth
-    isAuthenticated: !!firebaseUser && (bootstrapState.isAuthenticated || authStore.isAuthenticated),
+  // Use Firebase auth state as the primary source of truth
+  // If a Firebase user exists, consider the user authenticated regardless of local store flags.
+  // Fallback to bootstrap/store flags only when Firebase user isn't available (offline/rehydration scenarios).
+  isAuthenticated: !!firebaseUser || bootstrapState.isAuthenticated || authStore.isAuthenticated,
     userRole,
     user: userObject,
     isLoading,

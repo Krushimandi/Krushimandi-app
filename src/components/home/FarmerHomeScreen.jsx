@@ -292,7 +292,7 @@ const FarmerHomeScreen = () => {
     // Fixed navigation - using proper reset navigation
     navigation.reset({
       index: 0,
-      routes: [{ name: 'AuthStack' }],
+  routes: [{ name: 'Auth' }],
     });
 
     Toast.show({
@@ -586,15 +586,15 @@ const FarmerHomeScreen = () => {
         const fruitName = (fruit.name || '').toLowerCase();
         const fruitType = (fruit.type || '').toLowerCase();
         const fruitDescription = (fruit.description || '').toLowerCase();
-        const location = `${fruit.location?.village || ''} ${fruit.location?.district || ''} ${fruit.location?.state || ''}`.toLowerCase();
-        const grade = (fruit.grade || '').toLowerCase();
+        const location = `${fruit.location?.city || ''} ${fruit.location?.district || ''} ${fruit.location?.state || ''}`.toLowerCase();
+        // const grade = (fruit.grade || '').toLowerCase();
 
         return (
           fruitName.includes(query) ||
           fruitType.includes(query) ||
           fruitDescription.includes(query) ||
-          location.includes(query) ||
-          grade.includes(query)
+          location.includes(query) 
+          // || grade.includes(query)
         );
       });
     }
@@ -772,7 +772,7 @@ const FarmerHomeScreen = () => {
                     <View style={styles.locationContainer}>
                       <Text style={styles.location}>
                         {userProfile?.location ?
-                          `${userProfile.location.village || ''}, ${userProfile.location.state || ''}`.replace(/, $/, '')
+                          `${userProfile.location.city || ''}, ${userProfile.location.state || ''}`.replace(/, $/, '')
                           : 'Paithan, Maharashtra'}
                       </Text>
                       <Icon name="chevron-down" size={12} color="#505050" />
@@ -793,7 +793,7 @@ const FarmerHomeScreen = () => {
                 <View style={styles.searchBox}>
                   <Icon name="search" size={20} color="#939393" style={{ marginLeft: 12 }} />
                   <TextInput
-                    placeholder="Search fruits, location, grade..."
+                    placeholder="Search fruits, location..."
                     placeholderTextColor="#939393"
                     style={styles.searchInput}
                     value={searchQuery}
@@ -1000,7 +1000,7 @@ const FarmerHomeScreen = () => {
                             <Text style={styles.fruitPrice}>
                               {formatPrice(item.price_per_kg || 0)}
                             </Text>
-                            <Text style={styles.gradeText}>Grade {item.grade || 'A'}</Text>
+                            {/* <Text style={styles.gradeText}>Grade {item.grade || 'A'}</Text> */}
                           </View>
 
                           <View style={styles.statsRow}>

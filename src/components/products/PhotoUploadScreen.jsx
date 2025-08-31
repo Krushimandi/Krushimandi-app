@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     View,
     Text,
@@ -39,6 +39,19 @@ const PhotoUploadScreen = ({ navigation, route }) => {
     const [imagePickerModalVisible, setImagePickerModalVisible] = useState(false);
     const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
     const [isUploading, setIsUploading] = useState(false);
+    // Upload queue management
+    const [uploadQueue, setUploadQueue] = useState([]); // Array of { index, uri, id }
+    const queueRef = useRef([]);
+    const isProcessingQueueRef = useRef(false);
+
+    // Helper to sync queue ref and state
+    const setQueue = (updater) => {
+        setUploadQueue(prev => {
+            const next = typeof updater === 'function' ? updater(prev) : updater;
+            queueRef.current = next;
+            return next;
+        });
+    };
 
     useEffect(() => {
         // Hide tab bar for this screen
@@ -55,10 +68,10 @@ const PhotoUploadScreen = ({ navigation, route }) => {
         try {
             const compressedImage = await ImageResizer.createResizedImage(
                 imageUri,
-                800, // maxWidth
-                800, // maxHeight
+                600, // maxWidth
+                600, // maxHeight
                 'JPEG', // format
-                60, // quality (0-100)
+                80, // quality (0-100)
                 0, // rotation
                 undefined, // outputPath
                 false, // keepMeta
@@ -140,7 +153,7 @@ const PhotoUploadScreen = ({ navigation, route }) => {
             console.log(`✅ Image uploaded successfully for index: ${photoIndex}`);
             console.log(`🔗 Download URL: ${downloadURL.substring(0, 50)}...`);
             
-            // Update photo state with Firebase URL
+            // Update photo state with Firebase URL (if still present)
             setUploadedPhotos(prev => {
                 const newPhotos = [...prev];
                 if (newPhotos[photoIndex]) {
@@ -151,16 +164,7 @@ const PhotoUploadScreen = ({ navigation, route }) => {
                     };
                     console.log(`📝 Updated photo at index ${photoIndex} with download URL. Upload complete!`);
                 } else {
-                    console.error(`❌ ERROR: No photo found at index ${photoIndex} when trying to update with download URL`);
-                    console.log(`📊 Current photos state:`, newPhotos.map((p, i) => ({ index: i, hasPhoto: !!p })));
-                    // Create the photo object if it doesn't exist (shouldn't happen but safety net)
-                    newPhotos[photoIndex] = {
-                        uri: imageUri,
-                        firebaseUrl: downloadURL,
-                        uploading: false,
-                        uploadFailed: false
-                    };
-                    console.log(`🔧 Created missing photo object at index ${photoIndex}`);
+                    console.warn(`⚠️ Slot ${photoIndex} no longer exists or was cleared; skipping update.`);
                 }
                 return newPhotos;
             });
@@ -186,6 +190,8 @@ const PhotoUploadScreen = ({ navigation, route }) => {
                 return newProgress;
             });
             
+            // Kick the queue to process next
+            setTimeout(processQueue, 0);
             return downloadURL;
             
         } catch (error) {
@@ -226,6 +232,8 @@ const PhotoUploadScreen = ({ navigation, route }) => {
                 return newTasks;
             });
             
+            // Continue processing remaining queue despite failure/cancel
+            setTimeout(processQueue, 0);
             return null;
         }
     };
@@ -233,34 +241,29 @@ const PhotoUploadScreen = ({ navigation, route }) => {
     const handlePhotoUpload = (index) => {
         console.log(`📸 handlePhotoUpload called with index: ${index}`);
         
-        // Find the first empty slot that should be filled
-        const nextSlotToFill = getNextAvailableSlot();
+        // Only allow clicking on empty slots
+        const photo = uploadedPhotos[index];
+        const isSlotEmpty = !photo;
         
-        // Only allow clicking on the next slot to fill
-        if (index !== nextSlotToFill) {
-            console.log(`❌ Can only fill slot ${nextSlotToFill} next, clicked: ${index}`);
-            return; // Do nothing if wrong slot clicked
+        if (!isSlotEmpty) {
+            console.log(`❌ Slot ${index} already has a photo. Delete the photo first to replace it.`);
+            Alert.alert(
+                'Photo Already Exists',
+                'This slot already has a photo. Please delete it first if you want to replace it.',
+                [{ text: 'OK' }]
+            );
+            return;
         }
         
-        // Proceed with photo upload for the correct slot
-        setCurrentPhotoIndex(nextSlotToFill);
-        console.log(`📍 Set currentPhotoIndex to: ${nextSlotToFill}`);
+        // Set the current photo index to the clicked index
+        setCurrentPhotoIndex(index);
+        console.log(`📍 Set currentPhotoIndex to: ${index}`);
         
-        // Directly open camera instead of showing modal
-        handleImagePickerOption('camera');
+        // Directly open camera instead of showing modal, capture index
+        handleImagePickerOption('camera', index);
     };
 
-    // Helper function to find the next slot that should be filled
-    const getNextAvailableSlot = () => {
-        for (let i = 0; i < maxPhotos; i++) {
-            if (!uploadedPhotos[i]) {
-                return i;
-            }
-        }
-        return 0; // Fallback to first slot
-    };
-
-    const handleImagePickerOption = async (option) => {
+    const handleImagePickerOption = async (option, targetIndexOverride) => {
         setImagePickerModalVisible(false);
 
         // Request permissions first
@@ -277,7 +280,8 @@ const PhotoUploadScreen = ({ navigation, route }) => {
             quality: 0.8,
         };
 
-        const handleImageResponse = async (response) => {
+    const targetIndexCaptured = (typeof targetIndexOverride === 'number') ? targetIndexOverride : currentPhotoIndex;
+    const handleImageResponse = async (response) => {
             if (response.didCancel) {
                 console.log('User cancelled image picker');
                 return;
@@ -291,54 +295,19 @@ const PhotoUploadScreen = ({ navigation, route }) => {
 
             if (response.assets && response.assets[0]) {
                 const imageUri = response.assets[0].uri;
-                const targetIndex = currentPhotoIndex;
+                const targetIndex = targetIndexCaptured;
                 console.log(`📷 Selected image URI: ${imageUri.substring(0, 50)}...`);
                 console.log(`🎯 Target index: ${targetIndex}`);
 
-                // Verify this is still the correct slot to fill (safety check)
-                const nextSlotToFill = getNextAvailableSlot();
-                if (targetIndex !== nextSlotToFill && !uploadedPhotos[targetIndex]) {
-                    console.log(`⚠️ Target index ${targetIndex} is not the next slot to fill (${nextSlotToFill}). Correcting...`);
-                    setCurrentPhotoIndex(nextSlotToFill);
-                    // Use the correct slot
-                    const correctedIndex = nextSlotToFill;
-                    
-                    // Create photo object for correct slot
-                    const photoObj = {
-                        uri: imageUri,
-                        firebaseUrl: null,
-                        uploading: true,
-                        uploadFailed: false
-                    };
-
-                    // Place photo at correct slot
-                    setUploadedPhotos(prev => {
-                        const newPhotos = [...prev];
-                        while (newPhotos.length <= correctedIndex) {
-                            newPhotos.push(null);
-                        }
-                        newPhotos[correctedIndex] = photoObj;
-                        console.log(`✅ Photo object placed at corrected index: ${correctedIndex}`);
-                        return newPhotos;
-                    });
-
-                    // Start upload for correct slot
-                    uploadImageToFirebase(imageUri, correctedIndex);
+                // Double-check that the slot is still empty before proceeding
+                if (uploadedPhotos[targetIndex]) {
+                    console.log(`❌ Slot ${targetIndex} is no longer empty, aborting upload`);
+                    Alert.alert(
+                        'Slot Already Filled',
+                        'This slot already has a photo. Please delete it first if you want to replace it.',
+                        [{ text: 'OK' }]
+                    );
                     return;
-                }
-
-                // For normal case (filling the next available slot)
-                // Cancel any existing upload at this index (safety check)
-                if (pendingUploads.has(targetIndex)) {
-                    const uploadTask = uploadTasks[targetIndex];
-                    if (uploadTask) {
-                        uploadTask.cancel();
-                    }
-                    setPendingUploads(prev => {
-                        const newSet = new Set(prev);
-                        newSet.delete(targetIndex);
-                        return newSet;
-                    });
                 }
 
                 // Create photo object immediately
@@ -351,6 +320,11 @@ const PhotoUploadScreen = ({ navigation, route }) => {
 
                 // Update photos array - place photo object at target index
                 setUploadedPhotos(prev => {
+                    // If the slot got filled in the meantime, abort (no replacement)
+                    if (prev[targetIndex]) {
+                        console.log(`⛔ Slot ${targetIndex} filled before commit, aborting add`);
+                        return prev;
+                    }
                     const newPhotos = [...prev];
                     
                     // Ensure array is large enough for target index
@@ -361,13 +335,13 @@ const PhotoUploadScreen = ({ navigation, route }) => {
                     // Place the photo object at the target index
                     newPhotos[targetIndex] = photoObj;
                     console.log(`✅ Photo object placed at index: ${targetIndex}`);
+                    console.log(`📊 Updated photos array:`, newPhotos.map((p, i) => ({ index: i, hasPhoto: !!p, uploading: p?.uploading })));
                     return newPhotos;
                 });
 
-                console.log(`🚀 Starting Firebase upload for index: ${targetIndex}`);
-
-                // Start upload process in background
-                uploadImageToFirebase(imageUri, targetIndex);
+                console.log(`� Enqueue upload for index: ${targetIndex}`);
+                // Enqueue upload; processor handles sequential execution
+                enqueueUpload(imageUri, targetIndex);
                 
             } else {
                 console.log('No image selected');
@@ -428,6 +402,17 @@ const PhotoUploadScreen = ({ navigation, route }) => {
                 newPhotos.map((p, i) => ({ index: i, hasPhoto: !!p })));
             return newPhotos;
         });
+
+        // Re-index queued tasks so they point to the new shifted positions
+        setQueue(prev => {
+            const adjusted = prev.map(task => {
+                if (task.index > index) {
+                    return { ...task, index: task.index - 1 };
+                }
+                return task;
+            });
+            return adjusted;
+        });
     };
 
     const handleContinue = async () => {
@@ -487,7 +472,7 @@ const PhotoUploadScreen = ({ navigation, route }) => {
             
             // Location info
             location: {
-                village: fruitData?.location?.village || '',
+                city: fruitData?.location?.city || '',
                 district: fruitData?.location?.district || '',
                 state: fruitData?.location?.state || '',
                 pincode: fruitData?.location?.pincode || '',
@@ -534,14 +519,42 @@ const PhotoUploadScreen = ({ navigation, route }) => {
         return;
     };
 
+    // Start processing the upload queue sequentially
+    const processQueue = async () => {
+        if (isProcessingQueueRef.current) return;
+        if (!queueRef.current.length) return;
+        isProcessingQueueRef.current = true;
+        try {
+            while (queueRef.current.length) {
+                const task = queueRef.current[0];
+                // Skip if slot already got a photo (user might have deleted/cancelled)
+                if (!uploadedPhotos[task.index] || uploadedPhotos[task.index]?.uploading) {
+                    // Perform upload for this task
+                    await uploadImageToFirebase(task.uri, task.index);
+                }
+                // Remove processed task
+                setQueue(prev => prev.slice(1));
+            }
+        } finally {
+            isProcessingQueueRef.current = false;
+        }
+    };
+
+    const enqueueUpload = (uri, index) => {
+        const id = `${index}-${Date.now()}-${Math.random().toString(36).slice(2,7)}`;
+        setQueue(prev => [...prev, { index, uri, id }]);
+        // Kick off processor in next tick
+        setTimeout(processQueue, 0);
+    };
+
     const renderPhotoSlot = (index) => {
         const photo = uploadedPhotos[index];
         const photoUri = photo?.uri;
         const isPending = pendingUploads.has(index);
         const isUploading = photo?.uploading || isPending;
-        const nextSlotToFill = getNextAvailableSlot();
-        const isClickable = index === nextSlotToFill;
-        const isDisabled = !isClickable && !photo;
+        const hasPhoto = !!photo;
+    const anyUploadsInProgress = pendingUploads.size > 0;
+    const isSlotDisabled = hasPhoto; // Disable only if this slot already has a photo
         
         return (
             <TouchableOpacity 
@@ -549,11 +562,11 @@ const PhotoUploadScreen = ({ navigation, route }) => {
                 style={[
                     styles.photoSlot,
                     photo && styles.photoSlotFilled,
-                    isDisabled && styles.photoSlotDisabled,
-                    isClickable && !photo && styles.photoSlotNext
+                    !photo && styles.photoSlotEmpty,
+                    isSlotDisabled && styles.photoSlotDisabled
                 ]}
                 onPress={() => handlePhotoUpload(index)}
-                disabled={isDisabled}
+                disabled={isSlotDisabled}
             >
                 {photo ? (
                     <View style={styles.photoContainer}>
@@ -583,13 +596,13 @@ const PhotoUploadScreen = ({ navigation, route }) => {
                         <Ionicons 
                             name="camera-outline" 
                             size={30} 
-                            color={isDisabled ? "#ccc" : "#666"} 
+                            color={anyUploadsInProgress ? "#999" : "#666"}
                         />
                         <Text style={[
                             styles.placeholderText,
-                            isDisabled && styles.placeholderTextDisabled
+                            anyUploadsInProgress && { color: '#999' }
                         ]}>
-                            Photo {index + 1}
+                            {`Photo ${index + 1}`}
                         </Text>
                     </View>
                 )}
@@ -732,7 +745,7 @@ const PhotoUploadScreen = ({ navigation, route }) => {
                         <View style={styles.modalOptions}>
                             <TouchableOpacity
                                 style={styles.modalOption}
-                                onPress={() => handleImagePickerOption('camera')}
+                                onPress={() => handleImagePickerOption('camera', currentPhotoIndex)}
                             >
                                 <View style={styles.modalOptionIcon}>
                                     <Ionicons name="camera" size={28} color="#4CAF50" />
@@ -921,10 +934,16 @@ const styles = StyleSheet.create({
         borderColor: '#f5f5f5',
         backgroundColor: '#fff',
     },
+    photoSlotEmpty: {
+        backgroundColor: '#f8f8f8',
+        borderColor: '#4CAF50',
+        borderWidth: 2,
+        borderStyle: 'dashed',
+    },
     photoSlotDisabled: {
         backgroundColor: '#f9f9f9',
         borderColor: '#e5e5e5',
-        opacity: 0.5,
+        opacity: 0.8,
     },
     photoSlotNext: {
         backgroundColor: '#f0f0f0',
@@ -1016,22 +1035,7 @@ const styles = StyleSheet.create({
         shadowRadius: 2,
         elevation: 2,
     },
-    editButton: {
-        position: 'absolute',
-        bottom: 8,
-        right: 8,
-        width: 28,
-        height: 28,
-        backgroundColor: '#fff',
-        borderRadius: 14,
-        justifyContent: 'center',
-        alignItems: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 3,
-    },
+    
     removeButton: {
         position: 'absolute',
         top: 8,
@@ -1179,9 +1183,7 @@ const styles = StyleSheet.create({
         position: 'absolute',
         top: 8,
         right: 8,
-        backgroundColor: 'rgba(255, 255, 255, 0.9)',
-        borderRadius: 12,
-        padding: 4,
+        elevation: 4,
     },
 });
 

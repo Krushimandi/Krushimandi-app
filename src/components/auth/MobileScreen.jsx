@@ -23,7 +23,7 @@ import { useAuth } from '../../contexts/AuthContext';
 
 const MobileScreen = ({ navigation }) => {
   const { setPhoneNumber, setConfirmation } = useAuth();
-  const [mobile, setMobile] = useState(''); 
+  const [mobile, setMobile] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -253,7 +253,9 @@ const MobileScreen = ({ navigation }) => {
                     </View>
                     <View style={styles.separator} />
 
-                    <Pressable style={{ flex: 1 }} onPress={() => inputRef.current?.focus()}>
+                    <Pressable
+                      style={{ flex: 1 }}
+                      onPress={() => inputRef.current?.focus()}>
                       <TextInput
                         ref={inputRef}
                         placeholder="Enter mobile number"
@@ -268,6 +270,7 @@ const MobileScreen = ({ navigation }) => {
                         autoFocus={false}
                         returnKeyType="done"
                         onSubmitEditing={handleNext}
+                        editable={!isLoading}
                       />
                     </Pressable>
 
@@ -501,6 +504,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#E8E8E8',
     marginRight: 12,
   },
+  disabled: {
+    backgroundColor: "#f0f0f0",
+    color: "#888",
+  },
+
   input: {
     flex: 1,
     fontSize: 16,

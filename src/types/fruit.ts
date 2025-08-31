@@ -4,7 +4,7 @@
  */
 
 export interface FruitLocation {
-  village: string;
+  city: string;
   district: string;
   state: string;
   pincode: string;
