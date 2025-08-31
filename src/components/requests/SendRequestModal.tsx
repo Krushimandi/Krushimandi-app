@@ -3,7 +3,7 @@
  * Modal for buyers to send requests to farmers
  */
 
-import React, { useState } from 'react';
+import React, { useState ,useEffect} from 'react';
 import {
   View,
   Text,
@@ -19,6 +19,8 @@ import {
 import Icon from 'react-native-vector-icons/Ionicons';
 import { Colors } from '../../constants';
 import { CreateRequestInput } from '../../types/Request';
+
+
 
 const { width } = Dimensions.get('window');
 
@@ -45,6 +47,19 @@ const SendRequestModal: React.FC<SendRequestModalProps> = ({
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
 
+
+
+
+
+// const [selectedQuantity, setSelectedQuantity] = useState(product.quantity[0]);
+
+//   // useEffect(() => {
+//   //   setSelectedQuantity(product.quantity[0]);
+//   // }, [product]);
+
+
+
+
   // Format quantity range display
   const formatQuantityRange = (quantity: [number, number]) => {
     if (quantity[0] === 0 && quantity[1] === 0) {
@@ -55,6 +70,7 @@ const SendRequestModal: React.FC<SendRequestModalProps> = ({
     }
     return `${quantity[0]}-${quantity[1]} tons`;
   };
+
 
   const handleSend = async () => {
     const quantityRange = product.quantity;
@@ -74,6 +90,8 @@ const SendRequestModal: React.FC<SendRequestModalProps> = ({
         message: message.trim(),
       };
 
+
+
       await onSend(request);
       
       // Reset form
@@ -86,6 +104,26 @@ const SendRequestModal: React.FC<SendRequestModalProps> = ({
     }
   };
 
+
+
+
+
+  // const incrementQuantity = () => {
+  //   if (selectedQuantity < product.quantity[1]) {
+  //     setSelectedQuantity(selectedQuantity + 1);
+  //   }
+  // };
+  // const decrementQuantity = () => {
+  //   if (selectedQuantity > product.quantity[0]) {
+  //     setSelectedQuantity(selectedQuantity - 1);
+  //   }
+  // };
+
+
+
+
+
+  
   return (
     <Modal visible={visible} animationType="slide" transparent>
       <View style={styles.overlay}>
@@ -116,7 +154,7 @@ const SendRequestModal: React.FC<SendRequestModalProps> = ({
               </Text>
             </View>
 
-            {/* Request Info */}
+            {/* Request Info  */}
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Request Details</Text>
               <View style={styles.requestInfo}>
@@ -126,7 +164,49 @@ const SendRequestModal: React.FC<SendRequestModalProps> = ({
                   You are requesting the full available quantity
                 </Text>
               </View>
-            </View>
+            </View> 
+
+
+{/* 
+
+
+<View style={styles.section}>
+              <Text style={styles.sectionTitle}>Request Details</Text>
+              <View style={styles.requestInfo}>
+                <Text style={styles.requestLabel}>Quantity to Request:</Text>
+                <View style={styles.quantityRow}>
+                  <TouchableOpacity
+                    style={[
+                      styles.quantityButton,
+                      selectedQuantity <= product.quantity[0] && styles.quantityButtonDisabled,
+                    ]}
+                    onPress={decrementQuantity}
+                    disabled={selectedQuantity <= product.quantity[0]}
+                  >
+                    <Icon name="remove-circle-outline" size={28} color={selectedQuantity <= product.quantity[0] ? "#D1D5DB" : Colors.light.primary} />
+                  </TouchableOpacity>
+                  <Text style={styles.quantityValue}>{selectedQuantity} ton{selectedQuantity > 1 ? 's' : ''}</Text>
+                  <TouchableOpacity
+                    style={[
+                      styles.quantityButton,
+                      selectedQuantity >= product.quantity[1] && styles.quantityButtonDisabled,
+                    ]}
+                    onPress={incrementQuantity}
+                    disabled={selectedQuantity >= product.quantity[1]}
+                  >
+                    <Icon name="add-circle-outline" size={28} color={selectedQuantity >= product.quantity[1] ? "#D1D5DB" : Colors.light.primary} />
+                  </TouchableOpacity>
+                </View>
+                <Text style={styles.requestNote}>
+                  Select the quantity you want to request (between {product.quantity[0]} and {product.quantity[1]} tons)
+                </Text>
+              </View>
+            </View> 
+
+ */}
+
+
+
 
             {/* Message */}
             <View style={styles.section}>
@@ -294,6 +374,31 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+
+
+
+
+
+  quantityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 8,
+    gap: 16,
+  },
+  quantityButton: {
+    padding: 4,
+  },
+  quantityButtonDisabled: {
+    opacity: 0.5,
+  },
+  quantityValue: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: Colors.light.primary,
+    minWidth: 60,
+    textAlign: 'center',
   },
 });
 
