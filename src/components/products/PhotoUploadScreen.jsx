@@ -58,14 +58,14 @@ const PhotoUploadScreen = ({ navigation, route }) => {
         hideTabBar();
         // Restore tab bar and cancel any in-flight uploads on unmount
         return () => {
-            try { showTabBar(); } catch {}
+            try { showTabBar(); } catch { }
             try {
                 Object.values(uploadTasks || {}).forEach(task => {
                     if (task && typeof task.cancel === 'function') {
                         task.cancel();
                     }
                 });
-            } catch {}
+            } catch { }
         };
     }, []);
 
@@ -298,7 +298,7 @@ const PhotoUploadScreen = ({ navigation, route }) => {
 
         // Set current photo index and show modal
         setCurrentPhotoIndex(nextSlotToFill);
-    setImagePickerModalVisible(true); // Show modal instead of direct camera launch
+        setImagePickerModalVisible(true); // Show modal instead of direct camera launch
     };
 
     const handleImagePickerOption = async (option, targetIndexOverride) => {
@@ -490,8 +490,8 @@ const PhotoUploadScreen = ({ navigation, route }) => {
         await AsyncStorage.setItem('authStep', 'done');
 
         // Format according to Fruit schema from types/fruit.ts
-    const safeLocation = fruitData?.location || {};
-    const completeProductData = {
+        const safeLocation = fruitData?.location || {};
+        const completeProductData = {
             // Will be set by Firestore when saving
             id: '',
 
@@ -720,13 +720,6 @@ const PhotoUploadScreen = ({ navigation, route }) => {
                     </View>
                 )}
 
-
-
-
-
-
-
-
                 {/* Stray gallery button (duplicate of modal options) hidden after git conflict */}
                 {false && (
                     <TouchableOpacity
@@ -742,26 +735,6 @@ const PhotoUploadScreen = ({ navigation, route }) => {
                         </View>
                     </TouchableOpacity>
                 )}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
                 {/* Photo Grid - 2x2 grid layout */}
                 <View style={styles.photoGrid}>
                     <View style={styles.photoRow}>
@@ -881,28 +854,6 @@ const PhotoUploadScreen = ({ navigation, route }) => {
                                 <Text style={styles.modalOptionSubtext}>Choose existing</Text>
                             </TouchableOpacity>
                         </View>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
                         {uploadedPhotos[currentPhotoIndex] && (
                             <TouchableOpacity
