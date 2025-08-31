@@ -196,20 +196,21 @@ class BuyerService {
 
             console.log('📊 Calculating buyer stats for:', buyerId);
 
-            // Get reviews from the dedicated reviews collection
+            // Get reviews from the nested structure: buyers/{buyerId}/reviews
             const reviewsSnapshot = await firestore()
+                .collection('buyers')
+                .doc(buyerId)
                 .collection('reviews')
-                .where('buyerId', '==', buyerId)
                 .get();
 
             let totalRating = 0;
             let totalRatings = 0;
 
-            console.log('📝 Found', reviewsSnapshot.size, 'reviews in reviews collection');
+            console.log('📝 Found', reviewsSnapshot.size, 'reviews in buyer subcollection');
             
             reviewsSnapshot.forEach(doc => {
                 const review = doc.data();
-                console.log('📄 Review data:', { id: doc.id, rating: review.rating, comment: review.comment?.substring(0, 50) });
+                console.log('📄 Review data:', { id: doc.id, rating: review.rating, reviewText: review.reviewText?.substring(0, 50) });
                 
                 const rating = this.sanitizeNumber(review.rating);
                 if (rating > 0 && rating <= 5) {
@@ -310,10 +311,15 @@ class BuyerService {
     }
 
     /**
-     * Get buyer reviews
+     * Get buyer reviews from the nested structure: buyers/{buyerId}/reviews/{farmerId}
      */
     async getBuyerReviews(buyerId: string): Promise<BuyerReview[]> {
         try {
+            // Validate buyer ID
+            if (!this.validateBuyerId(buyerId)) {
+                return [];
+            }
+
             // Check cache first
             const cached = buyerReviewsCache.get(buyerId);
             if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
@@ -321,79 +327,59 @@ class BuyerService {
                 return cached.reviews;
             }
 
-            console.log('🔍 Fetching buyer reviews from Firestore:', buyerId);
+            console.log('🔍 Fetching buyer reviews from nested structure:', buyerId);
             
-            // Try to get reviews from a dedicated reviews collection
+            // Get reviews from the nested structure: buyers/{buyerId}/reviews
             const reviewsSnapshot = await firestore()
+                .collection('buyers')
+                .doc(buyerId)
                 .collection('reviews')
-                .where('buyerId', '==', buyerId)
                 .orderBy('createdAt', 'desc')
                 .get();
 
             const reviews: BuyerReview[] = [];
             
-            console.log('📝 Found', reviewsSnapshot.size, 'reviews in reviews collection');
+            console.log('📝 Found', reviewsSnapshot.size, 'reviews in buyer subcollection');
             
-            reviewsSnapshot.forEach(doc => {
+            for (const doc of reviewsSnapshot.docs) {
                 const data = doc.data();
                 console.log('📄 Review document:', { id: doc.id, data });
                 
+                // Get farmer details to enrich the review
+                let farmerName = data.farmerName || 'Anonymous Farmer';
+                let farmerImage = data.farmerImage;
+                
+                // If farmer details are not in the review, try to fetch from farmers collection
+                if (data.farmerId && (!farmerName || farmerName === 'Anonymous Farmer')) {
+                    try {
+                        const farmerDoc = await firestore()
+                            .collection('farmers')
+                            .doc(data.farmerId)
+                            .get();
+                        
+                        if (farmerDoc.exists()) {
+                            const farmerData = farmerDoc.data();
+                            farmerName = farmerData?.displayName || farmerData?.name || `${farmerData?.firstName || ''} ${farmerData?.lastName || ''}`.trim() || 'Farmer';
+                            farmerImage = farmerData?.profileImage || farmerData?.photoURL;
+                        }
+                    } catch (error) {
+                        console.log('⚠️ Could not fetch farmer details for:', data.farmerId);
+                    }
+                }
+                
                 reviews.push({
                     id: doc.id,
-                    buyerId: data.buyerId,
-                    farmerId: data.farmerId,
-                    farmerName: data.farmerName || 'Anonymous Farmer',
-                    farmerImage: data.farmerImage,
-                    rating: data.rating || 5,
-                    comment: data.comment || 'Great buyer to work with!',
-                    orderId: data.orderId || 'N/A',
-                    productName: data.productName || 'Product',
+                    buyerId: buyerId,
+                    farmerId: data.farmerId || doc.id, // Use document ID as farmerId if not present
+                    farmerName: farmerName,
+                    farmerImage: farmerImage,
+                    rating: this.sanitizeNumber(data.rating, 5),
+                    comment: this.sanitizeString(data.reviewText || data.comment, 'Great buyer to work with!'),
+                    orderId: this.sanitizeString(data.orderId, 'N/A'),
+                    productName: this.sanitizeString(data.productName, 'Product'),
                     createdAt: data.createdAt,
                     updatedAt: data.updatedAt,
                 });
-            });
-
-            // If no reviews in reviews collection, fallback to requests collection
-            if (reviews.length === 0) {
-                console.log('📋 No reviews found in reviews collection, checking requests...');
-                
-                const requestsSnapshot = await firestore()
-                    .collection('requests')
-                    .where('buyerId', '==', buyerId)
-                    .where('status', '==', 'accepted')
-                    .get();
-
-                console.log('📝 Found', requestsSnapshot.size, 'accepted requests');
-
-                requestsSnapshot.forEach(doc => {
-                    const data = doc.data();
-                    console.log('📄 Request with farmer response:', { 
-                        id: doc.id, 
-                        farmerResponse: data.farmerResponse,
-                        productName: data.productSnapshot?.name 
-                    });
-                    
-                    if (data.farmerResponse?.rating || data.farmerResponse?.message) {
-                        reviews.push({
-                            id: doc.id,
-                            buyerId: data.buyerId,
-                            farmerId: data.farmerId,
-                            farmerName: data.productSnapshot?.farmerName || 'Farmer',
-                            farmerImage: undefined,
-                            rating: data.farmerResponse?.rating || 5,
-                            comment: data.farmerResponse?.message || 'Great buyer to work with!',
-                            orderId: doc.id,
-                            productName: data.productSnapshot?.name || 'Product',
-                            createdAt: data.farmerResponse?.respondedAt || data.createdAt,
-                            updatedAt: data.updatedAt,
-                        });
-                    }
-                });
-            }
-
-            // If still no reviews, return empty array instead of dummy data
-            if (reviews.length === 0) {
-                console.log('📝 No reviews found for buyer:', buyerId);
             }
 
             console.log('📊 Final reviews count:', reviews.length);
@@ -409,51 +395,82 @@ class BuyerService {
     }
 
     /**
-     * Submit a review for a buyer
+     * Submit a review for a buyer using the nested structure: buyers/{buyerId}/reviews/{farmerId}
      */
     async submitBuyerReview(
         buyerId: string,
         farmerId: string,
         rating: number,
-        comment: string,
-        orderId: string,
-        productName: string,
-        farmerName: string,
-        farmerImage?: string
+        reviewText: string,
+        orderId?: string,
+        productName?: string
     ): Promise<BuyerReview> {
         try {
+            // Validate inputs
+            if (!this.validateBuyerId(buyerId)) {
+                throw new Error('Invalid buyer ID');
+            }
+            
+            if (!farmerId || farmerId.trim().length === 0) {
+                throw new Error('Invalid farmer ID');
+            }
+            
+            if (rating < 1 || rating > 5) {
+                throw new Error('Rating must be between 1 and 5');
+            }
+
             const now = firestore.Timestamp.now();
+            
+            // Get farmer details for enriching the review
+            let farmerName = 'Farmer';
+            let farmerImage: string | undefined;
+            
+            try {
+                const farmerDoc = await firestore()
+                    .collection('farmers')
+                    .doc(farmerId)
+                    .get();
+                
+                if (farmerDoc.exists()) {
+                    const farmerData = farmerDoc.data();
+                    farmerName = farmerData?.displayName || farmerData?.name || `${farmerData?.firstName || ''} ${farmerData?.lastName || ''}`.trim() || 'Farmer';
+                    farmerImage = farmerData?.profileImage || farmerData?.photoURL;
+                }
+            } catch (error) {
+                console.log('⚠️ Could not fetch farmer details for review submission:', farmerId);
+            }
             
             // Create review document data
             const reviewData = {
-                buyerId,
                 farmerId,
-                farmerName,
-                farmerImage: farmerImage || null,
                 rating,
-                comment,
-                orderId,
-                productName,
+                reviewText: reviewText.trim(),
                 createdAt: now,
-                updatedAt: now,
+                ...(orderId && { orderId }),
+                ...(productName && { productName }),
+                ...(farmerName && { farmerName }),
+                ...(farmerImage && { farmerImage }),
             };
 
-            // Add review to Firestore
-            console.log('📝 Adding review to Firestore for buyer:', buyerId);
-            const reviewRef = await firestore()
+            // Add review to the nested structure: buyers/{buyerId}/reviews/{farmerId}
+            console.log('📝 Adding review to buyer subcollection:', buyerId, '/', farmerId);
+            await firestore()
+                .collection('buyers')
+                .doc(buyerId)
                 .collection('reviews')
-                .add(reviewData);
+                .doc(farmerId)
+                .set(reviewData, { merge: true }); // Use merge to update if review already exists
 
             const review: BuyerReview = {
-                id: reviewRef.id,
+                id: farmerId,
                 buyerId,
                 farmerId,
                 farmerName,
-                farmerImage: farmerImage || undefined,
+                farmerImage,
                 rating,
-                comment,
-                orderId,
-                productName,
+                comment: reviewText,
+                orderId: orderId || 'N/A',
+                productName: productName || 'Product',
                 createdAt: now,
                 updatedAt: now,
             };
@@ -465,13 +482,48 @@ class BuyerService {
             console.log('✅ Review submitted successfully for buyer:', buyerId);
             return review;
         } catch (error) {
-            console.error('Error submitting buyer review:', error);
+            console.error('❌ Error submitting buyer review:', error);
             throw error;
         }
     }
 
     /**
-     * Get database statistics for debugging
+     * Add a sample review for testing (to be used from Firebase console or test scripts)
+     */
+    async addSampleReview(
+        buyerId: string,
+        farmerId: string = 'testFarmer123',
+        rating: number = 5,
+        reviewText: string = 'Very good buyer, pays on time'
+    ): Promise<void> {
+        try {
+            console.log('📝 Adding sample review to buyer:', buyerId);
+            
+            const now = firestore.Timestamp.now();
+            
+            const reviewData = {
+                farmerId,
+                rating,
+                reviewText,
+                createdAt: now,
+            };
+
+            await firestore()
+                .collection('buyers')
+                .doc(buyerId)
+                .collection('reviews')
+                .doc(farmerId)
+                .set(reviewData);
+            
+            console.log('✅ Sample review added successfully');
+        } catch (error) {
+            console.error('❌ Error adding sample review:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Get database statistics for debugging (updated to include nested reviews count)
      */
     async getDbStats(): Promise<{
         buyersCount: number;
@@ -541,5 +593,11 @@ export const testBuyerService = {
     },
     async getBuyerStats(buyerId: string) {
         return await buyerService.getBuyerStats(buyerId);
+    },
+    async getBuyerReviews(buyerId: string) {
+        return await buyerService.getBuyerReviews(buyerId);
+    },
+    async addSampleReview(buyerId: string, farmerId?: string, rating?: number, reviewText?: string) {
+        return await buyerService.addSampleReview(buyerId, farmerId, rating, reviewText);
     }
 };

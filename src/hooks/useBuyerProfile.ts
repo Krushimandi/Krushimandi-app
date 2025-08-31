@@ -14,7 +14,7 @@ interface UseBuyerProfileReturn {
     loading: boolean;
     error: string | null;
     refreshProfile: () => Promise<void>;
-    submitReview: (rating: number, comment: string, orderId?: string, productName?: string) => Promise<boolean>;
+    submitReview: (rating: number, reviewText: string, orderId?: string, productName?: string) => Promise<boolean>;
     submittingReview: boolean;
 }
 
@@ -66,17 +66,22 @@ export const useBuyerProfile = (buyerId: string): UseBuyerProfileReturn => {
 
     const submitReview = useCallback(async (
         rating: number,
-        comment: string,
-        orderId: string = 'GENERAL',
-        productName: string = 'General Review'
+        reviewText: string,
+        orderId?: string,
+        productName?: string
     ): Promise<boolean> => {
         if (!user) {
             Alert.alert('Error', 'You must be logged in to submit a review');
             return false;
         }
 
-        if (!comment.trim()) {
+        if (!reviewText.trim()) {
             Alert.alert('Error', 'Please write a review comment');
+            return false;
+        }
+
+        if (rating < 1 || rating > 5) {
+            Alert.alert('Error', 'Please provide a valid rating between 1 and 5');
             return false;
         }
 
@@ -85,13 +90,11 @@ export const useBuyerProfile = (buyerId: string): UseBuyerProfileReturn => {
 
             const newReview = await buyerService.submitBuyerReview(
                 buyerId,
-                user.id,
+                user.id, // farmerId
                 rating,
-                comment,
+                reviewText,
                 orderId,
-                productName,
-                user.name || 'Anonymous Farmer',
-                user.profileImage
+                productName
             );
 
             // Update local state

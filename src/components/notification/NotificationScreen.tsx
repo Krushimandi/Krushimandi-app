@@ -269,7 +269,12 @@ const FilterChip: React.FC<{
     icon?: string;
 }> = ({ label, selected, onPress, icon, type }) => {
     const [isPressed, setIsPressed] = useState(false);
-    const colors = Colors.light;
+    // const colors = Colors.light;
+
+    const borderColor = '#525252ff';
+    const textColor = '#4d4d4dff';
+
+
 
     // Use simpler animation approach for better performance
     const handlePressIn = () => {
@@ -285,10 +290,10 @@ const FilterChip: React.FC<{
             style={[
                 styles.filterButton,
                 {
-                    borderColor: Colors.light.primary,
+                    borderColor: borderColor,
                 },
                 selected && {
-                    backgroundColor: Colors.light.primary + '40',
+                    backgroundColor: '#E5E7EB',
                 },
                 isPressed && {
                     opacity: 0.9,
@@ -304,7 +309,7 @@ const FilterChip: React.FC<{
                 <Icon
                     name={icon}
                     size={16}
-                    color={Colors.light.primary}
+                    color={textColor}
                     style={{ marginRight: 6 }}
                 />
             )}
@@ -312,7 +317,7 @@ const FilterChip: React.FC<{
                 style={[
                     styles.filterButtonText,
                     {
-                        color: Colors.light.primary,
+                        color: textColor,
                         fontWeight: '600',
                     }
                 ]}

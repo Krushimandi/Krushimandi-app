@@ -238,9 +238,10 @@ const PhotoUploadScreen = ({ navigation, route }) => {
         }
     };
 
-    const handlePhotoUpload = (index) => {
-        console.log(`📸 handlePhotoUpload called with index: ${index}`);
+    // const handlePhotoUpload = (index) => {
+    //     console.log(`📸 handlePhotoUpload called with index: ${index}`);
         
+<<<<<<< HEAD
         // Only allow clicking on empty slots
         const photo = uploadedPhotos[index];
         const isSlotEmpty = !photo;
@@ -262,6 +263,58 @@ const PhotoUploadScreen = ({ navigation, route }) => {
         // Directly open camera instead of showing modal, capture index
         handleImagePickerOption('camera', index);
     };
+=======
+    //     // Find the first empty slot that should be filled
+    //     const nextSlotToFill = getNextAvailableSlot();
+        
+    //     // Only allow clicking on the next slot to fill
+    //     if (index !== nextSlotToFill) {
+    //         console.log(`❌ Can only fill slot ${nextSlotToFill} next, clicked: ${index}`);
+    //         return; // Do nothing if wrong slot clicked
+    //     }
+        
+    //     // Proceed with photo upload for the correct slot
+    //     setCurrentPhotoIndex(nextSlotToFill);
+    //     console.log(`📍 Set currentPhotoIndex to: ${nextSlotToFill}`);
+        
+    //     // Directly open camera instead of showing modal
+    //     handleImagePickerOption('camera');
+    // };
+
+
+const handlePhotoUpload = (index) => {
+    console.log(`📸 handlePhotoUpload called with index: ${index}`);
+    
+    // Find the first empty slot that should be filled
+    const nextSlotToFill = getNextAvailableSlot();
+    
+    // Only allow clicking on the next slot to fill
+    if (index !== nextSlotToFill) {
+        console.log(`❌ Can only fill slot ${nextSlotToFill} next, clicked: ${index}`);
+        return; // Do nothing if wrong slot clicked
+    }
+    
+    // Set current photo index and show modal
+    setCurrentPhotoIndex(nextSlotToFill);
+    setImagePickerModalVisible(true); // Show modal instead of direct camera launch
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+>>>>>>> 305cfaad52bc67eccdec878a9340de82a9bd2001
 
     const handleImagePickerOption = async (option, targetIndexOverride) => {
         setImagePickerModalVisible(false);
@@ -677,6 +730,46 @@ const PhotoUploadScreen = ({ navigation, route }) => {
                     </View>
                 )}
 
+
+
+
+
+
+
+
+                <TouchableOpacity
+                    style={styles.modalOption}
+                    onPress={() => handleImagePickerOption('gallery')}
+                >
+                    <View style={styles.modalOptionIcon}>
+                        <Ionicons name="images" size={28} color="#2196F3" />
+                    </View>
+
+                    <View style={{ flexDirection: 'column' }}>
+                        <Text style={styles.modalOptionText}>Gallery</Text>
+                        <Text style={styles.modalOptionSubtext}>Choose from gallery</Text>
+                    </View>
+                </TouchableOpacity>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 {/* Photo Grid - 2x2 grid layout */}
                 <View style={styles.photoGrid}>
                     <View style={styles.photoRow}>
@@ -742,7 +835,7 @@ const PhotoUploadScreen = ({ navigation, route }) => {
                             Choose how you want to add your photo
                         </Text>
 
-                        <View style={styles.modalOptions}>
+                        {/* <View style={styles.modalOptions}>
                             <TouchableOpacity
                                 style={styles.modalOption}
                                 onPress={() => handleImagePickerOption('camera', currentPhotoIndex)}
@@ -769,7 +862,55 @@ const PhotoUploadScreen = ({ navigation, route }) => {
                                     <Text style={styles.modalOptionSubtext}>Choose from gallery</Text>
                                 </View>
                             </TouchableOpacity> */}
-                        </View>
+                        {/* </View>  */}
+
+
+
+<View style={styles.modalOptionsContainer}>
+    <TouchableOpacity
+        style={styles.modalOption}
+        onPress={() => handleImagePickerOption('camera')}
+    >
+        <View style={styles.modalOptionIcon}>
+            <Ionicons name="camera" size={28} color="#4CAF50" />
+        </View>
+        <Text style={styles.modalOptionText}>Camera</Text>
+        <Text style={styles.modalOptionSubtext}>Take a new photo</Text>
+    </TouchableOpacity>
+
+    <TouchableOpacity
+        style={styles.modalOption}
+        onPress={() => handleImagePickerOption('gallery')}
+    >
+        <View style={styles.modalOptionIcon}>
+            <Ionicons name="images" size={28} color="#2196F3" />
+        </View>
+        <Text style={styles.modalOptionText}>Gallery</Text>
+        <Text style={styles.modalOptionSubtext}>Choose existing</Text>
+    </TouchableOpacity>
+</View>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
                         {uploadedPhotos[currentPhotoIndex] && (
                             <TouchableOpacity
@@ -1187,4 +1328,50 @@ const styles = StyleSheet.create({
     },
 });
 
+
+
+
+
+const additionalStyles = {
+    modalOptionsContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        gap: 12,
+    },
+    modalOption: {
+        flex: 1,
+        flexDirection: 'column',
+        alignItems: 'center',
+        padding: 16,
+        backgroundColor: '#F8F9FA',
+        borderRadius: 16,
+        marginBottom: 12,
+    },
+    modalOptionIcon: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        backgroundColor: '#FFFFFF',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 12,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+    },
+    modalOptionText: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#212121',
+        textAlign: 'center',
+    },
+    modalOptionSubtext: {
+        fontSize: 13,
+        color: '#666',
+        textAlign: 'center',
+        marginTop: 4,
+    },
+};
+Object.assign(styles, additionalStyles);
 export default PhotoUploadScreen;

@@ -16,6 +16,7 @@ import HelpGuide from '../components/Help/HelpGuide';
 import FaqDetail from '../components/Help/FaqDetail';
 import LanguagesScreen from '../components/ProfileScreen/LanguagesScreen';
 import PrivacyPolicyScreen from '../components/ProfileScreen/PrivacyPolicyScreen';
+import ReviewTestScreen from '../components/test/ReviewTestScreen';
 
 // Navigation provider
 import { NavigationProvider } from './NavigationProvider';
@@ -221,6 +222,7 @@ const AppNavigator: React.FC<AppNavigatorProps> = ({ bootstrapState }) => {
           <RootStack.Screen name="ProfileSettings" component={SettingsScreen} />
           <RootStack.Screen name="ProfileScreen" component={SettingsScreen} options={{ presentation: 'modal' }} />
           <RootStack.Screen name="BuyerProfile" component={BuyerProfileScreen} />
+          <RootStack.Screen name="ReviewTest" component={ReviewTestScreen} options={{ headerShown: true, title: 'Review System Test' }} />
         </RootStack.Navigator>
       </NavigationContainer>
     </NavigationProvider>

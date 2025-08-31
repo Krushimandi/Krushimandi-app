@@ -482,7 +482,8 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
               </Text>
               <Text style={styles.subtext}>
                 Help us personalize your experience by sharing your name
-              </Text>              {/* Profile Avatar Section */}
+              </Text>              
+              {/* Profile Avatar Section */}
               <TouchableOpacity style={styles.avatarContainer} onPress={handleImagePicker}>
                 {profileImage ? (
                   <Image source={{ uri: profileImage }} style={styles.avatarImage} />
@@ -666,11 +667,11 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
             <FlatList
               data={BUSINESS_TYPE_OPTIONS}
               keyExtractor={(item) => item.value}
-              renderItem={({ item }) => (
+              renderItem={({ item, index }) => (
                 <TouchableOpacity
                   style={[
                     styles.businessTypeOption,
-                    businessType === item.value && styles.businessTypeOptionSelected
+                    businessType === item.value && styles.businessTypeOptionSelected,index === BUSINESS_TYPE_OPTIONS.length - 1 && { borderBottomWidth: 0 }
                   ]}
                   onPress={() => selectBusinessType(item.value)}
                 >

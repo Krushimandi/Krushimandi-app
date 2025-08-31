@@ -1275,12 +1275,84 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                     <View style={styles.loadingAvatar}>
                       <View style={styles.loadingIndicator} />
                     </View>
+<<<<<<< HEAD
                     <View style={styles.farmerLoadingInfo}>
                       <View style={styles.loadingTextLine} />
                       <View style={styles.loadingTextLineShort} />
                       <View style={styles.loadingTextLineTiny} />
                     </View>
                   </View>
+=======
+
+                    <View style={styles.modernFarmerInfo}>
+                      <Text style={styles.modernFarmerName}>
+                        {(() => {
+                          const displayName = farmerData?.displayName || 'Unknown Farmer';
+                          console.log('🔍 Farmer name display logic:', {
+                            'farmerData?.displayName': farmerData?.displayName,
+                            'product.farmer_name': product.farmer_name,
+                            'final_display_name': displayName,
+                            'farmerData_exists': !!farmerData,
+                            'farmerData_keys': farmerData ? Object.keys(farmerData) : null
+                          });
+                          return displayName;
+                        })()}
+                      </Text>
+
+                      {/* <View style={styles.farmerRatingContainer}>
+                        <View style={styles.modernStarsContainer}>
+                          {renderStars(farmerData?.average_rating || product.farmer_rating || 4.0)}
+                        </View>
+                        <Text style={styles.modernRatingText}>
+                          {(farmerData?.average_rating || product.farmer_rating || 4.0).toFixed(1)}
+                        </Text>
+                        <Text style={styles.reviewCountText}>
+                          ({farmerData?.total_reviews || farmerReviews.length || 0} reviews)
+                        </Text>
+                      </View> */}
+
+                      {/* Farmer Stats */}
+                      <View style={styles.farmerStatsRow}>
+                        {farmerData?.experience_years && (
+                          <View style={styles.statItem}>
+                            <Ionicons name="calendar-outline" size={14} color="#666666" />
+                            <Text style={styles.statText}>{farmerData.experience_years}y exp</Text>
+                          </View>
+                        )}
+                        {farmerData?.total_products && (
+                          <View style={styles.statItem}>
+                            <Ionicons name="leaf-outline" size={14} color="#666666" />
+                            <Text style={styles.statText}>{farmerData.total_products} products</Text>
+                          </View>
+                        )}
+                        {farmerData?.location && (
+                          <View style={styles.statItem}>
+                            <Ionicons name="location-outline" size={14} color="#666666" />
+                            <Text style={styles.statText}>
+                              {farmerData.location.village}, {farmerData.location.district}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* Farmer Description */}
+                  {farmerData?.description && (
+                    <View style={styles.farmerDescriptionContainer}>
+                      <Text style={styles.farmerDescription} numberOfLines={3}>
+                        {farmerData.description}
+                      </Text>
+                    </View>
+                  )}
+                  
+                  {/* Rate this farmer button */}
+                  {/* <View style={styles.farmerActionsContainer}>
+                    <TouchableOpacity style={styles.rateFarmerButton}>
+                      <Text style={styles.rateFarmerButtonText}>Rate this farmer</Text>
+                    </TouchableOpacity>
+                  </View> */}
+>>>>>>> 305cfaad52bc67eccdec878a9340de82a9bd2001
                 </View>
               ) : (
                 <>
@@ -2644,6 +2716,24 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666666',
     lineHeight: 20,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  farmerActionsContainer: {
+    flexDirection: 'row',
+    // marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+  },
+  rateFarmerButton: {
+    backgroundColor: 'transparent',
+    paddingHorizontal: 0,
+    // paddingVertical: 8,
+  },
+  rateFarmerButtonText: {
+    fontSize: 14,
+    color: '#1E90FF',
+    fontWeight: '700',
     fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
   modernReviewsHeader: {
