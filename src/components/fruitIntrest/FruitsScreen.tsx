@@ -46,19 +46,7 @@ const FruitsScreen: React.FC<FruitsScreenProps> = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      {/* Top Bar */}
-      <View style={styles.topBar}>
-        <View style={styles.profileRow}>
-          <Image
-            source={require('../../assets/fruits/profile.jpg')}
-            style={styles.profileImage}
-          />
-          <Text style={styles.greeting}>
-            <Text style={styles.greetingName}>Hi, Arjun</Text>
-          </Text>
-        </View>
-        <Ionicons name="menu" size={24} color="#000" />
-      </View>
+      
 
       {/* Title */}
       <Text style={styles.title}>Choose Your Favorite Fruits</Text>
@@ -73,12 +61,6 @@ const FruitsScreen: React.FC<FruitsScreenProps> = ({ navigation }) => {
           style={styles.input}
           value={searchQuery}
           onChangeText={setSearchQuery}
-        />
-        <MaterialCommunityIcons
-          name="microphone"
-          size={22}
-          color="#B0B0B0"
-          style={styles.icon}
         />
       </View>
 
