@@ -226,50 +226,67 @@ const BuyerHomeScreen = () => {
     if (filters.selectedFeatures && filters.selectedFeatures.length > 0) {
       filters.selectedFeatures.forEach(feature => {
         switch (feature) {
-          case 'Top Rated':
+          // Disabled for now: keep for future re-enable
+          // case 'Top Rated':
+          //   filtered = filtered.filter(fruit => {
+          //     const rating = parseFloat(fruit.avg_rating || fruit.rating || 0);
+          //     return rating >= 4;
+          //   });
+          //   break;
+          case 'Fresh Stock': {
+            // Use created_at if available; fallback to dateCreated
             filtered = filtered.filter(fruit => {
-              const rating = parseFloat(fruit.avg_rating || fruit.rating || 0);
-              return rating >= 4;
-            });
-            break;
-          case 'Fresh Stock':
-            filtered = filtered.filter(fruit => {
-              if (!fruit.dateCreated) return true;
-              const daysAgo = getDaysSince(fruit.dateCreated);
+              const createdTs = fruit.created_at || fruit.dateCreated;
+              if (!createdTs) return true; // keep if unknown
+              const daysAgo = getDaysSince(createdTs);
               return daysAgo <= 3;
             });
             break;
-          case 'In Season':
+          }
+          // Disabled for now: keep for future re-enable
+          // case 'In Season':
+          //   filtered = filtered.filter(fruit => {
+          //     const currentMonth = new Date().getMonth() + 1;
+          //     const fruitType = fruit.type?.toLowerCase();
+          //     if (fruitType === 'mango') return currentMonth >= 3 && currentMonth <= 6;
+          //     if (fruitType === 'apple') return currentMonth >= 9 && currentMonth <= 2;
+          //     if (fruitType === 'orange') return currentMonth >= 11 || currentMonth <= 3;
+          //     return true;
+          //   });
+          //   break;
+          // case 'Off Season':
+          //   filtered = filtered.filter(fruit => {
+          //     const currentMonth = new Date().getMonth() + 1;
+          //     const fruitType = fruit.type?.toLowerCase();
+          //     if (fruitType === 'mango') return !(currentMonth >= 3 && currentMonth <= 6);
+          //     if (fruitType === 'apple') return !(currentMonth >= 9 && currentMonth <= 2);
+          //     if (fruitType === 'orange') return !(currentMonth >= 11 || currentMonth <= 3);
+          //     return true;
+          //   });
+          //   break;
+          // New simple, safe features we can support now:
+          case 'With Images': {
+            filtered = filtered.filter(fruit => Array.isArray(fruit.image_urls) && fruit.image_urls.length > 0);
+            break;
+          }
+          case 'Available Now': {
             filtered = filtered.filter(fruit => {
-              const currentMonth = new Date().getMonth() + 1;
-              const fruitType = fruit.type?.toLowerCase();
-              if (fruitType === 'mango') return currentMonth >= 3 && currentMonth <= 6;
-              if (fruitType === 'apple') return currentMonth >= 9 && currentMonth <= 2;
-              if (fruitType === 'orange') return currentMonth >= 11 || currentMonth <= 3;
-              return true;
+              const isActive = (fruit.status || 'active').toLowerCase() === 'active';
+              if (!isActive) return false;
+              if (!fruit.availability_date) return true;
+              const availableFrom = new Date(fruit.availability_date).getTime();
+              return !Number.isNaN(availableFrom) ? availableFrom <= Date.now() : true;
             });
             break;
-          case 'Off Season':
-            filtered = filtered.filter(fruit => {
-              const currentMonth = new Date().getMonth() + 1;
-              const fruitType = fruit.type?.toLowerCase();
-              if (fruitType === 'mango') return !(currentMonth >= 3 && currentMonth <= 6);
-              if (fruitType === 'apple') return !(currentMonth >= 9 && currentMonth <= 2);
-              if (fruitType === 'orange') return !(currentMonth >= 11 || currentMonth <= 3);
-              return true;
-            });
+          }
+          default:
             break;
         }
       });
     }
 
-    // Apply minimum rating filter
-    if (filters.minRating > 0) {
-      filtered = filtered.filter(fruit => {
-        const rating = parseFloat(fruit.avg_rating || fruit.rating || 0);
-        return rating >= filters.minRating;
-      });
-    }
+  // Rating filter disabled for now. To re-enable, filter by
+  // parseFloat(fruit.avg_rating || fruit.rating || 0) >= filters.minRating
 
     // Apply category filter if not 'all'
     if (selectedCategory !== 'all') {
@@ -920,7 +937,8 @@ const BuyerHomeScreen = () => {
                         <Text style={styles.fruitTons}>
                           {formatFruitQuantity(item.quantity)}
                         </Text>
-                        {renderStars(4.8)} {/* Default rating for now */}
+                        {/* Rating Disable for now */}
+                        {/* {renderStars(4.8)} */}
                       </View>
                     </TouchableOpacity>
                   ))

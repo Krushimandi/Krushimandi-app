@@ -162,6 +162,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
     selectedImageIndex: 0,
     isWishlistLoading: false,
     currentLikes: product.likes || 0,
+  currentViews: product.views || 0,
     farmerData: null as any,
     farmerReviews: [] as any[],
     isFarmerDataLoading: true,
@@ -181,6 +182,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
     selectedImageIndex,
     isWishlistLoading,
     currentLikes,
+  currentViews,
     farmerData,
     farmerReviews,
     isFarmerDataLoading,
@@ -207,6 +209,10 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
   // Helper functions for common state updates
   const setCurrentLikes = useCallback((likes: number) => {
     safeSetState(prev => ({ ...prev, currentLikes: likes }));
+  }, [safeSetState]);
+
+  const setCurrentViews = useCallback((views: number) => {
+    safeSetState(prev => ({ ...prev, currentViews: Math.max(0, views || 0) }));
   }, [safeSetState]);
 
   const setIsFavorite = useCallback((favorite: boolean) => {
@@ -424,6 +430,31 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
 
       refreshData();
     }, [product.id, userRole, user?.uid])
+  );
+
+  // Live views listener (single doc subscription) scoped to focus
+  useFocusEffect(
+    React.useCallback(() => {
+      if (!product.id || product.id === 'unknown-id') return;
+      const unsubscribe = firestore
+        .collection('fruits')
+        .doc(product.id)
+        .onSnapshot(
+          (doc: any) => {
+            if (doc?.exists) {
+              const data = doc.data() || {};
+              const newViews = typeof data.views === 'number' ? data.views : 0;
+              if (newViews !== currentViews) {
+                setCurrentViews(newViews);
+              }
+            }
+          },
+          (error: any) => console.error('❌ Views listener error:', error)
+        );
+      return () => {
+        unsubscribe && unsubscribe();
+      };
+    }, [product.id, currentViews, setCurrentViews])
   );
 
   const fetchFarmerData = async () => {
@@ -997,7 +1028,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                     <Ionicons name="eye" size={18} color="#007E2F" />
                   </View>
                   <View style={styles.engagementTextContainer}>
-                    <Text style={styles.modernEngagementNumber}>{product.views || 0}</Text>
+                    <Text style={styles.modernEngagementNumber}>{currentViews}</Text>
                     <Text style={styles.engagementLabel}>views</Text>
                   </View>
                 </View>
