@@ -122,7 +122,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
     id: rawProduct.id || route?.params?.productId || 'unknown-id',
     name: rawProduct.name || 'Unknown Product',
     type: rawProduct.type || 'unknown',
-    grade: rawProduct.grade || 'N/A',
+  // grade: rawProduct.grade || 'N/A', // disabled: grade not present in DB
     description: rawProduct.description || 'No description available',
     quantity: rawProduct.quantity || [1, 1],
     price_per_kg: rawProduct.price_per_kg || rawProduct.price || 0,
@@ -994,14 +994,11 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
 
           {/* Modern Product Info Card */}
           <View style={styles.modernProductCard}>
-            {/* Product Header - Name, Grade, Type */}
+            {/* Product Header - Name, Type (Grade disabled) */}
             <View style={styles.modernProductHeaderSection}>
               <Text style={styles.modernProductName}>{product.name}</Text>
               <View style={styles.modernGradeTypeContainer}>
-                {/* <View style={styles.modernGradeBadge}>
-                <Ionicons name="ribbon" size={14} color="#007E2F" />
-                <Text style={styles.modernGradeText}>Grade {product.grade}</Text>
-              </View> */}
+                {/* Grade badge disabled */}
                 <View style={styles.modernTypeBadge}>
                   <Ionicons name="leaf" size={14} color="#666666" />
                   <Text style={styles.modernTypeText}>{product.type}</Text>
@@ -1141,7 +1138,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
             <View style={styles.modernDetailSection}>
               <Text style={styles.modernSectionTitle}>Product Details</Text>
               <View style={styles.modernDetailsGrid}>
-                {/* Type and Grade */}
+                {/* Type (Grade disabled) */}
                 <View style={styles.modernDetailCard}>
                   <View style={styles.modernDetailIconContainer}>
                     <Ionicons name="leaf-outline" size={22} color="#007E2F" />
@@ -1152,15 +1149,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                   </View>
                 </View>
 
-                {/* <View style={styles.modernDetailCard}>
-                <View style={styles.modernDetailIconContainer}>
-                  <Ionicons name="ribbon-outline" size={22} color="#007E2F" />
-                </View>
-                <View style={styles.modernDetailContent}>
-                  <Text style={styles.modernDetailLabel}>Quality Grade</Text>
-                  <Text style={styles.modernDetailValue}>Grade {product.grade}</Text>
-                </View>
-              </View> */}
+                {/* Grade detail disabled */}
 
                 {/* Status */}
                 <View style={[styles.modernDetailCard, styles.fullWidthCard]}>

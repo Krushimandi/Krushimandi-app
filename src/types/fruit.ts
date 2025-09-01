@@ -16,7 +16,8 @@ export interface Fruit {
   id: string; // Firestore doc ID or generated UUID
   name: string;
   type: string; // For filtering/search (orange, mango, apple, etc.)
-  grade: 'A' | 'B' | 'C';
+  // grade is currently not used in DB; keep optional for backward compatibility
+  grade?: 'A' | 'B' | 'C';
   description: string;
   
   quantity: [number, number]; // [min, max] in tons
@@ -45,7 +46,7 @@ export type FruitType = 'orange' | 'mango' | 'apple' | 'banana' | 'grapes' | 'po
 // Helper type for status
 export type FruitStatus = 'active' | 'sold' | 'inactive';
 
-// Helper type for grade
+// Helper type for grade (unused currently)
 export type FruitGrade = 'A' | 'B' | 'C';
 
 // For backward compatibility with existing code

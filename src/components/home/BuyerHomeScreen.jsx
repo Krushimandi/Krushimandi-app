@@ -71,7 +71,11 @@ const BuyerHomeScreen = () => {
     priceRange: null,
     minPrice: 0,
     maxPrice: 500,
-    minRating: 0
+    minRating: 0,
+    // New filters
+    freshProduceWindow: null, // 'today' | '2days' | 'week' | 'month'
+    sortNewestFirst: false,
+    locationLevel: null, // 'city' | 'district' | 'state'
   });
   const scrollY = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(0)).current;
@@ -222,6 +226,31 @@ const BuyerHomeScreen = () => {
       });
     }
 
+    // Apply Fresh Produce by availability_date presets
+    if (filters.freshProduceWindow) {
+      const now = new Date();
+      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const withinDays = (d1, days) => (startOfToday - d1) <= days * 24 * 60 * 60 * 1000 && d1 <= startOfToday;
+
+      filtered = filtered.filter(fruit => {
+        if (!fruit.availability_date) return false; // must have availability_date
+        const d = new Date(fruit.availability_date);
+        if (Number.isNaN(d.getTime())) return false;
+        switch (filters.freshProduceWindow) {
+          case 'today':
+            return d.toDateString() === startOfToday.toDateString();
+          case '2days':
+            return withinDays(d, 2);
+          case 'week':
+            return withinDays(d, 7);
+          case 'month':
+            return withinDays(d, 30);
+          default:
+            return true;
+        }
+      });
+    }
+
     // Apply features filter
     if (filters.selectedFeatures && filters.selectedFeatures.length > 0) {
       filters.selectedFeatures.forEach(feature => {
@@ -288,6 +317,32 @@ const BuyerHomeScreen = () => {
   // Rating filter disabled for now. To re-enable, filter by
   // parseFloat(fruit.avg_rating || fruit.rating || 0) >= filters.minRating
 
+    // Apply location filter relative to current buyer location
+    if (filters.locationLevel && userProfile?.location) {
+      const buyerLoc = userProfile.location || {};
+      const norm = (v) => (v || '').toString().trim().toLowerCase();
+      const buyerCity = norm(buyerLoc.city || buyerLoc.village);
+      const buyerDistrict = norm(buyerLoc.district);
+      const buyerState = norm(buyerLoc.state);
+
+      filtered = filtered.filter(fruit => {
+        const loc = fruit.location || {};
+        const fruitCity = norm(loc.city || loc.village);
+        const fruitDistrict = norm(loc.district);
+        const fruitState = norm(loc.state);
+        switch (filters.locationLevel) {
+          case 'city':
+            return buyerCity && fruitCity ? fruitCity === buyerCity : true;
+          case 'district':
+            return buyerDistrict && fruitDistrict ? fruitDistrict === buyerDistrict : true;
+          case 'state':
+            return buyerState && fruitState ? fruitState === buyerState : true;
+          default:
+            return true;
+        }
+      });
+    }
+
     // Apply category filter if not 'all'
     if (selectedCategory !== 'all') {
       filtered = filtered.filter(fruit =>
@@ -303,6 +358,15 @@ const BuyerHomeScreen = () => {
         fruit.type?.toLowerCase().includes(searchLower) ||
         fruit.description?.toLowerCase().includes(searchLower)
       );
+    }
+
+    // Sort - Newest First by updated_at (fallback created_at)
+    if (filters.sortNewestFirst) {
+      filtered = filtered.sort((a, b) => {
+        const ad = new Date(a.updated_at || a.created_at || 0).getTime();
+        const bd = new Date(b.updated_at || b.created_at || 0).getTime();
+        return bd - ad;
+      });
     }
 
     console.log(`📊 Filtered ${filtered.length} fruits from ${allFruits.length} total`);
@@ -555,7 +619,10 @@ const BuyerHomeScreen = () => {
       priceRange: null,
       minPrice: 0,
       maxPrice: 500,
-      minRating: 0
+      minRating: 0,
+      freshProduceWindow: null,
+      sortNewestFirst: false,
+      locationLevel: null,
     };
 
     setAppliedFilters(defaultFilters);
@@ -592,7 +659,7 @@ const BuyerHomeScreen = () => {
       id: item.id,
       name: item.name,
       type: item.type,
-      grade: item.grade,
+  // grade: item.grade, // disabled: grade not used currently
       description: item.description,
       quantity: item.quantity,
       price_per_kg: item.price_per_kg,
@@ -920,7 +987,8 @@ const BuyerHomeScreen = () => {
                       />
                       <View style={styles.fruitDetailsSection}>
                         <Text style={styles.fruitName}>{item.name}</Text>
-                        <Text style={styles.fruitCategory}>Grade: {item.grade} • {item.type}</Text>
+                        {/* Grade disabled */}
+                        <Text style={styles.fruitCategory}>Category: {item.type}</Text>
 
                         <View style={styles.locationRow}>
                           <Icon name="location-outline" size={12} color="#505050" />

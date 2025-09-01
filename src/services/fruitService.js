@@ -171,7 +171,7 @@ export const createFruit = async (fruitData, imageUris = []) => {
       id: fruitId,
       name: fruitData.name || '',
       type: fruitData.type || '',
-      grade: fruitData.grade || 'A',
+      // grade: fruitData.grade || 'A',
       description: fruitData.description || '',
       quantity: fruitData.quantity || [0, 0], // [min, max] array
       price_per_kg: fruitData.price_per_kg || 0,
@@ -756,7 +756,7 @@ export const addTestFruitsToFirebase = async () => {
       {
         name: "Fresh Alphonso Mango",
         type: "mango",
-        grade: "A",
+        // grade: "A",
         description: "Premium quality Alphonso mangoes from Ratnagiri",
         quantity: [10, 50],
         price_per_kg: 180,
@@ -783,7 +783,7 @@ export const addTestFruitsToFirebase = async () => {
       {
         name: "Sweet Oranges",
         type: "orange", 
-        grade: "A",
+        // grade: "A",
         description: "Fresh and juicy sweet oranges from Nagpur",
         quantity: [5, 25],
         price_per_kg: 60,
@@ -809,7 +809,7 @@ export const addTestFruitsToFirebase = async () => {
       {
         name: "Fresh Bananas",
         type: "banana",
-        grade: "A",
+        // grade: "A",
         description: "Sweet and fresh bananas from Kerala",
         quantity: [20, 100],
         price_per_kg: 45,
@@ -835,7 +835,7 @@ export const addTestFruitsToFirebase = async () => {
       {
         name: "Premium Grapes",
         type: "grape",
-        grade: "A+",
+        // grade: "A+",
         description: "Premium quality grapes from Nashik vineyards",
         quantity: [15, 75],
         price_per_kg: 120,
@@ -861,7 +861,7 @@ export const addTestFruitsToFirebase = async () => {
       {
         name: "Fresh Red Apples",
         type: "apple",
-        grade: "A",
+        // grade: "A",
         description: "Crisp and sweet red apples from Himachal Pradesh",
         quantity: [8, 40],
         price_per_kg: 150,
