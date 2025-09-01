@@ -61,19 +61,22 @@ const getDateFromTimestamp = (timestamp) => {
   return `${year}-${month}-${day} ${hourStr}:${minutes} ${ampm}`;
 };
 
-// Normalize backend request status to UI order status without changing styles
+// Normalize backend request status to only two UI statuses: "accepted" and "completed"
 const toUiStatus = (status) => {
   const s = (status || '').toLowerCase();
-  if (['delivered', 'completed', 'complete'].includes(s)) return 'delivered';
-  if (['cancelled', 'canceled'].includes(s)) return 'canceled';
-  // Treat all other in-progress states (accepted, pending, accepted, shipped, etc.) as accepted
-  return 'accepted';
+  if (['delivered', 'completed', 'complete'].includes(s)) return 'completed';
+  if (['accepted', 'confirm', 'confirmed', 'approved'].includes(s)) return 'accepted';
+  // Anything else (pending, shipped, processing, canceled, etc.) is not shown
+  return null;
 };
 
-// Helper to map requests to order data (include all, then map to UI statuses)
+// Helper to map requests to order data (only include accepted/completed)
 const mapRequestsToOrders = (requests) => {
   return (requests || [])
-    .map(r => ({
+    .map(r => {
+      const mappedStatus = toUiStatus(r.status);
+      if (!mappedStatus) return null;
+      return {
       id: r.id,
       farmerId: r.farmerId, // Add farmerId for fetching farmer details
       productName: r.productSnapshot?.name || 'Unknown Product',
@@ -87,7 +90,7 @@ const mapRequestsToOrders = (requests) => {
       image: r.productSnapshot?.imageUrl
         ? { uri: r.productSnapshot.imageUrl }
         : require('../../assets/fruit_placeholder.png'),
-      status: toUiStatus(r.status),
+      status: mappedStatus,
       seller: r.productSnapshot?.farmerName || 'Unknown Farmer',
       farmerLocation: r.productSnapshot?.farmerLocation || 'Unknown Location',
       // Use createdAt (Firestore Timestamp) instead of createdAtString
@@ -105,7 +108,9 @@ const mapRequestsToOrders = (requests) => {
       },
       buyerName: r.buyerDetails?.name || '',
       unreadMessages: r.unreadMessages || 0,
-    }));
+      };
+    })
+    .filter(Boolean);
 };
 
 
@@ -175,9 +180,8 @@ const MyOrdersScreen = () => {
   const getOrderStats = () => {
     return {
       total: orders.length,
-      delivered: orders.filter(o => o.status === 'delivered').length,
+      completed: orders.filter(o => o.status === 'completed').length,
       accepted: orders.filter(o => o.status === 'accepted').length,
-      canceled: orders.filter(o => o.status === 'canceled').length,
     };
   };
 
@@ -568,12 +572,10 @@ const MyOrdersScreen = () => {
   // Status badge based on order status
   const getStatusBadge = (status) => {
     switch (status) {
-      case 'delivered':
-        return { color: '#4CAF50', text: 'Delivered', icon: 'checkmark-circle' };
+      case 'completed':
+        return { color: '#4CAF50', text: 'Completed', icon: 'checkmark-circle' };
       case 'accepted':
         return { color: '#2196F3', text: 'Accepted', icon: 'time' };
-      case 'canceled':
-        return { color: '#F44336', text: 'Canceled', icon: 'close-circle' };
       default:
         return { color: '#9E9E9E', text: 'Unknown', icon: 'help-circle' };
     }
@@ -790,7 +792,7 @@ const MyOrdersScreen = () => {
           contentContainerStyle={styles.filtersScrollContent}
         >
           <FilterButton title="Accepted" value="accepted" count={orderStats.accepted} />
-          <FilterButton title="Delivered" value="delivered" count={orderStats.delivered} />
+          <FilterButton title="Completed" value="completed" count={orderStats.completed} />
         </ScrollView>
       </View>
 
