@@ -1,3 +1,4 @@
 {
-    "cmake.sourceDirectory": "D:/Projects/MyApp/node_modules/bare-fs"
+    "cmake.sourceDirectory": "D:/Projects/MyApp/node_modules/bare-fs",
+    "java.configuration.updateBuildConfiguration": "interactive"
 }

@@ -13,6 +13,7 @@ import {
   Alert,
   FlatList,
   Animated,
+  TouchableWithoutFeedback
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { Colors } from '../../constants';
@@ -22,8 +23,13 @@ import {
   formatLocation
 } from '../../utils/formatters';
 import { useRequests } from '../../hooks/useRequests';
-import { updateFruitStatus } from '../../services';
+import { updateFruitStatus } from '../../services/fruitService';
 import Toast from 'react-native-toast-message';
+
+
+import { Modal, TextInput } from 'react-native';
+
+import { updateFruit } from '../../services/fruitService';
 
 const { width } = Dimensions.get('window');
 
@@ -33,6 +39,8 @@ const ProductDetailsFarmer = ({ route, navigation }) => {
   const initialProduct = route?.params?.product;
   const [productState, setProductState] = useState(initialProduct);
   const product = productState;
+
+
 
   // Get request management functions
   const { getProductRequestCounts } = useRequests();
@@ -48,6 +56,35 @@ const ProductDetailsFarmer = ({ route, navigation }) => {
 
   // Use image URLs from the new schema
   const productImages = productState?.image_urls || [product?.image].filter(Boolean);
+
+
+
+
+useEffect(() => {
+  if (productState) {
+    setEditFields({
+      name: productState.name || '',
+      availability_date: productState.availability_date || '',
+      description: productState.description || '',
+      quantity: productState.quantity ? productState.quantity[1].toString() : '',
+      price: productState.price_per_kg ? productState.price_per_kg.toString() : '',
+    });
+  }
+}, [productState]);
+
+
+
+const [editFields, setEditFields] = useState({
+  name: '',
+  availability_date: '',
+  description: '',
+  quantity: '',
+  price: '',
+});
+
+
+const [editModalVisible, setEditModalVisible] = useState(false);
+
 
   // Load request counts when component mounts
   useEffect(() => {
@@ -96,6 +133,7 @@ const ProductDetailsFarmer = ({ route, navigation }) => {
             <Text style={styles.backButtonText}>Go Back</Text>
           </TouchableOpacity>
         </View>
+        {renderEditModal()}
       </SafeAreaView>
     );
   }
@@ -117,14 +155,139 @@ const ProductDetailsFarmer = ({ route, navigation }) => {
     }
   };
 
+  // const handleEdit = () => {
+  //   // Navigate to edit product screen
+  //   Alert.alert(
+  //     'Edit Product',
+  //     'Edit product functionality would be implemented here.',
+  //     [{ text: 'OK' }]
+  //   );
+  // };
+
   const handleEdit = () => {
-    // Navigate to edit product screen
-    Alert.alert(
-      'Edit Product',
-      'Edit product functionality would be implemented here.',
-      [{ text: 'OK' }]
-    );
-  };
+  setEditModalVisible(true);
+};
+
+
+
+// const handleSaveEdit = async () => {
+//   try {
+//     const updatedProduct = {
+//       ...productState,
+//       name: editFields.name,
+//       availability_date: editFields.availability_date,
+//       description: editFields.description,
+//       quantity: [0, parseFloat(editFields.quantity)],
+//       price_per_kg: parseFloat(editFields.price),
+//     };
+
+//     await updateFruitStatus(productState.id, undefined, updatedProduct);
+//     setProductState(updatedProduct);
+//     setEditModalVisible(false);
+//     Toast.show({
+//       type: 'success',
+//       text1: 'Product updated successfully!',
+//       position: 'bottom',
+//     });
+//   } catch (error) {
+//     console.error('Error updating product:', error);
+//     Alert.alert('Error', 'Failed to update product');
+//   }
+// };
+
+
+
+
+
+
+
+
+const handleSaveEdit = async () => {
+  try {
+    // basic validation
+    if (!editFields.name || !editFields.quantity) {
+      Alert.alert('Validation', 'Please provide a name and quantity.');
+      return;
+    }
+
+    // parse max quantity from label or number
+    let maxQty = 0;
+    const qtyLabel = String(editFields.quantity || '').trim();
+    const nums = qtyLabel.match(/\d+/g);
+    if (nums && nums.length) {
+      maxQty = Math.max(...nums.map(n => parseFloat(n)));
+    } else {
+      maxQty = parseFloat(qtyLabel) || 0;
+    }
+
+    const price = parseFloat(String(editFields.price || '').replace(/[^0-9.]/g, '')) || 0;
+    const minQty = Array.isArray(productState?.quantity) ? productState.quantity[0] : 0;
+
+    // build payload (use null for empty strings, avoid undefined)
+    const payload = {
+      name: (editFields.name || '').trim(),
+      availability_date: editFields.availability_date ? String(editFields.availability_date) : null,
+      description: editFields.description ? editFields.description.trim() : null,
+      quantity: [minQty, maxQty],
+      price_per_kg: price,
+    };
+
+    // sanitize payload: remove undefined by JSON round-trip
+    const cleanPayload = JSON.parse(JSON.stringify(payload));
+
+    console.log('handleSaveEdit -> cleanPayload:', cleanPayload, 'productId:', productState?.id);
+
+    let updatedFromServer = null;
+
+    // Preferred: try updateFruit (if implemented)
+    if (typeof updateFruit === 'function') {
+      try {
+        updatedFromServer = await updateFruit(productState.id, cleanPayload);
+        console.log('updateFruit response:', updatedFromServer);
+      } catch (err) {
+        console.warn('updateFruit failed, will fallback to updateFruitStatus:', err);
+      }
+    }
+
+    // Fallback: use updateFruitStatus but ensure we DO NOT pass undefined as the status parameter.
+    // Pass current product status so update function doesn't write `status: undefined`
+    if (!updatedFromServer) {
+      try {
+        const currentStatus = productState?.status ?? null; // keep existing status or null
+        await updateFruitStatus(productState.id, currentStatus, cleanPayload);
+        console.log('updateFruitStatus succeeded for id:', productState.id);
+      } catch (err) {
+        console.error('updateFruitStatus failed:', err);
+        throw err;
+      }
+    }
+
+    // Merge server response (if any) or apply local sanitized payload
+    const updatedProduct = (updatedFromServer && typeof updatedFromServer === 'object')
+      ? { ...productState, ...updatedFromServer }
+      : { ...productState, ...cleanPayload };
+
+    // Update UI and close modal
+    setProductState(updatedProduct);
+    setEditModalVisible(false);
+
+    Toast.show({
+      type: 'success',
+      text1: 'Product updated successfully!',
+      position: 'bottom',
+      visibilityTime: 1500,
+    });
+  } catch (error) {
+    console.error('Error updating product (handleSaveEdit):', error);
+    Alert.alert('Error', 'Failed to update product. ' + (error?.message || 'Please try again.'));
+  }
+};
+
+
+
+
+
+
 
   const handleShare = async () => {
     try {
@@ -351,6 +514,102 @@ Contact for more details and bulk orders!
     console.log('Enhanced Sale Data:', details);
   };
 
+
+
+
+
+const renderEditModal = () => (
+  <Modal
+    visible={editModalVisible}
+    animationType="slide"
+    transparent={true}
+    onRequestClose={() => setEditModalVisible(false)}
+  >
+    {/* tapping the dim backdrop closes the modal */}
+    <TouchableWithoutFeedback onPress={() => setEditModalVisible(false)}>
+      <View style={editModalStyles.modalOverlay}>
+        {/* keep touches inside the sheet from closing it */}
+        <TouchableWithoutFeedback>
+          <View style={editModalStyles.modalContent}>
+            <View style={editModalStyles.handle} />
+
+            <View style={editModalStyles.modalHeader}>
+              <Text style={editModalStyles.modalTitle}>Edit Product</Text>
+              <TouchableOpacity
+                onPress={() => setEditModalVisible(false)}
+                style={editModalStyles.closeButton}
+              >
+                <Ionicons name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={editModalStyles.formContainer} showsVerticalScrollIndicator={false}>
+              <Text style={editModalStyles.label}>Name</Text>
+              <TextInput
+                style={editModalStyles.input}
+                value={editFields.name}
+                onChangeText={(text) => setEditFields(prev => ({ ...prev, name: text }))}
+                placeholder="Product Name"
+              />
+
+              <Text style={editModalStyles.label}>Availability Date</Text>
+              <TextInput
+                style={editModalStyles.input}
+                value={editFields.availability_date}
+                onChangeText={(text) => setEditFields(prev => ({ ...prev, availability_date: text }))}
+                placeholder="YYYY-MM-DD"
+              />
+
+              <Text style={editModalStyles.label}>Description</Text>
+              <TextInput
+                style={[editModalStyles.input, editModalStyles.textArea]}
+                value={editFields.description}
+                onChangeText={(text) => setEditFields(prev => ({ ...prev, description: text }))}
+                placeholder="Product Description"
+                multiline
+                numberOfLines={4}
+              />
+
+              <Text style={editModalStyles.label}>Quantity (in tons)</Text>
+              <TextInput
+                style={editModalStyles.input}
+                value={editFields.quantity}
+                onChangeText={(text) => setEditFields(prev => ({ ...prev, quantity: text.replace(/[^0-9.]/g, '') }))}
+                placeholder="Available Quantity"
+                keyboardType="numeric"
+              />
+
+              <Text style={editModalStyles.label}>Price (per kg)</Text>
+              <TextInput
+                style={editModalStyles.input}
+                value={editFields.price}
+                onChangeText={(text) => setEditFields(prev => ({ ...prev, price: text.replace(/[^0-9.]/g, '') }))}
+                placeholder="Price per kg"
+                keyboardType="numeric"
+              />
+            </ScrollView>
+
+            <TouchableOpacity
+              style={editModalStyles.saveButton}
+              onPress={handleSaveEdit}
+            >
+              <Text style={editModalStyles.saveButtonText}>Save Changes</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableWithoutFeedback>
+      </View>
+    </TouchableWithoutFeedback>
+  </Modal>
+);
+
+
+
+
+
+
+
+
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar
@@ -360,25 +619,45 @@ Contact for more details and bulk orders!
 
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={styles.headerButton}
-        >
-          <Ionicons name="arrow-back" size={24} color={Colors.light.text} />
-        </TouchableOpacity>
+  <TouchableOpacity
+    onPress={() => navigation.goBack()}
+    style={styles.headerButton}
+  >
+    <Ionicons name="arrow-back" size={24} color={Colors.light.text} />
+  </TouchableOpacity>
 
-        <Text style={styles.headerTitle}>Product Overview</Text>
+  <Text style={styles.headerTitle}>Product Overview</Text>
 
-        {/* Quick Actions Overlay */}
-        <View style={styles.headerRight}>
-          <TouchableOpacity style={styles.headerButton} onPress={handleShare}>
-            <Ionicons name="share-outline" size={24} color={Colors.light.text} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.headerButton} onPress={handleEdit}>
-            <Ionicons name="create-outline" size={24} color={Colors.light.text} />
-          </TouchableOpacity>
-        </View>
-      </View>
+    <View style={styles.headerRight}>
+      <TouchableOpacity 
+          style={styles.headerButton} 
+          onPress={handleShare}
+      >
+          <Ionicons name="share-outline" size={24} color={Colors.light.text} />
+      </TouchableOpacity>
+      
+      <TouchableOpacity 
+          style={styles.headerButton} 
+          onPress={() => {
+              // Initialize edit fields with current product data
+              setEditFields({
+                  name: productState?.name || '',
+                  availability_date: productState?.availability_date || '',
+                  description: productState?.description || '',
+                  quantity: productState?.quantity ? productState.quantity[1].toString() : '',
+                  price: productState?.price_per_kg ? productState.price_per_kg.toString() : '',
+              });
+              // Show the modal
+              setEditModalVisible(true);
+          }}
+      >
+          <Ionicons name="create-outline" size={24} color={Colors.light.text} />
+      </TouchableOpacity>
+  </View>
+</View>
+
+
+
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Product Images Carousel */}
@@ -728,6 +1007,7 @@ Contact for more details and bulk orders!
           )
         }
       </View >
+      {renderEditModal()}
     </SafeAreaView >
   );
 };
@@ -1333,5 +1613,85 @@ const styles = StyleSheet.create({
     paddingLeft: 8,
   },
 });
+
+const editModalStyles = StyleSheet.create({
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    justifyContent: 'flex-end', // push sheet to bottom
+  },
+  modalContent: {
+    width: '100%',
+    maxHeight: '80%',
+    backgroundColor: 'white',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20, 
+    elevation: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+  },
+  handle: {
+    width: 48,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#E5E7EB',
+    alignSelf: 'center',
+    marginBottom: 8,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: Colors.light.text,
+  },
+  closeButton: {
+    padding: 6,
+  },
+  formContainer: {
+    maxHeight: '85%',
+  },
+  label: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: Colors.light.text,
+    marginBottom: 8,
+    marginTop: 12,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    backgroundColor: '#F9FAFB',
+  },
+  textArea: {
+    height: 100,
+    textAlignVertical: 'top',
+  },
+  saveButton: {
+    backgroundColor: Colors.light.primary,
+    padding: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  saveButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+});
+
 
 export default ProductDetailsFarmer;

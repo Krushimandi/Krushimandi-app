@@ -24,6 +24,8 @@ import storage from '@react-native-firebase/storage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Fruit } from '../types/fruit';
 import { SUPPORTED_FRUIT_TYPES, isValidFruitType } from '../constants/Fruits';
+import firebase from '../config/firebase'; // adjust path if different
+
 
 const FRUITS_COLLECTION = 'fruits';
 const FARMERS_COLLECTION = 'farmers';
@@ -213,25 +215,69 @@ export const createFruit = async (fruitData, imageUris = []) => {
  * @param {Object} updateData - Data to update
  * @returns {Promise<void>}
  */
-export const updateFruit = async (fruitId, updateData) => {
+// export const updateFruit = async (fruitId, updateData) => {
+//   try {
+//     console.log('📝 Updating fruit:', fruitId);
+    
+//     const updateDoc = {
+//       ...updateData,
+//       updated_at: new Date().toISOString()
+//     };
+    
+//     const fruitsCollectionRef = collection(firestore(), FRUITS_COLLECTION);
+//     const fruitDocRef = doc(fruitsCollectionRef, fruitId);
+//     await updateDoc(fruitDocRef, updateDoc);
+    
+//     console.log('✅ Fruit updated successfully');
+//   } catch (error) {
+//     console.error('❌ Error updating fruit:', error);
+//     throw new Error('Failed to update fruit: ' + error.message);
+//   }
+// };
+
+
+export async function updateFruit(id, data = {}) {
+  if (!id) throw new Error('Missing fruit id');
+
   try {
-    console.log('📝 Updating fruit:', fruitId);
-    
-    const updateDoc = {
-      ...updateData,
-      updated_at: new Date().toISOString()
-    };
-    
-    const fruitsCollectionRef = collection(firestore(), FRUITS_COLLECTION);
-    const fruitDocRef = doc(fruitsCollectionRef, fruitId);
-    await updateDoc(fruitDocRef, updateDoc);
-    
-    console.log('✅ Fruit updated successfully');
-  } catch (error) {
-    console.error('❌ Error updating fruit:', error);
-    throw new Error('Failed to update fruit: ' + error.message);
+    // Sanitize payload: remove undefined by JSON round-trip
+    const cleanPayload = JSON.parse(JSON.stringify(data));
+
+    const docRef = firebase.firestore().collection('fruits').doc(id);
+
+    // Use set with merge to avoid overwriting other fields and to avoid unsupported undefined
+    await docRef.set(cleanPayload, { merge: true });
+
+    // Optionally fetch the updated doc (if you want authoritative server values)
+    const snapshot = await docRef.get();
+    const serverData = snapshot.exists ? snapshot.data() : null;
+
+    return serverData ? { id, ...serverData } : { id, ...cleanPayload };
+  } catch (err) {
+    console.error('fruitService.updateFruit error:', err);
+    throw new Error('Failed to update fruit: ' + (err.message || err));
   }
-};
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 /**
  * Get fruit by ID
@@ -692,6 +738,10 @@ export const getFilteredMarketplaceFruits = async (filters = {}) => {
     throw new Error('Failed to get filtered marketplace fruits: ' + error.message);
   }
 };
+
+
+
+
 
 /**
  * Add test fruits to Firebase for debugging
