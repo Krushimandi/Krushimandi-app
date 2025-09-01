@@ -39,6 +39,7 @@ import {
   getDaysSince
 } from '../../utils/formatters';
 import changeNavigationBarColor from 'react-native-navigation-bar-color';
+
 const categories = [
   { name: 'All', type: 'all', icon: null },
   { name: 'Banana', type: 'banana', icon: require('../../assets/fruits/banana.png') },
@@ -80,6 +81,26 @@ const BuyerHomeScreen = () => {
   const scrollY = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(0)).current;
   const searchTimeoutRef = useRef(null);
+
+  // Memoized filtered categories based on user preferences
+  const filteredCategories = useMemo(() => {
+    if (!userProfile?.PreferedFruits || !Array.isArray(userProfile.PreferedFruits) || userProfile.PreferedFruits.length === 0) {
+      return categories; // Show all categories if no preferences set
+    }
+
+    // Always include 'All' category
+    const userCategories = [categories[0]]; // 'All' category
+    
+    // Add only preferred fruit categories
+    const preferredCategoriesLower = userProfile.PreferedFruits.map(fruit => fruit.toLowerCase());
+    categories.slice(1).forEach(category => {
+      if (preferredCategoriesLower.includes(category.type.toLowerCase())) {
+        userCategories.push(category);
+      }
+    });
+
+    return userCategories;
+  }, [userProfile?.PreferedFruits]);
 
   // Calculate header height and opacity based on scroll with proper constants
   const headerHeight = scrollY.interpolate({
@@ -217,6 +238,16 @@ const BuyerHomeScreen = () => {
     setAppliedFilters(filters);
 
     let filtered = [...allFruits];
+
+    // Filter by user's preferred fruits first if available
+    if (userProfile?.PreferedFruits && Array.isArray(userProfile.PreferedFruits) && userProfile.PreferedFruits.length > 0) {
+      filtered = filtered.filter(fruit => {
+        const fruitType = fruit.type?.toLowerCase();
+        return userProfile.PreferedFruits.some(preferredFruit => 
+          preferredFruit.toLowerCase() === fruitType
+        );
+      });
+    }
 
     // Apply price range filter
     if (filters.minPrice > 0 || filters.maxPrice < 500) {
@@ -372,7 +403,7 @@ const BuyerHomeScreen = () => {
     console.log(`📊 Filtered ${filtered.length} fruits from ${allFruits.length} total`);
     setFruits(filtered);
     closeFilterModal();
-  }, [allFruits, selectedCategory, searchQuery, closeFilterModal]);
+  }, [allFruits, selectedCategory, searchQuery, closeFilterModal, userProfile?.PreferedFruits]);
   // Safe navigation function to prevent "route not defined" errors
   const safeNavigate = (routeName, params = {}) => {
     try {
@@ -480,7 +511,18 @@ const BuyerHomeScreen = () => {
       if (isMounted) {
         if (marketplaceFruits && Array.isArray(marketplaceFruits) && marketplaceFruits.length > 0) {
           setAllFruits(marketplaceFruits);
-          setFruits(marketplaceFruits);
+          
+          // Apply user's preferred fruits filter by default
+          let filtered = marketplaceFruits;
+          if (userProfile?.PreferedFruits && Array.isArray(userProfile.PreferedFruits) && userProfile.PreferedFruits.length > 0) {
+            filtered = marketplaceFruits.filter(fruit => {
+              const fruitType = fruit.type?.toLowerCase();
+              return userProfile.PreferedFruits.some(preferredFruit => 
+                preferredFruit.toLowerCase() === fruitType
+              );
+            });
+          }
+          setFruits(filtered);
         } else {
           setAllFruits([]);
           setFruits([]);
@@ -516,11 +558,21 @@ const BuyerHomeScreen = () => {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [userProfile?.PreferedFruits]);
 
   // Filter fruits based on category and search query - memoized and optimized
   const filterFruits = useCallback((category, search) => {
     let filtered = [...allFruits];
+
+    // Filter by user's preferred fruits if available
+    if (userProfile?.PreferedFruits && Array.isArray(userProfile.PreferedFruits) && userProfile.PreferedFruits.length > 0) {
+      filtered = filtered.filter(fruit => {
+        const fruitType = fruit.type?.toLowerCase();
+        return userProfile.PreferedFruits.some(preferredFruit => 
+          preferredFruit.toLowerCase() === fruitType
+        );
+      });
+    }
 
     // Filter by category
     if (category !== 'all' && category !== 'All') {
@@ -547,7 +599,7 @@ const BuyerHomeScreen = () => {
     }
 
     setFruits(filtered);
-  }, [allFruits]);
+  }, [allFruits, userProfile?.PreferedFruits]);
 
   // Handle category change - optimized with useCallback
   const handleCategoryChange = useCallback((categoryType) => {
@@ -626,10 +678,21 @@ const BuyerHomeScreen = () => {
     };
 
     setAppliedFilters(defaultFilters);
-    setFruits([...allFruits]);
+    
+    // Apply user's preferred fruits filter even when clearing other filters
+    let filtered = [...allFruits];
+    if (userProfile?.PreferedFruits && Array.isArray(userProfile.PreferedFruits) && userProfile.PreferedFruits.length > 0) {
+      filtered = filtered.filter(fruit => {
+        const fruitType = fruit.type?.toLowerCase();
+        return userProfile.PreferedFruits.some(preferredFruit => 
+          preferredFruit.toLowerCase() === fruitType
+        );
+      });
+    }
+    setFruits(filtered);
 
-    console.log('✅ All filters cleared, showing', allFruits.length, 'fruits');
-  }, [allFruits]);
+    console.log('✅ All filters cleared, showing', filtered.length, 'preferred fruits');
+  }, [allFruits, userProfile?.PreferedFruits]);
 
   // Load fruits when component mounts - only once
   useEffect(() => {
@@ -642,6 +705,13 @@ const BuyerHomeScreen = () => {
       }
     };
   }, [loadMarketplaceFruits]);
+
+  // Reload fruits when user profile changes (especially preferred fruits)
+  useEffect(() => {
+    if (userProfile && allFruits.length > 0) {
+      filterFruits(selectedCategory, searchQuery);
+    }
+  }, [userProfile?.PreferedFruits, allFruits, selectedCategory, searchQuery, filterFruits]);
 
   // Remove duplicate focus effect for fruits loading
   // Fruits will be loaded once on mount and refreshed via pull-to-refresh
@@ -915,18 +985,28 @@ const BuyerHomeScreen = () => {
             {/* Categories */}
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Categories</Text>
-                <TouchableOpacity>
-                  <Text style={styles.viewAll}>View all</Text>
+                <Text style={styles.sectionTitle}>
+                  {userProfile?.PreferedFruits && userProfile.PreferedFruits.length > 0 ? 
+                    'Categories' : 'Categories'}
+                </Text>
+                <TouchableOpacity onPress={() => navigation.navigate('Auth', { screen: 'FruitsScreen' })}>
+                  <Text style={styles.editPreferences}>
+                    {userProfile?.PreferedFruits && userProfile.PreferedFruits.length > 0 ? 'Edit' : 'Set Preferences'}
+                  </Text>
                 </TouchableOpacity>
               </View>
+              {/* {userProfile?.PreferedFruits && userProfile.PreferedFruits.length > 0 && (
+                <Text style={styles.categorySubtitle}>
+                  Showing {filteredCategories.length - 1} of your preferred fruit categories
+                </Text>
+              )} */}
 
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.categoriesContainer}
               >
-                {categories.map((item, index) => (
+                {filteredCategories.map((item, index) => (
                   <TouchableOpacity
                     key={index}
                     style={[
@@ -957,9 +1037,10 @@ const BuyerHomeScreen = () => {
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
                 <Text style={styles.sectionTitle}>Available Fruits</Text>
-                <TouchableOpacity>
+                {/* <TouchableOpacity
+                 onPress={() => navigation.navigate('FruitsScreen')}>
                   <Text style={styles.viewAll}>View all</Text>
-                </TouchableOpacity>
+                </TouchableOpacity> */}
               </View>
               <View style={styles.fruitsContainer}>
                 {loadingFruits ? (
@@ -1016,12 +1097,16 @@ const BuyerHomeScreen = () => {
                       <Icon name="basket-outline" size={48} color="#CCCCCC" />
                     </View>
                     <Text style={styles.emptyStateTitle}>
-                      {searchQuery || selectedCategory !== 'all' ? 'No Matching Fruits' : 'No Fruits Available'}
+                      {searchQuery || selectedCategory !== 'all' ? 'No Matching Fruits' : 
+                       userProfile?.PreferedFruits && userProfile.PreferedFruits.length > 0 ? 
+                       'No Preferred Fruits Available' : 'No Fruits Available'}
                     </Text>
                     <Text style={styles.emptyStateSubtitle}>
                       {searchQuery || selectedCategory !== 'all'
                         ? 'Try adjusting your search or category filter'
-                        : 'Fresh fruits will be listed here when farmers post them'
+                        : userProfile?.PreferedFruits && userProfile.PreferedFruits.length > 0 ?
+                        'No fruits matching your preferences are currently available. Try updating your preferences.' :
+                        'Fresh fruits will be listed here when farmers post them'
                       }
                     </Text>
                     <TouchableOpacity
@@ -1277,7 +1362,19 @@ const styles = StyleSheet.create({
     color: '#000000',
     fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
+  categorySubtitle: {
+    fontSize: 12,
+    color: '#666666',
+    marginBottom: 8,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
   viewAll: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: Colors.light.primaryDark,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  editPreferences: {
     fontSize: 14,
     fontWeight: '500',
     color: Colors.light.primaryDark,

@@ -95,6 +95,7 @@ export type BuyerTabParamList = {
 export type BuyerStackParamList = {
   BuyerTabs: undefined;
   ProductDetail: { productId: string; product?: any };
+  FruitsScreen: undefined;
 };
 
 // Product Stack (for buyers)

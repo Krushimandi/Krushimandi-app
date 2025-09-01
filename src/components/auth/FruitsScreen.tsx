@@ -16,11 +16,34 @@ import { auth } from '../../config/firebase';
 
 interface FruitsScreenProps {
   navigation?: any;
+  route?: any;
 }
 
-const FruitsScreen: React.FC<FruitsScreenProps> = ({ navigation }) => {
+const FruitsScreen: React.FC<FruitsScreenProps> = ({ navigation, route }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFruits, setSelectedFruits] = useState<number[]>([]);
+  const isOnboarding = !!(route?.params?.onboarding || route?.params?.mode === 'auth' || route?.params?.fromAuth);
+
+  // Load user's current preferred fruits when screen loads
+  React.useEffect(() => {
+    const loadUserPreferences = async () => {
+      try {
+        const localUser = await getUserFromAsyncStorage();
+        const preferredFruits = (localUser as any)?.PreferedFruits || [];
+        
+        // Convert fruit names to IDs
+        const fruitIds = Fruits
+          .filter(fruit => preferredFruits.includes(fruit.name))
+          .map(fruit => fruit.id);
+        
+        setSelectedFruits(fruitIds);
+      } catch (error) {
+        console.error('Error loading user preferences:', error);
+      }
+    };
+
+    loadUserPreferences();
+  }, []);
 
   const filteredFruits = Fruits.filter(fruit =>
     fruit.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -74,9 +97,32 @@ const FruitsScreen: React.FC<FruitsScreenProps> = ({ navigation }) => {
         PreferedFruits: selectedFruitNames,
       } as any);
 
-      // Complete the auth flow
-      await setAuthStep('Complete');
-      console.log('✅ Buyer fruits selection saved and auth completed');
+      // Route after saving based on context
+      if (isOnboarding) {
+        // Completing onboarding: mark auth as complete and go to main buyer home
+        await setAuthStep('Complete');
+        try {
+          const { navigateToMain } = await import('../../utils/navigationUtils');
+          navigateToMain();
+        } catch (navErr) {
+          // Fallback: try resetting current navigator to a reasonable default
+          try {
+            navigation?.reset?.({ index: 0, routes: [{ name: 'BuyerTabs' }] });
+          } catch {}
+        }
+        console.log('✅ Buyer fruits selection saved and navigating to home');
+      } else if (navigation && navigation.canGoBack()) {
+        // Editing from within the main app: just go back
+        navigation.goBack();
+        console.log('✅ Buyer fruits preferences updated and returned to previous screen');
+      } else {
+        // Default safety: try to go to main
+        await setAuthStep('Complete');
+        try {
+          const { navigateToMain } = await import('../../utils/navigationUtils');
+          navigateToMain();
+        } catch {}
+      }
     } catch (error) {
       console.error('❌ Error completing auth flow:', error);
     }
@@ -84,6 +130,17 @@ const FruitsScreen: React.FC<FruitsScreenProps> = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
+      {/* Header with back button when navigated from main app */}
+      {navigation && navigation.canGoBack() && (
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color="#000" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Favorite Fruits</Text>
+          <View style={styles.headerSpacer} />
+        </View>
+      )}
+
       {/* Title */}
       <Text style={styles.title}>Choose Your Favorite Fruits</Text>
       <Text style={styles.subtitle}>Select fruits you're interested in buying</Text>
@@ -133,11 +190,15 @@ const FruitsScreen: React.FC<FruitsScreenProps> = ({ navigation }) => {
       {/* Continue Button */}
       <View style={styles.continueContainer}>
         <TouchableOpacity style={styles.continueButton} onPress={handleContinue}>
-          <Text style={styles.continueText}>Continue to Home</Text>
+          <Text style={styles.continueText}>
+            {navigation && navigation.canGoBack() ? 'Save Preferences' : 'Continue to Home'}
+          </Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.skipButton} onPress={handleContinue}>
-          <Text style={styles.skipText}>Skip for now</Text>
-        </TouchableOpacity>
+        {(!navigation || !navigation.canGoBack()) && (
+          <TouchableOpacity style={styles.skipButton} onPress={handleContinue}>
+            <Text style={styles.skipText}>Skip for now</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );
@@ -150,6 +211,26 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'transparent',
     paddingTop: 40,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#FFF',
+  },
+  backButton: {
+    padding: 8,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#000',
+    flex: 1,
+    textAlign: 'center',
+  },
+  headerSpacer: {
+    width: 40, // Same as back button width to center title
   },
   topBar: {
     flexDirection: 'row',

@@ -300,7 +300,7 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
           setUploadStatus('Complete!');
           setIsLoading(false);
           console.log('🍎 Buyer detected - navigating to FruitsScreen');
-          navigation.navigate('FruitsScreen');
+          navigation.navigate('FruitsScreen', { onboarding: true, mode: 'auth', fromAuth: true });
         } else {
           // For farmers, complete auth flow as before
           await setAuthStep('Complete');
