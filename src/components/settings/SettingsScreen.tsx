@@ -487,7 +487,7 @@ const SettingsScreen: React.FC = () => {
                       <Icon name="person" size={32} color="#FFFFFF" />
                     </View>
                   )}
-                  <View style={styles.statusIndicator} />
+                  {/* <View style={styles.statusIndicator} /> */}
                 </TouchableOpacity>
 
                 <View style={styles.userInfo}>

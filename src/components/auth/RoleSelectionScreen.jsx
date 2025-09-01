@@ -58,12 +58,15 @@ const RoleSelectionScreen = ({ navigation }) => {
         // Save role to dedicated localStorage
         await saveUserRole(selectedRole);
 
-        // Also save to userData for backward compatibility
-        const userData = {
-          userRole: selectedRole,
-          createdAt: new Date().toISOString()
-        };
-        await AsyncStorage.setItem('userData', JSON.stringify(userData));
+        // Also persist role inside userData for backward compatibility (merge, don't overwrite)
+        try {
+          const existing = await AsyncStorage.getItem('userData');
+          const merged = existing ? { ...JSON.parse(existing), userRole: selectedRole } : { userRole: selectedRole, createdAt: new Date().toISOString() };
+          await AsyncStorage.setItem('userData', JSON.stringify(merged));
+        } catch (mergeErr) {
+          console.warn('⚠️ Failed merging userData while saving role, writing minimal payload:', mergeErr);
+          await AsyncStorage.setItem('userData', JSON.stringify({ userRole: selectedRole, createdAt: new Date().toISOString() }));
+        }
 
         // Update auth step
         await setAuthStep('RoleSelected');

@@ -9,21 +9,24 @@ import {
   StatusBar,
   Dimensions
 } from 'react-native';
-import { isPhoneVerified, isRoleSelected, isProfileCompleted } from '../../utils/authFlow';
+import { isPhoneVerified, isRoleSelected, isProfileCompleted, isAuthComplete } from '../../utils/authFlow';
 
 
 const { width, height } = Dimensions.get('window');
 
 const WelcomeScreen = ({ navigation }) => {
-  
-  useEffect(() => {  
+
+  useEffect(() => {
     console.log('🔍 WelcomeScreen - useEffect triggered');
     // Check auth state and navigate to appropriate screen
     const checkAuthAndNavigate = async () => {
       try {
-        const phoneVerified = await isPhoneVerified();
-        const roleSelected = await isRoleSelected();
-        const profileCompleted = await isProfileCompleted();
+        const [phoneVerified, roleSelected, profileCompleted, authComplete] = await Promise.all([
+          isPhoneVerified(),
+          isRoleSelected(),
+          isProfileCompleted(),
+          isAuthComplete(),
+        ]);
 
         console.log('🔍 WelcomeScreen - Auth state check:', {
           phoneVerified,
@@ -31,7 +34,11 @@ const WelcomeScreen = ({ navigation }) => {
           profileCompleted
         });
 
-        // Navigate to the appropriate screen based on current state
+        // If fully complete, do nothing here; AppNavigator will switch to Main automatically
+        if (phoneVerified && roleSelected && profileCompleted && authComplete) {
+          console.log('✅ Auth complete, awaiting AppNavigator to switch to Main');
+          return;
+        }
         if (phoneVerified && !roleSelected) {
           console.log('📱 Phone verified, navigating to RoleSelection');
           navigation.replace('RoleSelection');
@@ -52,11 +59,11 @@ const WelcomeScreen = ({ navigation }) => {
     console.log('Get Started pressed');
     navigation.navigate('MobileScreen');
   };
-  
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
-      
+
       {/* Background Image */}
       <ImageBackground
         source={{
@@ -66,7 +73,7 @@ const WelcomeScreen = ({ navigation }) => {
         resizeMode="cover"
       >
         {/* Overlay */}
-        <View style={styles.overlay} />        
+        <View style={styles.overlay} />
         {/* Content Container */}
         <View style={styles.contentContainer}>
           {/* Main Content */}

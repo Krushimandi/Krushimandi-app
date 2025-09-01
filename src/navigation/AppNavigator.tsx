@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, useNavigation, useNavigationState } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { navigationRef, isNavigationReady, pendingNotificationData, handleNotificationNavigation } from './navigationService';
 import { notificationTabEmitter } from './buyer/notificationTabEmitter';
@@ -173,9 +173,7 @@ const AppNavigator: React.FC<AppNavigatorProps> = ({ bootstrapState }) => {
     hasFirebaseSync: authState.authSource === 'context'
   });
 
-
   const insets = useSafeAreaInsets();
-
   return (
     <NavigationProvider>
       <NavigationContainer
@@ -196,9 +194,13 @@ const AppNavigator: React.FC<AppNavigatorProps> = ({ bootstrapState }) => {
         }}
       >
         <RootStack.Navigator
-          screenOptions={{
-            headerShown: false,
-            cardStyle: { paddingBottom: insets.bottom * 0.6, backgroundColor: '#FFFFFF'},
+          screenOptions={({ route }) => {
+            const fullScreenList = ['Welcome','Auth'];
+            const isFullScreen = fullScreenList.includes(route.name);
+            return {
+              headerShown: false,
+              cardStyle: { paddingBottom: isFullScreen ? 0 : insets.bottom * 0.6, backgroundColor: '#FFFFFF' },
+            };
           }}
           initialRouteName={initialRouteName}
         >
@@ -218,7 +220,7 @@ const AppNavigator: React.FC<AppNavigatorProps> = ({ bootstrapState }) => {
           <RootStack.Screen name="BuyerProfile" component={BuyerProfileScreen} />
         </RootStack.Navigator>
       </NavigationContainer>
-    </NavigationProvider>
+    </NavigationProvider >
   );
 };
 

@@ -20,7 +20,8 @@ import {
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import auth from '@react-native-firebase/auth';
-import { saveUserRole } from '../../utils/userRoleStorage';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { saveUserRole, clearUserRole } from '../../utils/userRoleStorage';
 import Toast from 'react-native-toast-message';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -148,21 +149,21 @@ const OTPVerificationScreen = ({ navigation, route }) => {
     if (cleanedValue.length === 6) {
       console.log('Full OTP entered, auto-submitting:', cleanedValue);
       setIsAutoSubmitting(true);
-      
+
       // Subtle pulse animation to indicate auto-submit
       Animated.sequence([
-        Animated.timing(autoSubmitAnimation, { 
-          toValue: 1.05, 
-          duration: 150, 
-          useNativeDriver: true 
+        Animated.timing(autoSubmitAnimation, {
+          toValue: 1.05,
+          duration: 150,
+          useNativeDriver: true
         }),
-        Animated.timing(autoSubmitAnimation, { 
-          toValue: 1, 
-          duration: 150, 
-          useNativeDriver: true 
+        Animated.timing(autoSubmitAnimation, {
+          toValue: 1,
+          duration: 150,
+          useNativeDriver: true
         }),
       ]).start();
-      
+
       // Small delay to allow UI to update before verification
       setTimeout(() => {
         handleVerifyWithOtp(cleanedValue);
@@ -246,7 +247,7 @@ const OTPVerificationScreen = ({ navigation, route }) => {
         }, 50);
       });
     }
-  }; 
+  };
 
   // Separate function for verification that accepts OTP parameter (used for auto-submit)
   const handleVerifyWithOtp = async (otpCode) => {
@@ -280,17 +281,51 @@ const OTPVerificationScreen = ({ navigation, route }) => {
           // Save the existing user data to AsyncStorage
           await saveUserToAsyncStorage(result.userData);
 
+          // Update central auth store with role so AppNavigator can switch stacks immediately
+          try {
+            const { useAuthStore } = require('../../store/authStore');
+            const uid = userCredential?.user?.uid;
+            const role = result.userData.userRole;
+            if (uid && (role === 'buyer' || role === 'farmer')) {
+              // Set authenticated state with minimal user payload
+              useAuthStore.setState({
+                isAuthenticated: true,
+                user: {
+                  id: uid,
+                  firstName: result.userData.firstName || 'User',
+                  lastName: result.userData.lastName || '',
+                  email: result.userData.email || '',
+                  phone: result.userData.phoneNumber,
+                  userType: role,
+                  status: 'active',
+                  isVerified: true,
+                  createdAt: result.userData.createdAt || new Date().toISOString(),
+                  updatedAt: new Date().toISOString(),
+                  avatar: result.userData.profileImage,
+                },
+              });
+            }
+          } catch (storeErr) {
+            console.warn('⚠️ Failed to update auth store with role:', storeErr);
+          }
+
+          // Mark auth flow as complete for existing users to stabilize routing
+          try {
+            const { setAuthStep } = require('../../utils/authFlow');
+            await setAuthStep('Complete');
+          } catch (stepErr) {
+            console.warn('⚠️ Failed to set auth step to Complete:', stepErr);
+          }
+
           // Show success message
           Toast.show({
             type: 'success', // 'success', 'error', 'info'
             text1: 'Welcome Back!',
             position: 'bottom',
-            visibilityTime: 1000, // 1 seconds
+            visibilityTime: 1500, // 1 seconds
           });
-          // Navigate directly to HomeScreen using our utility function
-          import('../../utils/navigationUtils').then(
-            ({ navigateToMain }) => navigateToMain()
-          );
+          // Navigate to Main after state is consistent
+          navigation.navigate('Main');
         } else {
           // User data not found in Firestore, proceed with new user flow
           console.log('❌ User data not found in Firestore, continuing with new user setup');
@@ -301,6 +336,14 @@ const OTPVerificationScreen = ({ navigation, route }) => {
             position: 'bottom',
             visibilityTime: 1000,
           });
+          // Clear any stale cached data from a previous account to avoid wrong role/screens
+          try {
+            await clearUserRole();
+            await AsyncStorage.removeItem('userData');
+            await AsyncStorage.removeItem('authStep');
+          } catch (clearErr) {
+            console.warn('⚠️ Failed clearing stale auth cache for new user:', clearErr);
+          }
           // Navigate to role selection for new user setup
           navigation.replace('RoleSelection');
         }
@@ -498,8 +541,8 @@ const OTPVerificationScreen = ({ navigation, route }) => {
                   </TouchableOpacity>
                 </View>              {/* Instruction text */}
                 <Text style={styles.instructionText}>
-                  {isAutoSubmitting 
-                    ? '✓ Complete code detected! Auto-verifying...' 
+                  {isAutoSubmitting
+                    ? '✓ Complete code detected! Auto-verifying...'
                     : 'Tap the field below and enter your verification code or paste it directly'
                   }
                 </Text>
@@ -508,11 +551,11 @@ const OTPVerificationScreen = ({ navigation, route }) => {
                 <Animated.View
                   style={[
                     styles.otpContainer,
-                    { 
+                    {
                       transform: [
                         { translateX: shakeAnimation },
                         { scale: autoSubmitAnimation }
-                      ] 
+                      ]
                     }
                   ]}
                 >

@@ -289,8 +289,13 @@ class AuthBootstrap {
       if (finalUser) {
         authStore.updateUser(finalUser);
       }
-      // Set authenticated state
-      authStore.setTempAuth(true);
+      // Only flag as authenticated without injecting a default role
+      try {
+        const { useAuthStore } = require('../store/authStore');
+        useAuthStore.setState({ isAuthenticated: true });
+      } catch (e) {
+        log('⚠️ Failed to set auth flag on store:', e);
+      }
     } else if (!isAuthenticated && authStore.isAuthenticated) {
       log('🔄 Clearing stale Zustand auth state');
       authStore.logout();
