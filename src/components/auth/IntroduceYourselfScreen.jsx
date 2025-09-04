@@ -19,6 +19,7 @@ import {
   Image,
   Alert,
   FlatList,
+  Dimensions,
 } from 'react-native';
 import Toast from 'react-native-toast-message';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -30,6 +31,7 @@ import { setAuthStep } from '../../utils/authFlow';
 import { syncUserProfile } from '../../services/firebaseService';
 import { saveUserRole } from '../../utils/userRoleStorage';
 import { useAuthStore } from '../../store';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Business type options for buyer role
 const BUSINESS_TYPE_OPTIONS = [
@@ -42,7 +44,8 @@ const BUSINESS_TYPE_OPTIONS = [
 
 const IntroduceYourselfScreen = ({ navigation, route }) => {
   const { userRole = null } = route?.params || {};
-  const authStore = useAuthStore(); const [firstName, setFirstName] = useState('');
+  const authStore = useAuthStore();
+  const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [profileImage, setProfileImage] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
@@ -52,9 +55,18 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
   const [errors, setErrors] = useState({});
   const [businessType, setBusinessType] = useState(null);
   const [businessTypeModalVisible, setBusinessTypeModalVisible] = useState(false);
+  const [imagePickerModalVisible, setImagePickerModalVisible] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [screenHeight, setScreenHeight] = useState(Dimensions.get('window').height);
+
   const lastNameRef = useRef(null);
+  const scrollViewRef = useRef(null);
+  const firstNameBlockRef = useRef(null);
+  const lastNameBlockRef = useRef(null);
+  const businessTypeBlockRef = useRef(null);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
+  const insets = useSafeAreaInsets();
   useEffect(() => {
     // Entrance animation
     Animated.parallel([
@@ -68,15 +80,12 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
         duration: 600,
         useNativeDriver: true,
       }),
-    ]).start();    // Debug Firebase user state
+    ]).start();
+
+    // Debug Firebase user state
     const checkFirebaseUser = async () => {
-      console.log('🔍 IntroduceYourselfScreen - Starting Firebase user check...');
-
-      // Check current Firebase user
       const user = auth().currentUser;
-
       if (!user) {
-        console.error('❌ No Firebase user found!');
         Toast.show({
           type: 'error',
           text1: 'Authentication Error',
@@ -84,52 +93,33 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
           position: 'bottom',
           visibilityTime: 1000,
         });
-        import('../../utils/navigationUtils').then(
-          ({ navigateToAuth }) => navigateToAuth()
-        );
-      } else {
-        console.log('✅ Firebase user confirmed:', user.uid);
+        import('../../utils/navigationUtils').then(({ navigateToAuth }) => navigateToAuth());
       }
     };
-
     checkFirebaseUser();
 
-    // Keyboard event listeners
-    const keyboardDidShowListener = Keyboard.addListener(
-      'keyboardDidShow',
-      () => {
-        // Keyboard is shown
-      }
-    );
+    // Keyboard listeners for dynamic visibility and measurements
+    const showSub = Keyboard.addListener('keyboardDidShow', (e) => {
+      const kbHeight = e?.endCoordinates?.height || 0;
+      setKeyboardHeight(kbHeight);
+    });
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => {
+      setKeyboardHeight(0);
+    });
 
-    const keyboardDidHideListener = Keyboard.addListener(
-      'keyboardDidHide',
-      () => {
-        // Keyboard is hidden
-      }
-    );
+    // Screen dimension listener
+    const subscription = Dimensions.addEventListener('change', ({ window }) => {
+      setScreenHeight(window.height);
+    });
 
     return () => {
-      keyboardDidShowListener?.remove();
-      keyboardDidHideListener?.remove();
+      showSub?.remove();
+      hideSub?.remove();
+      subscription?.remove();
     };
   }, [fadeAnim, slideAnim, navigation]);
 
-  // Firebase Storage upload function - temporarily commented out
-  /*
-  const uploadImageToFirebase = async (imageUri, userId) => {
-    try {
-      const filename = `profile_images/${userId}_${Date.now()}.jpg`;
-      const reference = storage().ref(filename);
-      await reference.putFile(imageUri);
-      const downloadURL = await reference.getDownloadURL();
-      return downloadURL;
-    } catch (error) {
-      console.error('Error uploading image:', error);
-      throw error;
-    }
-  };
-  */  const handleNext = async () => {
+  const handleNext = async () => {
     if (isFormValid) {
       setIsLoading(true);
       setUploadProgress(0);
@@ -225,7 +215,8 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
           else if (progress.progress !== undefined) {
             const percentage = Math.round(progress.progress);
             setUploadProgress(percentage);
-            if (percentage < 100) setUploadStatus(`Uploading ${percentage}%`);
+            // if (percentage < 100) setUploadStatus(`Uploading ${percentage}%`);
+            if (percentage < 100) setUploadStatus(`Uploading`);
             else setUploadStatus('Finalizing...');
           }
         };
@@ -300,7 +291,14 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
           setUploadStatus('Complete!');
           setIsLoading(false);
           console.log('🍎 Buyer detected - navigating to FruitsScreen');
-          navigation.navigate('FruitsScreen');
+          try {
+            navigation.navigate('FruitsScreen', { onboarding: true, mode: 'auth', fromAuth: true });
+          } catch (e) {
+            try {
+              const { navigate } = await import('../../utils/navigationUtils');
+              navigate('Auth'); // ensure Auth stack is active
+            } catch { }
+          }
         } else {
           // For farmers, complete auth flow as before
           await setAuthStep('Complete');
@@ -336,6 +334,12 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
     }
   };
   const handleImagePicker = async () => {
+    setImagePickerModalVisible(true);
+  };
+
+  const handleImagePickerOption = async (option) => {
+    setImagePickerModalVisible(false);
+
     // Request permissions first
     const hasPermissions = await requestImagePickerPermissions();
     if (!hasPermissions) {
@@ -350,21 +354,11 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
       quality: 0.7,
     };
 
-    Alert.alert(
-      'Select Profile Picture',
-      'Choose how you want to add your profile picture',
-      [
-        {
-          text: 'Camera',
-          onPress: () => launchCamera(options, handleImageResponse)
-        },
-        {
-          text: 'Gallery',
-          onPress: () => launchImageLibrary(options, handleImageResponse)
-        },
-        { text: 'Cancel', style: 'cancel' }
-      ]
-    );
+    if (option === 'camera') {
+      launchCamera(options, handleImageResponse);
+    } else if (option === 'gallery') {
+      launchImageLibrary(options, handleImageResponse);
+    }
   };
 
   const handleImageResponse = (response) => {
@@ -400,26 +394,44 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
   };
   const handleFirstNameChange = (text) => {
     setFirstName(text);
-    if (errors.firstName) {
-      setErrors(prev => ({ ...prev, firstName: '' }));
-    }
+    if (errors.firstName) setErrors(prev => ({ ...prev, firstName: '' }));
   };
-
   const handleLastNameChange = (text) => {
     setLastName(text);
-    if (errors.lastName) {
-      setErrors(prev => ({ ...prev, lastName: '' }));
-    }
-  }; const handleFirstNameSubmit = () => {
-    if (lastNameRef.current) {
-      lastNameRef.current.focus();
-    }
+    if (errors.lastName) setErrors(prev => ({ ...prev, lastName: '' }));
+  };
+  const handleFirstNameSubmit = () => {
+    lastNameRef.current?.focus();
   };
   const handleLastNameSubmit = () => {
     Keyboard.dismiss();
-    if (isFormValid) {
-      handleNext();
-    }
+    if (isFormValid) handleNext();
+  };
+
+  // Ensure field is visible when focusing - dynamic positioning
+  const scrollToField = (fieldRef) => {
+    fieldRef.current?.measureLayout(
+      scrollViewRef.current,
+      (x, y) => {
+        const availableHeight = screenHeight - keyboardHeight - insets.top - insets.bottom;
+        const targetY = Math.max(0, y - availableHeight * 0.3); // Keep field in top 30% of visible area
+        scrollViewRef.current?.scrollTo({ y: targetY, animated: true });
+      },
+      () => { } // Error callback
+    );
+  };
+
+  const onFocusFirstName = () => {
+    setTimeout(() => scrollToField(firstNameBlockRef), 100);
+  };
+  const onFocusLastName = () => {
+    setTimeout(() => scrollToField(lastNameBlockRef), 100);
+  };
+  const onPressBusinessType = () => {
+    setTimeout(() => {
+      scrollToField(businessTypeBlockRef);
+      setTimeout(() => setBusinessTypeModalVisible(true), 200);
+    }, 100);
   };
 
   const openBusinessTypeModal = () => {
@@ -438,15 +450,23 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
     closeBusinessTypeModal();
   };
 
+  // Dynamic measurements
+  const dynamicStyles = {
+    scrollContentPadding: Math.max(120, screenHeight * 0.15) + keyboardHeight,
+    avatarSize: Math.min(100, screenHeight * 0.12),
+    inputHeight: Math.max(56, screenHeight * 0.07),
+  };
+
   const isFormValid = firstName.trim() && lastName.trim() &&
     (userRole !== 'buyer' || (userRole === 'buyer' && businessType));
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />      <KeyboardAvoidingView
+    <SafeAreaView style={[styles.container, { paddingBottom: insets.bottom }]}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <KeyboardAvoidingView
         style={styles.keyboardAvoidingView}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
-        enabled={true}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+        enabled
       >
         <View style={styles.innerContainer}>
           {/* Header */}
@@ -454,68 +474,81 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
             <TouchableOpacity onPress={handleBackPress} style={styles.backButton}>
               <Ionicons name="arrow-back" size={24} color="#333" />
             </TouchableOpacity>
-
             <TouchableOpacity onPress={showHelp} style={styles.helpButton}>
               <Ionicons name="help-circle-outline" size={24} color="#007E2F" />
             </TouchableOpacity>
           </View>
           <ScrollView
+            ref={scrollViewRef}
             style={styles.scrollView}
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
-            scrollEnabled={true}
-            nestedScrollEnabled={true}
-            keyboardDismissMode="none"
+            scrollEnabled
+            nestedScrollEnabled
+            keyboardDismissMode="interactive"
             automaticallyAdjustKeyboardInsets={false}
           >
             <Animated.View
-              style={[
-                styles.content,
-                {
-                  opacity: fadeAnim,
-                  transform: [{ translateY: slideAnim }]
-                }]}
-            >              
-            <Text style={styles.heading}>
+              style={[styles.content, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}
+            >
+              <Text style={styles.heading}>
                 {userRole && typeof userRole === 'string' ? `Introduce yourself as a ${userRole}` : 'Introduce yourself'}
               </Text>
               <Text style={styles.subtext}>
                 Help us personalize your experience by sharing your name
-              </Text>              
+              </Text>
               {/* Profile Avatar Section */}
-              <TouchableOpacity style={styles.avatarContainer} onPress={handleImagePicker}>
+              <TouchableOpacity style={styles.avatarContainer} onPress={handleImagePicker} activeOpacity={0.7}>
                 {profileImage ? (
-                  <Image source={{ uri: profileImage }} style={styles.avatarImage} />
+                  <Image
+                    source={{ uri: profileImage }}
+                    style={[
+                      styles.avatarImage,
+                      {
+                        width: dynamicStyles.avatarSize,
+                        height: dynamicStyles.avatarSize,
+                        borderRadius: dynamicStyles.avatarSize / 2
+                      }
+                    ]}
+                  />
                 ) : (
-                  <View style={styles.avatarCircle}>
-                    <Ionicons name="camera" size={32} color="#007E2F" />
+                  <View
+                    style={[
+                      styles.avatarCircle,
+                      {
+                        width: dynamicStyles.avatarSize,
+                        height: dynamicStyles.avatarSize,
+                        borderRadius: dynamicStyles.avatarSize / 2
+                      }
+                    ]}
+                  >
+                    <Ionicons name="camera" size={dynamicStyles.avatarSize * 0.32} color="#007E2F" />
                   </View>
                 )}
                 <Text style={styles.avatarText}>
                   {profileImage ? 'Change Profile Photo' : 'Add Profile Photo'}
                 </Text>
               </TouchableOpacity>
-
               {/* Input Fields */}
               <View style={styles.inputSection}>
                 <Text style={styles.inputLabel}>Personal Information</Text>
-
                 {/* First Name Input */}
-                <View style={[
-                  styles.inputWrapper,
-                  errors.firstName && styles.inputWrapperError
-                ]}>
-                  <View style={styles.inputContainer}>
-                    <Text style={[
-                      styles.floatingLabel,
-                      firstName && styles.floatingLabelActive]}>
-                      First Name
-                    </Text>
+                <View
+                  ref={firstNameBlockRef}
+                  style={[styles.inputWrapper, errors.firstName && styles.inputWrapperError]}
+                >
+                  <View style={[styles.inputContainer, { minHeight: dynamicStyles.inputHeight }]}>
+                    <Text style={[styles.floatingLabel, firstName && styles.floatingLabelActive]}>First Name</Text>
                     <TextInput
-                      style={[styles.input, firstName && styles.inputWithLabel]}
+                      style={[
+                        styles.input,
+                        firstName && styles.inputWithLabel,
+                        { minHeight: dynamicStyles.inputHeight }
+                      ]}
                       value={firstName}
                       onChangeText={handleFirstNameChange}
+                      onFocus={onFocusFirstName}
                       onSubmitEditing={handleFirstNameSubmit}
                       returnKeyType="next"
                       placeholder=""
@@ -523,58 +556,60 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
                       autoCapitalize="words"
                       autoCorrect={false}
                       blurOnSubmit={false}
-                      enablesReturnKeyAutomatically={true}
+                      enablesReturnKeyAutomatically
+                      accessibilityLabel="First Name"
                     />
                   </View>
                 </View>
-
                 {/* Last Name Input */}
-                <View style={[
-                  styles.inputWrapper,
-                  errors.lastName && styles.inputWrapperError
-                ]}>
-                  <View style={styles.inputContainer}>
-                    <Text style={[
-                      styles.floatingLabel,
-                      lastName && styles.floatingLabelActive
-                    ]}>Last Name</Text>
+                <View
+                  ref={lastNameBlockRef}
+                  style={[styles.inputWrapper, errors.lastName && styles.inputWrapperError]}
+                >
+                  <View style={[styles.inputContainer, { minHeight: dynamicStyles.inputHeight }]}>
+                    <Text style={[styles.floatingLabel, lastName && styles.floatingLabelActive]}>Last Name</Text>
                     <TextInput
                       ref={lastNameRef}
-                      style={[styles.input, lastName && styles.inputWithLabel]}
+                      style={[
+                        styles.input,
+                        lastName && styles.inputWithLabel,
+                        { minHeight: dynamicStyles.inputHeight }
+                      ]}
                       value={lastName}
                       onChangeText={handleLastNameChange}
+                      onFocus={onFocusLastName}
                       onSubmitEditing={handleLastNameSubmit}
                       returnKeyType="done"
                       placeholder=""
                       placeholderTextColor="#999"
                       autoCapitalize="words"
                       autoCorrect={false}
-                      blurOnSubmit={true}
-                      enablesReturnKeyAutomatically={true} />                  </View>                </View>
-
+                      enablesReturnKeyAutomatically
+                      accessibilityLabel="Last Name"
+                    />
+                  </View>
+                </View>
                 {/* Business Type Dropdown - Only show for buyers */}
                 {userRole === 'buyer' && (
-                  <View style={[
-                    styles.inputWrapper,
-                    errors.businessType && styles.inputWrapperError
-                  ]}>
+                  <View
+                    ref={businessTypeBlockRef}
+                    style={[styles.inputWrapper, errors.businessType && styles.inputWrapperError]}
+                  >
                     <TouchableOpacity
                       style={styles.dropdownContainer}
-                      onPress={openBusinessTypeModal}
+                      onPress={onPressBusinessType}
                       activeOpacity={0.7}
+                      accessibilityLabel="Business Type"
                     >
-                      <View style={styles.inputContainer}>
-                        <Text style={[
-                          styles.floatingLabel,
-                          businessType && styles.floatingLabelActive
+                      <View style={[styles.inputContainer, { minHeight: dynamicStyles.inputHeight }]}>
+                        <Text style={[styles.floatingLabel, businessType && styles.floatingLabelActive]}>Business Type</Text>
+                        <View style={[
+                          styles.dropdownDisplay,
+                          businessType && styles.inputWithLabel,
+                          { minHeight: dynamicStyles.inputHeight }
                         ]}>
-                          Business Type
-                        </Text>
-                        <View style={[styles.dropdownDisplay, businessType && styles.inputWithLabel]}>
                           <Text style={styles.dropdownText}>
-                            {businessType ?
-                              BUSINESS_TYPE_OPTIONS.find(option => option.value === businessType)?.label
-                              : ''}
+                            {businessType ? BUSINESS_TYPE_OPTIONS.find(option => option.value === businessType)?.label : ''}
                           </Text>
                           <Ionicons name="chevron-down" size={16} color="#666" />
                         </View>
@@ -583,11 +618,8 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
                   </View>
                 )}
               </View>
-
-
             </Animated.View>
           </ScrollView>
-
           {/* Next Button */}
           <View style={styles.buttonContainer}>
             <TouchableOpacity
@@ -595,26 +627,12 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
               onPress={handleNext}
               disabled={!isFormValid || isLoading}
               activeOpacity={0.8}
+              accessibilityLabel="Continue"
             >
               {isLoading ? (
                 <View style={styles.loadingContainer}>
                   <ActivityIndicator size="small" color="#FFFFFF" />
-                  <Text style={styles.loadingText}>
-                    {uploadStatus || 'Processing...'}
-                  </Text>
-                  {/* uploadProgress > 0 && (
-                    <View style={styles.progressContainer}>
-                      <View style={styles.progressBar}>
-                        <View
-                          style={[
-                            styles.progressFill,
-                            { width: `${uploadProgress}%` }
-                          ]}
-                        />
-                      </View>
-                    </View>
-                  ) */}
-
+                  <Text style={styles.loadingText}>{uploadStatus || 'Processing...'}</Text>
                 </View>
               ) : (
                 <>
@@ -625,14 +643,15 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
             </TouchableOpacity>
           </View>
         </View>
-      </KeyboardAvoidingView>      {/* Help Modal */}
+      </KeyboardAvoidingView>
       <Modal
         transparent={true}
         animationType="fade"
         visible={modalVisible}
         onRequestClose={() => setModalVisible(false)}
       >
-        <Pressable style={styles.modalOverlay} onPress={() => setModalVisible(false)}>
+        <Pressable style={styles.modalOverlay}
+          onPress={() => setModalVisible(false)}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Need Help?</Text>
             <Text style={styles.modalText}>
@@ -648,6 +667,69 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
         </Pressable>
       </Modal>
 
+      {/* Image Picker Modal */}
+      <Modal
+        transparent={true}
+        animationType="fade"
+        visible={imagePickerModalVisible}
+        onRequestClose={() => setImagePickerModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={[styles.modalHeader, {
+              marginBottom: 20,
+            }]}>
+              <Text style={styles.modalTitle}>
+                {profileImage ? 'Change Profile Photo' : 'Add Profile Photo'}
+              </Text>
+              <TouchableOpacity
+                onPress={() => setImagePickerModalVisible(false)}
+                style={styles.modalCloseButton}
+              >
+                <Ionicons name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalOptionsContainer}>
+              <TouchableOpacity
+                style={styles.modalOption}
+                onPress={() => handleImagePickerOption('camera')}
+              >
+                <View style={styles.modalOptionIcon}>
+                  <Ionicons name="camera" size={28} color="#4CAF50" />
+                </View>
+                <Text style={styles.modalOptionText}>Camera</Text>
+                <Text style={styles.modalOptionSubtext}>Take a new photo</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.modalOption}
+                onPress={() => handleImagePickerOption('gallery')}
+              >
+                <View style={styles.modalOptionIcon}>
+                  <Ionicons name="images" size={25} color="#2196F3" />
+                </View>
+                <Text style={styles.modalOptionText}>Gallery</Text>
+                <Text style={styles.modalOptionSubtext}>Choose existing</Text>
+              </TouchableOpacity>
+            </View>
+
+            {profileImage && (
+              <TouchableOpacity
+                style={styles.removePhotoButton}
+                onPress={() => {
+                  setProfileImage(null);
+                  setImagePickerModalVisible(false);
+                }}
+              >
+                <Ionicons name="trash-outline" size={20} color="#F44336" />
+                <Text style={styles.removePhotoText}>Remove Photo</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      </Modal>
+
       {/* Business Type Modal */}
       <Modal
         transparent={true}
@@ -657,7 +739,10 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
       >
         <Pressable style={styles.modalOverlay} onPress={closeBusinessTypeModal}>
           <View style={[styles.modalContent, styles.businessTypeModalContent]}>
-            <View style={styles.modalHeader}>
+            <View style={[styles.modalHeader, {
+              paddingTop: 20,
+              paddingHorizontal: 16,
+            }]}>
               <Text style={styles.modalTitle}>Select Business Type</Text>
               <TouchableOpacity onPress={closeBusinessTypeModal}>
                 <Ionicons name="close" size={24} color="#333" />
@@ -671,7 +756,7 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
                 <TouchableOpacity
                   style={[
                     styles.businessTypeOption,
-                    businessType === item.value && styles.businessTypeOptionSelected,index === BUSINESS_TYPE_OPTIONS.length - 1 && { borderBottomWidth: 0 }
+                    businessType === item.value && styles.businessTypeOptionSelected, index === BUSINESS_TYPE_OPTIONS.length - 1 && { borderBottomWidth: 0 }
                   ]}
                   onPress={() => selectBusinessType(item.value)}
                 >
@@ -691,7 +776,7 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
           </View>
         </Pressable>
       </Modal>
-    </SafeAreaView>
+    </SafeAreaView >
   );
 };
 
@@ -699,31 +784,31 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-    paddingTop: 28,
+    paddingTop: Dimensions.get('window').height * 0.03,
   },
   keyboardAvoidingView: {
     flex: 1,
   },
   innerContainer: {
     flex: 1,
-    paddingHorizontal: 24,
+    paddingHorizontal: Dimensions.get('window').width * 0.06,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 16,
-    paddingBottom: 20,
-    minHeight: 60,
+    paddingTop: Dimensions.get('window').height * 0.02,
+    paddingBottom: Dimensions.get('window').height * 0.025,
+    minHeight: Dimensions.get('window').height * 0.08,
   },
   backButton: {
-    padding: 8,
-    borderRadius: 20,
+    padding: Dimensions.get('window').width * 0.02,
+    borderRadius: Dimensions.get('window').width * 0.05,
     backgroundColor: '#F8F9FA',
   },
   helpButton: {
-    padding: 8,
-    borderRadius: 20,
+    padding: Dimensions.get('window').width * 0.02,
+    borderRadius: Dimensions.get('window').width * 0.05,
     backgroundColor: '#E8F5E8',
   },
   scrollView: {
@@ -731,72 +816,66 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    paddingBottom: 180,
+    paddingBottom: Dimensions.get('window').height * 0.13,
   },
   content: {
     alignItems: 'center',
-    paddingVertical: 20,
+    paddingVertical: Dimensions.get('window').height * 0.025,
   },
   heading: {
-    fontSize: 24,
+    fontSize: Dimensions.get('window').width * 0.06,
     fontWeight: '500',
     color: '#1A1A1A',
     textAlign: 'center',
-    marginBottom: 12,
-    lineHeight: 34,
+    marginBottom: Dimensions.get('window').height * 0.015,
+    lineHeight: Dimensions.get('window').width * 0.085,
   },
   subtext: {
-    fontSize: 16,
+    fontSize: Dimensions.get('window').width * 0.04,
     color: '#666666',
     textAlign: 'center',
-    marginBottom: 30,
-    lineHeight: 22,
-    paddingHorizontal: 20,
+    marginBottom: Dimensions.get('window').height * 0.04,
+    lineHeight: Dimensions.get('window').width * 0.055,
+    paddingHorizontal: Dimensions.get('window').width * 0.05,
   }, avatarContainer: {
     alignItems: 'center',
-    marginBottom: 40,
+    marginBottom: Dimensions.get('window').height * 0.05,
   },
   avatarCircle: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
     backgroundColor: '#E8F5E8',
     borderWidth: 2,
     borderColor: '#007E2F',
     borderStyle: 'dashed',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: Dimensions.get('window').height * 0.015,
   },
   avatarImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
     borderWidth: 2,
     borderColor: '#007E2F',
-    marginBottom: 12,
+    marginBottom: Dimensions.get('window').height * 0.015,
   },
   avatarText: {
-    fontSize: 14,
+    fontSize: Dimensions.get('window').width * 0.035,
     color: '#007E2F',
     fontWeight: '500',
   },
   inputSection: {
     width: '100%',
-    marginBottom: 24,
+    marginBottom: Dimensions.get('window').height * 0.03,
   },
   inputLabel: {
-    fontSize: 16,
+    fontSize: Dimensions.get('window').width * 0.04,
     fontWeight: '600',
     color: '#1A1A1A',
-    marginBottom: 16,
+    marginBottom: Dimensions.get('window').height * 0.02,
     textAlign: 'center',
   },
   inputWrapper: {
-    marginBottom: 20,
+    marginBottom: Dimensions.get('window').height * 0.025,
     borderWidth: 2,
     borderColor: '#E8E8E8',
-    borderRadius: 12,
+    borderRadius: Dimensions.get('window').width * 0.03,
     backgroundColor: '#FAFAFA',
   },
   inputWrapperFocused: {
@@ -814,35 +893,35 @@ const styles = StyleSheet.create({
   },
   inputContainer: {
     position: 'relative',
-    minHeight: 56,
+    minHeight: Dimensions.get('window').height * 0.07,
     justifyContent: 'center',
   },
   floatingLabel: {
     position: 'absolute',
-    left: 16,
-    top: 18,
-    fontSize: 16,
+    left: Dimensions.get('window').width * 0.04,
+    top: Dimensions.get('window').height * 0.022,
+    fontSize: Dimensions.get('window').width * 0.04,
     color: '#999',
     backgroundColor: 'transparent',
     zIndex: 1,
   },
   floatingLabelActive: {
-    top: 8,
-    fontSize: 12,
+    top: Dimensions.get('window').height * 0.01,
+    fontSize: Dimensions.get('window').width * 0.03,
     color: '#007E2F',
     fontWeight: '600',
   },
   input: {
-    fontSize: 16,
+    fontSize: Dimensions.get('window').width * 0.04,
     color: '#1A1A1A',
-    paddingHorizontal: 16,
-    paddingVertical: 18,
+    paddingHorizontal: Dimensions.get('window').width * 0.04,
+    paddingVertical: Dimensions.get('window').height * 0.022,
     fontWeight: '500',
-    minHeight: 56,
+    minHeight: Dimensions.get('window').height * 0.07,
   },
   inputWithLabel: {
-    paddingTop: 24,
-    paddingBottom: 12,
+    paddingTop: Dimensions.get('window').height * 0.03,
+    paddingBottom: Dimensions.get('window').height * 0.015,
   },
   securityNote: {
     flexDirection: 'row',
@@ -863,16 +942,15 @@ const styles = StyleSheet.create({
   buttonContainer: {
     position: 'absolute',
     bottom: 0,
-    left: 24,
-    right: 24,
-    paddingBottom: 24,
+    left: Dimensions.get('window').width * 0.06,
+    right: Dimensions.get('window').width * 0.06,
+    paddingVertical: 10,
     backgroundColor: '#FFFFFF',
-    paddingTop: 16,
   },
   nextButton: {
     backgroundColor: '#007E2F',
-    paddingVertical: 16,
-    borderRadius: 16,
+    paddingVertical: Dimensions.get('window').height * 0.02,
+    borderRadius: Dimensions.get('window').width * 0.04,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -888,9 +966,9 @@ const styles = StyleSheet.create({
     elevation: 0,
   }, nextText: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: Dimensions.get('window').width * 0.04,
     fontWeight: '600',
-    marginRight: 8,
+    marginRight: Dimensions.get('window').width * 0.02,
   },
   loadingContainer: {
     flexDirection: 'row',
@@ -900,9 +978,9 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: Dimensions.get('window').width * 0.035,
     fontWeight: '500',
-    marginLeft: 8,
+    marginLeft: Dimensions.get('window').width * 0.02,
   },
   progressContainer: {
     marginLeft: 12,
@@ -929,6 +1007,7 @@ const styles = StyleSheet.create({
   modalContent: {
     backgroundColor: '#FFFFFF',
     padding: 24,
+    paddingBottom: 10,
     borderRadius: 16,
     width: '100%',
     maxWidth: 320,
@@ -971,12 +1050,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 18,
-    minHeight: 56,
+    paddingHorizontal: Dimensions.get('window').width * 0.04,
+    paddingVertical: Dimensions.get('window').height * 0.022,
+    minHeight: Dimensions.get('window').height * 0.07,
   },
   dropdownText: {
-    fontSize: 16,
+    fontSize: Dimensions.get('window').width * 0.04,
     color: '#1A1A1A',
     fontWeight: '500',
   },
@@ -990,7 +1069,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#E8E8E8',
   },
@@ -1015,6 +1093,73 @@ const styles = StyleSheet.create({
   businessTypeOptionTextSelected: {
     color: '#007E2F',
     fontWeight: '600',
+  },
+
+  // Image Picker Modal styles
+  modalCloseButton: {
+    padding: 4,
+  },
+  modalSubtitle: {
+    fontSize: Dimensions.get('window').width * 0.04,
+    color: '#666',
+    marginBottom: Dimensions.get('window').height * 0.03,
+    lineHeight: Dimensions.get('window').width * 0.055,
+  },
+  modalOptionsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: Dimensions.get('window').width * 0.03,
+  },
+  modalOption: {
+    flex: 1,
+    flexDirection: 'column',
+    alignItems: 'center',
+    padding: Dimensions.get('window').width * 0.04,
+    backgroundColor: '#F8F9FA',
+    borderRadius: Dimensions.get('window').width * 0.04,
+    marginBottom: Dimensions.get('window').height * 0.015,
+  },
+  modalOptionText: {
+    fontSize: Dimensions.get('window').width * 0.04,
+    fontWeight: '600',
+    color: '#212121',
+    textAlign: 'center',
+  },
+  modalOptionSubtext: {
+    fontSize: Dimensions.get('window').width * 0.033,
+    color: '#666',
+    textAlign: 'center',
+    marginTop: Dimensions.get('window').height * 0.005,
+  },
+  modalOptionIcon: {
+    width: Dimensions.get('window').width * 0.12,
+    height: Dimensions.get('window').width * 0.12,
+    borderRadius: Dimensions.get('window').width * 0.06,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: Dimensions.get('window').height * 0.015,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  removePhotoButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: Dimensions.get('window').height * 0.015,
+    paddingHorizontal: Dimensions.get('window').width * 0.04,
+    backgroundColor: '#FFEBEE',
+    borderRadius: Dimensions.get('window').width * 0.03,
+    marginTop: Dimensions.get('window').height * 0.01,
+  },
+  removePhotoText: {
+    fontSize: Dimensions.get('window').width * 0.04,
+    fontWeight: '600',
+    color: '#F44336',
+    marginLeft: Dimensions.get('window').width * 0.02,
   },
 });
 

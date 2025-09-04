@@ -505,8 +505,8 @@ const PhotoUploadScreen = ({ navigation, route }) => {
             quantity: Array.isArray(fruitData?.quantity) ? fruitData.quantity : [0, 0],
             price_per_kg: 0, // Will be set in PriceSelectionScreen
 
-            // Availability and images
-            availability_date: new Date().toISOString(),
+            // Availability and images (preserve date selected on AddFruitScreen)
+            availability_date: fruitData?.availability_date || new Date().toISOString(),
             image_urls: successfulUploads, // These are now Firebase URLs or local URIs
 
             // Location info

@@ -24,6 +24,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { saveUserRole, clearUserRole } from '../../utils/userRoleStorage';
 import Toast from 'react-native-toast-message';
 import { useAuth } from '../../contexts/AuthContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const OTPVerificationScreen = ({ navigation, route }) => {
   const { phoneNumber, confirmation, setConfirmation, clearConfirmation } = useAuth();
@@ -47,6 +48,8 @@ const OTPVerificationScreen = ({ navigation, route }) => {
 
   // Use phone number from context, fallback to route params, then default
   const displayPhoneNumber = phoneNumber || route?.params?.phoneNumber || '+91 XXXXXXXXXX';
+
+  const insets = useSafeAreaInsets();
 
   // Keyboard listeners
   useEffect(() => {
@@ -325,17 +328,24 @@ const OTPVerificationScreen = ({ navigation, route }) => {
             visibilityTime: 1500, // 1 seconds
           });
           // Navigate to Main after state is consistent
-          navigation.navigate('Main');
+          try {
+            const { navigateToMain } = require('../../utils/navigationUtils');
+            navigateToMain();
+            return; // prevent any further local navigation flicker
+          } catch {
+            navigation.navigate('Main');
+            return;
+          }
         } else {
           // User data not found in Firestore, proceed with new user flow
           console.log('❌ User data not found in Firestore, continuing with new user setup');
-          Toast.show({
-            type: 'success',
-            text1: 'Success',
-            text2: 'OTP verified successfully!',
-            position: 'bottom',
-            visibilityTime: 1000,
-          });
+          // Toast.show({
+          //   type: 'success',
+          //   text1: 'Success',
+          //   text2: 'OTP verified successfully!',
+          //   position: 'bottom',
+          //   visibilityTime: 1000,
+          // });
           // Clear any stale cached data from a previous account to avoid wrong role/screens
           try {
             await clearUserRole();
@@ -497,7 +507,7 @@ const OTPVerificationScreen = ({ navigation, route }) => {
       <KeyboardAvoidingView
         style={styles.keyboardAvoidingView}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : -20 - insets.bottom}
       >
         <View style={styles.innerContainer}>
           {/* Header */}
@@ -657,7 +667,7 @@ const OTPVerificationScreen = ({ navigation, route }) => {
           </ScrollView>
 
           {/* Verify Button */}
-          <View style={styles.buttonContainer}>
+          <View style={[styles.buttonContainer, { paddingBottom: insets.bottom + 42 }]}>
             <TouchableOpacity
               style={[
                 styles.verifyButton,
@@ -1029,7 +1039,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 24,
     right: 24,
-    paddingBottom: 34,
     backgroundColor: '#FFFFFF',
     paddingTop: 16,
   },

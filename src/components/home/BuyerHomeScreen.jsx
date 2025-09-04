@@ -1,6 +1,6 @@
 // HomeScreen.js
 
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react';
 import {
   View,
   Text,
@@ -31,6 +31,7 @@ import { getHeaderConstants } from '../../constants/Layout';
 import FilterScreen from './FilterScreen';
 import Toast from 'react-native-toast-message';
 import ErrorBoundary from '../common/ErrorBoundary';
+import { FruitCard } from '../../ui';
 import {
   formatPrice,
   formatFruitQuantity,
@@ -39,6 +40,7 @@ import {
   getDaysSince
 } from '../../utils/formatters';
 import changeNavigationBarColor from 'react-native-navigation-bar-color';
+
 const categories = [
   { name: 'All', type: 'all', icon: null },
   { name: 'Banana', type: 'banana', icon: require('../../assets/fruits/banana.png') },
@@ -80,6 +82,31 @@ const BuyerHomeScreen = () => {
   const scrollY = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(0)).current;
   const searchTimeoutRef = useRef(null);
+
+  // Memoized formatter functions to prevent recreation
+  const memoizedFormatPrice = useCallback(formatPrice, []);
+  const memoizedFormatFruitQuantity = useCallback(formatFruitQuantity, []);
+  const memoizedFormatLocation = useCallback(formatLocation, []);
+
+  // Memoized filtered categories based on user preferences
+  const filteredCategories = useMemo(() => {
+    if (!userProfile?.PreferedFruits || !Array.isArray(userProfile.PreferedFruits) || userProfile.PreferedFruits.length === 0) {
+      return categories; // Show all categories if no preferences set
+    }
+
+    // Always include 'All' category
+    const userCategories = [categories[0]]; // 'All' category
+
+    // Add only preferred fruit categories
+    const preferredCategoriesLower = userProfile.PreferedFruits.map(fruit => fruit.toLowerCase());
+    categories.slice(1).forEach(category => {
+      if (preferredCategoriesLower.includes(category.type.toLowerCase())) {
+        userCategories.push(category);
+      }
+    });
+
+    return userCategories;
+  }, [userProfile?.PreferedFruits]);
 
   // Calculate header height and opacity based on scroll with proper constants
   const headerHeight = scrollY.interpolate({
@@ -218,6 +245,16 @@ const BuyerHomeScreen = () => {
 
     let filtered = [...allFruits];
 
+    // Filter by user's preferred fruits first if available
+    if (userProfile?.PreferedFruits && Array.isArray(userProfile.PreferedFruits) && userProfile.PreferedFruits.length > 0) {
+      filtered = filtered.filter(fruit => {
+        const fruitType = fruit.type?.toLowerCase();
+        return userProfile.PreferedFruits.some(preferredFruit =>
+          preferredFruit.toLowerCase() === fruitType
+        );
+      });
+    }
+
     // Apply price range filter
     if (filters.minPrice > 0 || filters.maxPrice < 500) {
       filtered = filtered.filter(fruit => {
@@ -314,8 +351,8 @@ const BuyerHomeScreen = () => {
       });
     }
 
-  // Rating filter disabled for now. To re-enable, filter by
-  // parseFloat(fruit.avg_rating || fruit.rating || 0) >= filters.minRating
+    // Rating filter disabled for now. To re-enable, filter by
+    // parseFloat(fruit.avg_rating || fruit.rating || 0) >= filters.minRating
 
     // Apply location filter relative to current buyer location
     if (filters.locationLevel && userProfile?.location) {
@@ -372,7 +409,7 @@ const BuyerHomeScreen = () => {
     console.log(`📊 Filtered ${filtered.length} fruits from ${allFruits.length} total`);
     setFruits(filtered);
     closeFilterModal();
-  }, [allFruits, selectedCategory, searchQuery, closeFilterModal]);
+  }, [allFruits, selectedCategory, searchQuery, closeFilterModal, userProfile?.PreferedFruits]);
   // Safe navigation function to prevent "route not defined" errors
   const safeNavigate = (routeName, params = {}) => {
     try {
@@ -480,7 +517,18 @@ const BuyerHomeScreen = () => {
       if (isMounted) {
         if (marketplaceFruits && Array.isArray(marketplaceFruits) && marketplaceFruits.length > 0) {
           setAllFruits(marketplaceFruits);
-          setFruits(marketplaceFruits);
+
+          // Apply user's preferred fruits filter by default
+          let filtered = marketplaceFruits;
+          if (userProfile?.PreferedFruits && Array.isArray(userProfile.PreferedFruits) && userProfile.PreferedFruits.length > 0) {
+            filtered = marketplaceFruits.filter(fruit => {
+              const fruitType = fruit.type?.toLowerCase();
+              return userProfile.PreferedFruits.some(preferredFruit =>
+                preferredFruit.toLowerCase() === fruitType
+              );
+            });
+          }
+          setFruits(filtered);
         } else {
           setAllFruits([]);
           setFruits([]);
@@ -516,11 +564,21 @@ const BuyerHomeScreen = () => {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [userProfile?.PreferedFruits]);
 
-  // Filter fruits based on category and search query - memoized and optimized
-  const filterFruits = useCallback((category, search) => {
-    let filtered = [...allFruits];
+  // Filter fruits based on category and search query - optimized to reduce re-renders
+  const filterFruits = useCallback((category, search, sourceAllFruits = allFruits, userPrefs = userProfile?.PreferedFruits) => {
+    let filtered = [...sourceAllFruits];
+
+    // Filter by user's preferred fruits if available
+    if (userPrefs && Array.isArray(userPrefs) && userPrefs.length > 0) {
+      filtered = filtered.filter(fruit => {
+        const fruitType = fruit.type?.toLowerCase();
+        return userPrefs.some(preferredFruit =>
+          preferredFruit.toLowerCase() === fruitType
+        );
+      });
+    }
 
     // Filter by category
     if (category !== 'all' && category !== 'All') {
@@ -547,13 +605,13 @@ const BuyerHomeScreen = () => {
     }
 
     setFruits(filtered);
-  }, [allFruits]);
+  }, []); // Empty dependency array - we pass dependencies as parameters
 
   // Handle category change - optimized with useCallback
   const handleCategoryChange = useCallback((categoryType) => {
     setSelectedCategory(categoryType);
-    filterFruits(categoryType, searchQuery);
-  }, [filterFruits, searchQuery]);
+    filterFruits(categoryType, searchQuery, allFruits, userProfile?.PreferedFruits);
+  }, [filterFruits, searchQuery, allFruits, userProfile?.PreferedFruits]);
 
   // Handle search query change with debouncing - optimized
   const handleSearchChange = useCallback((query) => {
@@ -566,9 +624,9 @@ const BuyerHomeScreen = () => {
 
     // Debounce the filtering to improve performance
     searchTimeoutRef.current = setTimeout(() => {
-      filterFruits(selectedCategory, query);
+      filterFruits(selectedCategory, query, allFruits, userProfile?.PreferedFruits);
     }, 300);
-  }, [filterFruits, selectedCategory]);
+  }, [filterFruits, selectedCategory, allFruits, userProfile?.PreferedFruits]);
 
   // Handle refresh - optimized with useCallback
   const handleRefresh = useCallback(() => {
@@ -626,10 +684,12 @@ const BuyerHomeScreen = () => {
     };
 
     setAppliedFilters(defaultFilters);
-    setFruits([...allFruits]);
 
-    console.log('✅ All filters cleared, showing', allFruits.length, 'fruits');
-  }, [allFruits]);
+    // Use optimized filterFruits function
+    filterFruits('all', '', allFruits, userProfile?.PreferedFruits);
+
+    console.log('✅ All filters cleared');
+  }, [filterFruits, allFruits, userProfile?.PreferedFruits]);
 
   // Load fruits when component mounts - only once
   useEffect(() => {
@@ -642,6 +702,13 @@ const BuyerHomeScreen = () => {
       }
     };
   }, [loadMarketplaceFruits]);
+
+  // Reload fruits when user profile changes (especially preferred fruits)
+  useEffect(() => {
+    if (userProfile && allFruits.length > 0) {
+      filterFruits(selectedCategory, searchQuery, allFruits, userProfile?.PreferedFruits);
+    }
+  }, [userProfile?.PreferedFruits, allFruits.length, selectedCategory, searchQuery]); // Removed filterFruits from deps
 
   // Remove duplicate focus effect for fruits loading
   // Fruits will be loaded once on mount and refreshed via pull-to-refresh
@@ -659,7 +726,7 @@ const BuyerHomeScreen = () => {
       id: item.id,
       name: item.name,
       type: item.type,
-  // grade: item.grade, // disabled: grade not used currently
+      // grade: item.grade, // disabled: grade not used currently
       description: item.description,
       quantity: item.quantity,
       price_per_kg: item.price_per_kg,
@@ -696,7 +763,7 @@ const BuyerHomeScreen = () => {
 
       // Debounce filtering to prevent excessive calls
       searchTimeoutRef.current = setTimeout(() => {
-        filterFruits(selectedCategory, searchQuery);
+        filterFruits(selectedCategory, searchQuery, allFruits, userProfile?.PreferedFruits);
       }, 100);
     }
 
@@ -705,408 +772,399 @@ const BuyerHomeScreen = () => {
         clearTimeout(searchTimeoutRef.current);
       }
     };
-  }, [selectedCategory, searchQuery, allFruits, filterFruits]);
+  }, [selectedCategory, searchQuery, allFruits.length, userProfile?.PreferedFruits]); // Removed filterFruits and allFruits from deps
 
   return (
     <ErrorBoundary>
-        <SafeAreaView
-          style={styles.safeArea}>
+      <SafeAreaView
+        style={styles.safeArea}>
 
-          <StatusBar
-            backgroundColor="#FFFFFF"
-            barStyle="dark-content"
-          />
+        <StatusBar
+          backgroundColor="#FFFFFF"
+          barStyle="dark-content"
+        />
 
-          {/* Fixed Header Title - Shows on scroll */}
-          <Animated.View
-            style={[
-              styles.fixedHeaderTitle,
-              {
-                opacity: titleOpacity,
-                transform: [{ translateY: titleTranslateY }],
-                paddingTop: insets.top + 8, // Adjusted padding
-                height: headerConstants.HEADER_MIN_HEIGHT,
-                backgroundColor: '#FFFFFF', // Ensure solid background
-                // Animated shadow and elevation
-                shadowOpacity: fixedHeaderShadowOpacity,
-                elevation: fixedHeaderElevation,
-              }
-            ]}
-            pointerEvents={isFixedHeaderVisible ? 'auto' : 'none'} // Only allow touch when sufficiently visible
-          >
-            <Image source={require('../../assets/icon.png')} style={styles.fixedHeaderImage} />
-            <TouchableOpacity
-              style={styles.notificationIconButton}
-              onPress={() => {
-                navigation.navigate('Notification');
-              }}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Icon name="notifications-outline" size={24} color="#000" />
-            </TouchableOpacity>
-
-            {/* Animated Border */}
-            <Animated.View
-              style={{
-                position: 'absolute',
-                bottom: 0,
-                left: 0,
-                right: 0,
-                height: 1,
-                backgroundColor: '#EFEFEF',
-                opacity: fixedHeaderBorderOpacity,
-              }}
-            />
-          </Animated.View>
-
-          <Animated.ScrollView
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.scrollViewContent}
-            scrollEventThrottle={16} // Optimized for better performance
-            bounces={true} // Better UX
-            overScrollMode="auto"
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={onRefresh}
-                colors={[Colors.light.primary]}
-                tintColor={Colors.light.primary}
-                title="Loading fresh fruits..."
-                titleColor={Colors.light.primary}
-              />
+        {/* Fixed Header Title - Shows on scroll */}
+        <Animated.View
+          style={[
+            styles.fixedHeaderTitle,
+            {
+              opacity: titleOpacity,
+              transform: [{ translateY: titleTranslateY }],
+              paddingTop: insets.top + 8, // Adjusted padding
+              height: headerConstants.HEADER_MIN_HEIGHT,
+              backgroundColor: '#FFFFFF', // Ensure solid background
+              // Animated shadow and elevation
+              shadowOpacity: fixedHeaderShadowOpacity,
+              elevation: fixedHeaderElevation,
             }
-            onScroll={Animated.event(
-              [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-              {
-                useNativeDriver: false, // Height animations require layout thread
-                listener: (event) => {
-                  const currentScrollY = event.nativeEvent.contentOffset.y;
-                  // Update fixed header visibility state - throttled to prevent excessive updates
-                  const shouldShowFixedHeader = currentScrollY > headerConstants.HEADER_SCROLL_DISTANCE * 0.7;
-
-                  // Only update state if it actually changed to prevent unnecessary re-renders
-                  setIsFixedHeaderVisible(prev => prev !== shouldShowFixedHeader ? shouldShowFixedHeader : prev);
-                }
-              }
-            )}
+          ]}
+          pointerEvents={isFixedHeaderVisible ? 'auto' : 'none'} // Only allow touch when sufficiently visible
+        >
+          <Image source={require('../../assets/icon.png')} style={styles.fixedHeaderImage} />
+          <TouchableOpacity
+            style={styles.notificationIconButton}
+            onPress={() => {
+              navigation.navigate('Notification');
+            }}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            {/* Collapsible Header */}
+            <Icon name="notifications-outline" size={24} color="#000" />
+          </TouchableOpacity>
+
+          {/* Animated Border */}
+          <Animated.View
+            style={{
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              height: 1,
+              backgroundColor: '#EFEFEF',
+              opacity: fixedHeaderBorderOpacity,
+            }}
+          />
+        </Animated.View>
+
+        <Animated.ScrollView
+          showsVerticalScrollIndicator={false}
+          contentInset={{ top: 20 }}          // iOS only
+          contentOffset={{ x: 0, y: -20 }}
+          contentContainerStyle={styles.scrollViewContent}
+          scrollEventThrottle={16} // Optimized for better performance
+          bounces={true} // Better UX
+          overScrollMode="auto"
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[Colors.light.primary]}
+              tintColor={Colors.light.primary}
+              title="Loading fresh fruits..."
+              titleColor={Colors.light.primary}
+              progressViewOffset={90}
+            />
+          }
+          onScroll={Animated.event(
+            [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+            {
+              useNativeDriver: false, // Height animations require layout thread
+              listener: (event) => {
+                const currentScrollY = event.nativeEvent.contentOffset.y;
+                // Update fixed header visibility state - throttled to prevent excessive updates
+                const shouldShowFixedHeader = currentScrollY > headerConstants.HEADER_SCROLL_DISTANCE * 0.7;
+
+                // Only update state if it actually changed to prevent unnecessary re-renders
+                setIsFixedHeaderVisible(prev => prev !== shouldShowFixedHeader ? shouldShowFixedHeader : prev);
+              }
+            }
+          )}
+        >
+          {/* Collapsible Header */}
+          <Animated.View style={[
+            styles.header,
+            {
+              height: headerHeight,
+              paddingTop: insets.top + 4,
+              backgroundColor: '#FFFFFF', // Ensure background stays white
+            }
+          ]}>
             <Animated.View style={[
-              styles.header,
+              styles.headerContent,
               {
-                height: headerHeight,
-                paddingTop: insets.top + 4,
-                backgroundColor: '#FFFFFF', // Ensure background stays white
+                opacity: headerOpacity,
+                backgroundColor: 'transparent', // Prevent double background
               }
             ]}>
+              <View style={styles.headerRow}>
+                <View style={styles.profileContainer}>
+                  {userProfile?.profileImage ? (
+                    <TouchableOpacity onPress={() => {
+                      safeNavigate('ProfileScreen');
+                    }}
+                      style={styles.profileImageButton}
+                      activeOpacity={0.7}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      <View style={styles.profileImage}>
+                        <Image
+                          source={{ uri: userProfile.profileImage }}
+                          style={{ width: '100%', height: '100%' }}
+                        />
+                      </View>
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity
+                      style={styles.profilePlaceholderButton} onPress={() => {
+                        safeNavigate('ProfileScreen');
+                      }}
+                      activeOpacity={0.7}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      <View style={styles.profilePlaceholder}>
+                        <Octicons
+                          name="person"
+                          size={24}
+                          color="#000"
+                        />
+                      </View>
+                    </TouchableOpacity>
+                  )}
+                  <TouchableOpacity
+                    style={styles.userInfo}
+                    onPress={() => {
+                      safeNavigate('ProfileScreen');
+                    }}
+                    activeOpacity={0.8}
+                    hitSlop={{ top: 10, bottom: 10, left: 0, right: 10 }}
+                  >
+                    <Text style={styles.welcome}>
+                      Namaste {getDisplayName}!
+                    </Text>
+                    <View style={styles.locationContainer}>
+                      <Text style={styles.location}>
+                        {userProfile?.location ?
+                          `${userProfile.location.city || ''}, ${userProfile.location.state || ''}`.replace(/, $/, '')
+                          : 'Paithan, Chhatrapati Sambhajinagar'}
+                      </Text>
+                      <Icon name="chevron-down" size={12} color="#505050" />
+                    </View>
+                  </TouchableOpacity>
+                </View>
+                <TouchableOpacity
+                  onPress={() => {
+                    safeNavigate('Notification');
+                  }}
+                  style={styles.notificationIconButton}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Icon name="notifications-outline" size={24} color="#000" />
+                </TouchableOpacity>
+              </View>
+
+              {/* Search Row with Animation */}
               <Animated.View style={[
-                styles.headerContent,
+                styles.searchRow,
                 {
-                  opacity: headerOpacity,
-                  backgroundColor: 'transparent', // Prevent double background
+                  opacity: searchRowOpacity,
+                  transform: [{ translateY: searchRowTranslateY }]
                 }
               ]}>
-                <View style={styles.headerRow}>
-                  <View style={styles.profileContainer}>
-                    {userProfile?.profileImage ? (
-                      <TouchableOpacity onPress={() => {
-                        safeNavigate('ProfileScreen');
-                      }}
-                        style={styles.profileImageButton}
-                        activeOpacity={0.7}
-                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                      >
-                        <View style={styles.profileImage}>
-                          <Image
-                            source={{ uri: userProfile.profileImage }}
-                            style={{ width: '100%', height: '100%' }}
-                          />
-                        </View>
-                      </TouchableOpacity>
-                    ) : (
-                      <TouchableOpacity
-                        style={styles.profilePlaceholderButton} onPress={() => {
-                          safeNavigate('ProfileScreen');
-                        }}
-                        activeOpacity={0.7}
-                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                      >
-                        <View style={styles.profilePlaceholder}>
-                          <Octicons
-                            name="person"
-                            size={24}
-                            color="#000"
-                          />
-                        </View>
-                      </TouchableOpacity>
-                    )}
+                <View style={styles.searchBox}>
+                  <Icon name="search" size={20} color="#939393" style={{ marginLeft: 12 }} />
+                  <TextInput
+                    placeholder="Search fruits, vegetables..."
+                    placeholderTextColor="#939393"
+                    style={styles.searchInput}
+                    value={searchQuery}
+                    onChangeText={handleSearchChange}
+                    accessible={true}
+                    accessibilityLabel="Search input"
+                    accessibilityHint="Enter keywords to search for fruits"
+                  />
+                  {searchQuery.length > 0 && (
                     <TouchableOpacity
-                      style={styles.userInfo}
-                      onPress={() => {
-                        safeNavigate('ProfileScreen');
-                      }}
-                      activeOpacity={0.8}
-                      hitSlop={{ top: 10, bottom: 10, left: 0, right: 10 }}
+                      onPress={() => handleSearchChange('')}
+                      style={{ paddingRight: 12 }}
                     >
-                      <Text style={styles.welcome}>
-                        Namaste {getDisplayName}!
-                      </Text>
-                      <View style={styles.locationContainer}>
-                        <Text style={styles.location}>
-                          {userProfile?.location ?
-                            `${userProfile.location.city || ''}, ${userProfile.location.state || ''}`.replace(/, $/, '')
-                            : 'Paithan, Chhatrapati Sambhajinagar'}
-                        </Text>
-                        <Icon name="chevron-down" size={12} color="#505050" />
-                      </View>
+                      <Icon name="close-circle" size={20} color="#939393" />
                     </TouchableOpacity>
-                  </View>
-                  <TouchableOpacity
-                    onPress={() => {
-                      safeNavigate('Notification');
-                    }}
-                    style={styles.notificationIconButton}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                  >
-                    <Icon name="notifications-outline" size={24} color="#000" />
-                  </TouchableOpacity>
+                  )}
                 </View>
 
-                {/* Search Row with Animation */}
-                <Animated.View style={[
-                  styles.searchRow,
-                  {
-                    opacity: searchRowOpacity,
-                    transform: [{ translateY: searchRowTranslateY }]
-                  }
-                ]}>
-                  <View style={styles.searchBox}>
-                    <Icon name="search" size={20} color="#939393" style={{ marginLeft: 12 }} />
-                    <TextInput
-                      placeholder="Search fruits, vegetables..."
-                      placeholderTextColor="#939393"
-                      style={styles.searchInput}
-                      value={searchQuery}
-                      onChangeText={handleSearchChange}
-                      accessible={true}
-                      accessibilityLabel="Search input"
-                      accessibilityHint="Enter keywords to search for fruits"
-                    />
-                    {searchQuery.length > 0 && (
-                      <TouchableOpacity
-                        onPress={() => handleSearchChange('')}
-                        style={{ paddingRight: 12 }}
-                      >
-                        <Icon name="close-circle" size={20} color="#939393" />
-                      </TouchableOpacity>
-                    )}
-                  </View>
-
-                  {/* Filter Model */}
-                  <TouchableOpacity style={styles.filterBtn} onPress={() => {
-                    openFilterModal();
-                  }}>
-                    <Icon name="options-outline" size={20} color={Colors.light.primaryDark} />
-                  </TouchableOpacity>
-                </Animated.View>
+                {/* Filter Model */}
+                <TouchableOpacity style={styles.filterBtn} onPress={() => {
+                  openFilterModal();
+                }}>
+                  <Icon name="options-outline" size={20} color={Colors.light.primaryDark} />
+                </TouchableOpacity>
               </Animated.View>
             </Animated.View>
+          </Animated.View>
 
-            {/* Categories */}
-            <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Categories</Text>
-                <TouchableOpacity>
-                  <Text style={styles.viewAll}>View all</Text>
-                </TouchableOpacity>
-              </View>
-
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.categoriesContainer}
-              >
-                {categories.map((item, index) => (
-                  <TouchableOpacity
-                    key={index}
-                    style={[
-                      styles.categoryCard,
-                      selectedCategory === item.type && styles.selectedCategoryCard
-                    ]}
-                    onPress={() => handleCategoryChange(item.type)}
-                  >
-                    {item.name === 'All' ? (
-                      <Icon name="apps-outline" size={22} color={"#505050"} style={[styles.categoryIcon, {
-                        marginHorizontal: 6,
-                      }]} />
-                    ) : (
-                      <Image source={item.icon} style={styles.categoryImage} />
-                    )}
-                    <Text style={[
-                      styles.categoryText, {
-                        marginHorizontal: item.name === 'All' ? 4 : 0
-                      },
-                      selectedCategory === item.type && styles.selectedCategoryText
-                    ]}>{item.name}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
+          {/* Categories */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>
+                {userProfile?.PreferedFruits && userProfile.PreferedFruits.length > 0 ?
+                  'Categories' : 'Categories'}
+              </Text>
+              <TouchableOpacity onPress={() => navigation.navigate('Auth', { screen: 'FruitsScreen' })}>
+                <Text style={styles.editPreferences}>
+                  {userProfile?.PreferedFruits && userProfile.PreferedFruits.length > 0 ? 'Edit' : 'Set Preferences'}
+                </Text>
+              </TouchableOpacity>
             </View>
+            {/* {userProfile?.PreferedFruits && userProfile.PreferedFruits.length > 0 && (
+                <Text style={styles.categorySubtitle}>
+                  Showing {filteredCategories.length - 1} of your preferred fruit categories
+                </Text>
+              )} */}
 
-            {/* Available Fruits */}
-            <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Available Fruits</Text>
-                <TouchableOpacity>
-                  <Text style={styles.viewAll}>View all</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.categoriesContainer}
+            >
+              {filteredCategories.map((item, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={[
+                    styles.categoryCard,
+                    selectedCategory === item.type && styles.selectedCategoryCard
+                  ]}
+                  onPress={() => handleCategoryChange(item.type)}
+                >
+                  {item.name === 'All' ? (
+                    <Icon name="apps-outline" size={22} color={"#505050"} style={[styles.categoryIcon, {
+                      marginHorizontal: 6,
+                    }]} />
+                  ) : (
+                    <Image source={item.icon} style={styles.categoryImage} />
+                  )}
+                  <Text style={[
+                    styles.categoryText, {
+                      marginHorizontal: item.name === 'All' ? 4 : 0
+                    },
+                    selectedCategory === item.type && styles.selectedCategoryText
+                  ]}>{item.name}</Text>
                 </TouchableOpacity>
-              </View>
-              <View style={styles.fruitsContainer}>
-                {loadingFruits ? (
-                  <View style={styles.emptyStateContainer}>
-                    <View style={styles.emptyStateIcon}>
-                      <Icon name="refresh-outline" size={48} color="#CCCCCC" />
-                    </View>
-                    <Text style={styles.emptyStateTitle}>Loading Fruits...</Text>
-                    <Text style={styles.emptyStateSubtitle}>
-                      Please wait while we fetch fresh fruits from farmers
-                    </Text>
-                  </View>
-                ) : fruits.length > 0 ? (
-                  fruits.map((item) => (
-                    <TouchableOpacity
-                      key={item.id}
-                      style={styles.fruitCard}
-                      activeOpacity={0.9}
-                      onPress={() => handleProductPress(item)}
-                    >
-                      <Image
-                        source={{ uri: item.image_urls?.[0] || 'https://via.placeholder.com/150' }}
-                        style={styles.fruitImage}
-                        defaultSource={require('../../assets/fruit_placeholder.png')}
-                      />
-                      <View style={styles.fruitDetailsSection}>
-                        <Text style={styles.fruitName}>{item.name}</Text>
-                        {/* Grade disabled */}
-                        <Text style={styles.fruitCategory}>Category: {item.type}</Text>
+              ))}
+            </ScrollView>
+          </View>
 
-                        <View style={styles.locationRow}>
-                          <Icon name="location-outline" size={12} color="#505050" />
-                          <Text style={styles.fruitLocation}>
-                            {formatLocation(item.location)}
-                          </Text>
-                        </View>
-                      </View>
-
-                      <View style={styles.priceContainer}>
-                        <Text style={styles.fruitPrice}>
-                          {formatPrice(item.price_per_kg)}
-                        </Text>
-                        <Text style={styles.fruitTons}>
-                          {formatFruitQuantity(item.quantity)}
-                        </Text>
-                        {/* Rating Disable for now */}
-                        {/* {renderStars(4.8)} */}
-                      </View>
-                    </TouchableOpacity>
-                  ))
-                ) : (
-                  <View style={styles.emptyStateContainer}>
-                    <View style={styles.emptyStateIcon}>
-                      <Icon name="basket-outline" size={48} color="#CCCCCC" />
-                    </View>
-                    <Text style={styles.emptyStateTitle}>
-                      {searchQuery || selectedCategory !== 'all' ? 'No Matching Fruits' : 'No Fruits Available'}
-                    </Text>
-                    <Text style={styles.emptyStateSubtitle}>
-                      {searchQuery || selectedCategory !== 'all'
-                        ? 'Try adjusting your search or category filter'
-                        : 'Fresh fruits will be listed here when farmers post them'
-                      }
-                    </Text>
-                    <TouchableOpacity
-                      style={styles.refreshButton}
-                      onPress={handleRefresh}
-                    >
-                      <Icon name="refresh-outline" size={18} color={Colors.light.primary} />
-                      <Text style={styles.refreshButtonText}>
-                        {searchQuery || selectedCategory !== 'all' ? 'Clear Filters' : 'Refresh'}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
-                {/* Add a spacer view to ensure the last item has padding at the bottom */}
-                <View style={{ flex: 1, paddingBottom: 0, backgroundColor: 'transparent' }}></View>
-              </View>
+          {/* Available Fruits */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Available Fruits</Text>
+              {/* <TouchableOpacity
+                 onPress={() => navigation.navigate('FruitsScreen')}>
+                  <Text style={styles.viewAll}>View all</Text>
+                </TouchableOpacity> */}
             </View>
-          </Animated.ScrollView>
-
-          {/* Filter Modal */}
-          <Modal
-            visible={isFilterModalVisible}
-            transparent={true}
-            animationType="none"
-            onRequestClose={closeFilterModal}
-            statusBarTranslucent={true}
-            hardwareAccelerated={true}
-          >
-            <View style={styles.modalOverlay}>
-              <TouchableOpacity
-                style={styles.modalBackdrop}
-                activeOpacity={1}
-                onPress={closeFilterModal}
-              />
-              <Animated.View
-                style={[
-                  styles.modalContainer,
-                  {
-                    transform: [
-                      {
-                        translateY: slideAnim.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [300, 0],
-                          extrapolate: 'clamp',
-                        }),
-                      },
-                    ],
-                  },
-                ]}
-              >
-                <View style={styles.modalHeader}>
-                  <View style={styles.modalHandle} />
-                  <View style={styles.modalHeaderContent}>
-                    <TouchableOpacity
-                      style={styles.modalBackButton}
-                      onPress={closeFilterModal}
-                      activeOpacity={0.7}
-                    >
-                      <Icon name="close" size={20} color="#6B7280" />
-                    </TouchableOpacity>
-                    <Text style={styles.modalTitle}>Filters</Text>
-                    <TouchableOpacity
-                      style={styles.modalClearButton}
-                      onPress={() => {
-                        clearAllFilters();
-                        // Don't close modal - let user see the cleared state
-                        // closeFilterModal();
-                      }}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={styles.modalClearButtonText}>Clear</Text>
-                    </TouchableOpacity>
+            <View style={styles.fruitsContainer}>
+              {loadingFruits ? (
+                <View style={styles.emptyStateContainer}>
+                  <View style={styles.emptyStateIcon}>
+                    <Icon name="refresh-outline" size={48} color="#CCCCCC" />
                   </View>
+                  <Text style={styles.emptyStateTitle}>Loading Fruits...</Text>
+                  <Text style={styles.emptyStateSubtitle}>
+                    Please wait while we fetch fresh fruits from farmers
+                  </Text>
                 </View>
-                <FilterScreen
-                  onApplyFilters={handleApplyFilters}
-                  onClose={closeFilterModal}
-                  onClearFilters={clearAllFilters}
-                  currentFilters={appliedFilters}
-                  isModal={true}
-                />
-              </Animated.View>
+              ) : fruits.length > 0 ? (
+                fruits.map((item) => (
+                  <FruitCard
+                    key={item.id}
+                    item={item}
+                    onPress={handleProductPress}
+                    formatPrice={memoizedFormatPrice}
+                    formatFruitQuantity={memoizedFormatFruitQuantity}
+                    formatLocation={memoizedFormatLocation}
+                  />
+                ))
+              ) : (
+                <View style={styles.emptyStateContainer}>
+                  <View style={styles.emptyStateIcon}>
+                    <Icon name="basket-outline" size={48} color="#CCCCCC" />
+                  </View>
+                  <Text style={styles.emptyStateTitle}>
+                    {searchQuery || selectedCategory !== 'all' ? 'No Matching Fruits' :
+                      userProfile?.PreferedFruits && userProfile.PreferedFruits.length > 0 ?
+                        'No Preferred Fruits Available' : 'No Fruits Available'}
+                  </Text>
+                  <Text style={styles.emptyStateSubtitle}>
+                    {searchQuery || selectedCategory !== 'all'
+                      ? 'Try adjusting your search or category filter'
+                      : userProfile?.PreferedFruits && userProfile.PreferedFruits.length > 0 ?
+                        'No fruits matching your preferences are currently available. Try updating your preferences.' :
+                        'Fresh fruits will be listed here when farmers post them'
+                    }
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.refreshButton}
+                    onPress={handleRefresh}
+                  >
+                    <Icon name="refresh-outline" size={18} color={Colors.light.primary} />
+                    <Text style={styles.refreshButtonText}>
+                      {searchQuery || selectedCategory !== 'all' ? 'Clear Filters' : 'Refresh'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+              {/* Add a spacer view to ensure the last item has padding at the bottom */}
+              <View style={{ flex: 1, paddingBottom: 0, backgroundColor: 'transparent' }}></View>
             </View>
-          </Modal>
-        </SafeAreaView>
+          </View>
+        </Animated.ScrollView>
+
+        {/* Filter Modal */}
+        <Modal
+          visible={isFilterModalVisible}
+          transparent={true}
+          animationType="none"
+          onRequestClose={closeFilterModal}
+          statusBarTranslucent={true}
+          hardwareAccelerated={true}
+        >
+          <View style={styles.modalOverlay}>
+            <TouchableOpacity
+              style={styles.modalBackdrop}
+              activeOpacity={1}
+              onPress={closeFilterModal}
+            />
+            <Animated.View
+              style={[
+                styles.modalContainer,
+                {
+                  transform: [
+                    {
+                      translateY: slideAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [300, 0],
+                        extrapolate: 'clamp',
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            >
+              <View style={styles.modalHeader}>
+                <View style={styles.modalHandle} />
+                <View style={styles.modalHeaderContent}>
+                  <TouchableOpacity
+                    style={styles.modalBackButton}
+                    onPress={closeFilterModal}
+                    activeOpacity={0.7}
+                  >
+                    <Icon name="close" size={20} color="#6B7280" />
+                  </TouchableOpacity>
+                  <Text style={styles.modalTitle}>Filters</Text>
+                  <TouchableOpacity
+                    style={styles.modalClearButton}
+                    onPress={() => {
+                      clearAllFilters();
+                      // Don't close modal - let user see the cleared state
+                      // closeFilterModal();
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.modalClearButtonText}>Clear</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+              <FilterScreen
+                onApplyFilters={handleApplyFilters}
+                onClose={closeFilterModal}
+                onClearFilters={clearAllFilters}
+                currentFilters={appliedFilters}
+                isModal={true}
+              />
+            </Animated.View>
+          </View>
+        </Modal>
+      </SafeAreaView>
     </ErrorBoundary>
   );
 };
@@ -1217,7 +1275,7 @@ const styles = StyleSheet.create({
   location: {
     fontSize: 13,
     color: '#505050',
-    marginRight: 4,
+    marginRight: 0,
     fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
   notificationIconButton: {
@@ -1277,7 +1335,19 @@ const styles = StyleSheet.create({
     color: '#000000',
     fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
+  categorySubtitle: {
+    fontSize: 12,
+    color: '#666666',
+    marginBottom: 8,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
   viewAll: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: Colors.light.primaryDark,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  editPreferences: {
     fontSize: 14,
     fontWeight: '500',
     color: Colors.light.primaryDark,
@@ -1326,72 +1396,8 @@ const styles = StyleSheet.create({
     fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
   fruitsContainer: {
-    gap: 16,
-    paddingVertical: 6,
-  },
-  fruitCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  fruitImage: {
-    height: 70,
-    width: 70,
-    borderRadius: 10,
-    marginRight: 14,
-  },
-  fruitDetailsSection: {
-    flex: 1,
-    paddingRight: 10,
-  },
-  fruitName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#000000',
-    marginBottom: 4,
-    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
-  },
-  fruitCategory: {
-    fontSize: 13,
-    color: '#939393',
-    marginBottom: 4,
-    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
-  },
-  locationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 2,
-  },
-  fruitLocation: {
-    fontSize: 12,
-    color: '#505050',
-    marginLeft: 4,
-    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
-  },
-  priceContainer: {
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-    minWidth: 80,
-  },
-  fruitPrice: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: Colors.light.primaryDark,
-    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
-  },
-  fruitTons: {
-    fontSize: 11,
-    color: '#939393',
-    marginTop: 2,
-    textAlign: 'right',
-    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+    gap: 12,
+    paddingVertical: 4,
   },
   emptyStateContainer: {
     alignItems: 'center',

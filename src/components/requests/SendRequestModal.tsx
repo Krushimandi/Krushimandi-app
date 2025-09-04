@@ -314,7 +314,6 @@ const styles = StyleSheet.create({
   },
   section: {
     paddingHorizontal: 20,
-    marginTop: 20,
   },
   sectionTitle: {
     fontSize: 16,

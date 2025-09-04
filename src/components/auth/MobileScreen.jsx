@@ -20,6 +20,7 @@ import {
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import auth from '@react-native-firebase/auth';
 import { useAuth } from '../../contexts/AuthContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const MobileScreen = ({ navigation }) => {
   const { setPhoneNumber, setConfirmation } = useAuth();
@@ -90,6 +91,7 @@ const MobileScreen = ({ navigation }) => {
       setError('');
     }
   }, [error]);
+
   const handleInputFocus = useCallback(() => {
     console.log('Input focused');
     // setIsFocused(true);
@@ -108,6 +110,8 @@ const MobileScreen = ({ navigation }) => {
     setIsFocused(false);
   }, []);
 
+
+  const insets = useSafeAreaInsets();
   const isButtonDisabled = useMemo(() => mobile.length < 10 || isLoading, [mobile.length, isLoading]);
 
   const inputWrapperStyle = useMemo(() => [
@@ -186,7 +190,7 @@ const MobileScreen = ({ navigation }) => {
       <KeyboardAvoidingView
         style={styles.keyboardAvoidingView}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : -20 - insets.bottom}
       >
         <View style={styles.innerContainer}>
           {/* Header */}
@@ -297,7 +301,7 @@ const MobileScreen = ({ navigation }) => {
           </ScrollView>
 
           {/* Enhanced Next Button */}
-          <View style={styles.buttonContainer}>
+          <View style={[styles.buttonContainer, { paddingBottom: insets.bottom + 42 }]}>
             <TouchableOpacity
               style={[
                 styles.nextButton,
@@ -564,7 +568,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 24,
     right: 24,
-    paddingBottom: 34,
     backgroundColor: '#FFFFFF',
     paddingTop: 16,
   },

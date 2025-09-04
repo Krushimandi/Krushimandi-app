@@ -15,6 +15,9 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { setAuthStep } from '../../utils/authFlow';
 import { saveUserRole } from '../../utils/userRoleStorage';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import auth from '@react-native-firebase/auth';
+import { navigateToMain } from '../../utils/navigationUtils';
 
 const RoleSelectionScreen = ({ navigation }) => {
   const [selectedRole, setSelectedRole] = useState(null);
@@ -43,6 +46,31 @@ const RoleSelectionScreen = ({ navigation }) => {
       }),
     ]).start();
   }, [fadeAnim, slideAnim, scaleAnim]);
+
+  // Skip this screen for existing/returning users whose onboarding is complete
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const fbUser = auth().currentUser;
+        const [userDataStr, authStep] = await Promise.all([
+          AsyncStorage.getItem('userData'),
+          AsyncStorage.getItem('authStep')
+        ]);
+        const userData = userDataStr ? JSON.parse(userDataStr) : null;
+        const hasRole = !!userData?.userRole;
+        const profileComplete = userData?.isProfileComplete === true;
+        const isComplete = authStep === 'Complete';
+
+        if (fbUser && (isComplete || (hasRole && profileComplete))) {
+          navigateToMain();
+        }
+      } catch (e) {
+        // no-op
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
 
   const handleBackPress = () => {
     navigation.goBack();
@@ -85,6 +113,8 @@ const RoleSelectionScreen = ({ navigation }) => {
   //   // Could show help modal
   //   console.log('Help pressed');
   // };
+
+  const insets = useSafeAreaInsets();
 
   return (
     <SafeAreaView style={styles.container}>
@@ -204,7 +234,7 @@ const RoleSelectionScreen = ({ navigation }) => {
         </ScrollView>
 
         {/* Get Started Button */}
-        <View style={styles.buttonContainer}>
+        <View style={[styles.buttonContainer, { paddingBottom: insets.bottom + 10 }]}>
           <TouchableOpacity
             style={[
               styles.getStartedButton,
@@ -308,7 +338,7 @@ const styles = StyleSheet.create({
   },
   textContainer: {
     alignItems: 'center',
-    marginBottom: 40,
+    marginBottom: 20,
   },
   heading: {
     fontSize: 28,
@@ -332,7 +362,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     width: '100%',
-    marginBottom: 30,
+    marginBottom: 20,
     gap: 16,
   },
   roleCard: {
@@ -396,6 +426,7 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 12,
     marginTop: 20,
+    marginBottom: 20,
     marginHorizontal: 20,
   },
   securityText: {

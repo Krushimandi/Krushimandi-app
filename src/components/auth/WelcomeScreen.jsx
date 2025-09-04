@@ -10,6 +10,8 @@ import {
   Dimensions
 } from 'react-native';
 import { isPhoneVerified, isRoleSelected, isProfileCompleted, isAuthComplete } from '../../utils/authFlow';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 
 const { width, height } = Dimensions.get('window');
@@ -21,6 +23,12 @@ const WelcomeScreen = ({ navigation }) => {
     // Check auth state and navigate to appropriate screen
     const checkAuthAndNavigate = async () => {
       try {
+        // Mark welcome as seen once user reaches this screen (only first launch)
+        const WELCOME_KEY = '@krushimandi:onboarding_complete_v2';
+        const seen = await AsyncStorage.getItem(WELCOME_KEY);
+        if (!seen) {
+          await AsyncStorage.setItem(WELCOME_KEY, 'true');
+        }
         const [phoneVerified, roleSelected, profileCompleted, authComplete] = await Promise.all([
           isPhoneVerified(),
           isRoleSelected(),
@@ -57,8 +65,12 @@ const WelcomeScreen = ({ navigation }) => {
 
   const handleGetStarted = () => {
     console.log('Get Started pressed');
+  // Ensure flag is set when user proceeds
+  AsyncStorage.setItem('@krushimandi:onboarding_complete_v2', 'true').catch(() => {});
     navigation.navigate('MobileScreen');
   };
+
+  const insets = useSafeAreaInsets();
 
   return (
     <View style={styles.container}>
@@ -89,7 +101,7 @@ const WelcomeScreen = ({ navigation }) => {
           </View>
 
           {/* Bottom Section */}
-          <View style={styles.bottomSection}>
+          <View style={[styles.bottomSection, { paddingBottom: insets.bottom * 0.8 }]}>
             <TouchableOpacity style={styles.getStartedButton} onPress={handleGetStarted}>
               <Text style={styles.getStartedText}>Get Started</Text>
             </TouchableOpacity>

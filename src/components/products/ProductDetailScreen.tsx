@@ -37,11 +37,9 @@ const { width, height } = Dimensions.get('window');
 
 // Enhanced Product interface with proper typing
 interface Product extends Omit<Fruit, 'rating' | 'reviewCount'> {
-  // Additional display properties for compatibility
   rating?: number;
   reviewCount?: number;
   sizes?: string[];
-  freshness?: string;
   details?: string;
   image?: any; // For backward compatibility
   postedDate?: string;
@@ -122,7 +120,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
     id: rawProduct.id || route?.params?.productId || 'unknown-id',
     name: rawProduct.name || 'Unknown Product',
     type: rawProduct.type || 'unknown',
-  // grade: rawProduct.grade || 'N/A', // disabled: grade not present in DB
+    // grade: rawProduct.grade || 'N/A', // disabled: grade not present in DB
     description: rawProduct.description || 'No description available',
     quantity: rawProduct.quantity || [1, 1],
     price_per_kg: rawProduct.price_per_kg || rawProduct.price || 0,
@@ -146,7 +144,6 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
     rating: rawProduct.rating || 4.0,
     reviewCount: rawProduct.reviewCount || 0,
     sizes: rawProduct.sizes || ['1 kg', '500 gm', '2 kg'],
-    freshness: rawProduct.freshness || 'Fresh',
     details: rawProduct.details || `${rawProduct.name || 'Product'} from ${rawProduct.location ? formatLocation(rawProduct.location) : 'Unknown location'}`,
     postedDate: rawProduct.postedDate || (rawProduct.created_at ? getRelativeTime(rawProduct.created_at) : 'Recently'),
     farmer_name: 'Unknown Farmer', // Will be updated with farmerData later
@@ -162,7 +159,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
     selectedImageIndex: 0,
     isWishlistLoading: false,
     currentLikes: product.likes || 0,
-  currentViews: product.views || 0,
+    currentViews: product.views || 0,
     farmerData: null as any,
     farmerReviews: [] as any[],
     isFarmerDataLoading: true,
@@ -182,7 +179,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
     selectedImageIndex,
     isWishlistLoading,
     currentLikes,
-  currentViews,
+    currentViews,
     farmerData,
     farmerReviews,
     isFarmerDataLoading,
@@ -687,46 +684,67 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
     }
   };
 
-  // PanResponder for swipe gesture
+  // Enhanced PanResponder for swipe gesture with haptic feedback
   const panResponder = useMemo(() =>
     PanResponder.create({
       onStartShouldSetPanResponder: () => !hasExistingRequestForProduct && !isCheckingExistingRequest,
+      onMoveShouldSetPanResponder: (_, gesture) => {
+        // Only respond to horizontal swipes
+        return Math.abs(gesture.dx) > Math.abs(gesture.dy) && Math.abs(gesture.dx) > 5;
+      },
+      onPanResponderGrant: () => {
+        // Optional: Add haptic feedback when swipe starts
+        // Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      },
       onPanResponderMove: (_, gesture) => {
         // Only allow movement to the right (positive x direction) if no existing request
         if (gesture.dx > 0 && !hasExistingRequestForProduct) {
-          // Limit max swipe distance to 70% of container width
-          const maxDistance = width * 0.85 - 60;
+          // Limit max swipe distance to 75% of container width minus thumb width
+          const maxDistance = (width * 0.85 - 60);
           const dx = Math.min(gesture.dx, maxDistance);
           pan.setValue(dx);
         }
       },
       onPanResponderRelease: (_, gesture) => {
+        // Enhanced threshold: 40% of screen width for better UX
+        const enhancedThreshold = width * 0.4;
+
         // If swiped far enough and no existing request, trigger the request action
-        if (gesture.dx >= swipeThreshold && !hasExistingRequestForProduct) {
-          // Animate to the end position
+        if (gesture.dx >= enhancedThreshold && !hasExistingRequestForProduct) {
+          // Animate to the end position with spring physics
           Animated.spring(pan, {
-            toValue: width * 0.85 - 60,
+            toValue: (width * 0.85 - 60) * 1,
             useNativeDriver: false,
+            tension: 100,
+            friction: 8,
           }).start(() => {
+            // Optional: Add success haptic feedback
+            // Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
             // Handle the request action
             handleRequestProduct();
-            // Reset after a delay
+
+            // Reset after a delay with smooth animation
             setTimeout(() => {
               Animated.spring(pan, {
                 toValue: 0,
                 useNativeDriver: false,
+                tension: 80,
+                friction: 10,
               }).start();
-            }, 1000);
+            }, 1200);
           });
         } else {
-          // Spring back to start
+          // Spring back to start with smooth animation
           Animated.spring(pan, {
             toValue: 0,
             useNativeDriver: false,
+            tension: 80,
+            friction: 8,
           }).start();
         }
       },
-    }), [hasExistingRequestForProduct, isCheckingExistingRequest, pan, width, swipeThreshold]);
+    }), [hasExistingRequestForProduct, isCheckingExistingRequest, pan, width]);
 
   // Function to handle the product request
   const handleRequestProduct = async () => {
@@ -837,7 +855,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
   return (
     <ErrorBoundary fallback={
       <SafeAreaView style={styles.container}>
-        <StatusBar backgroundColor="#FFFFFF"  barStyle="dark-content" />
+        <StatusBar backgroundColor="#FFFFFF" barStyle="dark-content" />
         <View style={styles.header}>
           <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
             <Ionicons name="arrow-back" size={24} color="#007E2F" />
@@ -858,270 +876,270 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
       <SafeAreaView style={styles.container}>
         <StatusBar
           backgroundColor="#FFFFFF"
-          
           barStyle="dark-content"
         />
-
-        {/* Header with Back Button and Title */}
-        <View style={styles.header}>
+        {/* Modern Header with Back Button and Actions */}
+        <View style={styles.modernHeader}>
           <TouchableOpacity
-            style={styles.backButton}
+            style={styles.modernBackButton}
             onPress={() => navigation.goBack()}
-          >
-            <Ionicons name="arrow-back" size={24} color="#007E2F" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Product Details</Text>
-          <TouchableOpacity
-            style={[
-              styles.favoriteButton,
-              isWishlistLoading && { opacity: 0.6 },
-              isFavorite && styles.favoriteButtonActive
-            ]}
-            onPress={handleWishlistToggle}
-            disabled={isWishlistLoading}
             activeOpacity={0.7}
           >
-            {isWishlistLoading ? (
-              <Ionicons name="heart-outline" size={24} color="#999999" />
-            ) : (
-              <Ionicons
-                name={isFavorite ? "heart" : "heart-outline"}
-                size={24}
-                color={isFavorite ? "#FF6B6B" : "#007E2F"}
-              />
-            )}
+            <Ionicons name="arrow-back" size={22} color="#000" />
           </TouchableOpacity>
+
+          <Text style={styles.modernHeaderTitle}>Product Details</Text>
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              style={[
+                styles.modernActionButton,
+                isWishlistLoading && { opacity: 0.6 },
+                isFavorite && styles.favoriteButtonActive
+              ]}
+              onPress={handleWishlistToggle}
+              disabled={isWishlistLoading}
+              activeOpacity={0.7}
+            >
+              {isWishlistLoading ? (
+                <Ionicons name="heart-outline" size={20} color="#999999" />
+              ) : (
+                <Ionicons
+                  name={isFavorite ? "heart" : "heart-outline"}
+                  size={20}
+                  color={isFavorite ? "#FF6B6B" : "#4CAF50"}
+                />
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.modernActionButton}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="share-outline" size={20} color="#4CAF50" />
+            </TouchableOpacity>
+          </View>
         </View>
 
         <ScrollView
           style={styles.content}
           showsVerticalScrollIndicator={false}
         >
-          {/* Modern Product Image Section */}
-          <View style={styles.modernImageSection}>
+          {/* Enhanced Modern Product Image Section */}
+          <View style={styles.enhancedImageSection}>
             {product.image_urls && product.image_urls.length > 0 ? (
               <>
-                {/* Main Image Container with Modern Design */}
-                <View style={styles.modernImageContainer}>
+                {/* Hero Image Container with Gradient Overlay */}
+                <View style={styles.heroImageContainer}>
                   <Image
                     source={{ uri: product.image_urls[selectedImageIndex] }}
-                    style={styles.modernProductImage}
+                    style={styles.heroProductImage}
                     resizeMode="cover"
                   />
 
-                  {/* Status Badge - Modern Style */}
-                  <View style={styles.modernStatusBadge}>
-                    <View style={styles.statusIndicator} />
-                    <Text style={styles.modernStatusText}>{product.status?.toUpperCase()}</Text>
-                  </View>
+                  {/* Gradient Overlay for better text readability */}
+                  <View style={styles.gradientOverlay} />
 
-                  {/* Image Counter - Modern Style */}
+                  {/* Quick Stats Overlay */}
+                  {/* <View style={styles.quickStatsOverlay}>
+                    <View style={styles.quickStat}>
+                      <Ionicons name="eye" size={14} color="#FFF" />
+                      <Text style={styles.quickStatText}>{currentViews}</Text>
+                    </View>
+                    <View style={styles.quickStat}>
+                      <Ionicons name="heart" size={14} color="#FFF" />
+                      <Text style={styles.quickStatText}>{currentLikes}</Text>
+                    </View>
+                  </View> */}
+
+                  {/* Image Counter with Modern Design */}
                   {product.image_urls.length > 1 && (
-                    <View style={styles.modernImageCounter}>
-                      <Text style={styles.modernImageCounterText}>
-                        {selectedImageIndex + 1}/{product.image_urls.length}
-                      </Text>
+                    <View style={styles.enhancedImageCounter}>
+                      <View style={styles.counterBackground}>
+                        <Text style={styles.enhancedImageCounterText}>
+                          {selectedImageIndex + 1} of {product.image_urls.length}
+                        </Text>
+                      </View>
                     </View>
                   )}
                 </View>
 
-                {/* Modern Thumbnail Carousel with Dots */}
+                {/* Enhanced Thumbnail Carousel */}
                 {product.image_urls.length > 1 && (
-                  <View style={styles.modernThumbnailSection}>
+                  <View style={styles.enhancedThumbnailSection}>
                     <FlatList
                       data={product.image_urls}
                       horizontal
                       showsHorizontalScrollIndicator={false}
-                      contentContainerStyle={styles.modernThumbnailContainer}
+                      contentContainerStyle={styles.enhancedThumbnailContainer}
                       keyExtractor={(item, index) => `image-${index}`}
                       renderItem={({ item, index }) => (
                         <TouchableOpacity
                           style={[
-                            styles.modernThumbnailWrapper,
-                            selectedImageIndex === index && styles.modernSelectedThumbnail
+                            styles.enhancedThumbnailWrapper,
+                            selectedImageIndex === index && styles.enhancedSelectedThumbnail
                           ]}
                           onPress={() => setSelectedImageIndex(index)}
                           activeOpacity={0.8}
                         >
                           <Image
                             source={{ uri: item }}
-                            style={styles.modernThumbnailImage}
+                            style={styles.enhancedThumbnailImage}
                             resizeMode="cover"
                           />
                           {selectedImageIndex === index && (
-                            <View style={styles.thumbnailOverlay}>
-                              <Ionicons name="checkmark" size={16} color="#FFFFFF" />
+                            <View style={styles.thumbnailSelectionOverlay}>
+                              <Ionicons name="checkmark-circle" size={18} color="#4CAF50" />
                             </View>
                           )}
+                          <View style={styles.thumbnailBorder} />
                         </TouchableOpacity>
                       )}
                     />
-
-                    {/* Dots Indicator */}
-                    <View style={styles.dotsContainer}>
-                      {product.image_urls.map((_, index) => (
-                        <TouchableOpacity
-                          key={index}
-                          style={[
-                            styles.dot,
-                            selectedImageIndex === index && styles.activeDot
-                          ]}
-                          onPress={() => setSelectedImageIndex(index)}
-                        />
-                      ))}
-                    </View>
                   </View>
                 )}
               </>
             ) : (
-              <View style={styles.modernImageContainer}>
-                {/* Modern Fallback for no images */}
-                <View style={styles.modernImagePlaceholder}>
-                  <View style={styles.placeholderIconContainer}>
-                    <Ionicons name="image-outline" size={60} color="#007E2F" />
+              <View style={styles.heroImageContainer}>
+                {/* Enhanced Fallback Design */}
+                <View style={styles.enhancedImagePlaceholder}>
+                  <View style={styles.placeholderIconWrapper}>
+                    <Ionicons name="leaf" size={80} color="#4CAF50" />
                   </View>
-                  <Text style={styles.placeholderText}>No images available</Text>
+                  <Text style={styles.enhancedPlaceholderText}>Fresh Product</Text>
+                  <Text style={styles.placeholderSubtext}>Image coming soon</Text>
                 </View>
 
                 {/* Status Badge */}
-                <View style={styles.modernStatusBadge}>
-                  <View style={styles.statusIndicator} />
-                  <Text style={styles.modernStatusText}>{product.status?.toUpperCase()}</Text>
+                <View style={styles.enhancedStatusBadge}>
+                  <View style={styles.statusPulse} />
+                  <Text style={styles.enhancedStatusText}>AVAILABLE</Text>
                 </View>
               </View>
             )}
           </View>
 
-          {/* Modern Product Info Card */}
-          <View style={styles.modernProductCard}>
-            {/* Product Header - Name, Type (Grade disabled) */}
-            <View style={styles.modernProductHeaderSection}>
-              <Text style={styles.modernProductName}>{product.name}</Text>
-              <View style={styles.modernGradeTypeContainer}>
-                {/* Grade badge disabled */}
-                <View style={styles.modernTypeBadge}>
-                  <Ionicons name="leaf" size={14} color="#666666" />
-                  <Text style={styles.modernTypeText}>{product.type}</Text>
+          {/* Enhanced Modern Product Card */}
+          <View style={styles.enhancedProductCard}>
+            {/* Product Header with improved spacing */}
+            <View style={styles.enhancedProductHeaderSection}>
+              <Text style={styles.enhancedProductName}>{product.name}</Text>
+              <View style={styles.enhancedGradeTypeContainer}>
+                <View style={styles.enhancedTypeBadge}>
+                  <Ionicons name="leaf" size={14} color="#4CAF50" />
+                  <Text style={styles.enhancedTypeText}>{product.type}</Text>
                 </View>
               </View>
             </View>
 
-            {/* Modern Price Section */}
-            <View style={styles.modernPriceSection}>
-              <View style={styles.priceWithIcon}>
-                <Ionicons name="pricetag" size={20} color="#007E2F" />
-                <View style={styles.priceInfo}>
-                  <Text style={styles.priceLabel}>Price per KG</Text>
-                  <Text style={styles.modernPrice}>₹{product.price_per_kg}</Text>
+            {/* Enhanced Price Section with better visual hierarchy */}
+            <View style={styles.enhancedPriceSection}>
+              <View style={styles.enhancedPriceWithIcon}>
+                <View style={styles.priceIconContainer}>
+                  <Ionicons name="pricetag" size={22} color="#4CAF50" />
+                </View>
+                <View style={styles.enhancedPriceInfo}>
+                  <Text style={styles.enhancedPriceLabel}>Price per KG</Text>
+                  <Text style={styles.enhancedPrice}>₹{product.price_per_kg}</Text>
+                </View>
+                <View style={styles.priceBadge}>
+                  <Text style={styles.priceBadgeText}>Best Price</Text>
                 </View>
               </View>
             </View>
 
-            {/* Modern Engagement Stats */}
-            <View style={styles.modernEngagementContainer}>
-              <View style={styles.engagementStatsWrapper}>
-                <View style={styles.modernEngagementStat}>
-                  <View style={styles.engagementIconContainer}>
-                    <Ionicons name="eye" size={18} color="#007E2F" />
+            {/* Enhanced Engagement Stats with better interactions */}
+            <View style={styles.enhancedEngagementContainer}>
+              <View style={styles.enhancedEngagementStatsWrapper}>
+                <TouchableOpacity style={styles.enhancedEngagementStat} activeOpacity={0.7}>
+                  <View style={styles.enhancedEngagementIconContainer}>
+                    <Ionicons name="eye" size={20} color="#4CAF50" />
                   </View>
-                  <View style={styles.engagementTextContainer}>
-                    <Text style={styles.modernEngagementNumber}>{currentViews}</Text>
-                    <Text style={styles.engagementLabel}>views</Text>
+                  <View style={styles.enhancedEngagementTextContainer}>
+                    <Text style={styles.enhancedEngagementNumber}>{currentViews}</Text>
+                    <Text style={styles.enhancedEngagementLabel}>views</Text>
                   </View>
-                </View>
+                </TouchableOpacity>
 
-                <View style={styles.statsDivider} />
+                <View style={styles.enhancedStatsDivider} />
 
-                <View style={styles.modernEngagementStat}>
-                  <TouchableOpacity
-                    style={[
-                      styles.engagementIconContainer,
-                      {
-                        backgroundColor: isFavorite ? '#FFE8E8' : '#E8F5E8',
-                        opacity: isWishlistLoading ? 0.6 : 1.0,
-                        transform: [{ scale: isWishlistLoading ? 0.95 : 1.0 }]
-                      }
-                    ]}
-                    onPress={handleWishlistToggle}
-                    disabled={isWishlistLoading}
-                    activeOpacity={0.7}
-                  >
+                <TouchableOpacity
+                  style={styles.enhancedEngagementStat}
+                  onPress={handleWishlistToggle}
+                  disabled={isWishlistLoading}
+                  activeOpacity={0.7}
+                >
+                  <View style={[
+                    styles.enhancedEngagementIconContainer,
+                    {
+                      backgroundColor: isFavorite ? '#FFE8E8' : '#E8F5E8',
+                      opacity: isWishlistLoading ? 0.6 : 1.0,
+                      transform: [{ scale: isWishlistLoading ? 0.95 : 1.0 }]
+                    }
+                  ]}>
                     {isWishlistLoading ? (
-                      <Ionicons
-                        name="heart-outline"
-                        size={18}
-                        color="#999999"
-                      />
+                      <Ionicons name="heart-outline" size={20} color="#999999" />
                     ) : (
                       <Ionicons
                         name={isFavorite ? "heart" : "heart-outline"}
-                        size={18}
-                        color={isFavorite ? "#FF6B6B" : "#007E2F"}
+                        size={20}
+                        color={isFavorite ? "#FF6B6B" : "#4CAF50"}
                       />
                     )}
-                  </TouchableOpacity>
-                  <View style={styles.engagementTextContainer}>
+                  </View>
+                  <View style={styles.enhancedEngagementTextContainer}>
                     <Text style={[
-                      styles.modernEngagementNumber,
+                      styles.enhancedEngagementNumber,
                       isFavorite && { color: '#FF6B6B' },
                       isWishlistLoading && { opacity: 0.6 }
                     ]}>
                       {currentLikes}
                     </Text>
                     <Text style={[
-                      styles.engagementLabel,
+                      styles.enhancedEngagementLabel,
                       isWishlistLoading && { opacity: 0.6 }
                     ]}>
                       likes
                     </Text>
                   </View>
-                </View>
+                </TouchableOpacity>
 
-                {/* Request Count - Only visible to farmers for their own products */}
+                {/* Request Count for farmers */}
                 {userRole === 'farmer' && user?.uid === product.farmer_id && (
                   <>
-                    <View style={styles.statsDivider} />
-                    <View style={styles.modernEngagementStat}>
+                    <View style={styles.enhancedStatsDivider} />
+                    <TouchableOpacity style={styles.enhancedEngagementStat} activeOpacity={0.7}>
                       <View style={[
-                        styles.engagementIconContainer,
+                        styles.enhancedEngagementIconContainer,
                         { backgroundColor: '#FFF3E0' }
                       ]}>
-                        <Ionicons name="mail-outline" size={18} color="#FF9800" />
+                        <Ionicons name="mail-outline" size={20} color="#FF9800" />
                       </View>
-                      <View style={styles.engagementTextContainer}>
-                        <Text style={[styles.modernEngagementNumber, { color: '#FF9800' }]}>
+                      <View style={styles.enhancedEngagementTextContainer}>
+                        <Text style={[styles.enhancedEngagementNumber, { color: '#FF9800' }]}>
                           {requestCount}
                         </Text>
-                        <Text style={styles.engagementLabel}>requests</Text>
+                        <Text style={styles.enhancedEngagementLabel}>requests</Text>
                       </View>
-                    </View>
+                    </TouchableOpacity>
                   </>
                 )}
 
-                <View style={styles.statsDivider} />
+                <View style={styles.enhancedStatsDivider} />
 
-                <View style={styles.modernEngagementStat}>
-                  <View style={styles.engagementIconContainer}>
-                    <Ionicons name="time" size={18} color="#007E2F" />
+                <TouchableOpacity style={styles.enhancedEngagementStat} activeOpacity={0.7}>
+                  <View style={styles.enhancedEngagementIconContainer}>
+                    <Ionicons name="time" size={20} color="#4CAF50" />
                   </View>
-                  <View style={styles.engagementTextContainer}>
-                    <Text style={styles.modernEngagementNumber}>
+                  <View style={styles.enhancedEngagementTextContainer}>
+                    <Text style={styles.enhancedEngagementNumber}>
                       {topText}
                     </Text>
-                    <Text style={styles.engagementLabel}>{bottomText}</Text>
+                    <Text style={styles.enhancedEngagementLabel}>{bottomText}</Text>
                   </View>
-                </View>
+                </TouchableOpacity>
               </View>
-
-              {isFavorite && (
-                <View style={styles.modernWishlistBadge}>
-                  <Ionicons name="heart" size={14} color="#FF6B6B" />
-                  <Text style={styles.modernWishlistText}>In Wishlist</Text>
-                </View>
-              )}
             </View>
 
-            <View style={styles.modernDivider} />
+            <View style={styles.enhancedDivider} />
 
             {/* Description Section */}
             {product.description && (
@@ -1289,7 +1307,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
             <View style={styles.modernDetailSection}>
               <Text style={styles.modernSectionTitle}>Farmer Information</Text>
 
-        {isFarmerDataLoading ? (
+              {isFarmerDataLoading ? (
                 <View style={styles.modernFarmerCard}>
                   <View style={styles.farmerLoadingContainer}>
                     <View style={styles.loadingAvatar}>
@@ -1303,10 +1321,10 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                           return displayName;
                         })()}
                       </Text>
-            {/* Only show avatar + name in loading state; extra info hidden */}
+                      {/* Only show avatar + name in loading state; extra info hidden */}
                     </View>
                   </View>
-          {/* Farmer Description hidden as per requirement */}
+                  {/* Farmer Description hidden as per requirement */}
                 </View>
               ) : (
                 <>
@@ -1329,7 +1347,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                               }</Text>
                           )}
                         </View>
-            {/* Verification badge hidden - show only avatar and name */}
+                        {/* Verification badge hidden - show only avatar and name */}
                       </View>
 
                       <View style={styles.modernFarmerInfo}>
@@ -1347,10 +1365,10 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                           })()}
                         </Text>
 
-            {/* Only show name */}
+                        {/* Only show name */}
                       </View>
                     </View>
-          {/* Farmer Description hidden as per requirement */}
+                    {/* Farmer Description hidden as per requirement */}
                   </View>
 
                   {/* Modern Reviews Section */}
@@ -1413,44 +1431,68 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
           </View>
         </ScrollView>
 
-        {/* Modern Swipe to Request Action */}
-        <View style={styles.modernSwipeContainer}>
-          <View style={styles.modernSwipeTrack}>
+        {/* Enhanced Swipe to Request with Haptic Feedback */}
+        <View style={styles.enhancedSwipeContainer}>
+          <View style={[
+            styles.enhancedSwipeTrack,
+            hasExistingRequestForProduct && styles.disabledSwipeTrack
+          ]}>
             <Animated.View
               style={[
-                styles.modernSwipeThumb,
+                styles.enhancedSwipeThumb,
                 {
                   transform: [{ translateX: pan }],
-                  backgroundColor: hasExistingRequestForProduct ? '#6B7280' : '#10B981'
+                  backgroundColor: hasExistingRequestForProduct ? '#9E9E9E' : '#4CAF50',
+                  shadowColor: hasExistingRequestForProduct ? '#9E9E9E' : '#4CAF50',
                 }
               ]}
               {...panResponder.panHandlers}
             >
-              <Ionicons
-                name={hasExistingRequestForProduct ? "checkmark" : "arrow-forward"}
-                size={24}
-                color="#FFFFFF"
-              />
+              <View style={styles.thumbIconContainer}>
+                {hasExistingRequestForProduct ? (
+                  <Ionicons name="checkmark-done" size={26} color="#FFFFFF" />
+                ) : (
+                  <Ionicons name="arrow-forward" size={26} color="#FFFFFF" />
+                )}
+              </View>
             </Animated.View>
+
+            <View style={styles.swipeTextContainer}>
+              <Text style={[
+                styles.enhancedSwipeText,
+                hasExistingRequestForProduct && { color: '#9E9E9E' }
+              ]}>
+                {isCheckingExistingRequest
+                  ? 'Checking status...'
+                  : hasExistingRequestForProduct
+                    ? 'Request sent successfully'
+                    : 'Swipe to send request'
+                }
+              </Text>
+            </View>
+
+            {/* Ripple effect overlay */}
+            {!hasExistingRequestForProduct && (
+              <View style={styles.rippleOverlay} />
+            )}
+          </View>
+
+          <View style={styles.swipeInstructionContainer}>
+            <Ionicons
+              name={hasExistingRequestForProduct ? "checkmark-circle" : "information-circle"}
+              size={16}
+              color={hasExistingRequestForProduct ? "#4CAF50" : "#666666"}
+            />
             <Text style={[
-              styles.modernSwipeText,
-              hasExistingRequestForProduct && { color: '#6B7280' }
+              styles.enhancedSwipeInstruction,
+              hasExistingRequestForProduct && { color: '#4CAF50' }
             ]}>
-              {isCheckingExistingRequest
-                ? 'Checking...'
-                : hasExistingRequestForProduct
-                  ? 'Request already sent'
-                  : 'Swipe to request'
+              {hasExistingRequestForProduct
+                ? 'You have already sent a request for this product. Check your orders for updates.'
+                : `Slide right to send a purchase request to ${farmerData?.displayName || 'the farmer'}`
               }
             </Text>
-            <View style={styles.swipeGradientOverlay} />
           </View>
-          <Text style={styles.modernSwipeInstruction}>
-            {hasExistingRequestForProduct
-              ? 'You have already sent a request for this product'
-              : `Swipe right to send a request to ${farmerData?.displayName || 'the farmer'}`
-            }
-          </Text>
         </View>
 
         {/* Send Request Modal */}
@@ -1473,6 +1515,236 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
 };
 
 const styles = StyleSheet.create({
+  // Enhanced Modern Header Styles
+  modernHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: '#FFFFFF',
+    zIndex: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    // elevation: 3,
+  },
+  modernHeaderTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#000000',
+    letterSpacing: -0.3,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  modernBackButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#F8F9FA',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  modernActionButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#F8F9FA',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+
+  // Enhanced Image Section Styles
+  enhancedImageSection: {
+    backgroundColor: '#FFFFFF',
+    paddingBottom: 24,
+  },
+  heroImageContainer: {
+    width: width - 32,
+    height: width * 0.8,
+    marginHorizontal: 16,
+    borderRadius: 28,
+    overflow: 'hidden',
+    position: 'relative',
+    backgroundColor: '#F8F9FA',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.15,
+    shadowRadius: 24,
+    elevation: 12,
+  },
+  heroProductImage: {
+    width: '100%',
+    height: '100%',
+  },
+  gradientOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 120,
+    backgroundColor: 'rgba(0,0,0,0.2)',
+  },
+  enhancedStatusBadge: {
+    position: 'absolute',
+    top: 20,
+    left: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(76, 175, 80, 0.95)',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 24,
+    shadowColor: '#4CAF50',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  statusPulse: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#FFFFFF',
+    marginRight: 8,
+  },
+  enhancedStatusText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  quickStatsOverlay: {
+    position: 'absolute',
+    top: 20,
+    right: 20,
+    flexDirection: 'column',
+    gap: 8,
+  },
+  quickStat: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    gap: 4,
+  },
+  quickStatText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '600',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  enhancedImageCounter: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+  },
+  counterBackground: {
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  enhancedImageCounterText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  enhancedThumbnailSection: {
+    paddingTop: 16,
+    paddingHorizontal: 16,
+  },
+  enhancedThumbnailContainer: {
+    paddingHorizontal: 8,
+    gap: 12,
+  },
+  enhancedThumbnailWrapper: {
+    width: 80,
+    height: 80,
+    borderRadius: 20,
+    overflow: 'hidden',
+    borderWidth: 3,
+    borderColor: 'transparent',
+    position: 'relative',
+    backgroundColor: '#F8F9FA',
+  },
+  enhancedSelectedThumbnail: {
+    borderColor: '#4CAF50',
+    shadowColor: '#4CAF50',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  enhancedThumbnailImage: {
+    width: '100%',
+    height: '100%',
+  },
+  thumbnailSelectionOverlay: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderRadius: 12,
+    padding: 2,
+  },
+  thumbnailBorder: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 17,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.08)',
+  },
+  enhancedImagePlaceholder: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'linear-gradient(135deg, #E8F5E8 0%, #F0F9F0 100%)',
+  },
+  placeholderIconWrapper: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  enhancedPlaceholderText: {
+    fontSize: 18,
+    color: '#4CAF50',
+    fontWeight: '700',
+    marginBottom: 8,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  placeholderSubtext: {
+    fontSize: 14,
+    color: '#666666',
+    fontWeight: '500',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+
   // Modern Image Section Styles
   modernImageSection: {
     backgroundColor: '#FFFFFF',
@@ -1618,7 +1890,195 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
 
-  // Modern Product Card Styles
+  // Enhanced Product Card Styles
+  enhancedProductCard: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    paddingTop: 28,
+    paddingBottom: 140,
+    marginTop: -24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 20,
+    elevation: 12,
+  },
+  enhancedProductHeaderSection: {
+    marginBottom: 24,
+    paddingHorizontal: 24,
+  },
+  enhancedProductName: {
+    fontSize: 30,
+    fontWeight: '800',
+    color: '#000000',
+    marginBottom: 16,
+    letterSpacing: -0.5,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  enhancedGradeTypeContainer: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  enhancedTypeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E8F5E8',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 24,
+    borderWidth: 1.5,
+    borderColor: '#4CAF50',
+    gap: 8,
+    shadowColor: '#4CAF50',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  enhancedTypeText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#4CAF50',
+    textTransform: 'capitalize',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  enhancedPriceSection: {
+    backgroundColor: '#F8F9FA',
+    padding: 24,
+    borderRadius: 24,
+    marginBottom: 24,
+    marginHorizontal: 24,
+    borderWidth: 1,
+    borderColor: '#E8F5E8',
+    shadowColor: '#4CAF50',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  enhancedPriceWithIcon: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  priceIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#E8F5E8',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  enhancedPriceInfo: {
+    flex: 1,
+  },
+  enhancedPriceLabel: {
+    fontSize: 14,
+    color: '#666666',
+    fontWeight: '500',
+    marginBottom: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  enhancedPrice: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#4CAF50',
+    letterSpacing: -0.5,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  priceBadge: {
+    backgroundColor: '#4CAF50',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  priceBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  enhancedEngagementContainer: {
+    backgroundColor: '#F8F9FA',
+    marginHorizontal: 24,
+    marginBottom: 32,
+    paddingVertical: 24,
+    paddingHorizontal: 24,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#E8F5E8',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  enhancedEngagementStatsWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 8,
+  },
+  enhancedEngagementStat: {
+    alignItems: 'center',
+    flex: 1,
+    paddingVertical: 12,
+  },
+  enhancedEngagementIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#E8F5E8',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+    shadowColor: '#4CAF50',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  enhancedEngagementTextContainer: {
+    alignItems: 'center',
+  },
+  enhancedEngagementNumber: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#000000',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+    marginBottom: 4,
+    letterSpacing: -0.4,
+  },
+  enhancedEngagementLabel: {
+    fontSize: 12,
+    color: '#666666',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  enhancedStatsDivider: {
+    width: 2,
+    height: 52,
+    backgroundColor: '#E8F5E8',
+    marginHorizontal: 16,
+    borderRadius: 1,
+  },
+  enhancedDivider: {
+    height: 2,
+    backgroundColor: '#F0F0F0',
+    marginVertical: 28,
+    marginHorizontal: 24,
+    borderRadius: 1,
+  },
+
+  // Modern Product Card Styles (keeping original)
   modernProductCard: {
     flex: 1,
     backgroundColor: '#FFFFFF',
@@ -2201,7 +2661,112 @@ const styles = StyleSheet.create({
     marginLeft: 10,
     fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
-  // Modern Swipe to request styles
+  // Enhanced Swipe to Request Styles
+  enhancedSwipeContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 20,
+    paddingVertical: 24,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 12,
+  },
+  enhancedSwipeTrack: {
+    height: 68,
+    backgroundColor: '#E8F5E8',
+    borderRadius: 34,
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#4CAF50',
+    overflow: 'hidden',
+    shadowColor: '#4CAF50',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  disabledSwipeTrack: {
+    backgroundColor: '#F5F5F5',
+    borderColor: '#E0E0E0',
+    shadowColor: '#E0E0E0',
+  },
+  enhancedSwipeThumb: {
+    position: 'absolute',
+    left: 4,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#4CAF50',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#4CAF50',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 10,
+  },
+  thumbIconContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  swipeTextContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 80,
+  },
+  enhancedSwipeText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#4CAF50',
+    letterSpacing: -0.2,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  swipeIndicators: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    opacity: 0.6,
+  },
+  swipeArrow: {
+    width: 6,
+    height: 6,
+    backgroundColor: '#4CAF50',
+    borderRadius: 3,
+    marginHorizontal: 1,
+  },
+  rippleOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'transparent',
+  },
+  swipeInstructionContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginTop: 16,
+    paddingHorizontal: 4,
+    gap: 8,
+  },
+  enhancedSwipeInstruction: {
+    fontSize: 13,
+    color: '#666666',
+    lineHeight: 18,
+    flex: 1,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+
+  // Modern Swipe to request styles (keeping original for fallback)
   modernSwipeContainer: {
     position: 'absolute',
     bottom: 0,

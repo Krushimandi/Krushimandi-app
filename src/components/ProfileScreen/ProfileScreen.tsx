@@ -38,7 +38,7 @@ interface UserProfile {
     seconds: number;
   };
   phoneNumber?: string;
-  email?: string;
+  // email?: string;
 }
 
 const ProfileScreen = () => {

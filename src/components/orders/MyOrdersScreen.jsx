@@ -792,7 +792,7 @@ const MyOrdersScreen = () => {
           contentContainerStyle={styles.filtersScrollContent}
         >
           <FilterButton title="Accepted" value="accepted" count={orderStats.accepted} />
-          <FilterButton title="Completed" value="completed" count={orderStats.completed} />
+          <FilterButton title="Sold out" value="completed" count={orderStats.completed} />
         </ScrollView>
       </View>
 

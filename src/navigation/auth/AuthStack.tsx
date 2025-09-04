@@ -3,8 +3,10 @@
  * Handles all authentication related screens
  */
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { navigateToMain } from '../../utils/navigationUtils';
 
 // Auth Screen Components
 import {
@@ -24,10 +26,68 @@ const AuthStack = createStackNavigator<AuthStackParamList>();
 
 // Auth Navigator
 const AuthNavigator = () => {
+  const [initialRoute, setInitialRoute] = useState<keyof AuthStackParamList>('Welcome');
+  const [ready, setReady] = useState(false);
+  const [redirected, setRedirected] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    const resolve = async () => {
+      try {
+        const WELCOME_KEY = '@krushimandi:onboarding_complete_v2';
+        const hasSeenWelcome = await AsyncStorage.getItem(WELCOME_KEY);
+
+        const { getAuthState } = await import('../../utils/authFlow');
+        const state = await getAuthState();
+
+        // If auth is complete, redirect to Main immediately to avoid any Auth flicker
+        if (state?.nextRoute === 'Main' || state?.currentStep === 'complete') {
+          navigateToMain();
+          if (mounted) {
+            setRedirected(true);
+          }
+          return;
+        }
+
+        let route: keyof AuthStackParamList = hasSeenWelcome ? 'MobileScreen' : 'Welcome';
+        switch (state.currentStep) {
+          case 'role_selection':
+            route = 'RoleSelection';
+            break;
+          case 'profile_setup':
+            route = 'IntroduceYourself';
+            break;
+          case 'fruits_selection':
+            route = 'FruitsScreen' as any;
+            break;
+          case 'complete':
+            route = 'MobileScreen';
+            break;
+          default:
+            break;
+        }
+        if (mounted) {
+          setInitialRoute(route);
+          setReady(true);
+        }
+      } catch (e) {
+        console.warn('AuthStack init route error:', e);
+        if (mounted) {
+          setInitialRoute('Welcome');
+          setReady(true);
+        }
+      }
+    };
+    resolve();
+    return () => { mounted = false; };
+  }, []);
+
+  if (!ready || redirected) return null;
+
   return (
     <AuthProvider>
       <AuthStack.Navigator
-        initialRouteName="Welcome"
+        initialRouteName={initialRoute}
         screenOptions={{
           headerShown: false,
         }}>

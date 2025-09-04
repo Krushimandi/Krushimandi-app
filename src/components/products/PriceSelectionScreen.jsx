@@ -221,8 +221,8 @@ export default function PriceSelectionScreen({ navigation, route }) {
         quantity: productData?.quantity || [0, 0],
         price_per_kg: finalPrice,
 
-        // Availability and images - using Firebase URLs directly
-        availability_date: new Date().toISOString(),
+  // Availability and images - preserve previously selected availability_date
+  availability_date: productData?.availability_date || new Date().toISOString(),
         image_urls: productData?.image_urls || [], // Already Firebase URLs from PhotoUploadScreen
 
         // Location info

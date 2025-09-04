@@ -115,6 +115,8 @@ export const isProfileCompleted = async (): Promise<boolean> => {
           return true;
         }
 
+  // continue to other profile checks
+
         // Check if we have all required profile data locally
         const hasFirstName = !!(userProfile.firstName && userProfile.firstName.trim());
         const hasLastName = !!(userProfile.lastName && userProfile.lastName.trim());
@@ -166,6 +168,26 @@ export const isProfileCompleted = async (): Promise<boolean> => {
 
   } catch (error) {
     console.error('Error checking profile completion:', error);
+    return false;
+  }
+};
+
+/**
+ * Check if buyer has selected preferred fruits (used to gate Buyer onboarding)
+ */
+export const hasBuyerSelectedFruits = async (): Promise<boolean> => {
+  try {
+    const userData = await AsyncStorage.getItem('userData');
+    if (!userData) return false;
+
+    const parsed = JSON.parse(userData);
+    const role = parsed?.userRole;
+    if (role !== 'buyer') return true; // Not a buyer, this step doesn't apply
+
+    const fruits = parsed?.PreferedFruits;
+    return Array.isArray(fruits) && fruits.length > 0;
+  } catch (e) {
+    console.warn('Error checking buyer fruits selection:', e);
     return false;
   }
 };
@@ -234,12 +256,14 @@ export const getAuthState = async (): Promise<UserAuthState> => {
     const phoneVerified = await isPhoneVerified();
     const roleSelected = await isRoleSelected();
     const profileCompleted = await isProfileCompleted();
+    const fruitsSelected = await hasBuyerSelectedFruits();
     const authComplete = await isAuthComplete();
 
     console.log('📊 Auth state components:', {
       phoneVerified,
       roleSelected,
       profileCompleted,
+      fruitsSelected,
       authComplete
     });
 
@@ -300,7 +324,7 @@ export const getAuthState = async (): Promise<UserAuthState> => {
       }
     }
 
-    // Determine which step to resume from - but always route to 'Auth' container
+  // Determine which step to resume from - but always route to 'Auth' container
     let currentStep = 'welcome';
     // Always go to Auth container, let AuthNavigator handle internal routing
     let nextRoute = 'Auth';
@@ -319,6 +343,17 @@ export const getAuthState = async (): Promise<UserAuthState> => {
     else if (phoneVerified && roleSelected && !profileCompleted) {
       currentStep = 'profile_setup';
       console.log('📝 Resuming from profile setup');
+    }
+    // Step 3b: Buyer fruits selection (only if profile is complete already)
+    else if (phoneVerified && roleSelected) {
+      // Check for buyer-specific fruits step when authStep is not complete
+      const userData = await AsyncStorage.getItem('userData');
+      const authStep = await AsyncStorage.getItem('authStep');
+      const role = (() => { try { return userData ? JSON.parse(userData)?.userRole : null; } catch { return null; }})();
+      if (role === 'buyer' && !authComplete && profileCompleted && !fruitsSelected) {
+        currentStep = 'fruits_selection';
+        console.log('🍎 Resuming from fruits selection');
+      }
     }
     // Step 4: If all main steps are complete, go to main app
     else if (phoneVerified && roleSelected && profileCompleted) {
@@ -343,6 +378,17 @@ export const getAuthState = async (): Promise<UserAuthState> => {
             };
           }
         }
+      }
+      // If buyer fruits not selected and auth step not marked complete, route to fruits selection
+      if (!authComplete && !fruitsSelected) {
+        return {
+          isAuthenticated: true,
+          phoneVerified: true,
+          roleSelected: true,
+          profileCompleted: true,
+          currentStep: 'fruits_selection',
+          nextRoute: 'Auth'
+        };
       }
       return {
         isAuthenticated: true,

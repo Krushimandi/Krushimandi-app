@@ -56,6 +56,7 @@ export type AuthStackParamList = {
   OTPVerification: { phoneNumber: string };
   RoleSelection: undefined;
   IntroduceYourself: undefined;
+  FruitsScreen: { onboarding?: boolean; mode?: string; fromAuth?: boolean } | undefined;
 };
 
 // Common Screens Stack
@@ -95,6 +96,7 @@ export type BuyerTabParamList = {
 export type BuyerStackParamList = {
   BuyerTabs: undefined;
   ProductDetail: { productId: string; product?: any };
+  FruitsScreen: undefined;
 };
 
 // Product Stack (for buyers)
