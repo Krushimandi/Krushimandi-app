@@ -551,6 +551,8 @@ export const saveUserToAsyncStorage = async (userData) => {
       lastSyncAt: new Date().toISOString(),
       createdAt: userData.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
+  // Persist location when available
+  ...(userData.location ? { location: userData.location } : {}),
       // Persist new buyer-specific optional fields and fruits preference when present
       ...(userData.userRole === 'buyer' && {
         businessType: userData.businessType || null,
@@ -568,6 +570,60 @@ export const saveUserToAsyncStorage = async (userData) => {
     console.log('✅ User saved to AsyncStorage successfully');
   } catch (error) {
     console.error('❌ Failed to save user to AsyncStorage:', error);
+  }
+};
+
+/**
+ * Update user's location with offline support and local cache sync
+ * @param {string} userId - User UID
+ * @param {('farmer'|'buyer')} userRole - Role for collection selection
+ * @param {object} location - Location object { city, district, state, pincode, formattedAddress, latitude, longitude }
+ * @returns {Promise<boolean>} Success
+ */
+export const updateUserLocation = async (userId, userRole, location) => {
+  try {
+    if (!userId || !userRole || !location) {
+      throw new Error('Missing required parameters to update location');
+    }
+
+    // Normalize location payload
+    const normalizedLocation = {
+      city: location.city || '',
+      district: location.district || '',
+      state: location.state || '',
+      pincode: location.pincode || '',
+      formattedAddress: location.formattedAddress || '',
+      latitude: location.latitude,
+      longitude: location.longitude,
+      updatedAt: new Date().toISOString(),
+    };
+
+    const isOnline = await isNetworkAvailable();
+
+    if (isOnline) {
+      await updateUserInFirestore(userId, userRole, { location: normalizedLocation });
+    } else {
+      // Queue for later
+      addToOfflineQueue('updateUserProfile', { userId, userRole, updateData: { location: normalizedLocation } });
+    }
+
+    // Update local cache
+    const local = await getUserFromAsyncStorage();
+    if (local && local.uid === userId) {
+      await saveUserToAsyncStorage({ ...local, location: normalizedLocation });
+    }
+
+    // Also update offline auth state
+    const offlineAuth = await getOfflineAuthState();
+    if (offlineAuth && offlineAuth.uid === userId) {
+      await saveOfflineAuthState({ ...offlineAuth, location: normalizedLocation });
+    }
+
+    console.log('✅ Location update processed (online:', isOnline, ')');
+    return true;
+  } catch (error) {
+    console.error('❌ Failed to update user location:', error);
+    return false;
   }
 };
 

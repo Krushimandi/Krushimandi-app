@@ -192,6 +192,7 @@ const FarmerTabNavigator = () => {
           fontSize: 12,
           fontWeight: '600',
           marginTop: 6,
+          color: Colors.light.text,
           marginBottom: Platform.OS === 'ios' ? 2 : 4,
         },
         tabBarStyle: {
@@ -219,9 +220,10 @@ const FarmerTabNavigator = () => {
         },
         tabBarItemStyle: {
           flex: 1,
-          justifyContent: 'center',
+          justifyContent: 'flex-end',
           alignItems: 'center',
           paddingVertical: 5,
+          minHeight: 60,
         },
         tabBarBackground: () =>
           Platform.OS === 'ios' ? (

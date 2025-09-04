@@ -89,7 +89,7 @@ const mapRequestsToOrders = (requests) => {
         : 'Price not available',
       image: r.productSnapshot?.imageUrl
         ? { uri: r.productSnapshot.imageUrl }
-        : require('../../assets/fruit_placeholder.png'),
+        : require('../../assets/fruits.png'),
       status: mappedStatus,
       seller: r.productSnapshot?.farmerName || 'Unknown Farmer',
       farmerLocation: r.productSnapshot?.farmerLocation || 'Unknown Location',

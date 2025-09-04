@@ -101,7 +101,7 @@ const CustomTabBarIcon = ({ focused, color, size, route }: any) => {
         <Octicons name="home" size={size} color={color} />
       );
       break;
-  case 'Orders':
+    case 'Orders':
       iconComponent = (
         <View style={{ position: 'relative' }}>
           {focused ? (
@@ -109,7 +109,7 @@ const CustomTabBarIcon = ({ focused, color, size, route }: any) => {
           ) : (
             <MaterialDesignIcons name="shopping-outline" size={size} color={color} />
           )}
-      <NotificationBadge size="small" count={unseenOrders} />
+          <NotificationBadge size="small" count={unseenOrders} />
         </View>
       );
       break;
@@ -183,7 +183,7 @@ const BuyerTabNavigator = () => {
         headerShown: false,
         tabBarShowLabel: true,
         tabBarActiveTintColor: Colors.light.primaryDark,
-        tabBarInactiveTintColor: '#8E8E93',
+        tabBarInactiveTintColor: Colors.light.gray,
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: '600',

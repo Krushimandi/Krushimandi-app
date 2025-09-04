@@ -51,7 +51,7 @@ const FruitCard = memo<FruitCardProps>(({
       <Image
         source={{ uri: item.image_urls?.[0] || 'https://via.placeholder.com/150' }}
         style={styles.fruitImage}
-        defaultSource={require('../assets/fruit_placeholder.png')}
+        defaultSource={require('../assets/fruits.png')}
         resizeMode="cover"
       />
       <View style={styles.fruitDetailsSection}>

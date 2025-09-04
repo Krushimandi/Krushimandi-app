@@ -15,12 +15,13 @@ import {
   SafeAreaView,
   Dimensions,
   Modal,
+  Pressable,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Octicons from 'react-native-vector-icons/Octicons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import { getCompleteUserProfile, updateLastLogin, validateCurrentUser, updateUserProfile } from '../../services/firebaseService';
+import { getCompleteUserProfile, updateLastLogin, validateCurrentUser, updateUserProfile, updateUserLocation } from '../../services/firebaseService';
 import { getFruitsByFarmerOptimized, updateFruitStatus } from '../../services/fruitService';
 import auth from '@react-native-firebase/auth';
 import { Colors, } from '../../constants';
@@ -36,6 +37,8 @@ import {
 import { RefreshControl } from 'react-native-gesture-handler';
 import Toast from 'react-native-toast-message';
 import ErrorBoundary from '../common/ErrorBoundary';
+import { getLocationWithCache, getCurrentLocation, getFastLocation } from '../../utils/permissions';
+import { initializeLocationCache } from '../../utils/locationCache';
 
 const fruitCategories = [
   { name: 'All Fruits', type: 'all', icon: null },
@@ -133,6 +136,26 @@ const FarmerHomeScreen = () => {
   const [sortBy, setSortBy] = useState('newest');
   const [showSortModal, setShowSortModal] = useState(false);
   const scrollY = useRef(new Animated.Value(0)).current;
+  // Location modal state and animation
+  const [isLocationModalVisible, setIsLocationModalVisible] = useState(false);
+  const [isGettingLocation, setIsGettingLocation] = useState(false);
+  const locationTapAnim = useRef(new Animated.Value(0)).current;
+
+  const onLocationPress = useCallback(() => {
+    locationTapAnim.setValue(0);
+    Animated.sequence([
+      Animated.timing(locationTapAnim, { toValue: 1, duration: 90, useNativeDriver: true }),
+      Animated.timing(locationTapAnim, { toValue: 0, duration: 120, useNativeDriver: true }),
+    ]).start();
+    setTimeout(() => setIsLocationModalVisible(true), 90);
+  }, [locationTapAnim]);
+
+  const locationAnimatedStyle = useMemo(() => ({
+    transform: [{
+      scale: locationTapAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 0.97] })
+    }],
+    opacity: locationTapAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 0.9] })
+  }), [locationTapAnim]);
 
   // Make sure tab bar is visible when screen comes into focus
   useFocusEffect(
@@ -145,6 +168,11 @@ const FarmerHomeScreen = () => {
     changeNavigationBarColor('#ffffff', true);
     // 1st arg = color
     // 2nd arg = light/dark icons (true = light icons, false = dark icons)
+  }, []);
+
+  // Initialize background location cache on mount
+  useEffect(() => {
+    initializeLocationCache();
   }, []);
 
   useFocusEffect(
@@ -311,13 +339,7 @@ const FarmerHomeScreen = () => {
       routes: [{ name: 'Auth' }],
     });
 
-    Toast.show({
-      type: 'error',
-      visibilityTime: 1000,
-      position: 'bottom',
-      text1: "Session Expired",
-      text2: "Please sign in again."
-    });
+    console.log("Error for validation. user deleted from DB or logout.");
   };
 
   // Get display name for greeting - memoized to prevent recalculations
@@ -785,14 +807,16 @@ const FarmerHomeScreen = () => {
                     <Text style={styles.welcome}>
                       Namste, {getDisplayName}!
                     </Text>
-                    <View style={styles.locationContainer}>
-                      <Text style={styles.location}>
-                        {userProfile?.location ?
-                          `${userProfile.location.city || ''}, ${userProfile.location.state || ''}`.replace(/, $/, '')
-                          : 'Paithan, Maharashtra'}
-                      </Text>
-                      <Icon name="chevron-down" size={12} color="#505050" />
-                    </View>
+                    <TouchableOpacity activeOpacity={0.9} onPress={onLocationPress}>
+                      <Animated.View style={[styles.locationContainer, styles.locationInteractive, locationAnimatedStyle]}>
+                        <Text style={styles.location}>
+                          {userProfile?.location ?
+                            `${userProfile.location.city || ''}, ${userProfile.location.state || ''}`.replace(/, $/, '')
+                            : 'Set your Location'}
+                        </Text>
+                        <Icon name="chevron-down" size={12} color="#505050" />
+                      </Animated.View>
+                    </TouchableOpacity>
                   </TouchableOpacity>
                 </View>
                 <TouchableOpacity
@@ -1280,6 +1304,98 @@ const FarmerHomeScreen = () => {
             </View>
           </TouchableOpacity>
         </Modal>
+        {/* Location Modal */}
+        <Modal
+          visible={isLocationModalVisible}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setIsLocationModalVisible(false)}
+          statusBarTranslucent={true}
+          hardwareAccelerated={true}
+        >
+          <View style={[styles.locModalOverlay, { paddingBottom: insets.bottom }]}> 
+            <Pressable style={StyleSheet.absoluteFill} onPress={() => setIsLocationModalVisible(false)} />
+            <View style={styles.locModalContainer}>
+              <View style={styles.locModalHeader}>
+                <Text style={styles.locModalTitle}>Location</Text>
+                <TouchableOpacity onPress={() => setIsLocationModalVisible(false)} style={styles.locCloseBtn}>
+                  <Icon name="close" size={20} color="#6B7280" />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.locPrivacyRow}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Icon name="lock-closed-outline" size={16} color="#10B981" />
+                  <Text style={styles.locPrivacyLabel}>Private</Text>
+                </View>
+                <Text style={styles.locSetLabel}>Set Location</Text>
+              </View>
+
+              <View style={styles.locPreviewCard}>
+                {userProfile?.location ? (
+                  <>
+                    <Text style={styles.locPreviewMain} numberOfLines={2}>
+                      {`${userProfile.location.city || ''}${userProfile.location.city && userProfile.location.state ? ', ' : ''}${userProfile.location.state || ''}`.replace(/, $/, '') || '—'}
+                    </Text>
+                    {!!userProfile.location.formattedAddress && (
+                      <Text style={styles.locPreviewSub} numberOfLines={2}>
+                        {userProfile.location.formattedAddress}
+                      </Text>
+                    )}
+                  </>
+                ) : (
+                  <Text style={styles.locPreviewPlaceholder}>No location set yet</Text>
+                )}
+              </View>
+
+              <TouchableOpacity
+                style={[styles.locActionBtn, isGettingLocation && { opacity: 0.7 }]}
+                activeOpacity={0.8}
+                disabled={isGettingLocation}
+                onPress={async () => {
+                  if (!userProfile?.uid || !userProfile?.userRole) return;
+                  try {
+                    setIsGettingLocation(true);
+                    // Detect current location (prefer cache speed)
+                    let locData = null;
+                    const cached = await getLocationWithCache();
+                    if (cached?.locationData) {
+                      locData = {
+                        ...cached.locationData,
+                        latitude: cached.location?.latitude,
+                        longitude: cached.location?.longitude,
+                      };
+                    } else {
+                      const gps = await getCurrentLocation();
+                      const address = await getFastLocation(gps.latitude, gps.longitude);
+                      locData = { ...address, latitude: gps.latitude, longitude: gps.longitude };
+                    }
+
+                    const ok = await updateUserLocation(userProfile.uid, userProfile.userRole, locData);
+                    if (ok) {
+                      setUserProfile(prev => prev ? { ...prev, location: locData } : prev);
+                      Toast.show({ type: 'success', text1: 'Location Updated' });
+                      setIsLocationModalVisible(false);
+                    } else {
+                      Toast.show({ type: 'error', text1: 'Update Failed', text2: 'Could not save location. Try again.' });
+                    }
+                  } catch (e) {
+                    console.error('Location update failed:', e?.message || e);
+                    Toast.show({ type: 'error', text1: 'Location Failed', text2: e?.userMessage || 'Unable to update location.' });
+                  } finally {
+                    setIsGettingLocation(false);
+                  }
+                }}
+              >
+                {isGettingLocation ? (
+                  <Text style={styles.locActionBtnText}>Updating…</Text>
+                ) : (
+                  <Text style={styles.locActionBtnText}>Update Location</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
       </SafeAreaView>
     </ErrorBoundary>
   );
@@ -1386,6 +1502,9 @@ const styles = StyleSheet.create({
   locationContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  locationInteractive: {
+    borderRadius: 8,
   },
   location: {
     fontSize: 13,
@@ -1909,6 +2028,100 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#666666',
+  },
+
+  // Location Modal Styles
+  locModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+    alignItems: 'stretch',
+  },
+  locModalContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    margin: 16,
+    borderTopWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  locModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  locModalTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#111827',
+  },
+  locCloseBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  locPrivacyRow: {
+    marginTop: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  locPrivacyLabel: {
+    marginLeft: 6,
+    color: '#10B981',
+    fontWeight: '700',
+  },
+  locSetLabel: {
+    color: '#111827',
+    fontWeight: '700',
+  },
+  locPreviewCard: {
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 12,
+  },
+  locPreviewMain: {
+    fontSize: 16,
+    color: '#111827',
+    fontWeight: '700',
+  },
+  locPreviewSub: {
+    marginTop: 4,
+    fontSize: 13,
+    color: '#6B7280',
+  },
+  locPreviewPlaceholder: {
+    fontSize: 14,
+    color: '#9CA3AF',
+  },
+  locActionBtn: {
+    marginTop: 14,
+    backgroundColor: '#E8F5E8',
+    borderWidth: 1,
+    borderColor: Colors.light.primary,
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  locActionBtnText: {
+    color: Colors.light.primaryDark,
+    fontWeight: '700',
+    fontSize: 15,
   },
 });
 

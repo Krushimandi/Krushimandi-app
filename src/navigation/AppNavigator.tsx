@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
-import { NavigationContainer, useNavigation, useNavigationState } from '@react-navigation/native';
+import { getFocusedRouteNameFromRoute, NavigationContainer, useNavigation, useNavigationState } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { navigationRef, isNavigationReady, pendingNotificationData, handleNotificationNavigation } from './navigationService';
 import { notificationTabEmitter } from './buyer/notificationTabEmitter';
@@ -195,13 +195,31 @@ const AppNavigator: React.FC<AppNavigatorProps> = ({ bootstrapState }) => {
       >
         <RootStack.Navigator
           screenOptions={({ route }) => {
-            const fullScreenList = ['Welcome','Auth'];
-            const isFullScreen = fullScreenList.includes(route.name);
+            // Default fullscreen nahi
+            let isFullScreen = false;
+
+            // Ye direct RootStack screens ke liye
+            const fullScreenList = ['Welcome', 'Auth'];
+
+            if (fullScreenList.includes(route.name)) {
+              isFullScreen = true;
+            }
+
+            // for Nested Stack
+            if (route.name === 'Main') {
+              const nestedRoute = getFocusedRouteNameFromRoute(route) ?? '';
+              const nestedFullScreens = ['FruitsScreen'];
+              if (nestedFullScreens.includes(nestedRoute)) {
+                isFullScreen = true;
+              }
+            }
+
             return {
               headerShown: false,
               cardStyle: { paddingBottom: isFullScreen ? 0 : insets.bottom * 0.6, backgroundColor: '#FFFFFF' },
             };
           }}
+
           initialRouteName={initialRouteName}
         >
           <RootStack.Screen name="Auth" component={AuthNavigator} />

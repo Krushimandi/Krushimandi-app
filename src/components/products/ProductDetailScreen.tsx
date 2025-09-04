@@ -1489,7 +1489,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
             ]}>
               {hasExistingRequestForProduct
                 ? 'You have already sent a request for this product. Check your orders for updates.'
-                : `Slide right to send a purchase request to ${farmerData?.displayName || 'the farmer'}`
+                : `Slide right to send a purchase request.`
               }
             </Text>
           </View>
