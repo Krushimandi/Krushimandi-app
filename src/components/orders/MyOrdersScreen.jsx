@@ -77,37 +77,37 @@ const mapRequestsToOrders = (requests) => {
       const mappedStatus = toUiStatus(r.status);
       if (!mappedStatus) return null;
       return {
-      id: r.id,
-      farmerId: r.farmerId, // Add farmerId for fetching farmer details
-      productName: r.productSnapshot?.name || 'Unknown Product',
-      orderNumber: r.id, // Firestore does not provide orderNumber, use id
-      quantity: Array.isArray(r.quantity)
-        ? `${r.quantity[0]}-${r.quantity[1]} ${r.quantityUnit || 'ton'}`
-        : `${r.quantity} ${r.quantityUnit || 'ton'}`,
-      price: r.productSnapshot?.price
-        ? `₹${r.productSnapshot.price}/${r.productSnapshot.priceUnit || 'ton'}`
-        : 'Price not available',
-      image: r.productSnapshot?.imageUrl
-        ? { uri: r.productSnapshot.imageUrl }
-        : require('../../assets/fruits.png'),
-      status: mappedStatus,
-      seller: r.productSnapshot?.farmerName || 'Unknown Farmer',
-      farmerLocation: r.productSnapshot?.farmerLocation || 'Unknown Location',
-      // Use createdAt (Firestore Timestamp) instead of createdAtString
-      dateOrdered: r.createdAt ? getDateFromTimestamp(r.createdAt) : '',
-      // dateOrdered: r.createdAtString ? getDateFromTimestamp(r.createdAtString)
-      //   : 'Unavailable',
-      deliveryAddress: r.buyerDetails?.location || '',
-      paymentMethod: r.paymentMethod || '',
-      category: r.productSnapshot?.category || '',
-      fruitInfo: {
-        variety: r.productSnapshot?.variety || '',
-        quality: r.productSnapshot?.quality || '',
-        origin: r.productSnapshot?.origin || '',
-        harvestDate: r.productSnapshot?.harvestDate || '',
-      },
-      buyerName: r.buyerDetails?.name || '',
-      unreadMessages: r.unreadMessages || 0,
+        id: r.id,
+        farmerId: r.farmerId, // Add farmerId for fetching farmer details
+        productName: r.productSnapshot?.name || 'Unknown Product',
+        orderNumber: r.id, // Firestore does not provide orderNumber, use id
+        quantity: Array.isArray(r.quantity)
+          ? `${r.quantity[0]}-${r.quantity[1]} ${r.quantityUnit || 'ton'}`
+          : `${r.quantity} ${r.quantityUnit || 'ton'}`,
+        price: r.productSnapshot?.price
+          ? `₹${r.productSnapshot.price}/${r.productSnapshot.priceUnit || 'ton'}`
+          : 'Price not available',
+        image: r.productSnapshot?.imageUrl
+          ? { uri: r.productSnapshot.imageUrl }
+          : require('../../assets/fruits.png'),
+        status: mappedStatus,
+        seller: r.productSnapshot?.farmerName || 'Unknown Farmer',
+        farmerLocation: r.productSnapshot?.farmerLocation || 'Unknown Location',
+        // Use createdAt (Firestore Timestamp) instead of createdAtString
+        dateOrdered: r.createdAt ? getDateFromTimestamp(r.createdAt) : '',
+        // dateOrdered: r.createdAtString ? getDateFromTimestamp(r.createdAtString)
+        //   : 'Unavailable',
+        deliveryAddress: r.buyerDetails?.location || '',
+        paymentMethod: r.paymentMethod || '',
+        category: r.productSnapshot?.category || '',
+        fruitInfo: {
+          variety: r.productSnapshot?.variety || '',
+          quality: r.productSnapshot?.quality || '',
+          origin: r.productSnapshot?.origin || '',
+          harvestDate: r.productSnapshot?.harvestDate || '',
+        },
+        buyerName: r.buyerDetails?.name || '',
+        unreadMessages: r.unreadMessages || 0,
       };
     })
     .filter(Boolean);
@@ -609,7 +609,6 @@ const MyOrdersScreen = () => {
           {/* Farmer & Buyer Details */}
           <View style={styles.farmerDetails}>
             <Text style={styles.farmerName}>{item.seller}</Text>
-            <Text style={styles.infoText}>Buyer: {item.buyerName}</Text>
 
             <View style={styles.varietyRow}>
               <Icon name="leaf-outline" size={14} color="#10B981" />
@@ -1066,13 +1065,14 @@ const styles = StyleSheet.create({
   // Refined Farmer Details Section
   farmerDetails: {
     flex: 1,
+    gap: 2,
     justifyContent: 'space-between',
   },
   farmerName: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#0F172A',
     marginBottom: 10,
+    color: '#0F172A',
     letterSpacing: -0.3,
     lineHeight: 22,
   },
@@ -1098,16 +1098,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingBottom: 16,
+    paddingVertical: 10,
     alignSelf: 'flex-start',
     elevation: 2,
-  },
-  locationText: {
-    fontSize: 13,
-    color: '#DC2626',
-    fontWeight: '600',
-    marginLeft: 5,
-    letterSpacing: -0.1,
   },
 
   // Refined Action Buttons
@@ -1163,24 +1156,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 6,
   },
-  infoText: {
-    fontSize: 13,
-    color: '#64748B',
-    fontWeight: '500',
-    marginLeft: 8,
-  },
-
-  // Location Section
-  locationSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    backgroundColor: '#FEF2F2',
-    borderRadius: 12,
-  },
-  // Removed duplicate locationText style
 
   // Bottom Row
   bottomRow: {

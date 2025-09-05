@@ -65,8 +65,8 @@ const WelcomeScreen = ({ navigation }) => {
 
   const handleGetStarted = () => {
     console.log('Get Started pressed');
-  // Ensure flag is set when user proceeds
-  AsyncStorage.setItem('@krushimandi:onboarding_complete_v2', 'true').catch(() => {});
+    // Ensure flag is set when user proceeds
+    AsyncStorage.setItem('@krushimandi:onboarding_complete_v2', 'true').catch(() => { });
     navigation.navigate('MobileScreen');
   };
 
@@ -78,9 +78,7 @@ const WelcomeScreen = ({ navigation }) => {
 
       {/* Background Image */}
       <ImageBackground
-        source={{
-          uri: 'https://images.unsplash.com/photo-1560493676-04071c5f467b?w=800&h=1200&fit=crop'
-        }}
+        source={require('../../assets/images/background.jpg')}
         style={styles.backgroundImage}
         resizeMode="cover"
       >

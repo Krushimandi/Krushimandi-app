@@ -910,12 +910,12 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                 />
               )}
             </TouchableOpacity>
-            <TouchableOpacity
+            {/* <TouchableOpacity
               style={styles.modernActionButton}
               activeOpacity={0.7}
             >
               <Ionicons name="share-outline" size={20} color="#4CAF50" />
-            </TouchableOpacity>
+            </TouchableOpacity> */}
           </View>
         </View>
 
@@ -1488,7 +1488,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
               hasExistingRequestForProduct && { color: '#4CAF50' }
             ]}>
               {hasExistingRequestForProduct
-                ? 'You have already sent a request for this product. Check your orders for updates.'
+                ? 'You have already sent a request for this product.'
                 : `Slide right to send a purchase request.`
               }
             </Text>
@@ -2669,14 +2669,12 @@ const styles = StyleSheet.create({
     right: 0,
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 20,
-    paddingVertical: 24,
-    borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
+    paddingVertical: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -8 },
     shadowOpacity: 0.12,
     shadowRadius: 16,
-    elevation: 12,
+    elevation: 8,
   },
   enhancedSwipeTrack: {
     height: 68,
@@ -2685,14 +2683,14 @@ const styles = StyleSheet.create({
     position: 'relative',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: '#4CAF50',
     overflow: 'hidden',
-    shadowColor: '#4CAF50',
+    // shadowColor: '#4CAF50',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 12,
-    elevation: 6,
+    elevation: 2,
   },
   disabledSwipeTrack: {
     backgroundColor: '#F5F5F5',
@@ -2753,8 +2751,9 @@ const styles = StyleSheet.create({
   },
   swipeInstructionContainer: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginTop: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 8,
     paddingHorizontal: 4,
     gap: 8,
   },
@@ -2762,7 +2761,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#666666',
     lineHeight: 18,
-    flex: 1,
     fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
 

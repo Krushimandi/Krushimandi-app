@@ -1313,7 +1313,7 @@ const FarmerHomeScreen = () => {
           statusBarTranslucent={true}
           hardwareAccelerated={true}
         >
-          <View style={[styles.locModalOverlay, { paddingBottom: insets.bottom }]}> 
+          <View style={[styles.locModalOverlay, { paddingBottom: insets.bottom }]}>
             <Pressable style={StyleSheet.absoluteFill} onPress={() => setIsLocationModalVisible(false)} />
             <View style={styles.locModalContainer}>
               <View style={styles.locModalHeader}>
@@ -1374,7 +1374,7 @@ const FarmerHomeScreen = () => {
                     const ok = await updateUserLocation(userProfile.uid, userProfile.userRole, locData);
                     if (ok) {
                       setUserProfile(prev => prev ? { ...prev, location: locData } : prev);
-                      Toast.show({ type: 'success', text1: 'Location Updated' });
+                      Toast.show({ type: 'success', text1: 'Location Updated', position: 'bottom' });
                       setIsLocationModalVisible(false);
                     } else {
                       Toast.show({ type: 'error', text1: 'Update Failed', text2: 'Could not save location. Try again.' });

@@ -4,6 +4,7 @@
 
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import messaging from '@react-native-firebase/messaging';
+import functions from '@react-native-firebase/functions';
 import { navigationRef, isNavigationReady, pendingNotificationData, handleNotificationNavigation } from './src/navigation/navigationService';
 import { notificationTabEmitter } from './src/navigation/buyer/notificationTabEmitter';
 import { StatusBar, Alert, View, Text, TouchableOpacity } from 'react-native';
@@ -271,22 +272,53 @@ const App: React.FC = () => {
             unsubscribeOpenedApp();
         };
     }, [addCleanupFunction]);
-    // Safe FCM token handling with validation
+    // Safe FCM token handling with validation + backend registration
+    const lastRegisteredTokenRef = useRef<string | null>(null);
     useEffect(() => {
-        if (fcmToken && typeof fcmToken === 'string' && fcmToken.length > 0) {
+        const registerToken = async () => {
+            if (!fcmToken || typeof fcmToken !== 'string' || fcmToken.length === 0) return;
+
             console.log('🔔 FCM Token received:', fcmToken.substring(0, 20) + '...');
 
             // Validate token format (basic check)
-            if (fcmToken.length < 100) {
-                console.warn('⚠️ FCM Token seems too short, might be invalid');
+            if (fcmToken.length < 50) {
+                console.warn('⚠️ FCM Token seems short, double-check device registration');
             }
 
-            // TODO: Send this token to your backend server for push notification targeting
-            // Example: sendTokenToBackend(fcmToken);
-        } else if (fcmToken === null) {
-            console.warn('⚠️ FCM Token is null - push notifications may not work');
-        }
-    }, [fcmToken]);
+            // Wait for authenticated user to decide collection path and uid
+            const uid = bootstrapState?.user?.uid || bootstrapState?.user?.id;
+            const rawRole = (bootstrapState?.user?.userRole || bootstrapState?.user?.role || '').toString().toLowerCase();
+            if (!uid || !rawRole) {
+                console.log('⏳ Skipping FCM token registration: user not ready');
+                return;
+            }
+
+            // Deduplicate same (uid, token) within session
+            const sig = `${uid}:${fcmToken}`;
+            if (lastRegisteredTokenRef.current === sig) return;
+
+            const role = rawRole.includes('farmer') ? 'farmer' : 'buyer';
+            try {
+                // Check existing tokens first
+                const getRes: any = await functions().httpsCallable('getFcmTokens')({ uid, role });
+                const existing = Array.isArray(getRes?.data?.tokens) ? (getRes.data.tokens as string[]) : [];
+                if (existing.includes(fcmToken)) {
+                    lastRegisteredTokenRef.current = sig;
+                    console.log('ℹ️ FCM token already registered');
+                    return;
+                }
+
+                // Register; backend will enforce max(3) and replace oldest if needed
+                await functions().httpsCallable('registerFcmToken')({ uid, role, token: fcmToken });
+                lastRegisteredTokenRef.current = sig;
+                console.log('✅ FCM token registered with backend');
+            } catch (e: any) {
+                console.error('❌ Failed to register FCM token:', e?.message || e);
+            }
+        };
+
+        registerToken();
+    }, [fcmToken, bootstrapState?.user?.uid, bootstrapState?.user?.userRole]);
 
     // Enhanced push notification initialization - NON-BLOCKING
     useEffect(() => {
