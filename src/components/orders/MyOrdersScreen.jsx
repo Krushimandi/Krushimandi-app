@@ -70,6 +70,38 @@ const toUiStatus = (status) => {
   return null;
 };
 
+// Normalize a location that may be a string or object into a readable string
+const normalizeLocation = (loc) => {
+  if (!loc) return '';
+  if (typeof loc === 'string') return loc;
+  if (typeof loc === 'object') {
+    // Common keys we care about in preferred order
+    const keysPreferred = [
+      'village', 'area', 'locality', 'city', 'district', 'state', 'pincode', 'postalCode', 'country'
+    ];
+    const parts = [];
+    keysPreferred.forEach(k => {
+      const v = loc[k];
+      if (v && typeof v === 'string' && !parts.includes(v)) parts.push(v);
+    });
+    // Fallback: include lat/lng if nothing textual
+    if (parts.length === 0) {
+      const lat = loc.lat || loc.latitude;
+      const lng = loc.lng || loc.longitude || loc.long;
+      if (lat && lng) return `${lat}, ${lng}`;
+    }
+    if (parts.length === 0) {
+      try {
+        return JSON.stringify(loc);
+      } catch (_) {
+        return '';
+      }
+    }
+    return parts.filter(Boolean).join(', ');
+  }
+  return String(loc);
+};
+
 // Helper to map requests to order data (only include accepted/completed)
 const mapRequestsToOrders = (requests) => {
   return (requests || [])
@@ -92,12 +124,12 @@ const mapRequestsToOrders = (requests) => {
           : require('../../assets/fruits.png'),
         status: mappedStatus,
         seller: r.productSnapshot?.farmerName || 'Unknown Farmer',
-        farmerLocation: r.productSnapshot?.farmerLocation || 'Unknown Location',
+        farmerLocation: normalizeLocation(r.productSnapshot?.farmerLocation) || 'Unknown Location',
         // Use createdAt (Firestore Timestamp) instead of createdAtString
         dateOrdered: r.createdAt ? getDateFromTimestamp(r.createdAt) : '',
         // dateOrdered: r.createdAtString ? getDateFromTimestamp(r.createdAtString)
         //   : 'Unavailable',
-        deliveryAddress: r.buyerDetails?.location || '',
+        deliveryAddress: normalizeLocation(r.buyerDetails?.location) || '',
         paymentMethod: r.paymentMethod || '',
         category: r.productSnapshot?.category || '',
         fruitInfo: {
@@ -625,7 +657,11 @@ const MyOrdersScreen = () => {
 
         <View style={styles.locationRow}>
           <Icon name="location-outline" size={16} color="#EF4444" />
-          <Text style={styles.locationText}>{item.farmerLocation}</Text>
+          <Text style={styles.locationText}>{
+            typeof item.farmerLocation === 'string'
+              ? item.farmerLocation
+              : normalizeLocation(item.farmerLocation)
+          }</Text>
         </View>
 
         {/* Action Buttons - Only Call and Message */}

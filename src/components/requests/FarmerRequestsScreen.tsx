@@ -515,7 +515,13 @@ const FarmerRequestsScreen = ({ route }: { route?: any }) => {
                         {/* Location */}
                         <View style={styles.locationRow}>
                             <Icon name="location-outline" size={14} color="#6B7280" />
-                            <Text style={styles.location}>{item.buyerDetails.location}</Text>
+                            <Text style={styles.location}>{
+                                typeof item.buyerDetails.location === 'string'
+                                    ? item.buyerDetails.location
+                                    : (item.buyerDetails.location && typeof item.buyerDetails.location === 'object'
+                                        ? Object.values(item.buyerDetails.location).filter(v => typeof v === 'string').join(', ')
+                                        : '')
+                            }</Text>
                         </View>
 
                         {/* Quantity and Price */}

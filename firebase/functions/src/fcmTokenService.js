@@ -38,7 +38,7 @@ exports.registerFcmToken = onCall(async (request) => {
   throw new HttpsError('invalid-argument', 'role and a valid token are required');
   }
 
-  const { docRef, arrayField } = getPaths(role, resolvedUid);
+  const { docRef, arrayField, type } = getPaths(role, resolvedUid);
 
   // Read current tokens to enforce max 3 and ordering (oldest first)
   const snap = await docRef.get();
@@ -57,6 +57,15 @@ exports.registerFcmToken = onCall(async (request) => {
   }
 
   await docRef.set({ [arrayField]: updated }, { merge: true });
+
+  // Mirror farmer tokens also onto root farmer doc for easier visibility in console
+  if (type === 'farmer') {
+    try {
+      await db.collection('farmer').doc(resolvedUid).set({ [arrayField]: updated }, { merge: true });
+    } catch (err) {
+      console.warn('⚠️ Failed to mirror farmer tokens to root doc', resolvedUid, err);
+    }
+  }
   return { ok: true, tokens: updated };
 });
 
@@ -71,8 +80,19 @@ exports.removeFcmToken = onCall(async (request) => {
   if (!role || !token) {
   throw new HttpsError('invalid-argument', 'role and token are required');
   }
-  const { docRef, arrayField } = getPaths(role, resolvedUid);
+  const { docRef, arrayField, type } = getPaths(role, resolvedUid);
   await docRef.set({ [arrayField]: admin.firestore.FieldValue.arrayRemove(token) }, { merge: true });
+
+  // Also mirror removal to root farmer doc if applicable (recompute remaining tokens)
+  if (type === 'farmer') {
+    try {
+      const snap = await docRef.get();
+      const remaining = (snap.exists && Array.isArray(snap.get(arrayField))) ? snap.get(arrayField).filter(t => t !== token) : [];
+      await db.collection('farmer').doc(resolvedUid).set({ [arrayField]: remaining }, { merge: true });
+    } catch (err) {
+      console.warn('⚠️ Failed to mirror farmer token removal', resolvedUid, err);
+    }
+  }
   return { ok: true };
 });
 

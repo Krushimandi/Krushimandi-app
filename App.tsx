@@ -276,16 +276,16 @@ const App: React.FC = () => {
     const lastRegisteredTokenRef = useRef<string | null>(null);
     useEffect(() => {
         const registerToken = async () => {
+            // Ensure authentication/bootstrap is fully completed before attempting registration
+            if (!isBootstrapped || !bootstrapState) return;
             if (!fcmToken || typeof fcmToken !== 'string' || fcmToken.length === 0) return;
 
             console.log('🔔 FCM Token received:', fcmToken.substring(0, 20) + '...');
 
-            // Validate token format (basic check)
             if (fcmToken.length < 50) {
                 console.warn('⚠️ FCM Token seems short, double-check device registration');
             }
 
-            // Wait for authenticated user to decide collection path and uid
             const uid = bootstrapState?.user?.uid || bootstrapState?.user?.id;
             const rawRole = (bootstrapState?.user?.userRole || bootstrapState?.user?.role || '').toString().toLowerCase();
             if (!uid || !rawRole) {
@@ -293,32 +293,65 @@ const App: React.FC = () => {
                 return;
             }
 
-            // Deduplicate same (uid, token) within session
             const sig = `${uid}:${fcmToken}`;
             if (lastRegisteredTokenRef.current === sig) return;
 
-            const role = rawRole.includes('farmer') ? 'farmer' : 'buyer';
+            const role = (rawRole.includes('farmer') || rawRole.includes('seller')) ? 'farmer' : 'buyer';
+
+            // Build callable endpoints explicitly for region (asia-south1)
+            const projectId = functions().app?.options?.projectId;
+            const region = 'asia-south1';
+            const makeCallable = (name: string) => {
+                if (projectId) {
+                    const url = `https://${region}-${projectId}.cloudfunctions.net/${name}`;
+                    // @ts-ignore (if types not updated) use lower-case 'l' variant
+                    return (functions() as any).httpsCallableFromUrl
+                        ? (functions() as any).httpsCallableFromUrl(url)
+                        : functions().httpsCallable(url);
+                }
+                return functions().httpsCallable(name);
+            };
+
             try {
-                // Check existing tokens first
-                const getRes: any = await functions().httpsCallable('getFcmTokens')({ uid, role });
+                console.log('🌐 Checking existing tokens (region asia-south1)...');
+                const getRes: any = await makeCallable('getFcmTokens')({ uid, role });
                 const existing = Array.isArray(getRes?.data?.tokens) ? (getRes.data.tokens as string[]) : [];
+                console.log('📦 Existing tokens from backend:', existing);
                 if (existing.includes(fcmToken)) {
                     lastRegisteredTokenRef.current = sig;
-                    console.log('ℹ️ FCM token already registered');
+                    console.log('ℹ️ FCM token already registered (no action)');
                     return;
                 }
 
-                // Register; backend will enforce max(3) and replace oldest if needed
-                await functions().httpsCallable('registerFcmToken')({ uid, role, token: fcmToken });
+                console.log('📝 Registering new FCM token to backend...');
+                await makeCallable('registerFcmToken')({ uid, role, token: fcmToken });
                 lastRegisteredTokenRef.current = sig;
-                console.log('✅ FCM token registered with backend');
+                console.log('✅ FCM token registered with backend (asia-south1)');
             } catch (e: any) {
-                console.error('❌ Failed to register FCM token:', e?.message || e);
+                const msg = e?.message || e?.toString?.() || 'unknown error';
+                console.error('❌ Failed (asia-south1) callable:', msg);
+
+                // Fallback: try default region us-central1 in case of region mismatch
+                try {
+                    console.log('🔁 Fallback attempt in default region (us-central1)...');
+                    const defaultGet: any = await functions().httpsCallable('getFcmTokens')({ uid, role });
+                    const existing2 = Array.isArray(defaultGet?.data?.tokens) ? defaultGet.data.tokens : [];
+                    if (existing2.includes(fcmToken)) {
+                        lastRegisteredTokenRef.current = sig;
+                        console.log('ℹ️ Token already registered in fallback region');
+                        return;
+                    }
+                    await functions().httpsCallable('registerFcmToken')({ uid, role, token: fcmToken });
+                    lastRegisteredTokenRef.current = sig;
+                    console.log('✅ Token registered via fallback region (us-central1)');
+                } catch (fallbackErr: any) {
+                    console.error('❌ Fallback registration failed:', fallbackErr?.message || fallbackErr);
+                }
             }
         };
 
         registerToken();
-    }, [fcmToken, bootstrapState?.user?.uid, bootstrapState?.user?.userRole]);
+    }, [isBootstrapped, fcmToken, bootstrapState?.user?.uid, bootstrapState?.user?.userRole]);
 
     // Enhanced push notification initialization - NON-BLOCKING
     useEffect(() => {

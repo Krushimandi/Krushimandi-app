@@ -108,6 +108,26 @@ class RequestService {
             console.log('🚜 Farmer data from Firestore:', JSON.stringify(farmerData, null, 2));
             console.log('🚜 Farmer data keys:', Object.keys(farmerData || {}));
 
+            // Normalize buyer location (can be object or string)
+            const rawBuyerLocation: any = buyerData!.location;
+            const buyerLocationStr = typeof rawBuyerLocation === 'string'
+                ? rawBuyerLocation
+                : (rawBuyerLocation && typeof rawBuyerLocation === 'object'
+                    ? [rawBuyerLocation.village, rawBuyerLocation.city, rawBuyerLocation.district, rawBuyerLocation.state]
+                        .filter(Boolean)
+                        .join(', ') || 'Unknown Location'
+                    : 'Unknown Location');
+
+            // Normalize farmer location
+            const rawFarmerLocation: any = farmerData!.location || fruitData!.location;
+            const farmerLocationStr = typeof rawFarmerLocation === 'string'
+                ? rawFarmerLocation
+                : (rawFarmerLocation && typeof rawFarmerLocation === 'object'
+                    ? [rawFarmerLocation.village, rawFarmerLocation.city, rawFarmerLocation.district, rawFarmerLocation.state]
+                        .filter(Boolean)
+                        .join(', ') || 'Unknown Location'
+                    : 'Unknown Location');
+
             // Create request object
             const request: RequestForCreation = {
                 buyerId,
@@ -126,16 +146,13 @@ class RequestService {
                     priceUnit: 'ton', // Default unit as per new schema
                     category: fruitData!.type || 'Other',
                     farmerName: farmerData!.name || farmerData!.displayName || 'Unknown Farmer',
-                    farmerLocation: farmerData!.location ||
-                        (fruitData!.location ?
-                            `${fruitData!.location.city}, ${fruitData!.location.district}, ${fruitData!.location.state}` :
-                            'Unknown Location'),
+                    farmerLocation: farmerLocationStr,
                     imageUrl: fruitData!.image_urls && fruitData!.image_urls.length > 0 ? fruitData!.image_urls[0] : ''
                 },
                 buyerDetails: {
                     name: buyerData!.name || buyerData!.displayName || 'Unknown Buyer',
                     phone: buyerData!.phone || buyerData!.phoneNumber || '',
-                    location: buyerData!.location || 'Unknown Location'
+                    location: buyerLocationStr
                 }
             };
 
