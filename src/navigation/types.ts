@@ -38,6 +38,9 @@ export type RootStackParamList = {
   HelpGuide: undefined;
   HelpScreen: undefined;
   FaqDetail: undefined;
+  PaymentSecurity: undefined;
+  AppPlatform: undefined;
+  BestPractices: undefined;
   Languages: undefined;
   PrivacyPolicy: undefined;
   ProfileSettings: undefined;

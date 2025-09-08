@@ -927,17 +927,13 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
           <View style={styles.enhancedImageSection}>
             {product.image_urls && product.image_urls.length > 0 ? (
               <>
-                {/* Hero Image Container with Gradient Overlay */}
+                {/* Hero Image Container */}
                 <View style={styles.heroImageContainer}>
                   <Image
                     source={{ uri: product.image_urls[selectedImageIndex] }}
                     style={styles.heroProductImage}
                     resizeMode="cover"
                   />
-
-                  {/* Gradient Overlay for better text readability */}
-                  <View style={styles.gradientOverlay} />
-
                   {/* Quick Stats Overlay */}
                   {/* <View style={styles.quickStatsOverlay}>
                     <View style={styles.quickStat}>
@@ -990,7 +986,9 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                               <Ionicons name="checkmark-circle" size={18} color="#4CAF50" />
                             </View>
                           )}
-                          <View style={styles.thumbnailBorder} />
+                          
+                          {/* Gradient Overlay for better text readability */}
+                          <View style={styles.gradientOverlay} />
                         </TouchableOpacity>
                       )}
                     />
@@ -1596,7 +1594,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: 120,
+    height: '100%',
     backgroundColor: 'rgba(0,0,0,0.2)',
   },
   enhancedStatusBadge: {
@@ -1669,7 +1667,7 @@ const styles = StyleSheet.create({
     fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
   enhancedThumbnailSection: {
-    paddingTop: 16,
+    paddingVertical: 10,
     paddingHorizontal: 16,
   },
   enhancedThumbnailContainer: {
@@ -1705,16 +1703,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.9)',
     borderRadius: 12,
     padding: 2,
-  },
-  thumbnailBorder: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    borderRadius: 17,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.08)',
   },
   enhancedImagePlaceholder: {
     flex: 1,

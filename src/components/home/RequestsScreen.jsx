@@ -65,16 +65,37 @@ const RequestsScreen = () => {
 
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedFilter, setSelectedFilter] = useState('Pending');
+  // Default to 'All' so user sees every request initially
+  const [selectedFilter, setSelectedFilter] = useState('All');
   const [sortBy, setSortBy] = useState('date');
   const [showFilters, setShowFilters] = useState(false);
   const fadeAnim = useState(new Animated.Value(0))[0];
 
+  // Safely format any farmerLocation object into a displayable string
+  const formatLocationValue = useCallback((loc) => {
+    if (!loc) return 'Unknown Location';
+    if (typeof loc === 'string') return loc;
+    if (typeof loc === 'object') {
+      const { city, district, state, formattedAddress } = loc;
+      const parts = [city, district, state].filter(p => !!p && String(p).trim().length > 0);
+      if (parts.length > 0) return parts.join(', ');
+      if (formattedAddress && typeof formattedAddress === 'string') return formattedAddress;
+      try {
+        return JSON.stringify(loc);
+      } catch {
+        return 'Unknown Location';
+      }
+    }
+    return String(loc);
+  }, []);
+
   // const filters = ['All', 'Pending', 'Accepted', 'Rejected', 'Expired'];
-  const filters = ['Pending', 'Rejected', 'Cancelled', 'Expired'];
+  // Re-introduce 'All' so user can see every request regardless of status
+  const filters = ['All', 'Pending', 'Rejected', 'Cancelled', 'Expired'];
   const sortOptions = [
     { key: 'date', label: 'Date', icon: 'calendar-outline' },
-    { key: 'status', label: 'Status', icon: 'checkmark-circle-outline' },
+  { key: 'alphabetical', label: 'A-Z', icon: 'list-outline' },
+  { key: 'quantity', label: 'Quantity', icon: 'stats-chart-outline' },
     { key: 'price', label: 'Price', icon: 'pricetag-outline' },
   ];
 
@@ -147,13 +168,13 @@ const RequestsScreen = () => {
       const productName = item.productSnapshot?.name || '';
       const buyerName = item.buyerDetails?.name || '';
       const farmerName = item.productSnapshot?.farmerName || '';
-      const location = item.productSnapshot?.farmerLocation || '';
+      const locationStr = formatLocationValue(item.productSnapshot?.farmerLocation || '');
 
       const matchesSearch =
         productName.toLowerCase().includes(searchQuery.toLowerCase()) ||
         buyerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
         farmerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        location.toLowerCase().includes(searchQuery.toLowerCase());
+        locationStr.toLowerCase().includes(searchQuery.toLowerCase());
 
       const matchesFilter = selectedFilter === 'All' ||
         item.status.toLowerCase() === selectedFilter.toLowerCase();
@@ -164,9 +185,21 @@ const RequestsScreen = () => {
     // Sort requests
     filtered.sort((a, b) => {
       switch (sortBy) {
-        case 'status':
-          const statusOrder = { pending: 1, accepted: 2, cancelled: 3, rejected: 4, expired: 5 };
-          return statusOrder[a.status] - statusOrder[b.status];
+        case 'alphabetical':
+          return (a.productSnapshot?.name || '').localeCompare(b.productSnapshot?.name || '');
+        case 'quantity': {
+          const getQuantityValue = (q, unit) => {
+            if (Array.isArray(q)) {
+              const avg = (parseFloat(q[0]) + parseFloat(q[1])) / 2;
+              return isNaN(avg) ? 0 : avg;
+            }
+            const num = parseFloat(q);
+            return isNaN(num) ? 0 : num;
+          };
+          const qa = getQuantityValue(a.quantity, a.quantityUnit);
+            const qb = getQuantityValue(b.quantity, b.quantityUnit);
+          return qb - qa; // Descending (largest first)
+        }
         case 'price':
           const priceA = parseFloat(a.productSnapshot?.price?.toString().replace(/[^\d.]/g, '') || '0');
           const priceB = parseFloat(b.productSnapshot?.price?.toString().replace(/[^\d.]/g, '') || '0');
@@ -206,7 +239,10 @@ const RequestsScreen = () => {
     const farmerName = item.productSnapshot?.farmerName || 'Unknown Farmer';
     const buyerName = item.buyerDetails?.name || 'Unknown Buyer';
     const productName = item.productSnapshot?.name || 'Unknown Product';
-    const location = item.productSnapshot?.farmerLocation || 'Unknown Location';
+    let location = item.productSnapshot?.farmerLocation || 'Unknown Location';
+    if (location && typeof location === 'object') {
+      location = location.formattedAddress || JSON.stringify(location);
+    }
     const quantity = Array.isArray(item.quantity) ?
       `${item.quantity[0]}-${item.quantity[1]} ${item.quantityUnit || 'ton'}` :
       `${item.quantity} ${item.quantityUnit || 'ton'}`;
@@ -338,7 +374,8 @@ const RequestsScreen = () => {
     const farmerName = item.productSnapshot?.farmerName || 'Unknown Farmer';
     const buyerName = item.buyerDetails?.name || 'Unknown Buyer';
     const displayName = isBuyer ? farmerName : buyerName;
-    const location = item.productSnapshot?.farmerLocation || 'Unknown Location';
+  const rawLocation = item.productSnapshot?.farmerLocation;
+  const locationStr = formatLocationValue(rawLocation);
     const price = item.productSnapshot?.price ? `₹${item.productSnapshot.price}/${item.productSnapshot.priceUnit || 'TON'}` : 'Price not available';
     const quantity = Array.isArray(item.quantity) ?
       `${item.quantity[0]}-${item.quantity[1]} ${item.quantityUnit || 'ton'}` :
@@ -405,7 +442,7 @@ const RequestsScreen = () => {
 
           <View style={styles.locationRow}>
             <Icon name="location-outline" size={14} color="#6B7280" />
-            <Text style={styles.location}>{location}</Text>
+            <Text style={styles.location} numberOfLines={1} ellipsizeMode="tail">{locationStr}</Text>
           </View>
 
           <View style={styles.bottomRow}>

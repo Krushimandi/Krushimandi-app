@@ -123,7 +123,7 @@ const NotificationDetail: React.FC<NotificationDetailProps> = ({ navigation, rou
     <SafeAreaView style={styles.container} edges={['top']}>
       <StatusBar
         backgroundColor="#FFFFFF"
-        
+
         barStyle="dark-content"
       />
 
@@ -139,7 +139,7 @@ const NotificationDetail: React.FC<NotificationDetailProps> = ({ navigation, rou
 
         <Text style={styles.headerTitle}>{getTypeTag()}</Text>
 
-        <TouchableOpacity
+        {/* <TouchableOpacity
           style={styles.actionButton}
           onPress={() => {
             // Mark as unread or other actions
@@ -147,7 +147,8 @@ const NotificationDetail: React.FC<NotificationDetailProps> = ({ navigation, rou
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
           <Icon name="ellipsis-vertical" size={20} color={Colors.light.text} />
-        </TouchableOpacity>      </View>
+        </TouchableOpacity>  */}
+      </View>
 
       {/* Content */}
       <ScrollView

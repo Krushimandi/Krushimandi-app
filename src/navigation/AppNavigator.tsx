@@ -11,9 +11,7 @@ import { SettingsScreen } from '../components/settings';
 import BuyerProfileScreen from '../components/ProfileScreen/BuyerProfileScreen';
 import EditProfileScreen from '../components/ProfileScreen/EditProfileScreen';
 import AboutScreen from '../components/ProfileScreen/AboutScreen';
-import HelpScreen from '../components/Help/HelpScreen';
-import HelpGuide from '../components/Help/HelpGuide';
-import FaqDetail from '../components/Help/FaqDetail';
+import { HelpScreen, HelpGuide, FaqDetail, PaymentSecurity, AppPlatform, BestPractices } from '../components/Help';
 import LanguagesScreen from '../components/ProfileScreen/LanguagesScreen';
 import PrivacyPolicyScreen from '../components/ProfileScreen/PrivacyPolicyScreen';
 
@@ -56,26 +54,29 @@ let previousAuthState: boolean | null = null;
 const AppNavigator: React.FC<AppNavigatorProps> = ({ bootstrapState }) => {
   const { isAuthenticated, userRole, isLoading, user, refreshUserRole } = useAuthState();
   const [navigationKey, setNavigationKey] = useState(0);
+  // Prevent RoleSelection flicker for existing users: resolve role before deciding stack
+  const [resolvingRole, setResolvingRole] = useState(false);
 
   // Memoized auth state consolidation - single source of truth
   const authState: ConsolidatedAuthState = useMemo(() => {
     // Priority: Context state (includes Firebase sync) > Bootstrap state
     const contextAuth = isAuthenticated !== null && isAuthenticated !== undefined ? isAuthenticated : null;
     const finalIsAuthenticated = contextAuth !== null ? contextAuth : bootstrapState.isAuthenticated;
-    const finalUserRole = userRole || bootstrapState.userRole;
+    // Try to infer role from multiple sources to avoid transient missing role flicker
+    const inferredRole = userRole || bootstrapState.userRole || (user as any)?.role || (user as any)?.userType;
     const finalUser = user || bootstrapState.user;
 
     // Enhanced validation for proper authentication state
-    const hasValidFirebaseAuth = finalUser && finalUser.uid;
-    const hasValidRole = finalUserRole && (finalUserRole === 'buyer' || finalUserRole === 'farmer');
-    const isFullyAuthenticated = finalIsAuthenticated && hasValidFirebaseAuth && hasValidRole;
+    const hasValidFirebaseAuth = !!(finalUser && (finalUser as any).uid);
+    const hasValidRole = inferredRole === 'buyer' || inferredRole === 'farmer';
+    const isFullyAuthenticated = !!finalIsAuthenticated && hasValidFirebaseAuth && hasValidRole;
 
     return {
-      isAuthenticated: finalIsAuthenticated,
-      userRole: finalUserRole,
+      isAuthenticated: !!finalIsAuthenticated,
+      userRole: (hasValidRole ? inferredRole : null) as any,
       user: finalUser,
-      hasValidFirebaseAuth: !!hasValidFirebaseAuth,
-      hasValidRole: !!hasValidRole,
+      hasValidFirebaseAuth,
+      hasValidRole,
       isFullyAuthenticated,
       shouldShowMainApp: isFullyAuthenticated,
       authSource: contextAuth !== null ? 'context' : 'bootstrap'
@@ -151,12 +152,39 @@ const AppNavigator: React.FC<AppNavigatorProps> = ({ bootstrapState }) => {
     }
   }, [authState.isFullyAuthenticated, authState.userRole, authState.isAuthenticated, authState.hasValidFirebaseAuth, authState.hasValidRole]);
 
-  // Show loading while authentication state is being determined
-  if (isLoading || !bootstrapState.isReady) {
+  // If we have a Firebase user (authenticated) but role hasn't been resolved yet, attempt to load it
+  useEffect(() => {
+    if (
+      authState.isAuthenticated &&
+      authState.hasValidFirebaseAuth &&
+      !authState.hasValidRole &&
+      !resolvingRole
+    ) {
+      console.log('🔄 Resolving user role before deciding navigation stack to avoid RoleSelection flicker');
+      setResolvingRole(true);
+      (async () => {
+        try {
+          await refreshUserRole();
+        } catch (e) {
+          console.warn('⚠️ Failed to resolve user role early:', e);
+        } finally {
+          setResolvingRole(false);
+        }
+      })();
+    }
+  }, [authState.isAuthenticated, authState.hasValidFirebaseAuth, authState.hasValidRole, resolvingRole, refreshUserRole]);
+
+  // Show loading while authentication state/role is being determined
+  if (
+    isLoading ||
+    !bootstrapState.isReady ||
+    (authState.isAuthenticated && authState.hasValidFirebaseAuth && !authState.hasValidRole)
+  ) {
     console.log('⏳ Showing loading screen:', {
       isLoading,
       bootstrapReady: bootstrapState.isReady,
-      reason: !bootstrapState.isReady ? 'Bootstrap not ready' : 'Auth loading'
+      waitingForRole: authState.isAuthenticated && authState.hasValidFirebaseAuth && !authState.hasValidRole,
+      reason: !bootstrapState.isReady ? 'Bootstrap not ready' : (!authState.hasValidRole ? 'Resolving role' : 'Auth loading')
     });
     return <LoadingScreen />;
   }
@@ -231,6 +259,9 @@ const AppNavigator: React.FC<AppNavigatorProps> = ({ bootstrapState }) => {
           <RootStack.Screen name="HelpScreen" component={HelpScreen} />
           <RootStack.Screen name="FaqDetail" component={FaqDetail} />
           <RootStack.Screen name="HelpGuide" component={HelpGuide} />
+          <RootStack.Screen name="PaymentSecurity" component={PaymentSecurity} />
+          <RootStack.Screen name="AppPlatform" component={AppPlatform} />
+          <RootStack.Screen name="BestPractices" component={BestPractices} />
           <RootStack.Screen name="Languages" component={LanguagesScreen} />
           <RootStack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
           <RootStack.Screen name="ProfileSettings" component={SettingsScreen} />

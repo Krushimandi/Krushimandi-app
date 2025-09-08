@@ -6,11 +6,9 @@ if (!admin.apps.length) {
 }
 const db = admin.firestore();
 
-/**
- * Normalizes role + path according to requirement:
- *  - buyers/{uid}/fcmTokens (array field named fcmTokens on the doc)
- *  - farmer/{uid}/token/fcmTokens (doc containing an array field named fcmTokens)
- */
+// Unified flat structure for FCM tokens:
+// buyers/{uid}    -> field: fcmTokens: []
+// farmers/{uid}   -> field: fcmTokens: []
 function getPaths(role, uid) {
   const r = (role || '').toString().toLowerCase();
   if (r === 'buyer' || r === 'buyers') {
@@ -18,8 +16,8 @@ function getPaths(role, uid) {
     return { type: 'buyers', docRef, arrayField: 'fcmTokens' };
   }
   if (r === 'farmer' || r === 'farmers' || r === 'seller') {
-    const docRef = db.collection('farmer').doc(uid).collection('token').doc('fcmTokens');
-    return { type: 'farmer', docRef, arrayField: 'fcmTokens' };
+    const docRef = db.collection('farmers').doc(uid);
+    return { type: 'farmers', docRef, arrayField: 'fcmTokens' };
   }
   throw new HttpsError('invalid-argument', 'role must be buyer or farmer');
 }
@@ -32,10 +30,10 @@ exports.registerFcmToken = onCall(async (request) => {
   // Allow client to omit uid; when authenticated, use context
   const resolvedUid = uid || (context.auth && context.auth.uid);
   if (!resolvedUid) {
-  throw new HttpsError('unauthenticated', 'uid missing and no auth context');
+    throw new HttpsError('unauthenticated', 'uid missing and no auth context');
   }
   if (!role || !token || typeof token !== 'string' || token.length < 10) {
-  throw new HttpsError('invalid-argument', 'role and a valid token are required');
+    throw new HttpsError('invalid-argument', 'role and a valid token are required');
   }
 
   const { docRef, arrayField, type } = getPaths(role, resolvedUid);
@@ -58,14 +56,6 @@ exports.registerFcmToken = onCall(async (request) => {
 
   await docRef.set({ [arrayField]: updated }, { merge: true });
 
-  // Mirror farmer tokens also onto root farmer doc for easier visibility in console
-  if (type === 'farmer') {
-    try {
-      await db.collection('farmer').doc(resolvedUid).set({ [arrayField]: updated }, { merge: true });
-    } catch (err) {
-      console.warn('⚠️ Failed to mirror farmer tokens to root doc', resolvedUid, err);
-    }
-  }
   return { ok: true, tokens: updated };
 });
 
@@ -75,24 +65,14 @@ exports.removeFcmToken = onCall(async (request) => {
   const { uid, role, token } = data || {};
   const resolvedUid = uid || (context.auth && context.auth.uid);
   if (!resolvedUid) {
-  throw new HttpsError('unauthenticated', 'uid missing and no auth context');
+    throw new HttpsError('unauthenticated', 'uid missing and no auth context');
   }
   if (!role || !token) {
-  throw new HttpsError('invalid-argument', 'role and token are required');
+    throw new HttpsError('invalid-argument', 'role and token are required');
   }
   const { docRef, arrayField, type } = getPaths(role, resolvedUid);
   await docRef.set({ [arrayField]: admin.firestore.FieldValue.arrayRemove(token) }, { merge: true });
 
-  // Also mirror removal to root farmer doc if applicable (recompute remaining tokens)
-  if (type === 'farmer') {
-    try {
-      const snap = await docRef.get();
-      const remaining = (snap.exists && Array.isArray(snap.get(arrayField))) ? snap.get(arrayField).filter(t => t !== token) : [];
-      await db.collection('farmer').doc(resolvedUid).set({ [arrayField]: remaining }, { merge: true });
-    } catch (err) {
-      console.warn('⚠️ Failed to mirror farmer token removal', resolvedUid, err);
-    }
-  }
   return { ok: true };
 });
 
@@ -102,10 +82,10 @@ exports.getFcmTokens = onCall(async (request) => {
   const { uid, role } = data || {};
   const resolvedUid = uid || (context.auth && context.auth.uid);
   if (!resolvedUid) {
-  throw new HttpsError('unauthenticated', 'uid missing and no auth context');
+    throw new HttpsError('unauthenticated', 'uid missing and no auth context');
   }
   if (!role) {
-  throw new HttpsError('invalid-argument', 'role is required');
+    throw new HttpsError('invalid-argument', 'role is required');
   }
   const { docRef, arrayField } = getPaths(role, resolvedUid);
   const snap = await docRef.get();

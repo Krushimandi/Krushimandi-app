@@ -24,7 +24,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import Octicons from 'react-native-vector-icons/Octicons';
 import { useNavigation } from '@react-navigation/native';
 import { useFocusEffect } from '@react-navigation/native';
-import { getCompleteUserProfile, updateLastLogin, validateCurrentUser, updateUserLocation } from '../../services/firebaseService';
+import { getCompleteUserProfile, updateLastLogin, validateCurrentUser, updateUserLocation, isNetworkAvailable } from '../../services/firebaseService';
 import { getMarketplaceFruits } from '../../services/fruitService';
 import auth from '@react-native-firebase/auth';
 import { Colors } from '../../constants';
@@ -55,9 +55,6 @@ const categories = [
   { name: 'Mango', type: 'mango', icon: require('../../assets/fruits/mango.png') },
 ];
 
-// Get screen dimensions
-const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
-
 const BuyerHomeScreen = () => {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
@@ -85,6 +82,9 @@ const BuyerHomeScreen = () => {
   const scrollY = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(0)).current;
   const searchTimeoutRef = useRef(null);
+  // Guard counters to prevent premature logout when Firebase user temporarily null (offline/race)
+  const userValidationAttempts = useRef(0);
+  const validatingUserRef = useRef(false);
   // Location modal state
   const [isLocationModalVisible, setIsLocationModalVisible] = useState(false);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
@@ -454,15 +454,40 @@ const BuyerHomeScreen = () => {
     try {
       const user = auth().currentUser;
       if (!user) {
+        const online = await isNetworkAvailable().catch(() => false);
+        userValidationAttempts.current += 1;
+        console.log('⚠️ Firebase user null during profile load (BuyerHomeScreen).', {
+          attempt: userValidationAttempts.current,
+          online
+        });
+        if (!online && userValidationAttempts.current <= 5) {
+          // Offline scenario – keep session, retry a few times
+          setTimeout(() => loadUserProfile(forceRefresh), 600);
+          return;
+        }
+        if (userValidationAttempts.current <= 3) {
+          // Possible race; retry before declaring failure
+          setTimeout(() => loadUserProfile(forceRefresh), 400 * userValidationAttempts.current);
+          return;
+        }
         handleUserValidationFailure();
         return;
       }
 
       // First validate if the user still exists on Firebase server
-      const isValidUser = await validateCurrentUser();
-      if (!isValidUser) {
-        handleUserValidationFailure();
-        return;
+      if (!validatingUserRef.current) {
+        validatingUserRef.current = true;
+        const isValidUser = await validateCurrentUser();
+        validatingUserRef.current = false;
+        if (!isValidUser) {
+          const online = await isNetworkAvailable().catch(() => false);
+          if (online) {
+            handleUserValidationFailure();
+            return;
+          } else {
+            console.log('📱 Offline validation failed but preserving session');
+          }
+        }
       }
 
       // Get complete user profile from Firestore/AsyncStorage, force refresh if needed
@@ -890,14 +915,13 @@ const BuyerHomeScreen = () => {
             {
               height: headerHeight,
               paddingTop: insets.top + 4,
-              backgroundColor: '#FFFFFF', // Ensure background stays white
             }
           ]}>
             <Animated.View style={[
               styles.headerContent,
               {
                 opacity: headerOpacity,
-                backgroundColor: 'transparent', // Prevent double background
+                backgroundColor: 'transparent',
               }
             ]}>
               <View style={styles.headerRow}>
@@ -947,13 +971,15 @@ const BuyerHomeScreen = () => {
                     </Text>
                     <TouchableOpacity activeOpacity={0.9} onPress={onLocationPress}>
                       <Animated.View style={[styles.locationContainer, styles.locationInteractive, locationAnimatedStyle]}>
-                        <Text style={styles.location}>
-                          {userProfile?.location ?
-                            `${userProfile.location.city || ''}, ${userProfile.location.district
-                              ? userProfile.location.district.length > 15
-                                ? userProfile.location.district.slice(0, 10) + "..."
-                                : userProfile.location.district
-                              : ""}`.replace(/, $/, '')
+                        <Text
+                          style={styles.location}
+                          numberOfLines={1}
+                          ellipsizeMode="tail"
+                        >
+                          {userProfile?.location
+                            ? [userProfile.location.city, userProfile.location.district]
+                              .filter(part => !!part && part.trim().length > 0)
+                              .join(', ') || 'Set your Location'
                             : 'Set your Location'}
                         </Text>
                         <Icon name="chevron-down" size={12} color="#505050" />
@@ -1300,28 +1326,18 @@ const BuyerHomeScreen = () => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F8FAFC', // Light background to contrast white header
   },
   scrollViewContent: {
-    paddingBottom: 80,
+    paddingBottom: 90,
   },
+
   header: {
-    backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
     paddingBottom: 16,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 5,
+    backgroundColor: 'transparent',
     zIndex: 10,
-    overflow: 'hidden', // Ensure proper clipping
-    // Ensure background stays solid during animation
-    opacity: 1,
-    // Prevent background color from becoming transparent
-    backgroundColor: '#FFFFFF',
+    overflow: 'visible',
   },
   headerContent: {
     flex: 1,
@@ -1337,14 +1353,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    zIndex: 1000, // High z-index to stay on top
+    zIndex: 1000,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0, // Will be animated
+    shadowOpacity: 0,
     shadowRadius: 4,
-    elevation: 0, // Will be animated
-    // Ensure background color stays opaque
-    opacity: 1,
   },
   fixedHeaderImage: {
     width: 150,
@@ -1354,46 +1367,50 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    marginBottom: 8,
   },
   profileContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
   },
   profileImageButton: {
-    padding: 5, // Add padding to increase touch area
-    borderRadius: 30,
+    padding: 2,
+    borderRadius: 50,
   },
   profilePlaceholderButton: {
-    padding: 5, // Add padding to increase touch area
+    padding: 5,
     borderRadius: 60,
   },
   profileImage: {
-    width: 48,
-    height: 48,
-    borderRadius: 60,
+    width: 54,
+    height: 54,
+    borderRadius: 28,
     borderWidth: 1,
-    borderColor: '#EEEEEE',
+    borderColor: '#FFFFFF',
     overflow: 'hidden',
   },
   profilePlaceholder: {
-    width: 48,
-    height: 48,
+    width: 54,
+    height: 54,
     padding: 12,
     borderRadius: 60,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    backgroundColor: '#F6F6F6', // Light background color
+    backgroundColor: '#F3F4F6',
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
   },
   userInfo: {
-    marginLeft: 12,
+    marginLeft: 10,
+    flex: 1,
   },
   welcome: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: Colors.light.primaryDark,
-    marginBottom: 2,
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#111827',
+    marginBottom: 4,
+    letterSpacing: -0.5,
     fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
   locationContainer: {
@@ -1401,16 +1418,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   locationInteractive: {
-    borderRadius: 8,
+    borderRadius: 20,
   },
   location: {
     fontSize: 14,
-    color: '#505050',
-    marginRight: 2,
+    color: '#6B7280',
+    marginRight: 6,
+    fontWeight: '500',
     fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+    maxWidth: 170,
+    flexShrink: 1,
   },
   notificationIconButton: {
-    padding: 5,
+    width: 48,
+    height: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   searchRow: {
     flexDirection: 'row',
@@ -1421,26 +1444,32 @@ const styles = StyleSheet.create({
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F6F6F6',
-    borderRadius: 25,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
     flex: 1,
-    height: 48,
+    height: 52,
+    paddingHorizontal: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
     borderWidth: 1,
-    borderColor: '#EFEFEF',
+    borderColor: '#F3F4F6',
+    elevation: 2,
   },
   searchInput: {
     flex: 1,
     paddingHorizontal: 12,
-    fontSize: 15,
-    color: '#212529',
-    height: 48,
-    fontWeight: '400',
+    fontSize: 16,
+    color: '#111827',
+    height: 52,
+    fontWeight: '500',
     fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
   filterBtn: {
     backgroundColor: '#E8F5E8',
-    height: 48,
-    width: 48,
+    height: 52,
+    width: 52,
     borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
@@ -1452,7 +1481,7 @@ const styles = StyleSheet.create({
   },
   section: {
     paddingHorizontal: 20,
-    marginTop: 20, // Increased for better spacing with new header height
+    marginTop: 20,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -1462,13 +1491,14 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#000000',
+    color: '#111827',
     fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
   categorySubtitle: {
     fontSize: 12,
-    color: '#666666',
+    color: '#6B7280',
     marginBottom: 8,
     fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
@@ -1522,8 +1552,8 @@ const styles = StyleSheet.create({
   },
   categoryText: {
     fontSize: 15,
-    color: '#505050',
-    fontWeight: '700',
+    color: '#374151',
+    fontWeight: '600',
     fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
   fruitsContainer: {
@@ -1533,17 +1563,22 @@ const styles = StyleSheet.create({
   emptyStateContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 40,
-    paddingHorizontal: 20,
-    backgroundColor: '#FAFAFA',
-    borderRadius: 12,
-    marginVertical: 8,
+    paddingVertical: 60,
+    paddingHorizontal: 24,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    marginVertical: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
   },
   emptyStateIcon: {
-    marginBottom: 16,
-    padding: 20,
-    backgroundColor: '#F5F5F5',
-    borderRadius: 50,
+    marginBottom: 20,
+    padding: 24,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 40,
   },
   emptyStateTitle: {
     fontSize: 18,
@@ -1684,21 +1719,21 @@ const styles = StyleSheet.create({
     color: '#111827',
   },
   locCloseBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#F3F4F6',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F8FAFC',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#E5E7EB',
   },
   locPrivacyRow: {
-    marginTop: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    backgroundColor: '#F9FAFB',
-    borderRadius: 12,
+    marginTop: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#F0FDF4',
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: '#F3F4F6',
     flexDirection: 'row',
@@ -1719,7 +1754,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
     borderWidth: 1,
     borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FAFAFA',
     borderRadius: 12,
     padding: 12,
   },

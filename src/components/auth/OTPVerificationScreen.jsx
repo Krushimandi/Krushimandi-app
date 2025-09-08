@@ -266,6 +266,32 @@ const OTPVerificationScreen = ({ navigation, route }) => {
         const userCredential = await confirmation.confirm(otpCode);
         console.log('✅ OTP verified successfully for user:', userCredential.user.uid);
 
+        // -------------------------------------------------------------
+        // Provisional persistence to avoid race conditions immediately
+        // after OTP where validation runs before role/userData cached.
+        // Gives a short grace window preventing destructive cleanup.
+        // -------------------------------------------------------------
+        try {
+          const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+          const { setAuthStep } = require('../../utils/authFlow');
+          const phone = userCredential?.user?.phoneNumber || phoneNumber || displayPhoneNumber;
+          const provisionalUser = {
+            uid: userCredential?.user?.uid,
+            phoneNumber: phone,
+            userRole: null, // role unknown yet
+            provisional: true,
+            createdAt: new Date().toISOString(),
+            lastLoginAt: new Date().toISOString(),
+          };
+          await AsyncStorage.setItem('userData', JSON.stringify(provisionalUser));
+          await setAuthStep('post_otp');
+          // 15s grace period for validation logic
+          await AsyncStorage.setItem('initialValidationGraceUntil', (Date.now() + 15000).toString());
+          console.log('📝 Provisional user cache & grace period saved');
+        } catch (provisionalErr) {
+          console.warn('⚠️ Failed to write provisional cache:', provisionalErr);
+        }
+
         // Import dynamically to avoid circular dependency issues
         const { checkUserExistsInFirestore, saveUserToAsyncStorage } = require('../../services/firebaseService');
 
@@ -327,15 +353,18 @@ const OTPVerificationScreen = ({ navigation, route }) => {
             position: 'bottom',
             visibilityTime: 1500, // 1 seconds
           });
-          // Navigate to Main after state is consistent
+          // Navigate straight to Main (skip RoleSelection completely for existing users)
           try {
             const { navigateToMain } = require('../../utils/navigationUtils');
             navigateToMain();
-            return; // prevent any further local navigation flicker
-          } catch {
-            navigation.navigate('Main');
-            return;
+          } catch (navErr) {
+            console.warn('Fallback navigation to Main due to error:', navErr);
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'Main' }],
+            });
           }
+          return; // ensure no further code runs
         } else {
           // User data not found in Firestore, proceed with new user flow
           console.log('❌ User data not found in Firestore, continuing with new user setup');
@@ -355,6 +384,13 @@ const OTPVerificationScreen = ({ navigation, route }) => {
             console.warn('⚠️ Failed clearing stale auth cache for new user:', clearErr);
           }
           // Navigate to role selection for new user setup
+          // Mark next required step so Auth flow shows RoleSelection only once
+          try {
+            const { setAuthStep } = require('../../utils/authFlow');
+            await setAuthStep('role_selection');
+          } catch (e) {
+            console.warn('Failed to set auth step for new user:', e);
+          }
           navigation.replace('RoleSelection');
         }
 
@@ -551,10 +587,7 @@ const OTPVerificationScreen = ({ navigation, route }) => {
                   </TouchableOpacity>
                 </View>              {/* Instruction text */}
                 <Text style={styles.instructionText}>
-                  {isAutoSubmitting
-                    ? '✓ Complete code detected! Auto-verifying...'
-                    : 'Tap the field below and enter your verification code or paste it directly'
-                  }
+                  Tap the field below and enter your verification code or paste it directly
                 </Text>
 
                 {/* OTP Input Field */}

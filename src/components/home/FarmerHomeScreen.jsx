@@ -21,7 +21,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Octicons from 'react-native-vector-icons/Octicons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import { getCompleteUserProfile, updateLastLogin, validateCurrentUser, updateUserProfile, updateUserLocation } from '../../services/firebaseService';
+import { getCompleteUserProfile, updateLastLogin, validateCurrentUser, updateUserProfile, updateUserLocation, isNetworkAvailable } from '../../services/firebaseService';
 import { getFruitsByFarmerOptimized, updateFruitStatus } from '../../services/fruitService';
 import auth from '@react-native-firebase/auth';
 import { Colors, } from '../../constants';
@@ -136,6 +136,9 @@ const FarmerHomeScreen = () => {
   const [sortBy, setSortBy] = useState('newest');
   const [showSortModal, setShowSortModal] = useState(false);
   const scrollY = useRef(new Animated.Value(0)).current;
+  // Prevent premature logout due to transient null firebase user (race/offline)
+  const userValidationAttempts = useRef(0);
+  const validatingUserRef = useRef(false);
   // Location modal state and animation
   const [isLocationModalVisible, setIsLocationModalVisible] = useState(false);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
@@ -284,7 +287,24 @@ const FarmerHomeScreen = () => {
 
       const user = auth().currentUser;
       if (!user) {
-        console.log('❌ No authenticated user found in BuyerHomeScreen');
+        // Guard: avoid immediate navigation reset if offline or early mount
+        const online = await isNetworkAvailable().catch(() => false);
+        userValidationAttempts.current += 1;
+        console.log('⚠️ Firebase user null during profile load (FarmerHomeScreen).', {
+          attempt: userValidationAttempts.current,
+          online
+        });
+        if (!online && userValidationAttempts.current <= 5) {
+          // Likely offline; keep session and retry later
+          setTimeout(() => loadUserProfile(forceRefresh), 600);
+          return;
+        }
+        if (userValidationAttempts.current <= 3) {
+          // Race condition: retry a few times before declaring failure
+            setTimeout(() => loadUserProfile(forceRefresh), 400 * userValidationAttempts.current);
+            return;
+        }
+        console.log('❌ No authenticated user after retries – triggering validation failure');
         handleUserValidationFailure();
         return;
       }
@@ -292,11 +312,21 @@ const FarmerHomeScreen = () => {
       console.log('📱 Loading user profile for:', user.uid, forceRefresh ? '(force refresh)' : '');
 
       // First validate if the user still exists on Firebase server
-      const isValidUser = await validateCurrentUser();
-      if (!isValidUser) {
-        console.log('❌ User validation failed, user may have been deleted');
-        handleUserValidationFailure();
-        return;
+      if (!validatingUserRef.current) {
+        validatingUserRef.current = true;
+        const isValidUser = await validateCurrentUser();
+        validatingUserRef.current = false;
+        if (!isValidUser) {
+          console.log('❌ User validation failed (online confirmation)');
+          // Extra safeguard: only logout if online to avoid offline false negatives
+          const online = await isNetworkAvailable().catch(() => false);
+          if (online) {
+            handleUserValidationFailure();
+            return;
+          } else {
+            console.log('📱 Skipping logout due to offline state despite validation failure');
+          }
+        }
       }
 
       // Always check for remote changes and sync if needed
@@ -756,8 +786,7 @@ const FarmerHomeScreen = () => {
             styles.header,
             {
               height: headerHeight,
-              paddingTop: insets.top + 4, // Use safe area insets
-              backgroundColor: '#FFFFFF', // Ensure background stays white
+              paddingTop: insets.top + 4,
             }
           ]}>
             <Animated.View style={[
@@ -809,7 +838,11 @@ const FarmerHomeScreen = () => {
                     </Text>
                     <TouchableOpacity activeOpacity={0.9} onPress={onLocationPress}>
                       <Animated.View style={[styles.locationContainer, styles.locationInteractive, locationAnimatedStyle]}>
-                        <Text style={styles.location}>
+                        <Text
+                          style={styles.location}
+                          numberOfLines={1}
+                          ellipsizeMode="tail"
+                        >
                           {userProfile?.location ?
                             `${userProfile.location.city || ''}, ${userProfile.location.state || ''}`.replace(/, $/, '')
                             : 'Set your Location'}
@@ -1404,28 +1437,21 @@ const FarmerHomeScreen = () => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    // Match BuyerHomeScreen lighter app background
+    backgroundColor: '#F8FAFC',
   },
   scrollViewContent: {
     paddingBottom: 90,
+    // Ensure background carries through behind transparent header
+    backgroundColor: '#F8FAFC',
   },
   header: {
-    backgroundColor: '#FFFFFF',
+    // Align with BuyerHomeScreen collapsing header styling (minimal + transparent)
     paddingHorizontal: 16,
     paddingBottom: 16,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 5,
+    backgroundColor: 'transparent',
     zIndex: 10,
-    overflow: 'hidden', // Ensure proper clipping
-    // Ensure background stays solid during animation
-    opacity: 1,
-    // Prevent background color from becoming transparent
-    backgroundColor: '#FFFFFF',
+    overflow: 'visible',
   },
   headerContent: {
     flex: 1,
@@ -1441,7 +1467,7 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFFFF', // Keep solid for readability when collapsed
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -1449,10 +1475,9 @@ const styles = StyleSheet.create({
     zIndex: 1000, // High z-index to stay on top
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0, // Will be animated
+    shadowOpacity: 0, // Animated via interpolation (kept consistent with Buyer)
     shadowRadius: 4,
-    elevation: 0, // Will be animated
-    // Ensure background color stays opaque
+    elevation: 0, // Animated value will raise on scroll
     opacity: 1,
   },
   fixedHeaderImage: {
@@ -1472,11 +1497,11 @@ const styles = StyleSheet.create({
     borderRadius: 60,
   },
   profileImage: {
-    width: 48,
-    height: 48,
-    borderRadius: 60,
+    width: 54,
+    height: 54,
+    borderRadius: 28,
     borderWidth: 1,
-    borderColor: '#EEEEEE',
+    borderColor: '#FFFFFF',
     overflow: 'hidden',
   },
   profilePlaceholder: {
@@ -1494,10 +1519,12 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
   welcome: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: Colors.light.primaryDark,
-    marginBottom: 2,
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#111827',
+    marginBottom: 4,
+    letterSpacing: -0.5,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
   locationContainer: {
     flexDirection: 'row',
@@ -1507,9 +1534,13 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   location: {
-    fontSize: 13,
-    color: '#505050',
-    marginRight: 4,
+    fontSize: 14,
+    color: '#6B7280',
+    marginRight: 6,
+    fontWeight: '500',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+    maxWidth: 170,
+    flexShrink: 1,
   },
   notificationIconButton: {
     padding: 5,
@@ -1518,25 +1549,34 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
-    marginTop: 10,
+    marginTop: 12,
   },
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F6F6F6',
-    borderRadius: 25,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
     flex: 1,
-    height: 48,
+    height: 52,
+    paddingHorizontal: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
     borderWidth: 1,
-    borderColor: '#EFEFEF',
+    borderColor: '#F3F4F6',
+    elevation: 2,
   },
   searchInput: {
     flex: 1,
     paddingHorizontal: 12,
-    fontSize: 15,
-    color: '#505050',
-    height: 48,
+    fontSize: 16,
+    color: '#111827',
+    height: 52,
+    fontWeight: '500',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
+
   clearSearchButton: {
     paddingHorizontal: 8,
     paddingVertical: 4,
@@ -1552,7 +1592,8 @@ const styles = StyleSheet.create({
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 3,
+    shadowRadius: 4,
+    elevation: 2,
   },
   sortBtn: {
     backgroundColor: '#E8F5E8',
@@ -1588,7 +1629,7 @@ const styles = StyleSheet.create({
   },
   section: {
     paddingHorizontal: 20,
-    marginTop: 28, // Increased for better spacing with new header height
+    marginTop: 20,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -1658,7 +1699,7 @@ const styles = StyleSheet.create({
   },
   tabContainer: {
     flexDirection: 'row',
-    backgroundColor: '#F6F6F6',
+    backgroundColor: '#93939315',
     borderRadius: 8,
     padding: 2,
   },

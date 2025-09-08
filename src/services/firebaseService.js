@@ -1162,6 +1162,24 @@ export const validateCurrentUser = async () => {
       const userData = await getUserFromAsyncStorage();
 
       if (userData?.phoneNumber) {
+        // ---------------------------------------------------------
+        // Grace period: if provisional login just occurred and we
+        // haven't yet assigned role/profile, don't clear session.
+        // Prevents first-login race causing auto logout.
+        // ---------------------------------------------------------
+        try {
+          const graceUntilStr = await AsyncStorage.getItem('initialValidationGraceUntil');
+          const now = Date.now();
+          if (graceUntilStr) {
+            const graceUntil = parseInt(graceUntilStr, 10);
+            if (!userData.userRole && now < graceUntil) {
+              console.log('⏳ In initial validation grace window; skipping destructive checks');
+              return true; // allow navigation to proceed until role stored
+            }
+          }
+        } catch (graceErr) {
+          console.warn('Grace period read failed:', graceErr);
+        }
         try {
           // Check in Firestore using phone number to ensure data integrity
           const firestoreCheck = await checkUserExistsInFirestore(userData.phoneNumber);
@@ -1195,7 +1213,21 @@ export const validateCurrentUser = async () => {
         const profile = await getCompleteUserProfile(true); // Force refresh
 
         if (!profile) {
-          console.log('❌ User profile not found, user data may have been deleted');
+          // Re-check grace period before clearing
+          try {
+            const graceUntilStr = await AsyncStorage.getItem('initialValidationGraceUntil');
+            const now = Date.now();
+            if (graceUntilStr) {
+              const graceUntil = parseInt(graceUntilStr, 10);
+              if (now < graceUntil) {
+                console.log('⏳ Profile missing but within grace period – deferring cleanup');
+                return true;
+              }
+            }
+          } catch (graceErr) {
+            console.warn('Grace period check failed:', graceErr);
+          }
+          console.log('❌ User profile not found (post-grace), clearing data');
           await clearUserData();
           await clearOfflineAuthState();
           return false;

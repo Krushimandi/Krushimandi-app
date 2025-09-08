@@ -121,27 +121,54 @@ export function navigate<RouteName extends keyof RootStackParamList>(
  * Reset navigation to a new route
  */
 export function reset(routeName: keyof RootStackParamList, params?: object) {
-  if (navigationRef.isReady()) {
-    navigationRef.dispatch(
-      CommonActions.reset({
-        index: 0,
-        routes: [
-          {
-            name: routeName,
-            params
-          },
-        ],
-      })
-    );
-  } else {
+  if (!navigationRef.isReady()) {
     console.warn(`Navigation reset attempted before navigator ready: ${String(routeName)}`);
+    return;
   }
+
+  // Debounce logic: prevent duplicate resets to same route within 750ms
+  const now = Date.now();
+  // @ts-ignore attach meta store
+  if (!navigationRef._lastResets) {
+    // @ts-ignore
+    navigationRef._lastResets = {};
+  }
+  // @ts-ignore
+  const lastTime = navigationRef._lastResets[routeName];
+  if (lastTime && now - lastTime < 750) {
+    console.log(`⏳ Suppressing duplicate navigation reset to ${routeName}`);
+    return;
+  }
+  // @ts-ignore
+  navigationRef._lastResets[routeName] = now;
+
+  navigationRef.dispatch(
+    CommonActions.reset({
+      index: 0,
+      routes: [
+        {
+          name: routeName,
+          params
+        },
+      ],
+    })
+  );
 }
 
 /**
  * Reset to Main screen
  */
 export function resetToMain() {
+  try {
+    // Avoid unnecessary double mount if we're already at Main root
+    const state: any = (navigationRef as any).getRootState?.();
+    if (state?.routes && state.routes.length === 1 && state.routes[0]?.name === 'Main') {
+      console.log('🔁 Already at Main root – skipping resetToMain');
+      return;
+    }
+  } catch (e) {
+    // Non-fatal
+  }
   reset('Main');
 }
 
@@ -149,6 +176,13 @@ export function resetToMain() {
  * Reset to Auth screen
  */
 export function resetToAuth() {
+  try {
+    const state: any = (navigationRef as any).getRootState?.();
+    if (state?.routes && state.routes.length === 1 && state.routes[0]?.name === 'Auth') {
+      console.log('🔁 Already at Auth root – skipping resetToAuth');
+      return;
+    }
+  } catch (e) {}
   reset('Auth');
 }
 

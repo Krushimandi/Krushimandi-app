@@ -12,31 +12,43 @@ import Icon from 'react-native-vector-icons/Ionicons';
 
 const HelpGuideScreen = ({ route, navigation }) => {
   const { userType } = route.params;
-
-  // Function to get appropriate icon based on category
-  const getIconForCategory = (category) => {
-    switch (category) {
-      case 'List an Item':
-        return 'add-circle-outline';
-      case 'Delete a listed Item':
-        return 'trash-outline';
-      case 'Profile':
-        return 'person-circle-outline';
-      case 'Manage listed Item':
-        return 'settings-outline';
-      case 'Buy an Item':
-      case 'Buy an Item ':
-        return 'bag-outline';
-      case 'Go to search':
-        return 'search-outline';
-      case 'Manage your orders':
-        return 'clipboard-outline';
-      default:
-        return 'help-circle-outline';
+  const getFaqList = () => {
+    if (userType === 'farmer') {
+      return farmerFaq;
+    } else if (userType === 'buyer') {
+      return buyerFaq;
     }
+    return []; // Return empty array if userType is invalid
   };
 
-  // Add a 'category' field to each FAQ
+  // Function to get appropriate icon based on category
+  // const getIconForCategory = (category) => {
+  //   switch (category) {
+  //     case 'List an Item':
+  //       return 'add-circle-outline';
+  //     case 'Delete a listed Item':
+  //       return 'trash-outline';
+  //     case 'Profile':
+  //       return 'person-circle-outline';
+  //     case 'Manage listed Item':
+  //       return 'settings-outline';
+  //     case 'Buy an Item':
+  //     case 'Buy an Item ':
+  //       return 'bag-outline';
+  //     case 'Go to search':
+  //       return 'search-outline';
+  //     case 'Manage your orders':
+  //       return 'clipboard-outline';
+  //     default:
+  //       return 'help-circle-outline';
+  //   }
+  // };
+
+  const getIconForCategory = (category) => {
+    // Return the same icon for all categories
+    return 'bag-outline';
+  };
+
   const farmerFaq = [
     {
       title: 'How to list Fruit?',
@@ -49,50 +61,134 @@ const HelpGuideScreen = ({ route, navigation }) => {
       title: 'How to delete Listed Fruit?',
       content:
         'To delete listed fruit, \n\n1) Open the "My Fruits" section. \n2) Tap the three-dot menu next to the item you want to remove, then select "Delete". \n3) Confirm to remove the listing.',
-      image: require('../../assets/fruits/list.jpg'),
+      image: require('../../assets/help_center/list.jpg'),
       category: 'Delete a listed Item',
     },
     {
       title: 'How App works?',
       content:
         'The app connects farmers and buyers directly. You list your crops, and buyers can view, negotiate, and order directly from you.',
-      image: require('../../assets/fruits/list.jpg'),
       category: 'Profile',
     },
     {
       title: 'How to manage Listed Fruit?',
       content:
         'To manage listed fruits, \n\n1) Go to "My Fruits" to edit quantity, price, or availability. \n2) You can also pause or update your listing anytime from this section.',
-      image: require('../../assets/fruits/list.jpg'),
+      image: require('../../assets/help_center/list.jpg'),
       category: 'Manage listed Item',
+    },
+    {
+      title: 'How to update Fruit details?',
+      content:
+        'To update fruit details, \n\n1) Navigate to the "My Listings" section, \n2) Select the fruit you want to edit, \n3) Tap the "Edit" button, \n4) Update the necessary details and save.',
+      image: require('../../assets/help_center/update.jpg'),
+      category: 'Manage listed Item',
+    },
+    {
+      title: 'How do I view buyer requests?',
+      content:
+        'To view buyer requests, \n\n1) Navigate to the "Farmer Requests" section in the app. \n2) Here, you can see all incoming requests and respond to them.',
+      image: require('../../assets/help_center/request.jpg'),
+      category: 'Manage your orders',
+    },
+    {
+      title: 'How do I accept or reject a request?',
+      content:
+        'To accept or reject a request, \n\nTap a request, then choose “Accept” or “Reject”. The buyer will be notified.',
+      image: require('../../assets/help_center/RequestActionButtons.jpg'),
+      category: 'Manage your orders',
+    },
+    {
+      title: 'What does “Expired” mean for a request?',
+      content:
+        'Requests pending for more than 30 days are automatically expired.',
+      image: require('../../assets/help_center/request.jpg'),
+      category: 'Manage your orders',
+    },
+    {
+      title: 'How do I get notified about new requests?',
+      content:
+        'To get notified about new requests, \n\n1) Enable push notifications in your app settings. \n2) You’ll receive alerts when buyers request your products.',
+      image: require('../../assets/help_center/notification.jpg'),
+      category: 'Manage your orders',
+    },
+    {
+      title: 'Why am I not receiving notifications?',
+      content:
+        'Make sure your notifications are enabled. Check from settings.',
+      image: require('../../assets/help_center/notification_settings.jpg'),
+      category: 'Manage your orders',
+    },
+    {
+      title: 'How do I update my farm details?',
+      content:
+        'To update your farm details, \n\n1) Go to the "Profile" section. \n2) Tap on "Edit Profile". \n3) Update your farm information as needed. \n4) Save the changes.',
+      image: require('../../assets/help_center/profile_edit.jpg'),
+      category: 'Profile',
+    },
+    {
+      title: 'What should I do if I see an error message?',
+      content:
+        'To handle error messages, \n\n1) Try restarting the app. \n2) If the issue persists, contact support.',
+      category: 'Profile',
+    },
+    {
+      title: 'How do I inform buyers about harvest schedule?',
+      content:
+        'You can add Availability Date during listing of fruit and you can edit it anytime after listing also.',
+      category: 'Manage your orders',
+    },
+    {
+      title: 'Is my data safe on KrushiMandi?',
+      content:
+        'Yes, your data is safe on our data servers and only used for analytical and providing better service purposes only.',
+      category: 'Profile',
     },
   ];
 
   const buyerFaq = [
     {
-      title: 'How to Deal with listed fruits?',
-      content:
-        'To deal with listed fruits,\n\n1) go to the product details and click "Contact Seller" or "Place Order".\n2) You can chat or call the farmer directly.',
-      image: require('../../assets/fruits/list.jpg'),
-      category: 'Buy an Item ',
+      title: 'How to order listed fruits?',
+      content: 'To order fruits:\n\n1) Browse available listings\n2) Select the fruit you want\n3) Click "Swipe to Request" button\n4) Enter quantity needed\n5) Confirm your request\n6) Chat with farmer to finalize details',
+      image: require('../../assets/help_center/How_to_request.png'),
+      category: 'Buy an Item',
     },
     {
-      title: 'Filter usecase',
-      content:
-        'Use filters like location, price, fruit type, or freshness to quickly find the produce that best fits your requirements.',
-      image: require('../../assets/fruits/list.jpg'),
+      title: 'How to use filter option?',
+      content: 'Use filters to find fruits:\n\n1) Tap filter icon on home screen\n2) Select fruit type\n3) Set price range\n4) Choose location radius\n5) Apply filters to see matching results',
+      image: require('../../assets/help_center/Filter.png'),
       category: 'Go to search',
     },
     {
-      title: 'How to manage Fruits?',
-      content:
-        'To manage fruits, \n\n1) Go to your "Orders" or "Deals" section to track ongoing orders. \n2) You can also save or favorite specific listings for easy access.',
-      image: require('../../assets/fruits/list.jpg'),
+      title: 'How to manage orders?',
+      content: 'Manage your orders:\n\n1) Go to "Requests" section to view all outgoing requests\n2) You can delete the requests by clicking the bin icon. \n3) Go to "Orders" section to view all accepted orders\n4) Once the order is accepted, you can chat with the farmer to finalize details',
+      image: require('../../assets/help_center/Manage_Orders.png'),
       category: 'Manage your orders',
     },
+    // {
+    //   title: 'How can I contact the farmer?',
+    //   content: 'Contact farmers through:\n\n1) Go to the "Orders" section\n2) Once the order is accepted, you can chat with the farmer or directly call the farmer.\n3) Keep all communication within app',
+    //   image: require('../../assets/help_center/Contact_Farmer.jpg'),
+    //   category: 'Buy an Item',
+    // },
+
+    {
+      title: 'How do I receive notifications?',
+      content: 'App notifications: Ensure push notifications are enabled in settings. You’ll get alerts for requests, promotions, updates, and more.',
+      image: require('../../assets/help_center/Notification.png'),
+      category: 'Profile',
+    },
+    {
+      title: 'How do I update my profile?',
+      content: 'Update profile:\n\n1) Go to Profile section\n2) Tap "Edit Profile"\n3) Update your details\n4) Save changes\n5) Verify contact information',
+      image: require('../../assets/help_center/Edit_profile.png'),
+      category: 'Profile',
+    },
+
+
   ];
 
-  const faqList = userType === 'farmer' ? farmerFaq : buyerFaq;
+  const faqList = getFaqList();
   const faqTitle = userType === 'farmer' ? "Farmer's FAQ" : "Buyer's FAQ";
 
   // Get unique categories for the button(s)
@@ -104,7 +200,7 @@ const HelpGuideScreen = ({ route, navigation }) => {
       title: item.title,
       content: item.content,
       image: item.image,
-      category: item.category, 
+      category: item.category,
     });
   };
 
@@ -134,7 +230,7 @@ const HelpGuideScreen = ({ route, navigation }) => {
         </View>
       </View>
 
-      <ScrollView 
+      <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
@@ -142,7 +238,7 @@ const HelpGuideScreen = ({ route, navigation }) => {
         {/* FAQ Section */}
         <View style={styles.faqContainer}>
           <Text style={styles.sectionTitle}>{faqTitle}</Text>
-          
+
           <View style={styles.faqItems}>
             {faqList.map((item, index) => (
               <TouchableOpacity

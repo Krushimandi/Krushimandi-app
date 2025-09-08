@@ -691,7 +691,7 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F8FAFC',
   },
   headerContainer: {
     position: 'relative',
@@ -787,7 +787,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     backgroundColor: '#FFFFFF',
     borderRadius: 24,
-    padding: 24,
+    padding: 16,
     elevation: 6,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 4 },

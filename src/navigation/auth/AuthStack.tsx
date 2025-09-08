@@ -42,9 +42,12 @@ const AuthNavigator = () => {
 
         // If auth is complete, redirect to Main immediately to avoid any Auth flicker
         if (state?.nextRoute === 'Main' || state?.currentStep === 'complete') {
-          navigateToMain();
-          if (mounted) {
-            setRedirected(true);
+          // Prevent duplicate reset loops: only navigate if not already redirected recently
+          if (!redirected) {
+            navigateToMain();
+            if (mounted) {
+              setRedirected(true);
+            }
           }
           return;
         }

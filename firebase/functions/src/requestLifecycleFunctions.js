@@ -100,6 +100,7 @@ exports.expireOldRequests = onSchedule({ schedule: '0 0 * * *', timeZone: 'Asia/
             const buyerId = request.buyerId || request.userId;
             const productName = request.productSnapshot?.name || request.productName || 'your request';
             const farmerName = request.productSnapshot?.farmerName || request.farmerName || '';
+            if (!buyerId) { console.warn('⚠️ Skipping expired notification, missing buyerId', request.id); return; }
             await createNotificationAndPush({
               to: buyerId,
               type: 'action',
@@ -125,6 +126,7 @@ exports.expireOldRequests = onSchedule({ schedule: '0 0 * * *', timeZone: 'Asia/
                 toUserId: buyerId,
               },
               sendPush: true,
+              idempotencyKey: `${request.id}_expired`,
             });
             console.log(`✅ Expired notification queued for request ${request.id}`);
           } catch (error) {
@@ -170,6 +172,7 @@ exports.onRequestStatusChange = onDocumentUpdated('requests/{requestId}', async 
 
       if (status === 'accepted') {
         to = afterData.buyerId;
+        if (!to) { console.warn('⚠️ Missing buyerId on accepted request', requestId); return null; }
         payload = {
           title: 'Request Accepted! 🎉',
           description: `${afterData.productSnapshot.farmerName} accepted your request for ${afterData.productSnapshot.name}. Contact them to proceed.`,
@@ -191,6 +194,7 @@ exports.onRequestStatusChange = onDocumentUpdated('requests/{requestId}', async 
         };
       } else if (status === 'rejected') {
         to = afterData.buyerId;
+        if (!to) { console.warn('⚠️ Missing buyerId on rejected request', requestId); return null; }
         payload = {
           title: 'Request Declined',
           description: `${afterData.productSnapshot.farmerName} declined your request for ${afterData.productSnapshot.name}${afterData.farmerResponse?.message ? `: ${afterData.farmerResponse.message}` : ''}`,
@@ -212,6 +216,7 @@ exports.onRequestStatusChange = onDocumentUpdated('requests/{requestId}', async 
         };
       } else if (status === 'cancelled') {
         to = afterData.farmerId;
+        if (!to) { console.warn('⚠️ Missing farmerId on cancelled request', requestId); return null; }
         payload = {
           title: 'Request Cancelled',
           description: `${afterData.buyerDetails.name} cancelled their request for ${afterData.productSnapshot.name}`,
@@ -241,6 +246,7 @@ exports.onRequestStatusChange = onDocumentUpdated('requests/{requestId}', async 
         payload,
         metadata,
         sendPush: true,
+        idempotencyKey: `${requestId}_${status}`,
       });
 
       console.log(`✅ Status change notification sent for request ${requestId}`);
