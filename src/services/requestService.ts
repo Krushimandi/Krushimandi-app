@@ -89,7 +89,7 @@ class RequestService {
             console.log('🍎 Fruit data keys:', Object.keys(fruitData || {}));
 
             // Get buyer details
-            const buyerDoc = await this.db.collection('buyers').doc(buyerId).get();
+            const buyerDoc = await this.db.collection('profiles').doc(buyerId).get();
             if (!buyerDoc.exists) {
                 throw new Error('Buyer not found');
             }
@@ -99,7 +99,7 @@ class RequestService {
             console.log('👤 Buyer data keys:', Object.keys(buyerData || {}));
 
             // Get farmer details
-            const farmerDoc = await this.db.collection('farmers').doc(fruitData!.farmer_id).get();
+            const farmerDoc = await this.db.collection('profiles').doc(fruitData!.farmer_id).get();
             if (!farmerDoc.exists) {
                 throw new Error('Farmer not found');
             }

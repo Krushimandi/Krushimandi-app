@@ -340,7 +340,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
     console.log('🔐 Current user:', user ? `${user.uid}` : 'Not authenticated');
     console.log('📱 New Wishlist Structure Info:');
     console.log('   📂 User likes are stored in: fruits/' + product.id + '/wishlists/' + (user?.uid || 'USER_ID'));
-    console.log('   📂 User wishlist is also in: buyers/' + (user?.uid || 'USER_ID') + '/wishlist/' + product.id);
+  console.log('   📂 User wishlist is also in: profiles/' + (user?.uid || 'USER_ID') + '/wishlist/' + product.id);
     console.log('   ❤️ When user likes: creates document in both locations');
     console.log('   🗑️ When user unlikes: removes document from both locations');
 
@@ -470,7 +470,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
 
       // Fetch farmer profile
       const farmerDoc = await firestore
-        .collection('farmers')
+        .collection('profiles')
         .doc(product.farmer_id)
         .get();
 
@@ -488,7 +488,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
 
         // Try to fetch all farmers to see what IDs exist (for debugging)
         const allFarmersSnapshot = await firestore
-          .collection('farmers')
+          .collection('profiles')
           .limit(5)
           .get();
 

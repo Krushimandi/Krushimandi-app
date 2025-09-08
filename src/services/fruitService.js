@@ -28,8 +28,7 @@ import firebase from '../config/firebase'; // adjust path if different
 
 
 const FRUITS_COLLECTION = 'fruits';
-const FARMERS_COLLECTION = 'farmers';
-const BUYERS_COLLECTION = 'buyers';
+const PROFILES_COLLECTION = 'profiles';
 
 /**
  * Retry function with exponential backoff for transient errors
@@ -487,7 +486,7 @@ export const addFruitToFarmer = async (farmerId, fruitId) => {
   try {
     console.log('🔗 Adding fruit to farmer\'s list...', { farmerId, fruitId });
     
-    const farmersCollectionRef = collection(firestore(), FARMERS_COLLECTION);
+    const farmersCollectionRef = collection(firestore(), PROFILES_COLLECTION);
     const farmerDocRef = doc(farmersCollectionRef, farmerId);
     await updateDoc(farmerDocRef, {
       fruit_ids: firestoreArrayUnion(fruitId),
@@ -513,7 +512,7 @@ export const removeFruitFromFarmer = async (farmerId, fruitId) => {
   try {
     console.log('🔗 Removing fruit from farmer\'s list...', { farmerId, fruitId });
     
-    const farmersCollectionRef = collection(firestore(), FARMERS_COLLECTION);
+    const farmersCollectionRef = collection(firestore(), PROFILES_COLLECTION);
     const farmerDocRef = doc(farmersCollectionRef, farmerId);
     await updateDoc(farmerDocRef, {
       fruit_ids: firestoreArrayRemove(fruitId),
@@ -542,7 +541,7 @@ export const getFruitsByFarmerOptimized = async (farmerId, status = null) => {
     
     // First get farmer's fruit IDs with retry
     const farmerData = await retryWithBackoff(async () => {
-      const farmersCollectionRef = collection(firestore(), FARMERS_COLLECTION);
+      const farmersCollectionRef = collection(firestore(), PROFILES_COLLECTION);
       const farmerDocRef = doc(farmersCollectionRef, farmerId);
       const farmerDoc = await getDoc(farmerDocRef);
       
@@ -653,7 +652,7 @@ export const getFarmerPublicProfile = async (farmerId) => {
     
     // Get farmer's basic info with retry
     const farmerData = await retryWithBackoff(async () => {
-      const farmersCollectionRef = collection(firestore(), FARMERS_COLLECTION);
+      const farmersCollectionRef = collection(firestore(), PROFILES_COLLECTION);
       const farmerDocRef = doc(farmersCollectionRef, farmerId);
       const farmerDoc = await getDoc(farmerDocRef);
       

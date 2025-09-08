@@ -415,7 +415,7 @@ const MyOrdersScreen = () => {
       }
 
       // Try to get from farmers collection first
-      const farmerDoc = await firestore().collection('farmers').doc(farmerId).get();
+  const farmerDoc = await firestore().collection('profiles').doc(farmerId).get();
 
       if (farmerDoc.exists()) {
         const farmerData = farmerDoc.data();

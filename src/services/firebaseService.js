@@ -27,8 +27,7 @@ import { persistentAuthManager } from '../utils/persistentAuthManager';
 
 // Collection names based on user roles
 const COLLECTIONS = {
-  FARMERS: 'farmers',
-  BUYERS: 'buyers',
+  PROFILES: 'profiles',
 };
 
 // Storage paths based on user roles
@@ -306,8 +305,8 @@ export const clearOfflineAuthState = async () => {
  * @param {string} userRole - 'farmer' or 'buyer'
  * @returns {string} Collection name
  */
-const getCollectionName = (userRole) => {
-  return userRole === 'farmer' ? COLLECTIONS.FARMERS : COLLECTIONS.BUYERS;
+const getCollectionName = () => {
+  return COLLECTIONS.PROFILES;
 };
 
 /**
@@ -410,46 +409,38 @@ export const uploadProfileAvatar = async (imageUri, userId, userRole, onProgress
  */
 export const saveUserToFirestore = async (userData) => {
   try {
-
-    const collection = getCollectionName(userData.userRole);
-    await ensureCollectionExists(collection);
-
+    const collectionName = getCollectionName();
+    await ensureCollectionExists();
+    const now = firestoreServerTimestamp();
     const userDoc = {
       uid: userData.uid,
-      firstName: userData.firstName,
-      lastName: userData.lastName,
-      displayName: `${userData.firstName} ${userData.lastName}`,
-      phoneNumber: userData.phoneNumber,
+      firstName: userData.firstName || '',
+      lastName: userData.lastName || '',
+      displayName: (userData.displayName || `${userData.firstName || ''} ${userData.lastName || ''}`).trim(),
+      phoneNumber: userData.phoneNumber || null,
       userRole: userData.userRole,
       profileImage: userData.profileImage || null,
-      isProfileComplete: userData.isProfileComplete || false,
-      isPhoneVerified: userData.isPhoneVerified || true,
-      createdAt: firestoreServerTimestamp(),
-      updatedAt: firestoreServerTimestamp(),
-      lastLoginAt: firestoreServerTimestamp(),
-      status: 'active',
-      // Role-specific fields
+      isProfileComplete: !!userData.isProfileComplete,
+      isPhoneVerified: userData.isPhoneVerified !== undefined ? userData.isPhoneVerified : true,
+      createdAt: userData.createdAt || now,
+      updatedAt: now,
+      lastLoginAt: userData.lastLoginAt || now,
+      status: userData.status || 'active',
       ...(userData.userRole === 'farmer' && {
         farmDetails: userData.farmDetails || null,
         cropTypes: userData.cropTypes || [],
         farmLocation: userData.farmLocation || null,
       }),
       ...(userData.userRole === 'buyer' && {
-  businessType: userData.businessType || null,
-  // Rename preferredCrops -> PreferedFruits per new schema
-  PreferedFruits: userData.PreferedFruits || userData.preferredCrops || [],
+        businessType: userData.businessType || null,
+        PreferedFruits: userData.PreferedFruits || userData.preferredCrops || [],
       }),
     };
-
-    const collectionName = getCollectionName(userData.userRole);
-    await ensureCollectionExists(collectionName);
-
-    const userDocRef = doc(firebaseFirestore, collectionName, userData.uid);
-    await setDoc(userDocRef, userDoc, { merge: true });
-
-    console.log('✅ User saved to Firestore successfully');
+    const ref = doc(firebaseFirestore, collectionName, userData.uid);
+    await setDoc(ref, userDoc, { merge: true });
+    console.log('✅ User saved to unified profiles collection');
   } catch (error) {
-    console.error('❌ Failed to save user to Firestore:', error);
+    console.error('❌ Failed to save user to unified profiles collection:', error);
     throw new Error('Failed to save user data');
   }
 };
@@ -516,17 +507,11 @@ export const updateUserInFirestore = async (userId, userRole, updateData) => {
 export const cleanupUnusedBuyerFields = async (userId) => {
   try {
     const del = firestore.FieldValue.delete();
-    const userDocRef = doc(firebaseFirestore, COLLECTIONS.BUYERS, userId);
-    await updateDoc(userDocRef, {
-      email: del,
-      businessLocation: del,
-      isEmailVerified: del,
-      businessDetails: del,
-      preferredCrops: del,
-    });
-    console.log('🧹 Cleaned up unused buyer fields for:', userId);
+    const ref = doc(firebaseFirestore, COLLECTIONS.PROFILES, userId);
+    await updateDoc(ref, { preferredCrops: del, businessDetails: del });
+    console.log('🧹 Cleaned legacy buyer fields inside profiles for:', userId);
   } catch (error) {
-    console.warn('⚠️ Cleanup of unused buyer fields failed (non-blocking):', error?.message || error);
+    console.warn('⚠️ Cleanup (legacy buyer fields) failed (non-blocking):', error?.message || error);
   }
 };
 
@@ -1293,40 +1278,25 @@ export const validateCurrentUser = async () => {
 
 /**
  * Check if user data exists in Firestore for a given phone number
- * This function tries to locate a user document in both farmers and buyers collections
+ * (Unified) Previously checked farmers & buyers; now only queries 'profiles'
  * @param {string} phoneNumber - User's phone number (with country code)
  * @returns {Promise<{exists: boolean, userData: object|null, collection: string|null}>}
  */
 export const checkUserExistsInFirestore = async (phoneNumber) => {
   try {
-    console.log('🔍 Checking if user exists in Firestore by phone number:', phoneNumber);
-
-    // Check in farmers collection
-    const farmersCollectionRef = collection(firebaseFirestore, COLLECTIONS.FARMERS);
-    const farmersQuery = query(farmersCollectionRef, where('phoneNumber', '==', phoneNumber), limit(1));
-    let snapshot = await getDocs(farmersQuery);
-
+    console.log('🔍 Checking if user exists (profiles) by phone number:', phoneNumber);
+    const profilesRef = collection(firebaseFirestore, COLLECTIONS.PROFILES);
+    const q = query(profilesRef, where('phoneNumber', '==', phoneNumber), limit(1));
+    const snapshot = await getDocs(q);
     if (!snapshot.empty) {
       const userData = snapshot.docs[0].data();
-      console.log('✅ User found in farmers collection:', userData.uid);
-      return { exists: true, userData, collection: COLLECTIONS.FARMERS };
+      console.log('✅ User found in profiles collection:', userData.uid);
+      return { exists: true, userData, collection: COLLECTIONS.PROFILES };
     }
-
-    // Check in buyers collection
-    const buyersCollectionRef = collection(firebaseFirestore, COLLECTIONS.BUYERS);
-    const buyersQuery = query(buyersCollectionRef, where('phoneNumber', '==', phoneNumber), limit(1));
-    snapshot = await getDocs(buyersQuery);
-
-    if (!snapshot.empty) {
-      const userData = snapshot.docs[0].data();
-      console.log('✅ User found in buyers collection:', userData.uid);
-      return { exists: true, userData, collection: COLLECTIONS.BUYERS };
-    }
-
-    console.log('❌ User not found in any collection');
+    console.log('❌ User not found in profiles');
     return { exists: false, userData: null, collection: null };
   } catch (error) {
-    console.error('❌ Error checking if user exists in Firestore:', error);
+    console.error('❌ Error checking if user exists in unified profiles collection:', error);
     return { exists: false, userData: null, collection: null, error };
   }
 };
@@ -1336,21 +1306,18 @@ export const checkUserExistsInFirestore = async (phoneNumber) => {
  * @param {string} collectionName
  * @returns {Promise<void>}
  */
-const ensureCollectionExists = async (collectionName) => {
+const ensureCollectionExists = async () => {
   try {
-    const collectionRef = collection(firebaseFirestore, collectionName);
-    const querySnapshot = query(collectionRef, limit(1));
-    const snapshot = await getDocs(querySnapshot);
-
+    const collectionName = COLLECTIONS.PROFILES;
+    const refCol = collection(firebaseFirestore, collectionName);
+    const q = query(refCol, limit(1));
+    const snapshot = await getDocs(q);
     if (snapshot.empty) {
-      // Collection is empty, create a dummy document
-      const dummyDocRef = doc(firebaseFirestore, collectionName, 'dummyDoc');
-      await setDoc(dummyDocRef, { createdAt: firestoreServerTimestamp() });
-      console.log(`✅ Dummy document created in ${collectionName} collection`);
-    } else {
-      console.log(`✅ ${collectionName} collection already exists`);
+      const initRef = doc(firebaseFirestore, collectionName, '.__init__');
+      await setDoc(initRef, { createdAt: firestoreServerTimestamp(), note: 'init placeholder - safe to delete' });
+      console.log('✅ Initialized profiles collection with placeholder');
     }
   } catch (error) {
-    console.error(`❌ Error ensuring ${collectionName} collection exists:`, error);
+    console.error('❌ Error ensuring profiles collection exists:', error);
   }
 };

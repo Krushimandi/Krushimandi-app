@@ -52,7 +52,7 @@ const quickActions = [
 ];
 
 const HelpScreen = ({ navigation }) => {
-  const [userRole, setUserRole] = useState(null);
+  const [userRole, setUserRole] = useState('farmer');
 
   const filteredAssistanceList = [
     // Show farmer or buyer guide based on role
@@ -92,27 +92,27 @@ const HelpScreen = ({ navigation }) => {
     }
   ];
 
-  useEffect(() => {
-    const fetchUserRole = async () => {
-      try {
-        const currentUser = auth().currentUser;
-        if (currentUser) {
-          const userDoc = await firestore()
-            .collection('users')
-            .doc(currentUser.uid)
-            .get();
+  // useEffect(() => {
+  //   const fetchUserRole = async () => {
+  //     try {
+  //       const currentUser = auth().currentUser;
+  //       if (currentUser) {
+  //         const userDoc = await firestore()
+  //           .collection('users')
+  //           .doc(currentUser.uid)
+  //           .get();
 
-          if (userDoc.exists) {
-            setUserRole(userDoc.data().role);
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching user role:', error);
-      }
-    };
+  //         if (userDoc.exists) {
+  //           setUserRole(userDoc.data().role);
+  //         }
+  //       }
+  //     } catch (error) {
+  //       console.error('Error fetching user role:', error);
+  //     }
+  //   };
 
-    fetchUserRole();
-  }, []);
+  //   fetchUserRole();
+  // }, []);
 
 
 

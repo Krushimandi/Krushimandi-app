@@ -20,20 +20,16 @@ const db = admin.firestore();
 // Helpers
 const getNow = () => admin.firestore.Timestamp.now();
 
-// Fetch FCM tokens from unified flat structure (buyers/{uid} & farmers/{uid})
+// Fetch FCM tokens from profiles/{uid}
 async function fetchUserFcmTokens(uid) {
-  const tokens = new Set();
   try {
-    const buyerDoc = await db.collection('buyers').doc(uid).get();
-    const list = buyerDoc.exists && Array.isArray(buyerDoc.data().fcmTokens) ? buyerDoc.data().fcmTokens : [];
-    list.forEach(t => t && tokens.add(String(t)));
+    const snap = await db.collection('profiles').doc(uid).get();
+    if (snap.exists) {
+      const list = snap.data().fcmTokens;
+      if (Array.isArray(list)) return list.filter(t => !!t).map(t => String(t));
+    }
   } catch (_) {}
-  try {
-    const farmerDoc = await db.collection('farmers').doc(uid).get();
-    const list = farmerDoc.exists && Array.isArray(farmerDoc.data().fcmTokens) ? farmerDoc.data().fcmTokens : [];
-    list.forEach(t => t && tokens.add(String(t)));
-  } catch (_) {}
-  return Array.from(tokens);
+  return [];
 }
 
 /**

@@ -83,11 +83,12 @@ class BuyerService {
             
             // Try to read from a collection
             const testQuery = await firestore()
-                .collection('buyers')
+                .collection('profiles')
+                .where('currentRole', 'in', ['buyer', 'farmer'])
                 .limit(1)
                 .get();
             
-            console.log('✅ Firestore connection successful. Found', testQuery.size, 'documents in buyers collection');
+            console.log('✅ Firestore connection successful. Found', testQuery.size, 'documents in profiles collection');
             return true;
         } catch (error) {
             console.error('❌ Firestore connection failed:', error);
@@ -112,8 +113,8 @@ class BuyerService {
                 return cached.profile;
             }
 
-            console.log('🔍 Fetching buyer profile from Firestore:', buyerId);
-            const doc = await firestore().collection('buyers').doc(buyerId).get();
+            console.log('🔍 Fetching buyer profile (profiles collection) from Firestore:', buyerId);
+            const doc = await firestore().collection('profiles').doc(buyerId).get();
             
             if (!doc.exists) {
                 console.log('❌ Buyer profile not found:', buyerId);
@@ -196,11 +197,11 @@ class BuyerService {
 
             console.log('📊 Calculating buyer stats for:', buyerId);
 
-            // Get reviews from the nested structure: buyers/{buyerId}/reviews
+            // Get reviews from nested structure: profiles/{buyerId}/buyerReviews
             const reviewsSnapshot = await firestore()
-                .collection('buyers')
+                .collection('profiles')
                 .doc(buyerId)
-                .collection('reviews')
+                .collection('buyerReviews')
                 .get();
 
             let totalRating = 0;
@@ -311,7 +312,7 @@ class BuyerService {
     }
 
     /**
-     * Get buyer reviews from the nested structure: buyers/{buyerId}/reviews/{farmerId}
+    * Get buyer reviews from nested structure: profiles/{buyerId}/buyerReviews/{farmerId}
      */
     async getBuyerReviews(buyerId: string): Promise<BuyerReview[]> {
         try {
@@ -329,11 +330,11 @@ class BuyerService {
 
             console.log('🔍 Fetching buyer reviews from nested structure:', buyerId);
             
-            // Get reviews from the nested structure: buyers/{buyerId}/reviews
+            // Get reviews from the nested structure: profiles/{buyerId}/buyerReviews
             const reviewsSnapshot = await firestore()
-                .collection('buyers')
+                .collection('profiles')
                 .doc(buyerId)
-                .collection('reviews')
+                .collection('buyerReviews')
                 .orderBy('createdAt', 'desc')
                 .get();
 
@@ -353,7 +354,7 @@ class BuyerService {
                 if (data.farmerId && (!farmerName || farmerName === 'Anonymous Farmer')) {
                     try {
                         const farmerDoc = await firestore()
-                            .collection('farmers')
+                            .collection('profiles')
                             .doc(data.farmerId)
                             .get();
                         
@@ -395,7 +396,7 @@ class BuyerService {
     }
 
     /**
-     * Submit a review for a buyer using the nested structure: buyers/{buyerId}/reviews/{farmerId}
+    * Submit a review for a buyer using nested structure: profiles/{buyerId}/buyerReviews/{farmerId}
      */
     async submitBuyerReview(
         buyerId: string,
@@ -426,10 +427,10 @@ class BuyerService {
             let farmerImage: string | undefined;
             
             try {
-                const farmerDoc = await firestore()
-                    .collection('farmers')
-                    .doc(farmerId)
-                    .get();
+            const farmerDoc = await firestore()
+                .collection('profiles')
+                .doc(farmerId)
+                .get();
                 
                 if (farmerDoc.exists()) {
                     const farmerData = farmerDoc.data();
@@ -452,14 +453,14 @@ class BuyerService {
                 ...(farmerImage && { farmerImage }),
             };
 
-            // Add review to the nested structure: buyers/{buyerId}/reviews/{farmerId}
+            // Add review to the nested structure: profiles/{buyerId}/buyerReviews/{farmerId}
             console.log('📝 Adding review to buyer subcollection:', buyerId, '/', farmerId);
             await firestore()
-                .collection('buyers')
+                .collection('profiles')
                 .doc(buyerId)
-                .collection('reviews')
+                .collection('buyerReviews')
                 .doc(farmerId)
-                .set(reviewData, { merge: true }); // Use merge to update if review already exists
+                .set(reviewData, { merge: true });
 
             const review: BuyerReview = {
                 id: farmerId,
@@ -509,9 +510,9 @@ class BuyerService {
             };
 
             await firestore()
-                .collection('buyers')
+                .collection('profiles')
                 .doc(buyerId)
-                .collection('reviews')
+                .collection('buyerReviews')
                 .doc(farmerId)
                 .set(reviewData);
             
@@ -535,7 +536,7 @@ class BuyerService {
             console.log('📊 Fetching database statistics...');
             
             const [buyersSnapshot, reviewsSnapshot, requestsSnapshot, connectionStatus] = await Promise.all([
-                firestore().collection('buyers').get(),
+                firestore().collection('profiles').get(),
                 firestore().collection('reviews').get(),
                 firestore().collection('requests').get(),
                 this.testConnection()
