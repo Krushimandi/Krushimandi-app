@@ -415,7 +415,7 @@ const MyOrdersScreen = () => {
       }
 
       // Try to get from farmers collection first
-  const farmerDoc = await firestore().collection('profiles').doc(farmerId).get();
+      const farmerDoc = await firestore().collection('profiles').doc(farmerId).get();
 
       if (farmerDoc.exists()) {
         const farmerData = farmerDoc.data();
@@ -769,12 +769,14 @@ const MyOrdersScreen = () => {
           <View>
             <Text style={styles.headerTitle}>My Orders</Text>
             <Text style={styles.headerSubtitle}>
-              {orderStats.total} orders • {orderStats.accepted} active           </Text>
+              {orderStats.total} orders • {orderStats.accepted} active
+            </Text>
           </View>
           <TouchableOpacity
             onPress={() => {
               console.log('Opening notifications from header');
-              navigation.navigate('Notification'); // Navigate to Notification screen
+              // navigation.navigate('Notification'); // Navigate to Notification screen
+              navigation.navigate('ChatList');
             }}
             style={styles.notificationButton}
             accessible={true}

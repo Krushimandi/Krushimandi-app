@@ -13,11 +13,10 @@ import {
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { setAuthStep } from '../../utils/authFlow';
+import { authFlowManager } from '../../services/authFlowManager';
 import { saveUserRole } from '../../utils/userRoleStorage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import auth from '@react-native-firebase/auth';
-import { navigateToMain } from '../../utils/navigationUtils';
 
 const RoleSelectionScreen = ({ navigation }) => {
   const [selectedRole, setSelectedRole] = useState(null);
@@ -50,30 +49,37 @@ const RoleSelectionScreen = ({ navigation }) => {
   // Skip this screen for existing/returning users whose onboarding is complete
   useEffect(() => {
     let mounted = true;
-    (async () => {
+    const checkSkipCondition = async () => {
       try {
-        const fbUser = auth().currentUser;
-        const [userDataStr, authStep] = await Promise.all([
-          AsyncStorage.getItem('userData'),
-          AsyncStorage.getItem('authStep')
-        ]);
-        const userData = userDataStr ? JSON.parse(userDataStr) : null;
-        const hasRole = !!userData?.userRole;
-        const profileComplete = userData?.isProfileComplete === true;
-        const isComplete = authStep === 'Complete';
-
-        if (fbUser && (isComplete || (hasRole && profileComplete))) {
-          navigateToMain();
+        const route = await authFlowManager.resumeAuthFlow();
+        
+        if (mounted && route.screen !== 'RoleSelection') {
+          if (route.screen === 'Main') {
+            const { navigateToMain } = await import('../../utils/navigationUtils');
+            navigateToMain();
+          } else {
+            if (route.params) {
+              navigation.replace(route.screen, route.params);
+            } else {
+              navigation.replace(route.screen);
+            }
+          }
         }
-      } catch (e) {
-        // no-op
+      } catch (error) {
+        console.error('❌ Error checking role selection skip condition:', error);
       }
-    })();
+    };
+    
+    checkSkipCondition();
     return () => { mounted = false; };
-  }, []);
+  }, [navigation]);
 
   const handleBackPress = () => {
-    navigation.goBack();
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      navigation.navigate("MobileScreen");
+    }
   };
 
   const handleRoleSelect = (role) => {
@@ -83,26 +89,33 @@ const RoleSelectionScreen = ({ navigation }) => {
     if (selectedRole) {
       setIsLoading(true);
       try {
-        // Save role to dedicated localStorage
+        // Save role to local storage
         await saveUserRole(selectedRole);
 
-        // Also persist role inside userData for backward compatibility (merge, don't overwrite)
+        // Persist role in userData for backward compatibility
         try {
           const existing = await AsyncStorage.getItem('userData');
-          const merged = existing ? { ...JSON.parse(existing), userRole: selectedRole } : { userRole: selectedRole, createdAt: new Date().toISOString() };
+          const user = auth().currentUser;
+          const merged = existing 
+            ? { ...JSON.parse(existing), userRole: selectedRole }
+            : { 
+                uid: user?.uid || '',
+                userRole: selectedRole, 
+                phoneNumber: user?.phoneNumber || '',
+                createdAt: new Date().toISOString() 
+              };
           await AsyncStorage.setItem('userData', JSON.stringify(merged));
         } catch (mergeErr) {
-          console.warn('⚠️ Failed merging userData while saving role, writing minimal payload:', mergeErr);
-          await AsyncStorage.setItem('userData', JSON.stringify({ userRole: selectedRole, createdAt: new Date().toISOString() }));
+          console.warn('⚠️ Failed merging userData while saving role:', mergeErr);
         }
 
-        // Update auth step
-        await setAuthStep('RoleSelected');
+        // Update auth flow state
+        await authFlowManager.updateFlowState('profile_setup');
 
-        console.log('Selected role saved to localStorage:', selectedRole);
+        console.log('✅ Selected role saved:', selectedRole);
         navigation.navigate('IntroduceYourself', { userRole: selectedRole });
       } catch (err) {
-        console.error('Error saving role:', err);
+        console.error('❌ Error saving role:', err);
       } finally {
         setIsLoading(false);
       }
@@ -223,13 +236,13 @@ const RoleSelectionScreen = ({ navigation }) => {
               </TouchableOpacity>
             </View>
 
-            {/* Security note */}
+            {/* Security note
             <View style={styles.securityNote}>
               <Ionicons name="shield-checkmark" size={16} color="#007E2F" />
               <Text style={styles.securityText}>
                 You can change your role later in settings if needed
               </Text>
-            </View>
+            </View> */}
           </Animated.View>
         </ScrollView>
 

@@ -54,7 +54,6 @@ export const addToWishlist = async (fruitId) => {
     const wishlistData = {
       user_id: user.uid,
       added_at: firestoreServerTimestamp(),
-      user_email: user.email || null,
     };
 
     const userWishlistData = {
@@ -216,7 +215,6 @@ export const getFruitLikers = async (fruitId) => {
       likers.push({
         user_id: doc.id,
         added_at: doc.data().added_at,
-        user_email: doc.data().user_email,
       });
     });
 

@@ -500,10 +500,6 @@ export const updateUserInFirestore = async (userId, userRole, updateData) => {
   }
 };
 
-/**
- * Cleanup unused fields from buyer profile in Firestore
- * Removes: email, businessLocation, isEmailVerified, businessDetails, preferredCrops
- */
 export const cleanupUnusedBuyerFields = async (userId) => {
   try {
     const del = firestore.FieldValue.delete();
@@ -536,8 +532,8 @@ export const saveUserToAsyncStorage = async (userData) => {
       lastSyncAt: new Date().toISOString(),
       createdAt: userData.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-  // Persist location when available
-  ...(userData.location ? { location: userData.location } : {}),
+      // Persist location when available
+      ...(userData.location ? { location: userData.location } : {}),
       // Persist new buyer-specific optional fields and fruits preference when present
       ...(userData.userRole === 'buyer' && {
         businessType: userData.businessType || null,
@@ -879,7 +875,7 @@ export const getCompleteUserProfile = async (forceRefresh = false) => {
     console.log(localData ? '✅ Local user data found' : '❌ No local user data found');
     console.log(userRole ? `✅ User role: ${userRole}` : '❌ No user role found in local data');
 
-    if (userRole) {
+  if (userRole) {
       try {
         // Get from Firestore and update AsyncStorage
         const firestoreData = await getUserFromFirestore(user.uid, userRole);
@@ -911,6 +907,22 @@ export const getCompleteUserProfile = async (forceRefresh = false) => {
           console.error('❌ Non-network error getting profile:', error);
         }
       }
+    }
+
+    // Fallback: no local userRole or role-based fetch failed earlier – try unified profiles/{uid}
+    try {
+      const unifiedRef = doc(firebaseFirestore, COLLECTIONS.PROFILES, user.uid);
+      const unifiedSnap = await getDoc(unifiedRef);
+      if (unifiedSnap.exists()) {
+        const unifiedData = { uid: user.uid, ...unifiedSnap.data() };
+        console.log('✅ User profile loaded from unified profiles collection');
+        await saveUserToAsyncStorage(unifiedData);
+        // Also update offline auth state for resilience
+        await saveOfflineAuthState(unifiedData);
+        return unifiedData;
+      }
+    } catch (unifiedErr) {
+      console.warn('⚠️ Unified profiles fallback failed:', unifiedErr?.message || unifiedErr);
     }
 
     console.log('❌ User profile not found');
@@ -1061,10 +1073,8 @@ export const debugUserData = async () => {
     console.log('Firebase Auth User:', user ? {
       uid: user.uid,
       phoneNumber: user.phoneNumber,
-      email: user.email,
       displayName: user.displayName,
       photoURL: user.photoURL,
-      emailVerified: user.emailVerified
     } : 'None');
 
     // AsyncStorage data

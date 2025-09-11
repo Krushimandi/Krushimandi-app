@@ -27,7 +27,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import auth from '@react-native-firebase/auth';
 import { launchImageLibrary, launchCamera, MediaType } from 'react-native-image-picker';
 import { requestImagePickerPermissions } from '../../utils/permissions';
-import { setAuthStep } from '../../utils/authFlow';
+import { authFlowManager } from '../../services/authFlowManager';
 import { syncUserProfile } from '../../services/firebaseService';
 import { saveUserRole } from '../../utils/userRoleStorage';
 import { useAuthStore } from '../../store';
@@ -188,7 +188,6 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
           lastName: lastName.trim(),
           userRole: selectedUserRole,
           phoneNumber: currentUser.phoneNumber,
-          email: currentUser.email || '',
           isProfileComplete: true,
         };
 
@@ -258,7 +257,6 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
           id: currentUser.uid,
           firstName: userData.firstName,
           lastName: userData.lastName,
-          email: userData.email,
           phone: userData.phoneNumber,
           userType: selectedUserRole, // 'farmer' | 'buyer'
           status: 'active',
@@ -287,32 +285,30 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
 
         // Check if user is buyer to determine next step
         if (selectedUserRole === 'buyer') {
-          // For buyers, navigate to FruitsScreen instead of completing auth
-          setUploadStatus('Complete!');
-          setIsLoading(false);
-          console.log('🍎 Buyer detected - navigating to FruitsScreen');
-          try {
+          // For buyers, check if they need fruit selection
+          const route = await authFlowManager.resumeAuthFlow();
+          
+          if (route.screen === 'FruitsScreen') {
+            setUploadStatus('Complete!');
+            setIsLoading(false);
+            console.log('🍎 Buyer detected - navigating to FruitsScreen');
             navigation.navigate('FruitsScreen', { onboarding: true, mode: 'auth', fromAuth: true });
-          } catch (e) {
-            try {
-              const { navigate } = await import('../../utils/navigationUtils');
-              navigate('Auth'); // ensure Auth stack is active
-            } catch { }
+          } else {
+            // Buyer flow complete
+            await authFlowManager.updateFlowState('complete');
+            setUploadStatus('Complete!');
+            setIsLoading(false);
+            console.log('✅ Buyer profile complete - navigating to Main');
+            navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
           }
         } else {
-          // For farmers, complete auth flow as before
-          await setAuthStep('Complete');
+          // For farmers, complete auth flow
+          await authFlowManager.updateFlowState('complete');
           setUploadStatus('Complete!');
+          setIsLoading(false);
 
-          console.log('✅ Auth step set to Complete - AppNavigator should handle navigation automatically');
-
-          // Give the auth state manager a moment to process and trigger navigation
-          setTimeout(() => {
-            if (isLoading) {
-              console.log('🔄 Navigation should have occurred, clearing loading state');
-              setIsLoading(false);
-            }
-          }, 2000); // Clear loading after 2 seconds as fallback
+          console.log('✅ Farmer profile complete - navigating to Main');
+          navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
         }
 
         // Don't navigate immediately - let the auth state listener in AppNavigator handle it

@@ -314,10 +314,11 @@ const MobileScreen = ({ navigation }) => {
               {isLoading ? (
                 <ActivityIndicator size="small" color="#FFFFFF" />
               ) : (
-                <>
+                <View style={{ flexDirection: "row", alignItems: "center" }}>
                   <Text style={styles.nextText}>Continue</Text>
                   <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
-                </>)}
+                </View>
+              )}
             </TouchableOpacity>          </View>
         </View>
       </KeyboardAvoidingView>

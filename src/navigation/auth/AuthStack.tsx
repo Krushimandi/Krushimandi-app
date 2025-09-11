@@ -5,8 +5,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { navigateToMain } from '../../utils/navigationUtils';
+import { authFlowManager } from '../../services/authFlowManager';
 
 // Auth Screen Components
 import {
@@ -28,64 +27,67 @@ const AuthStack = createStackNavigator<AuthStackParamList>();
 const AuthNavigator = () => {
   const [initialRoute, setInitialRoute] = useState<keyof AuthStackParamList>('Welcome');
   const [ready, setReady] = useState(false);
-  const [redirected, setRedirected] = useState(false);
 
   useEffect(() => {
     let mounted = true;
-    const resolve = async () => {
+    const initializeAuth = async () => {
       try {
-        const WELCOME_KEY = '@krushimandi:onboarding_complete_v2';
-        const hasSeenWelcome = await AsyncStorage.getItem(WELCOME_KEY);
-
-        const { getAuthState } = await import('../../utils/authFlow');
-        const state = await getAuthState();
-
-        // If auth is complete, redirect to Main immediately to avoid any Auth flicker
-        if (state?.nextRoute === 'Main' || state?.currentStep === 'complete') {
-          // Prevent duplicate reset loops: only navigate if not already redirected recently
-          if (!redirected) {
-            navigateToMain();
-            if (mounted) {
-              setRedirected(true);
-            }
-          }
-          return;
-        }
-
-        let route: keyof AuthStackParamList = hasSeenWelcome ? 'MobileScreen' : 'Welcome';
-        switch (state.currentStep) {
-          case 'role_selection':
-            route = 'RoleSelection';
-            break;
-          case 'profile_setup':
-            route = 'IntroduceYourself';
-            break;
-          case 'fruits_selection':
-            route = 'FruitsScreen' as any;
-            break;
-          case 'complete':
-            route = 'MobileScreen';
-            break;
-          default:
-            break;
-        }
+        // Use auth flow manager to determine initial route
+        const route = await authFlowManager.resumeAuthFlow();
+        
+        console.log('🚀 Auth flow determined route:', route);
+        
         if (mounted) {
-          setInitialRoute(route);
+          if (route.screen === 'Main') {
+            // User is fully authenticated, redirect to main app
+            const { navigateToMain } = await import('../../utils/navigationUtils');
+            navigateToMain();
+            return;
+          }
+          
+          // Map auth flow route to AuthStack screen
+          let authScreen: keyof AuthStackParamList = 'Welcome';
+          
+          switch (route.screen) {
+            case 'Welcome':
+              authScreen = 'Welcome';
+              break;
+            case 'MobileScreen':
+              authScreen = 'MobileScreen';
+              break;
+            case 'OTPVerification':
+              authScreen = 'OTPVerification';
+              break;
+            case 'RoleSelection':
+              authScreen = 'RoleSelection';
+              break;
+            case 'IntroduceYourself':
+              authScreen = 'IntroduceYourself';
+              break;
+            case 'FruitsScreen':
+              authScreen = 'FruitsScreen';
+              break;
+            default:
+              authScreen = 'Welcome';
+          }
+          
+          setInitialRoute(authScreen);
           setReady(true);
         }
-      } catch (e) {
-        console.warn('AuthStack init route error:', e);
+      } catch (error) {
+        console.error('❌ Auth initialization error:', error);
         if (mounted) {
           setInitialRoute('Welcome');
           setReady(true);
         }
       }
     };
-    resolve();
+
+    initializeAuth();
     return () => { mounted = false; };
   }, []);
 
-  if (!ready || redirected) return null;
+  if (!ready) return null;
 
   return (
     <AuthProvider>

@@ -25,7 +25,6 @@ interface AppState {
 
 const initialNotificationSettings: NotificationSettings = {
   push: true,
-  email: true,
   sms: false,
   orderUpdates: true,
   promotional: false,

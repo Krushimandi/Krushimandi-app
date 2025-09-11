@@ -1,29 +1,46 @@
-import firebase from '@react-native-firebase/app';
-import appCheck from '@react-native-firebase/app-check';
+import { firebase } from '@react-native-firebase/app-check';
+import { app } from 'firebase-admin';
 
-const activateAppCheck = async () => {
+const firebaseAppCheckToken = async () => {
   try {
-    console.log(`AppCheck: Activating in ${__DEV__ ? 'DEBUG' : 'PROD'} mode...`);
+    const appCheck = await firebase.appCheck();
 
-    await appCheck().setTokenAutoRefreshEnabled(true);
+    const rnfbProvider = appCheck.newReactNativeFirebaseAppCheckProvider();
 
-    // Use 'debug' token in development
-    const appCheckToken = __DEV__ 
-      ? 'debug' // using debug token for development
-      : 'play-integrity'; // This assumes you're using Play Integrity for release
+    rnfbProvider.configure({
+      android: {
+        provider: __DEV__ ? 'debug' : 'playIntegrity',
+        debugToken: '35515E03-8C57-424C-8D9B-FBC0E1856296'
+      },
+      apple: {
+        provider: __DEV__ ? 'debug' : 'appAttestWithDeviceCheckFallback',
+        debugToken: '35515E03-8C57-424C-8D9B-FBC0E1856296'
+      }
+    });
 
-    await appCheck().activate(appCheckToken, true);
-    console.log(`✅ AppCheck activated successfully in ${__DEV__ ? 'DEBUG' : 'PROD'} mode.`);
+    console.log("Initializing AppCheck with provider:", rnfbProvider);
 
-    const tokenResult = await appCheck().getToken();
-    console.log('App Check token:', tokenResult.token);
-    
-  } catch (error) {
-    console.error('❌ AppCheck: Failed to activate App Check', error);
+    await appCheck.initializeAppCheck({
+      provider: rnfbProvider,
+      isTokenAutoRefreshEnabled: true
+    });
+
+    const appCheckTokenFB = await appCheck.getToken();
+
+    const isTokenValid = appCheckTokenFB.token;
+    if (isTokenValid) {
+      // Perform Action for the legal device
+      console.log("AppCheck token is valid. Device is verified.", isTokenValid);
+
+    } else {
+      // Perform Action for illegal device
+      console.log("AppCheck token is invalid. Device is not verified.");
+    }
+
+  } catch (e) {
+    // Handle Errors which can happen during token generation
+    console.log("Error occurred while generating AppCheck token:", e);
   }
 };
 
-// Call immediately or export
-activateAppCheck();
-
-export default firebase;
+firebaseAppCheckToken();

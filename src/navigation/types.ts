@@ -49,7 +49,9 @@ export type RootStackParamList = {
     buyerId: string;
     buyerName?: string;
   };
-  ReviewTest: undefined; // Test screen for review system
+  ChatList: undefined;
+  ChatDetail: undefined;
+
 };
 
 // Auth Stack
@@ -83,9 +85,10 @@ export type CommonScreensParamList = {
 // Main Tab Navigator (Farmer)
 export type MainTabParamList = {
   Home: undefined;
-  AddFruit: undefined;
-  AddFarm: undefined;
   Requests: undefined;
+  AddFruit: undefined;
+  Chats: undefined;
+  Profiles: undefined;
 };
 
 // Buyer Tab Navigator

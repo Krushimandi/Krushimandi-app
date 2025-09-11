@@ -301,8 +301,8 @@ const FarmerHomeScreen = () => {
         }
         if (userValidationAttempts.current <= 3) {
           // Race condition: retry a few times before declaring failure
-            setTimeout(() => loadUserProfile(forceRefresh), 400 * userValidationAttempts.current);
-            return;
+          setTimeout(() => loadUserProfile(forceRefresh), 400 * userValidationAttempts.current);
+          return;
         }
         console.log('❌ No authenticated user after retries – triggering validation failure');
         handleUserValidationFailure();
@@ -798,35 +798,7 @@ const FarmerHomeScreen = () => {
             ]}>
               <View style={styles.headerRow}>
                 <View style={styles.profileContainer}>
-                  {userProfile?.profileImage ? (
-                    <TouchableOpacity
-                      onPress={() => safeNavigate('ProfileScreen')}
-                      style={styles.profileImageButton}
-                      activeOpacity={0.7}
-                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                    >
-                      <Image
-                        pointerEvents="none"
-                        source={{ uri: userProfile.profileImage }}
-                        style={styles.profileImage}
-                      />
-                    </TouchableOpacity>
-                  ) : (
-                    <TouchableOpacity
-                      style={styles.profilePlaceholderButton}
-                      onPress={() => safeNavigate('ProfileScreen')}
-                      activeOpacity={0.7}
-                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                    >
-                      <View style={styles.profilePlaceholder}>
-                        <Octicons
-                          name="person"
-                          size={24}
-                          color="#000"
-                        />
-                      </View>
-                    </TouchableOpacity>
-                  )}
+
                   <TouchableOpacity
                     style={styles.userInfo}
                     onPress={() => safeNavigate('ProfileScreen')}
@@ -853,7 +825,7 @@ const FarmerHomeScreen = () => {
                   </TouchableOpacity>
                 </View>
                 <TouchableOpacity
-                  onPress={() => safeNavigate('Notification')}
+                  onPress={() => safeNavigate('ChatList')}
                   style={styles.notificationIconButton}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
@@ -1516,13 +1488,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#F6F6F6',
   },
   userInfo: {
-    marginLeft: 12,
+    marginLeft: 6,
   },
   welcome: {
-    fontSize: 22,
+    paddingTop: 4,
+    fontSize: 30,
     fontWeight: '800',
     color: '#111827',
-    marginBottom: 4,
     letterSpacing: -0.5,
     fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
@@ -1727,8 +1699,17 @@ const styles = StyleSheet.create({
   },
   emptyState: {
     alignItems: 'center',
-    paddingVertical: 60,
-    paddingHorizontal: 20,
+    justifyContent: 'center',
+    paddingVertical: 36,
+    paddingHorizontal: 24,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    marginVertical: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
   },
   emptyStateText: {
     fontSize: 18,

@@ -1,8 +1,12 @@
-import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
-import { getFocusedRouteNameFromRoute, NavigationContainer, useNavigation, useNavigationState } from '@react-navigation/native';
+import React, { useEffect, useState, useMemo } from 'react';
+import { getFocusedRouteNameFromRoute, NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { navigationRef, isNavigationReady, pendingNotificationData, handleNotificationNavigation } from './navigationService';
 import { notificationTabEmitter } from './buyer/notificationTabEmitter';
+import { authFlowManager } from '../services/authFlowManager';
+import auth from '@react-native-firebase/auth';
+import firestore from '@react-native-firebase/firestore';
+import { useAuthStore } from '../store/authStore';
 
 // Screen components
 import LoadingScreen from '../components/common/LoadingScreen';
@@ -14,6 +18,8 @@ import AboutScreen from '../components/ProfileScreen/AboutScreen';
 import { HelpScreen, HelpGuide, FaqDetail, PaymentSecurity, AppPlatform, BestPractices } from '../components/Help';
 import LanguagesScreen from '../components/ProfileScreen/LanguagesScreen';
 import PrivacyPolicyScreen from '../components/ProfileScreen/PrivacyPolicyScreen';
+import ChatListScreen from '../components/chat/ChatListScreen';
+import ChatDetailScreen from '../components/chat/ChatDetailScreen';
 
 // Navigation provider
 import { NavigationProvider } from './NavigationProvider';
@@ -25,183 +31,106 @@ import BuyerStack from './buyer/BuyerStack';
 
 // Types
 import { RootStackParamList } from './types';
-import { AuthBootstrapState } from '../utils/authBootstrap';
-import { useAuthState } from '../components/providers/AuthStateProvider';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const RootStack = createStackNavigator<RootStackParamList>();
 
 interface AppNavigatorProps {
-  bootstrapState: AuthBootstrapState;
+  // bootstrapState is no longer required; kept optional for compatibility
+  bootstrapState?: unknown;
 }
 
-interface ConsolidatedAuthState {
-  isAuthenticated: boolean;
-  userRole: 'farmer' | 'buyer' | null;
-  user: any | null;
-  hasValidFirebaseAuth: boolean;
-  hasValidRole: boolean;
-  isFullyAuthenticated: boolean;
-  shouldShowMainApp: boolean;
-  authSource: 'context' | 'bootstrap';
-}
-
-// Static properties for tracking state changes and preventing excessive re-renders
-let lastAuthUpdate = 0;
-let previousAuthState: boolean | null = null;
-
-// Root Navigator - Optimized
-const AppNavigator: React.FC<AppNavigatorProps> = ({ bootstrapState }) => {
-  const { isAuthenticated, userRole, isLoading, user, refreshUserRole } = useAuthState();
-  const [navigationKey, setNavigationKey] = useState(0);
-  // Prevent RoleSelection flicker for existing users: resolve role before deciding stack
-  const [resolvingRole, setResolvingRole] = useState(false);
-
-  // Memoized auth state consolidation - single source of truth
-  const authState: ConsolidatedAuthState = useMemo(() => {
-    // Priority: Context state (includes Firebase sync) > Bootstrap state
-    const contextAuth = isAuthenticated !== null && isAuthenticated !== undefined ? isAuthenticated : null;
-    const finalIsAuthenticated = contextAuth !== null ? contextAuth : bootstrapState.isAuthenticated;
-    // Try to infer role from multiple sources to avoid transient missing role flicker
-    const inferredRole = userRole || bootstrapState.userRole || (user as any)?.role || (user as any)?.userType;
-    const finalUser = user || bootstrapState.user;
-
-    // Enhanced validation for proper authentication state
-    const hasValidFirebaseAuth = !!(finalUser && (finalUser as any).uid);
-    const hasValidRole = inferredRole === 'buyer' || inferredRole === 'farmer';
-    const isFullyAuthenticated = !!finalIsAuthenticated && hasValidFirebaseAuth && hasValidRole;
-
-    return {
-      isAuthenticated: !!finalIsAuthenticated,
-      userRole: (hasValidRole ? inferredRole : null) as any,
-      user: finalUser,
-      hasValidFirebaseAuth,
-      hasValidRole,
-      isFullyAuthenticated,
-      shouldShowMainApp: isFullyAuthenticated,
-      authSource: contextAuth !== null ? 'context' : 'bootstrap'
-    };
-  }, [isAuthenticated, userRole, user, bootstrapState.isAuthenticated, bootstrapState.userRole, bootstrapState.user]);
-
-  // Optimized logging with better state visibility
-  console.log('🔍 AppNavigator - Consolidated Auth State:', {
-    source: authState.authSource,
-    contextAuth: isAuthenticated,
-    contextRole: userRole,
-    contextUser: !!user,
-    bootstrapAuth: bootstrapState.isAuthenticated,
-    bootstrapRole: bootstrapState.userRole,
-    bootstrapUser: !!bootstrapState.user,
-    bootstrapReady: bootstrapState.isReady,
-    finalAuth: authState.isAuthenticated,
-    finalRole: authState.userRole,
-    hasValidFirebaseAuth: authState.hasValidFirebaseAuth,
-    hasValidRole: authState.hasValidRole,
-    isFullyAuthenticated: authState.isFullyAuthenticated,
-    shouldShowMainApp: authState.shouldShowMainApp,
-    isLoading,
-    navigationKey
-  });
-
-  // Re-mount navigator when fully-authenticated state or role actually changes
-  const prevAuthRef = useRef<boolean | null>(null);
-  const prevRoleRef = useRef<'farmer' | 'buyer' | null>(null);
-  useEffect(() => {
-    const prevAuth = prevAuthRef.current;
-    const prevRole = prevRoleRef.current;
-    const authChanged = prevAuth !== null && authState.isFullyAuthenticated !== prevAuth;
-    const roleChanged = prevRole !== null && authState.userRole !== prevRole;
-
-    if ((authChanged || roleChanged) && !isLoading) {
-      console.log('🔄 Auth/Role change detected, re-mounting navigation:', {
-        prevAuth,
-        currAuth: authState.isFullyAuthenticated,
-        prevRole,
-        currRole: authState.userRole,
-        nextKey: navigationKey + 1
-      });
-      setNavigationKey(prev => prev + 1);
-    }
-
-    prevAuthRef.current = authState.isFullyAuthenticated;
-    prevRoleRef.current = authState.userRole;
-  }, [authState.isFullyAuthenticated, authState.userRole, isLoading]);
-
-  // Optimized stack component selection with memoization
-  const getMainStackComponent = useCallback(() => {
-    if (!authState.isFullyAuthenticated) {
-      console.log('⚠️ Not fully authenticated, routing to AuthNavigator:', {
-        isAuthenticated: authState.isAuthenticated,
-        hasFirebaseAuth: authState.hasValidFirebaseAuth,
-        hasRole: authState.hasValidRole
-      });
-      return AuthNavigator;
-    }
-
-    // return FarmerStack;
-    switch (authState.userRole) {
-      case 'buyer':
-        console.log('📱 Routing to BuyerStack for buyer role');
-        return BuyerStack;
-      case 'farmer':
-        console.log('🌾 Routing to FarmerStack for farmer role');
-        return FarmerStack;
-      default:
-        console.warn('⚠️ Invalid or missing user role, routing to AuthNavigator:', authState.userRole);
-        return AuthNavigator;
-    }
-  }, [authState.isFullyAuthenticated, authState.userRole, authState.isAuthenticated, authState.hasValidFirebaseAuth, authState.hasValidRole]);
-
-  // If we have a Firebase user (authenticated) but role hasn't been resolved yet, attempt to load it
-  useEffect(() => {
-    if (
-      authState.isAuthenticated &&
-      authState.hasValidFirebaseAuth &&
-      !authState.hasValidRole &&
-      !resolvingRole
-    ) {
-      console.log('🔄 Resolving user role before deciding navigation stack to avoid RoleSelection flicker');
-      setResolvingRole(true);
-      (async () => {
-        try {
-          await refreshUserRole();
-        } catch (e) {
-          console.warn('⚠️ Failed to resolve user role early:', e);
-        } finally {
-          setResolvingRole(false);
-        }
-      })();
-    }
-  }, [authState.isAuthenticated, authState.hasValidFirebaseAuth, authState.hasValidRole, resolvingRole, refreshUserRole]);
-
-  // Show loading while authentication state/role is being determined
-  if (
-    isLoading ||
-    !bootstrapState.isReady ||
-    (authState.isAuthenticated && authState.hasValidFirebaseAuth && !authState.hasValidRole)
-  ) {
-    console.log('⏳ Showing loading screen:', {
-      isLoading,
-      bootstrapReady: bootstrapState.isReady,
-      waitingForRole: authState.isAuthenticated && authState.hasValidFirebaseAuth && !authState.hasValidRole,
-      reason: !bootstrapState.isReady ? 'Bootstrap not ready' : (!authState.hasValidRole ? 'Resolving role' : 'Auth loading')
-    });
-    return <LoadingScreen />;
-  }
-
-  // Determine routing with enhanced logic
-  const initialRouteName = authState.shouldShowMainApp ? "Main" : "Auth";
-  const MainStackComponent = getMainStackComponent();
-
-  console.log('🚀 AppNavigator - Final Navigation Setup:', {
-    initialRouteName,
-    stackComponent: authState.userRole ? `${authState.userRole}Stack` : 'AuthStack',
-    navigationKey,
-    authStateValid: authState.isFullyAuthenticated,
-    hasFirebaseSync: authState.authSource === 'context'
-  });
-
+// Root Navigator - Using AuthFlowManager
+const AppNavigator: React.FC<AppNavigatorProps> = () => {
+  const [initializing, setInitializing] = useState(true);
+  const [uid, setUid] = useState<string | null>(null);
+  const [role, setRole] = useState<'buyer' | 'farmer' | null>(null);
+  const [navigationKey] = useState(0);
+  const [mainStackKey, setMainStackKey] = useState(0); // force remount of role stack when role changes
   const insets = useSafeAreaInsets();
+
+  // Primary auth listener
+  useEffect(() => {
+    const unsubscribe = auth().onAuthStateChanged(async (user) => {
+      if (user?.uid) {
+        setUid(user.uid);
+        try {
+          const profile = await authFlowManager.loadUserProfile(user.uid);
+          if (profile?.userRole && (profile.userRole === 'buyer' || profile.userRole === 'farmer')) {
+            setRole((prev) => {
+              if (prev !== profile.userRole) {
+                // bump key to force stack remount
+                setMainStackKey(Date.now());
+              }
+              return profile.userRole;
+            });
+          } else {
+            setRole(null);
+          }
+        } catch (error) {
+          console.log('Error loading user profile:', error);
+          setRole(null);
+        }
+      } else {
+        setUid(null);
+        setRole(null);
+      }
+      setInitializing(false);
+    });
+    return unsubscribe;
+  }, []);
+
+  // Subscribe to auth store userType changes (immediate UI switch after role change action)
+  useEffect(() => {
+    const unsub = useAuthStore.subscribe((state, prevState) => {
+      const newUserType = state.user?.userType;
+      const prevUserType = prevState?.user?.userType;
+      if (
+        newUserType &&
+        newUserType !== prevUserType &&
+        (newUserType === 'buyer' || newUserType === 'farmer')
+      ) {
+        setRole((prevRole) => {
+          if (prevRole !== newUserType) setMainStackKey(Date.now());
+          return newUserType as 'buyer' | 'farmer';
+        });
+      }
+    });
+    return () => {
+      try { unsub(); } catch {}
+    };
+  }, []);
+
+  // Live Firestore listener for remote role edits
+  useEffect(() => {
+    if (!uid) return;
+    const docRef = firestore().collection('profiles').doc(uid);
+    const unsubscribe = docRef.onSnapshot((snap) => {
+      if (!snap.exists) return;
+      const data: any = snap.data();
+      const nextRole = data?.userRole;
+      if (nextRole === 'buyer' || nextRole === 'farmer') {
+        setRole((prev) => {
+          if (prev !== nextRole) {
+            setMainStackKey(Date.now());
+          }
+          return nextRole;
+        });
+      }
+    }, (err) => console.log('Firestore profile listener error:', err));
+    return unsubscribe;
+  }, [uid]);
+
+  const isAuthenticated = !!uid;
+  const hasRole = role === 'buyer' || role === 'farmer';
+  const initialRouteName = isAuthenticated && hasRole ? 'Main' : 'Auth';
+
+  const MainStackComponent = useMemo(() => {
+    if (!isAuthenticated || !hasRole) return AuthNavigator;
+    return role === 'buyer' ? BuyerStack : FarmerStack;
+  }, [isAuthenticated, hasRole, role]);
+
+  if (initializing) return <LoadingScreen />;
   return (
     <NavigationProvider>
       <NavigationContainer
@@ -209,15 +138,9 @@ const AppNavigator: React.FC<AppNavigatorProps> = ({ bootstrapState }) => {
         ref={navigationRef}
         onReady={() => {
           isNavigationReady.current = true;
-          // Handle pending notifications with auth state validation
-          if (pendingNotificationData.current) {
-            if (authState.isFullyAuthenticated) {
-              console.log('📱 Processing pending notification with valid auth state');
-              handleNotificationNavigation(pendingNotificationData.current, notificationTabEmitter);
-              pendingNotificationData.current = null;
-            } else {
-              console.log('⚠️ Pending notification found but user not fully authenticated, deferring');
-            }
+          if (pendingNotificationData.current && isAuthenticated && hasRole) {
+            handleNotificationNavigation(pendingNotificationData.current, notificationTabEmitter);
+            pendingNotificationData.current = null;
           }
         }}
       >
@@ -247,11 +170,12 @@ const AppNavigator: React.FC<AppNavigatorProps> = ({ bootstrapState }) => {
               cardStyle: { paddingBottom: isFullScreen ? 0 : insets.bottom * 0.6, backgroundColor: '#FFFFFF' },
             };
           }}
-
           initialRouteName={initialRouteName}
         >
           <RootStack.Screen name="Auth" component={AuthNavigator} />
-          <RootStack.Screen name="Main" component={MainStackComponent} />
+          <RootStack.Screen name="Main">
+            {() => <MainStackComponent key={mainStackKey} />}
+          </RootStack.Screen>
           <RootStack.Screen name="Notification" component={NotificationScreen} />
           <RootStack.Screen name="NotificationDetail" component={NotificationDetail as React.ComponentType<any>} />
           <RootStack.Screen name="EditProfile" component={EditProfileScreen} />
@@ -267,6 +191,8 @@ const AppNavigator: React.FC<AppNavigatorProps> = ({ bootstrapState }) => {
           <RootStack.Screen name="ProfileSettings" component={SettingsScreen} />
           <RootStack.Screen name="ProfileScreen" component={SettingsScreen} options={{ presentation: 'modal' }} />
           <RootStack.Screen name="BuyerProfile" component={BuyerProfileScreen} />
+          <RootStack.Screen name="ChatList" component={ChatListScreen} />
+          <RootStack.Screen name="ChatDetail" component={ChatDetailScreen} />
         </RootStack.Navigator>
       </NavigationContainer>
     </NavigationProvider >

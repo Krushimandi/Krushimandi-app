@@ -153,7 +153,8 @@ export const isProfileCompleted = async (): Promise<boolean> => {
 
       console.log('🔍 Firebase profile check:', {
         hasDisplayName,
-        displayName: user.displayName
+        displayName: user.displayName,
+        phoneNumber: user.phoneNumber,
       });
 
       // If Firebase has display name, consider profile complete

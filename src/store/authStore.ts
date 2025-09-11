@@ -18,10 +18,10 @@ interface AuthStore extends AuthState {
   verifyOTP: (phone: string, otp: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshToken: () => Promise<void>;
-  updateUser: (user: Partial<User>) => void;  clearError: () => void;
+  updateUser: (user: Partial<User>) => void;
+  setUser: (user: User | null) => void;
+  clearError: () => void;
   setLoading: (loading: boolean) => void;
-  // Temporary function for testing
-  setTempAuth: (authenticated: boolean) => void;
 }
 
 export const useAuthStore = create<AuthStore>()(
@@ -38,9 +38,9 @@ export const useAuthStore = create<AuthStore>()(
       login: async (phone: string, password?: string, otp?: string) => {
         try {
           set({ isLoading: true, error: null });
-          
+
           const response = await authService.login({ phone, password, otp });
-          
+
           set({
             isAuthenticated: true,
             user: response.user,
@@ -58,13 +58,13 @@ export const useAuthStore = create<AuthStore>()(
           });
           throw error;
         }
-      },      
+      },
       register: async (userData: any): Promise<void> => {
         try {
           set({ isLoading: true, error: null });
-          
+
           await authService.register(userData);
-          
+
           set({
             isAuthenticated: false, // User needs to verify OTP
             user: null,
@@ -84,9 +84,9 @@ export const useAuthStore = create<AuthStore>()(
       verifyOTP: async (phone: string, otp: string) => {
         try {
           set({ isLoading: true, error: null });
-          
+
           const response = await authService.verifyOTP({ phone, otp });
-          
+
           set({
             isAuthenticated: true,
             user: response.user,
@@ -111,12 +111,12 @@ export const useAuthStore = create<AuthStore>()(
       logout: async () => {
         try {
           set({ isLoading: true });
-          
+
           // Disable persistent login for manual logout
           await persistentAuthManager.disablePersistentLogin();
-          
+
           await authService.logout();
-          
+
           set({
             isAuthenticated: false,
             user: null,
@@ -127,7 +127,7 @@ export const useAuthStore = create<AuthStore>()(
         } catch (error) {
           // Even if logout fails on server, clear local state
           await persistentAuthManager.disablePersistentLogin();
-          
+
           set({
             isAuthenticated: false,
             user: null,
@@ -144,9 +144,9 @@ export const useAuthStore = create<AuthStore>()(
           if (!currentToken) {
             throw new Error('No token available');
           }
-          
+
           const response = await authService.refreshToken(currentToken);
-          
+
           set({
             token: response.token,
             user: response.user,
@@ -157,7 +157,7 @@ export const useAuthStore = create<AuthStore>()(
         } catch (error) {
           // Check if we should logout based on persistent auth settings
           const errorResult = await persistentAuthManager.handleAuthError(error, 'token_refresh');
-          
+
           if (errorResult.shouldLogout) {
             get().logout();
           } else {
@@ -177,40 +177,14 @@ export const useAuthStore = create<AuthStore>()(
         }
       },
 
-      clearError: () => {
-        set({ error: null });
-      },      setLoading: (loading: boolean) => {
-        set({ isLoading: loading });
+      setUser: (user: User | null) => {
+        set({ user, isAuthenticated: !!user });
       },
 
-      // Temporary function for testing - remove in production
-      setTempAuth: (authenticated: boolean) => {
-        if (authenticated) {
-          set({
-            isAuthenticated: true,
-            user: { 
-              id: 'temp-user', 
-              firstName: 'Test', 
-              lastName: 'User',
-              email: 'test@example.com',
-              phone: '+1234567890',
-              userType: 'buyer',
-              status: 'active',
-              isVerified: true,
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString()
-            },
-            token: 'temp-token',
-            error: null
-          });
-        } else {
-          set({
-            isAuthenticated: false,
-            user: null,
-            token: null,
-            error: null
-          });
-        }
+      clearError: () => {
+        set({ error: null });
+      }, setLoading: (loading: boolean) => {
+        set({ isLoading: loading });
       },
     }),
     {

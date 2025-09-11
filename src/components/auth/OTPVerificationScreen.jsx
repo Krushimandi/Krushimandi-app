@@ -20,8 +20,10 @@ import {
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import auth from '@react-native-firebase/auth';
+import firestore from '@react-native-firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { saveUserRole, clearUserRole } from '../../utils/userRoleStorage';
+import { saveUserRole } from '../../utils/userRoleStorage';
+import { authFlowManager } from '../../services/authFlowManager';
 import Toast from 'react-native-toast-message';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -138,7 +140,9 @@ const OTPVerificationScreen = ({ navigation, route }) => {
     return () => {
       clearConfirmation();
     };
-  }, []); const handleOtpChange = (value) => {
+  }, []);
+
+  const handleOtpChange = (value) => {
     // Only allow digits and limit to 6 characters
     const cleanedValue = value.replace(/[^0-9]/g, '').slice(0, 6);
     setOtp(cleanedValue);
@@ -262,142 +266,71 @@ const OTPVerificationScreen = ({ navigation, route }) => {
           throw new Error('No confirmation object found. Please request a new OTP.');
         }
 
-        // Confirm the OTP
-        const userCredential = await confirmation.confirm(otpCode);
-        console.log('✅ OTP verified successfully for user:', userCredential.user.uid);
-
-        // -------------------------------------------------------------
-        // Provisional persistence to avoid race conditions immediately
-        // after OTP where validation runs before role/userData cached.
-        // Gives a short grace window preventing destructive cleanup.
-        // -------------------------------------------------------------
-        try {
-          const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-          const { setAuthStep } = require('../../utils/authFlow');
-          const phone = userCredential?.user?.phoneNumber || phoneNumber || displayPhoneNumber;
-          const provisionalUser = {
-            uid: userCredential?.user?.uid,
-            phoneNumber: phone,
-            userRole: null, // role unknown yet
-            provisional: true,
-            createdAt: new Date().toISOString(),
-            lastLoginAt: new Date().toISOString(),
-          };
-          await AsyncStorage.setItem('userData', JSON.stringify(provisionalUser));
-          await setAuthStep('post_otp');
-          // 15s grace period for validation logic
-          await AsyncStorage.setItem('initialValidationGraceUntil', (Date.now() + 15000).toString());
-          console.log('📝 Provisional user cache & grace period saved');
-        } catch (provisionalErr) {
-          console.warn('⚠️ Failed to write provisional cache:', provisionalErr);
-        }
-
-        // Import dynamically to avoid circular dependency issues
-        const { checkUserExistsInFirestore, saveUserToAsyncStorage } = require('../../services/firebaseService');
-
-        // Check if user data exists in Firestore using phone number
-        const result = await checkUserExistsInFirestore(phoneNumber || displayPhoneNumber);
-
-        if (result.exists && result.userData) {
-          console.log('✅ User data found in Firestore, restoring session', result.userData);
-
-          // Save user role to localStorage
-          if (result.userData.userRole) {
-            await saveUserRole(result.userData.userRole);
-            console.log('✅ User role saved to localStorage for existing user:', result.userData.userRole);
-          }
-
-          // Save the existing user data to AsyncStorage
-          await saveUserToAsyncStorage(result.userData);
-
-          // Update central auth store with role so AppNavigator can switch stacks immediately
-          try {
-            const { useAuthStore } = require('../../store/authStore');
-            const uid = userCredential?.user?.uid;
-            const role = result.userData.userRole;
-            if (uid && (role === 'buyer' || role === 'farmer')) {
-              // Set authenticated state with minimal user payload
-              useAuthStore.setState({
-                isAuthenticated: true,
-                user: {
-                  id: uid,
-                  firstName: result.userData.firstName || 'User',
-                  lastName: result.userData.lastName || '',
-                  email: result.userData.email || '',
-                  phone: result.userData.phoneNumber,
-                  userType: role,
-                  status: 'active',
-                  isVerified: true,
-                  createdAt: result.userData.createdAt || new Date().toISOString(),
-                  updatedAt: new Date().toISOString(),
-                  avatar: result.userData.profileImage,
-                },
-              });
-            }
-          } catch (storeErr) {
-            console.warn('⚠️ Failed to update auth store with role:', storeErr);
-          }
-
-          // Mark auth flow as complete for existing users to stabilize routing
-          try {
-            const { setAuthStep } = require('../../utils/authFlow');
-            await setAuthStep('Complete');
-          } catch (stepErr) {
-            console.warn('⚠️ Failed to set auth step to Complete:', stepErr);
-          }
-
-          // Show success message
-          Toast.show({
-            type: 'success', // 'success', 'error', 'info'
-            text1: 'Welcome Back!',
-            position: 'bottom',
-            visibilityTime: 1500, // 1 seconds
+        // Use auth flow manager for consistent handling
+        const route = await authFlowManager.handleOTPVerification(confirmation, otpCode);
+        
+        // Navigate based on the determined route
+        if (route.screen === 'Main') {
+          Toast.show({ 
+            type: 'success', 
+            text1: 'Welcome Back!', 
+            position: 'bottom', 
+            visibilityTime: 1200 
           });
-          // Navigate straight to Main (skip RoleSelection completely for existing users)
-          try {
-            const { navigateToMain } = require('../../utils/navigationUtils');
-            navigateToMain();
-          } catch (navErr) {
-            console.warn('Fallback navigation to Main due to error:', navErr);
-            navigation.reset({
-              index: 0,
-              routes: [{ name: 'Main' }],
-            });
-          }
-          return; // ensure no further code runs
+          navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
         } else {
-          // User data not found in Firestore, proceed with new user flow
-          console.log('❌ User data not found in Firestore, continuing with new user setup');
-          // Toast.show({
-          //   type: 'success',
-          //   text1: 'Success',
-          //   text2: 'OTP verified successfully!',
-          //   position: 'bottom',
-          //   visibilityTime: 1000,
-          // });
-          // Clear any stale cached data from a previous account to avoid wrong role/screens
-          try {
-            await clearUserRole();
-            await AsyncStorage.removeItem('userData');
-            await AsyncStorage.removeItem('authStep');
-          } catch (clearErr) {
-            console.warn('⚠️ Failed clearing stale auth cache for new user:', clearErr);
+          Toast.show({ 
+            type: 'success', 
+            text1: 'Signed in', 
+            text2: 'Continue setting up your profile', 
+            position: 'bottom', 
+            visibilityTime: 1200 
+          });
+          
+          if (route.params) {
+            navigation.replace(route.screen, route.params);
+          } else {
+            navigation.replace(route.screen);
           }
-          // Navigate to role selection for new user setup
-          // Mark next required step so Auth flow shows RoleSelection only once
-          try {
-            const { setAuthStep } = require('../../utils/authFlow');
-            await setAuthStep('role_selection');
-          } catch (e) {
-            console.warn('Failed to set auth step for new user:', e);
-          }
-          navigation.replace('RoleSelection');
         }
 
       } catch (err) {
         console.error('OTP Verification Error:', err);
 
-        // Clear the OTP field for wrong OTP
+        // Fallback: if instant verification already signed the user in, proceed
+        try {
+          const currentUser = auth().currentUser;
+          if (currentUser?.uid) {
+            const route = await authFlowManager.resumeAuthFlow();
+            
+            if (route.screen === 'Main') {
+              Toast.show({ 
+                type: 'success', 
+                text1: 'Welcome Back!', 
+                position: 'bottom', 
+                visibilityTime: 1200 
+              });
+              navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
+            } else {
+              if (route.params) {
+                navigation.replace(route.screen, route.params);
+              } else {
+                navigation.replace(route.screen);
+              }
+            }
+            return;
+          }
+        } catch {}
+
+        // If we reach here, OTP likely failed; clear input only for real OTP errors
+        if (err?.code === 'firestore/permission-denied' || (err?.message || '').includes('permission-denied')) {
+          // Don't send to RoleSelection on permission issues; let auth flow manager decide
+          Toast.show({ type: 'success', text1: 'Signed in', position: 'bottom', visibilityTime: 1000 });
+          const route = await authFlowManager.resumeAuthFlow();
+          navigation.replace(route.screen, route.params || {});
+          return;
+        }
+
         setOtp('');
 
         // Handle different error types
@@ -468,7 +401,9 @@ const OTPVerificationScreen = ({ navigation, route }) => {
       setOtp('');
       setError('');
       try {
-        const newConfirmation = await auth().signInWithPhoneNumber(phoneNumber);
+        const targetPhone = displayPhoneNumber || phoneNumber;
+        const normalizedPhone = String(targetPhone || '').replace(/\s+/g, '');
+        const newConfirmation = await auth().signInWithPhoneNumber(normalizedPhone);
         setConfirmation(newConfirmation);
         Toast.show({
           type: 'success',

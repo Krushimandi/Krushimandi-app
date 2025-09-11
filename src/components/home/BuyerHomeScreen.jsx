@@ -943,7 +943,8 @@ const BuyerHomeScreen = () => {
                     </TouchableOpacity>
                   ) : (
                     <TouchableOpacity
-                      style={styles.profilePlaceholderButton} onPress={() => {
+                      style={styles.profilePlaceholderButton}
+                      onPress={() => {
                         safeNavigate('ProfileScreen');
                       }}
                       activeOpacity={0.7}
@@ -1009,7 +1010,7 @@ const BuyerHomeScreen = () => {
                 <View style={styles.searchBox}>
                   <Icon name="search" size={20} color="#939393" style={{ marginLeft: 12 }} />
                   <TextInput
-                    placeholder="Search fruits, vegetables..."
+                    placeholder="Search fruits..."
                     placeholderTextColor="#939393"
                     style={styles.searchInput}
                     value={searchQuery}
@@ -1379,7 +1380,7 @@ const styles = StyleSheet.create({
     borderRadius: 50,
   },
   profilePlaceholderButton: {
-    padding: 5,
+    padding: 6,
     borderRadius: 60,
   },
   profileImage: {
@@ -1398,8 +1399,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#F3F4F6',
-    borderWidth: 3,
-    borderColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E0E0E08C',
   },
   userInfo: {
     marginLeft: 10,

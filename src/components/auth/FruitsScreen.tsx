@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { Fruits } from '../../constants/Fruits';
-import { setAuthStep } from '../../utils/authFlow';
+import { authFlowManager } from '../../services/authFlowManager';
 import { updateUserInFirestore, getUserFromAsyncStorage, saveUserToAsyncStorage, cleanupUnusedBuyerFields } from '../../services/firebaseService';
 import { auth } from '../../config/firebase';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -101,7 +101,7 @@ const FruitsScreen: React.FC<FruitsScreenProps> = ({ navigation, route }) => {
       // Route after saving based on context
       if (isOnboarding) {
         // Completing onboarding: mark auth as complete and go to main buyer home
-        await setAuthStep('Complete');
+        await authFlowManager.updateFlowState('complete');
         try {
           const { useAuthStore } = await import('../../store/authStore');
           const uid = user?.uid || (localUser as any)?.uid;
@@ -116,15 +116,9 @@ const FruitsScreen: React.FC<FruitsScreenProps> = ({ navigation, route }) => {
             }));
           }
         } catch { }
-        try {
-          const { navigateToMain } = await import('../../utils/navigationUtils');
-          navigateToMain();
-        } catch (navErr) {
-          // Fallback: try resetting current navigator to a reasonable default
-          try {
-            navigation?.reset?.({ index: 0, routes: [{ name: 'BuyerTabs' }] });
-          } catch { }
-        }
+        
+        // Navigate to main app
+        navigation?.reset?.({ index: 0, routes: [{ name: 'Main' }] });
         console.log('✅ Buyer fruits selection saved and navigating to home');
       } else if (navigation && navigation.canGoBack()) {
         // Editing from within the main app: just go back
@@ -132,11 +126,8 @@ const FruitsScreen: React.FC<FruitsScreenProps> = ({ navigation, route }) => {
         console.log('✅ Buyer fruits preferences updated and returned to previous screen');
       } else {
         // Default safety: try to go to main
-        await setAuthStep('Complete');
-        try {
-          const { navigateToMain } = await import('../../utils/navigationUtils');
-          navigateToMain();
-        } catch { }
+        await authFlowManager.updateFlowState('complete');
+        navigation?.reset?.({ index: 0, routes: [{ name: 'Main' }] });
       }
     } catch (error) {
       console.error('❌ Error completing auth flow:', error);

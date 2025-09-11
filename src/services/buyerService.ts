@@ -10,7 +10,6 @@ import { Alert } from 'react-native';
 export interface BuyerProfile {
     id: string;
     name: string;
-    email: string;
     phone: string;
     location: string;
     profileImage?: string;
@@ -142,7 +141,6 @@ class BuyerService {
             const profile: BuyerProfile = {
                 id: doc.id,
                 name: fullName,
-                email: this.sanitizeString(data.email),
                 phone: this.sanitizeString(data.phoneNumber),
                 location: this.sanitizeString(data.location || data.address),
                 profileImage: this.sanitizeString(data.profileImage || data.photoURL) || undefined,

@@ -3,7 +3,8 @@
  * Manages auth state and navigation flow after bootstrap
  */
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { auth } from '../../config/firebase';
 import { AuthBootstrapState } from '../../utils/authBootstrap';
 import { useAuthStore } from '../../store/authStore';
@@ -32,6 +33,8 @@ export const AuthStateProvider: React.FC<AuthStateProviderProps> = ({
   const [userRole, setUserRole] = useState<'farmer' | 'buyer' | null>(bootstrapState.userRole);
   const [isLoading, setIsLoading] = useState(false);
   const [firebaseUser, setFirebaseUser] = useState(auth.currentUser);
+  const previousUidRef = useRef<string | null>(auth.currentUser?.uid || null);
+  const switchingRef = useRef(false);
   const authStore = useAuthStore();
 
   // Listen to Firebase auth state changes
@@ -40,6 +43,65 @@ export const AuthStateProvider: React.FC<AuthStateProviderProps> = ({
     const unsubscribe = auth.onAuthStateChanged(async (user: any) => {
       console.log('🔥 Firebase auth state changed:', user ? `User logged in: ${user.uid}` : 'User logged out');
       setFirebaseUser(user);
+      const prevUid = previousUidRef.current;
+      const newUid = user?.uid || null;
+
+      // Detect account switch (prev user exists and new user different)
+      if (prevUid && newUid && prevUid !== newUid) {
+        if (switchingRef.current) return; // prevent re-entrancy
+        switchingRef.current = true;
+        console.log('🔄 Detected account switch. Clearing previous cached profile/state.', { prevUid, newUid });
+        try {
+          // Clear user-specific cached data WITHOUT full logout side-effects
+          const keysToRemove = [
+            'userData',
+            'authStep',
+            'user_role',
+            '@krushimandi:user_role',
+            '@krushimandi:user_data',
+            '@krushimandi:auth_flow_state'
+          ];
+          try {
+            const existing = await AsyncStorage.multiGet(keysToRemove);
+            const existingKeys = existing.filter((entry) => !!entry[1]).map((entry) => entry[0]);
+            console.log('🧹 Removing cached keys for previous user:', existingKeys);
+            await AsyncStorage.multiRemove(keysToRemove);
+          } catch (cacheErr) {
+            console.warn('⚠️ Failed removing some cache keys:', cacheErr);
+          }
+
+          // Reset auth store user (keep isAuthenticated true since Firebase has a user)
+            authStore.setUser(null);
+
+          // Force reload of new Firebase user to ensure displayName, photoURL fresh
+          try {
+            await user.reload();
+            console.log('🔄 Firebase user reloaded after switch:', {
+              displayName: user.displayName,
+              phoneNumber: user.phoneNumber,
+            });
+          } catch (reloadErr) {
+            console.warn('⚠️ Failed to reload new user after switch:', reloadErr);
+          }
+
+          // Attempt to load new profile via authFlowManager if available (lazy import to avoid cycle)
+          try {
+            const { authFlowManager } = await import('../../services/authFlowManager');
+            await authFlowManager.loadUserProfile(newUid);
+          } catch (profileErr) {
+            console.warn('⚠️ Failed loading new user profile post-switch:', profileErr);
+          }
+
+          // Refresh role from storage or profile
+          await refreshUserRole();
+        } finally {
+          previousUidRef.current = newUid;
+          switchingRef.current = false;
+        }
+      } else if (!prevUid && newUid) {
+        // First login this session — set baseline prevUid
+        previousUidRef.current = newUid;
+      }
       
       // If user is logged out in Firebase, ensure local state is also cleared
       if (!user) {
@@ -47,6 +109,7 @@ export const AuthStateProvider: React.FC<AuthStateProviderProps> = ({
         setUserRole(null);
         // Clear auth store
         authStore.logout();
+        previousUidRef.current = null;
       } else {
         console.log('🔥 Firebase user available, auth state should be preserved');
       }
@@ -79,10 +142,36 @@ export const AuthStateProvider: React.FC<AuthStateProviderProps> = ({
   const refreshUserRole = async () => {
     try {
       setIsLoading(true);
-      const role = await getUserRole();
+      console.log('🔄 Refreshing user role...');
+      
+      // First try to get role from AsyncStorage
+      let role = await getUserRole();
+      console.log('📱 Role from AsyncStorage:', role);
+      
+      // If no role in AsyncStorage, try to get from user profile
+      if (!role && firebaseUser) {
+        console.log('🔍 No local role found, checking user profile...');
+        try {
+          const { getCompleteUserProfile } = await import('../../services/firebaseService');
+          const userProfile = await getCompleteUserProfile(true) as any; // Force refresh
+          console.log('👤 User profile:', userProfile?.userRole);
+          
+          if (userProfile?.userRole) {
+            role = userProfile.userRole;
+            // Save the role locally for future use
+            const { saveUserRole } = await import('../../utils/userRoleStorage');
+            await saveUserRole(role as 'farmer' | 'buyer');
+            console.log('✅ Role saved to local storage:', role);
+          }
+        } catch (profileError) {
+          console.error('❌ Error fetching user profile:', profileError);
+        }
+      }
+      
+      console.log('🎯 Final resolved role:', role);
       setUserRole(role);
     } catch (error) {
-      console.error('Error refreshing user role:', error);
+      console.error('❌ Error refreshing user role:', error);
     } finally {
       setIsLoading(false);
     }
@@ -94,7 +183,6 @@ export const AuthStateProvider: React.FC<AuthStateProviderProps> = ({
     ...bootstrapState.user,
     uid: firebaseUser.uid,
     role: userRole,
-    email: firebaseUser.email,
     displayName: firebaseUser.displayName,
   } : null;
 

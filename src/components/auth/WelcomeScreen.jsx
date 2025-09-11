@@ -9,9 +9,8 @@ import {
   StatusBar,
   Dimensions
 } from 'react-native';
-import { isPhoneVerified, isRoleSelected, isProfileCompleted, isAuthComplete } from '../../utils/authFlow';
+import { authFlowManager } from '../../services/authFlowManager';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 
 const { width, height } = Dimensions.get('window');
@@ -20,43 +19,34 @@ const WelcomeScreen = ({ navigation }) => {
 
   useEffect(() => {
     console.log('🔍 WelcomeScreen - useEffect triggered');
-    // Check auth state and navigate to appropriate screen
+    
     const checkAuthAndNavigate = async () => {
       try {
-        // Mark welcome as seen once user reaches this screen (only first launch)
-        const WELCOME_KEY = '@krushimandi:onboarding_complete_v2';
-        const seen = await AsyncStorage.getItem(WELCOME_KEY);
-        if (!seen) {
-          await AsyncStorage.setItem(WELCOME_KEY, 'true');
+        // Mark first launch as complete when reaching welcome screen
+        await authFlowManager.markFirstLaunchComplete();
+        
+        // Get the next route from auth flow manager
+        const route = await authFlowManager.resumeAuthFlow();
+        
+        console.log('🔍 WelcomeScreen - Auth flow route:', route);
+        
+        // If user should be elsewhere, navigate
+        if (route.screen !== 'Welcome') {
+          if (route.screen === 'Main') {
+            console.log('✅ Auth complete, navigating to Main');
+            navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
+          } else {
+            console.log(`📱 Navigating to ${route.screen}`);
+            if (route.params) {
+              navigation.replace(route.screen, route.params);
+            } else {
+              navigation.replace(route.screen);
+            }
+          }
         }
-        const [phoneVerified, roleSelected, profileCompleted, authComplete] = await Promise.all([
-          isPhoneVerified(),
-          isRoleSelected(),
-          isProfileCompleted(),
-          isAuthComplete(),
-        ]);
-
-        console.log('🔍 WelcomeScreen - Auth state check:', {
-          phoneVerified,
-          roleSelected,
-          profileCompleted
-        });
-
-        // If fully complete, do nothing here; AppNavigator will switch to Main automatically
-        if (phoneVerified && roleSelected && profileCompleted && authComplete) {
-          console.log('✅ Auth complete, awaiting AppNavigator to switch to Main');
-          return;
-        }
-        if (phoneVerified && !roleSelected) {
-          console.log('📱 Phone verified, navigating to RoleSelection');
-          navigation.replace('RoleSelection');
-        } else if (phoneVerified && roleSelected && !profileCompleted) {
-          console.log('👤 Role selected, navigating to IntroduceYourself');
-          navigation.replace('IntroduceYourself');
-        }
-        // If phone not verified, stay on Welcome screen
       } catch (error) {
-        console.error('Error checking auth state in WelcomeScreen:', error);
+        console.error('❌ Error in WelcomeScreen auth check:', error);
+        // Stay on welcome screen on error
       }
     };
 
@@ -65,8 +55,6 @@ const WelcomeScreen = ({ navigation }) => {
 
   const handleGetStarted = () => {
     console.log('Get Started pressed');
-    // Ensure flag is set when user proceeds
-    AsyncStorage.setItem('@krushimandi:onboarding_complete_v2', 'true').catch(() => { });
     navigation.navigate('MobileScreen');
   };
 

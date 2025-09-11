@@ -4,14 +4,12 @@
 
 export interface User {
   id: string;
-  email: string;
   phone: string;
   firstName: string;
   lastName: string;
   avatar?: string;
   userType: 'farmer' | 'buyer' | 'admin';
   status: 'active' | 'inactive' | 'suspended' | 'pending_verification';
-  isVerified: boolean;
   dateOfBirth?: string;
   address?: Address;
   createdAt: string;
@@ -125,7 +123,6 @@ export interface LoginRequest {
 export interface RegisterRequest {
   firstName: string;
   lastName: string;
-  email: string;
   phone: string;
   userType: 'farmer' | 'buyer';
   password: string;
@@ -160,8 +157,10 @@ export type AuthStackParamList = {
 
 export type MainTabParamList = {
   Home: undefined;
-  AddFruit: undefined;
   Requests: undefined;
+  AddFruit: undefined;
+  Chats: undefined;
+  Profiles: undefined;
 };
 
 export type FruitStackParamList = {
@@ -203,7 +202,6 @@ export interface AppState {
 
 export interface NotificationSettings {
   push: boolean;
-  email: boolean;
   sms: boolean;
   orderUpdates: boolean;
   promotional: boolean;

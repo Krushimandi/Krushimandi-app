@@ -236,14 +236,19 @@ class AuthBootstrap {
 
     // Determine final auth state
     let isAuthenticated = false;
-    let finalUser = null;
-    let finalToken = null;
+    let finalUser: any = null;
+    let finalToken: string | null = null;
 
-    // Priority: Firebase User is the source of truth for authentication
+    /**
+     * Updated logic:
+     * 1. Accept backend-only authentication (Zustand store/token) even if Firebase user missing
+     * 2. Only treat data as stale if neither Firebase nor valid backend store state present
+     */
+    const hasBackendSession = !!authStore.isAuthenticated && !!authStore.user;
+
     if (firebaseUser) {
+      // Firebase authenticated (may or may not have backend info yet)
       isAuthenticated = true;
-      
-      // Use Zustand user data if available, otherwise try AsyncStorage
       if (authStore.user) {
         finalUser = authStore.user;
         finalToken = authStore.token;
@@ -253,29 +258,36 @@ class AuthBootstrap {
           finalUser = JSON.parse(userData);
           finalToken = authStore.token;
           log('✅ Auth state: Firebase user + AsyncStorage data');
-        } catch (error) {
+        } catch {
           log('⚠️ Failed to parse AsyncStorage userData');
-          // We'll fetch user profile later
         }
       } else {
         log('✅ Auth state: Firebase user only (will fetch profile)');
       }
-    } else {
-      // No Firebase user - check if we have stale Zustand/AsyncStorage data
-      if (authStore.isAuthenticated || (userData && authStep === 'Complete')) {
-        log('⚠️ Found stale auth data without Firebase user - cleaning up');
-        
-        // Clear stale data
-        authStore.logout();
-        await AsyncStorage.removeItem('userData');
-        await AsyncStorage.removeItem('authStep');
-        
-        isAuthenticated = false;
-        finalUser = null;
-        finalToken = null;
-      } else {
-        log('✅ No authentication data found - user is logged out');
+    } else if (hasBackendSession) {
+      // Backend-only session (e.g., using custom API tokens without Firebase auth)
+      isAuthenticated = true;
+      finalUser = authStore.user;
+      finalToken = authStore.token;
+      log('✅ Auth state: Backend-only session accepted (no Firebase user)');
+    } else if (userData) {
+      // Attempt to restore from AsyncStorage userData alone (best-effort)
+      try {
+        finalUser = JSON.parse(userData);
+        isAuthenticated = true; // Consider authenticated until proven otherwise
+        finalToken = authStore.token;
+        log('✅ Auth state: Restored from AsyncStorage userData (no Firebase)');
+      } catch {
+        log('⚠️ Failed to parse AsyncStorage userData – treating as logged out');
       }
+    } else {
+      log('✅ No authentication data found - user is logged out');
+    }
+
+    // If we still ended up marking authenticated but there is absolutely no token/user consistency, downgrade
+    if (isAuthenticated && !finalUser) {
+      log('⚠️ Auth flagged but no user object available – downgrading to logged out');
+      isAuthenticated = false;
     }
 
     // Update current state
@@ -284,20 +296,15 @@ class AuthBootstrap {
     this.currentState.token = finalToken;
 
     // Sync Zustand store if needed
-    if (isAuthenticated && (!authStore.isAuthenticated || !authStore.user)) {
-      log('🔄 Syncing auth state to Zustand store');
-      if (finalUser) {
-        authStore.updateUser(finalUser);
-      }
-      // Only flag as authenticated without injecting a default role
-      try {
-        const { useAuthStore } = require('../store/authStore');
-        useAuthStore.setState({ isAuthenticated: true });
-      } catch (e) {
-        log('⚠️ Failed to set auth flag on store:', e);
+    if (isAuthenticated) {
+      if (!authStore.isAuthenticated || !authStore.user) {
+        log('🔄 Syncing resolved auth state to Zustand store');
+        if (finalUser) {
+          authStore.setUser(finalUser); // preserve token state
+        }
       }
     } else if (!isAuthenticated && authStore.isAuthenticated) {
-      log('🔄 Clearing stale Zustand auth state');
+      log('🔄 Clearing stale Zustand auth state (no valid backend/Firebase session)');
       authStore.logout();
     }
 
@@ -334,11 +341,9 @@ class AuthBootstrap {
               id: (userProfile as any).uid,
               firstName: (userProfile as any).firstName,
               lastName: (userProfile as any).lastName,
-              email: (userProfile as any).email || '',
               phone: (userProfile as any).phoneNumber,
               userType: profileRole as 'farmer' | 'buyer',
               status: 'active',
-              isVerified: (userProfile as any).isVerified || true,
               createdAt: (userProfile as any).createdAt,
               updatedAt: (userProfile as any).updatedAt,
               avatar: (userProfile as any).profileImage

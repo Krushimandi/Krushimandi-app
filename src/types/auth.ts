@@ -35,8 +35,6 @@ export interface LoginCredentials {
 
 export interface FirebaseAuthUser {
   uid: string;
-  email: string | null;
-  emailVerified: boolean;
   displayName: string | null;
   phoneNumber: string | null;
   photoURL?: string | null;
@@ -84,10 +82,8 @@ export const validateUser = (user: unknown): user is User => {
     typeof user === 'object' &&
     user !== null &&
     'id' in user &&
-    'email' in user &&
     'userType' in user &&
     typeof (user as any).id === 'string' &&
-    typeof (user as any).email === 'string' &&
     ['farmer', 'buyer', 'admin'].includes((user as any).userType)
   );
 };

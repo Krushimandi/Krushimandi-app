@@ -340,7 +340,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
     console.log('🔐 Current user:', user ? `${user.uid}` : 'Not authenticated');
     console.log('📱 New Wishlist Structure Info:');
     console.log('   📂 User likes are stored in: fruits/' + product.id + '/wishlists/' + (user?.uid || 'USER_ID'));
-  console.log('   📂 User wishlist is also in: profiles/' + (user?.uid || 'USER_ID') + '/wishlist/' + product.id);
+    console.log('   📂 User wishlist is also in: profiles/' + (user?.uid || 'USER_ID') + '/wishlist/' + product.id);
     console.log('   ❤️ When user likes: creates document in both locations');
     console.log('   🗑️ When user unlikes: removes document from both locations');
 
@@ -893,7 +893,6 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
             <TouchableOpacity
               style={[
                 styles.modernActionButton,
-                isWishlistLoading && { opacity: 0.6 },
                 isFavorite && styles.favoriteButtonActive
               ]}
               onPress={handleWishlistToggle}
@@ -986,7 +985,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                               <Ionicons name="checkmark-circle" size={18} color="#4CAF50" />
                             </View>
                           )}
-                          
+
                           {/* Gradient Overlay for better text readability */}
                           <View style={styles.gradientOverlay} />
                         </TouchableOpacity>
@@ -1552,6 +1551,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
   },
+  
   modernActionButton: {
     width: 44,
     height: 44,
@@ -1563,7 +1563,8 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 4,
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
   },
 
   // Enhanced Image Section Styles
@@ -2348,15 +2349,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  favoriteButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#F6F6F6',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 12,
-  },
+
   favoriteButtonActive: {
     backgroundColor: '#FFE8E8',
     borderWidth: 1,

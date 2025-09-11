@@ -112,18 +112,13 @@ class AuthService {
       this.logSecure('📝 Starting registration process...');
 
       // Validate required fields
-      const requiredFields = ['firstName', 'lastName', 'email', 'phone', 'userType'];
+      const requiredFields = ['firstName', 'lastName', 'phone', 'userType'];
       for (const field of requiredFields) {
         if (!data[field as keyof RegisterRequest]?.toString().trim()) {
           throw this.createAuthError(`${field} is required`, 'validation');
         }
       }
 
-      // Validate email format
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(data.email)) {
-        throw this.createAuthError('Invalid email format', 'validation');
-      }
 
       // Validate user type
       if (!['farmer', 'buyer'].includes(data.userType)) {
@@ -718,8 +713,6 @@ class AuthService {
   private mapFirebaseUser(firebaseUser: FirebaseAuthTypes.User): FirebaseAuthUser {
     return {
       uid: firebaseUser.uid,
-      email: firebaseUser.email,
-      emailVerified: firebaseUser.emailVerified,
       displayName: firebaseUser.displayName,
       phoneNumber: firebaseUser.phoneNumber,
       photoURL: firebaseUser.photoURL,
@@ -734,14 +727,12 @@ class AuthService {
     // This is a fallback - you might want to sync with your backend here
     return {
       id: firebaseUser.uid,
-      email: firebaseUser.email || '',
       phone: firebaseUser.phoneNumber || '',
       firstName: firebaseUser.displayName?.split(' ')[0] || 'Unknown',
       lastName: firebaseUser.displayName?.split(' ').slice(1).join(' ') || 'User',
       avatar: firebaseUser.photoURL || undefined,
       userType: 'buyer', // Default - should be determined from your backend
       status: 'active',
-      isVerified: firebaseUser.emailVerified,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
