@@ -1,4 +1,7 @@
+// Firebase modular consolidated imports
 import {
+  auth as firebaseAuth,
+  firestore as firebaseFirestore,
   serverTimestamp as firestoreServerTimestamp,
   collection,
   doc,
@@ -9,23 +12,21 @@ import {
   query,
   where,
   limit
-} from '@react-native-firebase/firestore';
+} from '../config/firebaseModular';
 import storage from '@react-native-firebase/storage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert } from 'react-native';
-import { clearUserRole } from '../utils/userRoleStorage';
-import firestore from '@react-native-firebase/firestore';
 import NetInfo from '@react-native-community/netinfo';
-import { auth as firebaseAuth, firestore as firebaseFirestore } from '../config/firebase';
+import { clearUserRole } from '../utils/userRoleStorage';
 import { persistentAuthManager } from '../utils/persistentAuthManager';
+// Temporary import for FieldValue.delete sentinel until exposed via firebaseModular (optional refactor later)
+import firestoreFieldValue from '@react-native-firebase/firestore';
 
 /**
  * Firebase Service for User Management
  * Handles Firestore, Storage, and AsyncStorage synchronization
  * With offline capability and network error handling
  */
-
-// Collection names based on user roles
 const COLLECTIONS = {
   PROFILES: 'profiles',
 };
@@ -502,7 +503,7 @@ export const updateUserInFirestore = async (userId, userRole, updateData) => {
 
 export const cleanupUnusedBuyerFields = async (userId) => {
   try {
-    const del = firestore.FieldValue.delete();
+    const del = firestoreFieldValue.FieldValue.delete();
     const ref = doc(firebaseFirestore, COLLECTIONS.PROFILES, userId);
     await updateDoc(ref, { preferredCrops: del, businessDetails: del });
     console.log('🧹 Cleaned legacy buyer fields inside profiles for:', userId);

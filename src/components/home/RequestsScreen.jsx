@@ -23,6 +23,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Colors } from '../../constants/Colors';
+import { firestore, doc, getDoc } from '../../config/firebaseModular'; // modular firestore (ensure exported)
+import Clipboard from '@react-native-clipboard/clipboard';
 import { getHeaderConstants } from '../../constants/Layout';
 import { useTabBarControl } from '../../utils/navigationControls.ts';
 import { useRequests } from '../../hooks/useRequests';
@@ -48,14 +50,12 @@ const RequestsScreen = () => {
 
   // Debug: Log requests state changes
   useEffect(() => {
-    const nonActiveRequests = requests.filter(r => r.status !== 'accepted');
     console.log('📊 Requests state updated:', {
-      count: nonActiveRequests.length,
       totalCount: requests.length,
       acceptedCount: requests.filter(r => r.status === 'accepted').length,
       loading,
       userRole: user?.role,
-      requestsPreview: nonActiveRequests.slice(0, 2).map(r => ({
+      preview: requests.slice(0, 2).map(r => ({
         id: r.id,
         productName: r.productSnapshot?.name,
         status: r.status
@@ -89,9 +89,8 @@ const RequestsScreen = () => {
     return String(loc);
   }, []);
 
-  // const filters = ['All', 'Pending', 'Accepted', 'Rejected', 'Expired'];
-  // Re-introduce 'All' so user can see every request regardless of status
-  const filters = ['All', 'Pending', 'Rejected', 'Cancelled', 'Expired'];
+  // Filters now include Accepted and Sold (derived: delivered/completed) so buyer sees all lifecycle states here
+  const filters = ['All', 'Pending', 'Accepted', 'Sold', 'Rejected', 'Cancelled', 'Expired'];
   const sortOptions = [
     { key: 'date', label: 'Date', icon: 'calendar-outline' },
   { key: 'alphabetical', label: 'A-Z', icon: 'list-outline' },
@@ -163,12 +162,16 @@ const RequestsScreen = () => {
   };
 
   // Advanced filtering and sorting
+  const soldStatusSet = new Set(['delivered','completed','complete','sold','soldout']);
+
   const filteredAndSortedRequests = useMemo(() => {
     let filtered = requests.filter(item => {
       const productName = item.productSnapshot?.name || '';
       const buyerName = item.buyerDetails?.name || '';
       const farmerName = item.productSnapshot?.farmerName || '';
       const locationStr = formatLocationValue(item.productSnapshot?.farmerLocation || '');
+      const rawStatus = (item.status || '').toLowerCase();
+      const derivedStatus = soldStatusSet.has(rawStatus) ? 'sold' : rawStatus; // map extended statuses
 
       const matchesSearch =
         productName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -177,7 +180,7 @@ const RequestsScreen = () => {
         locationStr.toLowerCase().includes(searchQuery.toLowerCase());
 
       const matchesFilter = selectedFilter === 'All' ||
-        item.status.toLowerCase() === selectedFilter.toLowerCase();
+        derivedStatus === selectedFilter.toLowerCase();
 
       return matchesSearch && matchesFilter;
     });
@@ -223,14 +226,15 @@ const RequestsScreen = () => {
 
   // Get statistics
   const stats = useMemo(() => {
-    const total = requests.filter(r => r.status !== 'accepted').length; // Exclude accepted requests
+    const total = requests.length; // Include accepted & sold
     const pending = requests.filter(r => r.status === RequestStatus.PENDING).length;
     const accepted = requests.filter(r => r.status === RequestStatus.ACCEPTED).length;
+    const sold = requests.filter(r => soldStatusSet.has((r.status || '').toLowerCase())).length;
     const cancelled = requests.filter(r => r.status === RequestStatus.CANCELLED).length;
     const rejected = requests.filter(r => r.status === RequestStatus.REJECTED).length;
     const expired = requests.filter(r => r.status === RequestStatus.EXPIRED).length;
 
-    return { total, pending, accepted, cancelled, rejected, expired };
+    return { total, pending, accepted, sold, cancelled, rejected, expired };
   }, [requests]);
 
   // Enhanced request tap handler
@@ -368,6 +372,142 @@ const RequestsScreen = () => {
   };
 
   // Enhanced request item rendering
+  // Cache farmer phone numbers to avoid repeated Firestore hits
+  const [farmerPhones, setFarmerPhones] = useState({});
+
+  const getFarmerPhoneNumber = useCallback(async (farmerId) => {
+    try {
+      if (!farmerId) return null;
+      if (farmerPhones[farmerId]) return farmerPhones[farmerId];
+      console.log('🔍 (RequestsScreen) Fetching farmer phone for', farmerId);
+      const ref = doc(firestore, 'profiles', farmerId);
+      const snap = await getDoc(ref);
+      console.log('🔍 (RequestsScreen) Farmer phone snapshot:', snap);
+      
+      if (snap.exists()) {
+        const data = snap.data() || {};
+        const phone = data.phoneNumber || data.phone || data.mobile || null;
+        if (phone) {
+          const masked = phone.replace(/(\+?\d{3})\d{4}(\d{2,})/, '$1****$2');
+          console.log('📱 Farmer phone (masked):', masked);
+          setFarmerPhones(prev => ({ ...prev, [farmerId]: phone }));
+          return phone;
+        }
+      } else {
+        console.log('⚠️ Farmer profile not found for', farmerId);
+      }
+    } catch (e) {
+      console.warn('Failed to fetch farmer phone', e);
+    }
+    return null;
+  }, [farmerPhones]);
+
+  // Prefetch phone numbers for accepted requests so Call button is instant
+  useEffect(() => {
+    const acceptedFarmerIds = requests
+      .filter(r => r.status === RequestStatus.ACCEPTED && r.farmerId)
+      .map(r => r.farmerId);
+    const unique = [...new Set(acceptedFarmerIds)].filter(id => !farmerPhones[id]);
+    if (unique.length) {
+      (async () => {
+        for (const id of unique) {
+          await getFarmerPhoneNumber(id);
+        }
+      })();
+    }
+  }, [requests, getFarmerPhoneNumber, farmerPhones]);
+
+  const sanitizePhone = (phone) => (phone || '').replace(/[^\d+]/g, '');
+
+  const handleCallFarmer = async (farmerId) => {
+    try {
+      const phoneRaw = await getFarmerPhoneNumber(farmerId);
+      if (!phoneRaw) {
+        Alert.alert('Contact unavailable', 'Farmer phone not found');
+        return;
+      }
+      const phone = sanitizePhone(phoneRaw);
+      if (!phone || phone.length < 7) {
+        Alert.alert('Invalid number', 'Phone number appears invalid.');
+        return;
+      }
+      const telUrl = `tel:${phone}`;
+      console.log('📞 Dial attempt', telUrl);
+      Linking.openURL(telUrl).catch(err => {
+        console.warn('Primary tel: failed', err);
+        // iOS alt
+        const alt = `telprompt:${phone}`;
+        Linking.openURL(alt).catch(() => {
+          Alert.alert(
+            'Unable to open dialer',
+            `Please dial manually: ${phoneRaw}`,
+            [
+              { text: 'Copy', onPress: () => { Clipboard.setString(phoneRaw); Toast.show({ type: 'success', text1: 'Number Copied', position: 'bottom' }); } },
+              { text: 'OK', style: 'cancel' }
+            ]
+          );
+        });
+      });
+    } catch (e) {
+      Alert.alert('Error', 'Could not initiate call');
+    }
+  };
+
+  // Legacy-style comprehensive messaging logic from MyOrdersScreen
+  const handleContactFarmer = async (farmerId, farmerDisplayName, productName) => {
+    try {
+      if (!farmerId) {
+        Alert.alert('Farmer Unknown', 'Cannot find farmer ID for this request.');
+        return;
+      }
+
+      // Delay-based loading alert (only shows if fetch is slow)
+      const loadingTimeout = setTimeout(() => {
+        Alert.alert('Getting Contact Info', 'Fetching farmer contact details...', [], { cancelable: false });
+      }, 600);
+
+      const phoneRaw = await getFarmerPhoneNumber(farmerId);
+      clearTimeout(loadingTimeout);
+
+      if (!phoneRaw) {
+        Alert.alert('Contact Information Unavailable', `Could not find a phone number for ${farmerDisplayName || 'farmer'}.`);
+        return;
+      }
+
+      const cleanPhone = sanitizePhone(phoneRaw);
+      const demoMessage = `Hello ${farmerDisplayName || ''}! I have a question about ${productName || 'your product'}.`;
+      const encodedMessage = encodeURIComponent(demoMessage);
+      const smsUrl = `sms:${cleanPhone}?body=${encodedMessage}`;
+
+      Linking.openURL(smsUrl)
+        .then(() => console.log('✅ SMS intent opened'))
+        .catch(err => {
+          console.warn('Primary SMS failed, trying simple format', err);
+          const simpleUrl = `sms:${cleanPhone}`;
+          Linking.openURL(simpleUrl)
+            .then(() => {
+              Alert.alert('Compose Message', 'Paste the prepared message you copied.', [
+                { text: 'OK' }
+              ]);
+            })
+            .catch(() => {
+              Alert.alert(
+                'Unable to Open Messages',
+                `Phone: ${phoneRaw}`,
+                [
+                  { text: 'Copy Number', onPress: () => Clipboard.setString(phoneRaw) },
+                  { text: 'Copy Message', onPress: () => Clipboard.setString(demoMessage) },
+                  { text: 'Cancel', style: 'cancel' }
+                ]
+              );
+            });
+        });
+    } catch (e) {
+      console.error('handleContactFarmer error', e);
+      Alert.alert('Error', 'Could not open messaging app');
+    }
+  };
+
   const renderRequestItem = ({ item, index }) => {
     const isBuyer = user?.role === 'buyer';
     const productName = item.productSnapshot?.name || 'Unknown Product';
@@ -461,8 +601,27 @@ const RequestsScreen = () => {
         </TouchableOpacity>
 
         <View style={styles.actionButtons}>
-          {/* Buyer actions only */}
-          {item.status !== RequestStatus.CANCELLED && (
+          {item.status === RequestStatus.ACCEPTED && (
+            <View style={styles.acceptedActionsRow}>
+              <TouchableOpacity
+                style={[styles.pillButton, styles.pillCall]}
+                onPress={() => handleCallFarmer(item.farmerId)}
+                activeOpacity={0.85}
+              >
+                <Icon name="call" size={16} color="#FFFFFF" />
+                <Text style={styles.pillText}>Call</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.pillButton, styles.pillMessage]}
+                onPress={() => handleContactFarmer(item.farmerId, item.productSnapshot?.farmerName, item.productSnapshot?.name)}
+                activeOpacity={0.85}
+              >
+                <Icon name="chatbubble-ellipses-outline" size={16} color="#FFFFFF" />
+                <Text style={styles.pillText}>Message</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+          {item.status !== RequestStatus.CANCELLED && item.status !== RequestStatus.ACCEPTED && (
             <TouchableOpacity
               style={styles.cancelButton}
               onPress={() => handleCancelRequest(item.id)}
@@ -470,7 +629,6 @@ const RequestsScreen = () => {
               <Icon name="trash-outline" size={16} color="#EF4444" />
             </TouchableOpacity>
           )}
-
           {(item.status === RequestStatus.CANCELLED || item.status === RequestStatus.REJECTED || item.status === RequestStatus.EXPIRED) && (
             <TouchableOpacity
               style={styles.resendButton}
@@ -489,6 +647,7 @@ const RequestsScreen = () => {
     switch (status.toLowerCase()) {
       case 'pending': return '#F59E0B';
       case 'accepted': return '#10B981';
+      case 'sold': return '#2563EB';
       case 'cancelled': return '#6B7280';
       case 'rejected': return '#EF4444';
       case 'expired': return '#9CA3AF';
@@ -500,6 +659,7 @@ const RequestsScreen = () => {
     switch (status.toLowerCase()) {
       case 'pending': return '#FEF3C7';
       case 'accepted': return '#D1FAE5';
+      case 'sold': return '#DBEAFE';
       case 'cancelled': return '#F3F4F6';
       case 'rejected': return '#FEE2E2';
       case 'expired': return '#F9FAFB';
@@ -1051,6 +1211,38 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#F3F4F6',
     gap: 12,
+  },
+  acceptedActionsRow: {
+    flexDirection: 'row',
+    flex: 1,
+    gap: 10,
+  },
+  pillButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 3,
+    flex: 1,
+    gap: 6,
+  },
+  pillCall: {
+    backgroundColor: '#059669',
+  },
+  pillMessage: {
+    backgroundColor: '#2563EB',
+  },
+  pillText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: 0.2,
   },
   cancelButton: {
     padding: 8,

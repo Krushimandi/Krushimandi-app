@@ -1,7 +1,5 @@
 module.exports = {
   presets: ['module:@react-native/babel-preset', 'nativewind/babel'],
-  
-  assets: ['./assets/fonts'],
   plugins: [
     [
       'module-resolver',

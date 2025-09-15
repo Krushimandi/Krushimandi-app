@@ -3,21 +3,21 @@
  * Handles notification CRUD operations with Firestore
  */
 
-import { 
-  collection, 
-  query, 
-  where, 
-  orderBy, 
-  limit, 
-  getDocs, 
-  doc, 
-  updateDoc, 
+import {
+  firestore,
+  collection,
+  query,
+  where,
+  orderBy,
+  limit,
+  getDocs,
+  doc,
+  updateDoc,
   deleteDoc,
   onSnapshot,
   Timestamp,
   addDoc
-} from '@react-native-firebase/firestore';
-import { firestore } from '../config/firebase';
+} from '../config/firebaseModular';
 
 export interface FirestoreNotification {
   id: string;

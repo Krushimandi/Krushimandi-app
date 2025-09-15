@@ -94,7 +94,7 @@ export type MainTabParamList = {
 // Buyer Tab Navigator
 export type BuyerTabParamList = {
   Home: undefined;
-  Orders: undefined;
+  Chats: undefined;
   Requests: undefined;
 };
 

@@ -3,8 +3,7 @@
  * Manages consistent authentication flow and state persistence
  */
 
-import auth from '@react-native-firebase/auth';
-import firestore from '@react-native-firebase/firestore';
+import { auth, firestore } from '../config/firebaseModular';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore } from '../store/authStore';
 
@@ -60,7 +59,7 @@ class AuthFlowManager {
     try {
       console.log('📖 Loading user profile from Firestore:', uid);
       
-      const docRef = firestore().collection('profiles').doc(uid);
+  const docRef = firestore.collection('profiles').doc(uid);
       const doc = await docRef.get();
       
       if (!doc.exists) {
@@ -146,7 +145,7 @@ class AuthFlowManager {
    */
   async getAuthFlowState(): Promise<AuthFlowState> {
     try {
-      const user = auth().currentUser;
+  const user = auth.currentUser;
       const isFirstLaunch = await this.isFirstLaunch();
       
       // If first launch, start from welcome

@@ -3,8 +3,15 @@
  */
 
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
-import messaging from '@react-native-firebase/messaging';
-import functions from '@react-native-firebase/functions';
+import { getApp } from '@react-native-firebase/app';
+import {
+    getMessaging,
+    onNotificationOpenedApp,
+    getInitialNotification,
+    AuthorizationStatus
+} from '@react-native-firebase/messaging';
+// Modular Cloud Functions import
+import { getFunctions, httpsCallable, httpsCallableFromUrl } from '@react-native-firebase/functions';
 import { navigationRef, isNavigationReady, pendingNotificationData, handleNotificationNavigation } from './src/navigation/navigationService';
 import { notificationTabEmitter } from './src/navigation/buyer/notificationTabEmitter';
 import { StatusBar, Alert, View, Text, TouchableOpacity } from 'react-native';
@@ -247,21 +254,22 @@ const App: React.FC = () => {
         };
 
         // Handle foreground and background notifications
-        const unsubscribeOpenedApp = messaging().onNotificationOpenedApp(remoteMessage => {
+        const messagingInstance = getMessaging(getApp());
+        const unsubscribeOpenedApp = onNotificationOpenedApp(messagingInstance, (remoteMessage: any) => {
             if (isEffectMounted) {
                 handleNotificationSafely(remoteMessage, 'background');
             }
         });
 
         // Handle quit state notifications
-        messaging().getInitialNotification()
-            .then(remoteMessage => {
+        getInitialNotification(messagingInstance)
+            .then((remoteMessage: any) => {
                 if (isEffectMounted && remoteMessage) {
                     handleNotificationSafely(remoteMessage, 'quit state');
                 }
             })
             .catch(error => {
-                console.error('❌ Failed to get initial notification:', error);
+                console.error('  Failed to get initial notification:', error);
             });
 
         // Track cleanup functions
@@ -299,17 +307,20 @@ const App: React.FC = () => {
             const role = (rawRole.includes('farmer') || rawRole.includes('seller')) ? 'farmer' : 'buyer';
 
             // Build callable endpoints explicitly for region (asia-south1)
-            const projectId = functions().app?.options?.projectId;
+            // Use modular functions instance (defaults to region defined in backend; we explicitly target a region when building URLs)
+            const functionsInstance = getFunctions();
+            const projectId = functionsInstance.app?.options?.projectId;
             const region = 'asia-south1';
             const makeCallable = (name: string) => {
                 if (projectId) {
                     const url = `https://${region}-${projectId}.cloudfunctions.net/${name}`;
-                    // @ts-ignore (if types not updated) use lower-case 'l' variant
-                    return (functions() as any).httpsCallableFromUrl
-                        ? (functions() as any).httpsCallableFromUrl(url)
-                        : functions().httpsCallable(url);
+                    // Use modular API for callable functions
+                    // Prefer httpsCallableFromURL when available, else fallback to httpsCallable with name (should exist in all modern versions)
+                    return httpsCallableFromUrl
+                        ? httpsCallableFromUrl(functionsInstance, url)
+                        : httpsCallable(functionsInstance, name);
                 }
-                return functions().httpsCallable(name);
+                return httpsCallable(functionsInstance, name);
             };
 
             try {
@@ -334,14 +345,14 @@ const App: React.FC = () => {
                 // Fallback: try default region us-central1 in case of region mismatch
                 try {
                     console.log('🔁 Fallback attempt in default region (us-central1)...');
-                    const defaultGet: any = await functions().httpsCallable('getFcmTokens')({ uid, role });
+                    const defaultGet: any = await httpsCallable(functionsInstance, 'getFcmTokens')({ uid, role });
                     const existing2 = Array.isArray(defaultGet?.data?.tokens) ? defaultGet.data.tokens : [];
                     if (existing2.includes(fcmToken)) {
                         lastRegisteredTokenRef.current = sig;
                         console.log('ℹ️ Token already registered in fallback region');
                         return;
                     }
-                    await functions().httpsCallable('registerFcmToken')({ uid, role, token: fcmToken });
+                    await httpsCallable(functionsInstance, 'registerFcmToken')({ uid, role, token: fcmToken });
                     lastRegisteredTokenRef.current = sig;
                     console.log('✅ Token registered via fallback region (us-central1)');
                 } catch (fallbackErr: any) {

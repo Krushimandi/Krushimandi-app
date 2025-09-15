@@ -47,6 +47,13 @@ export const useBuyerProfile = (buyerId: string): UseBuyerProfileReturn => {
                 setError('Buyer profile not found');
                 return;
             }
+            // Debug logging to verify location structure
+            try {
+                console.log('[useBuyerProfile] Loaded profile location value:', profileData.location);
+                if (profileData.location && typeof profileData.location === 'object') {
+                    console.log('[useBuyerProfile] Location keys:', Object.keys(profileData.location as any));
+                }
+            } catch (e) { /* ignore */ }
 
             setProfile(profileData);
             setReviews(reviewsData);

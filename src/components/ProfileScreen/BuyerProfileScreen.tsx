@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
     View,
     Text,
@@ -27,6 +27,7 @@ import { useAuthState } from '../providers/AuthStateProvider';
 import { RootStackParamList } from '../../navigation/types';
 import { useBuyerProfile } from '../../hooks/useBuyerProfile';
 import { BuyerProfile, BuyerReview } from '../../services/buyerService';
+import { formatLocation } from '../../utils/location';
 
 const { width, height } = Dimensions.get('window');
 
@@ -99,6 +100,9 @@ const BuyerProfileScreen: React.FC<BuyerProfileScreenProps> = ({ route }) => {
             Linking.openURL(`sms:${profile.phone}`);
         }
     };
+
+    // Use shared location formatter
+    const formatLocationValue = useCallback((loc: any) => formatLocation(loc), []);
 
     const handleShare = async () => {
         try {
@@ -222,11 +226,13 @@ const BuyerProfileScreen: React.FC<BuyerProfileScreenProps> = ({ route }) => {
                             </View>
                             <View style={styles.contactItem}>
                                 <Icon name="location" size={20} color="#6B7280" />
-                                <Text style={styles.contactText}>{profile?.location || 'Not provided'}</Text>
+                                <Text style={styles.contactText}>
+                                    {formatLocationValue(profile?.location)}
+                                </Text>
                             </View>
                         </View>
 
-                        <View style={styles.verificationSection}>
+                        {/* <View style={styles.verificationSection}>
                             <Text style={styles.sectionTitle}>Verification</Text>
                             <View style={styles.verificationItem}>
                                 <Icon
@@ -238,7 +244,7 @@ const BuyerProfileScreen: React.FC<BuyerProfileScreenProps> = ({ route }) => {
                                     {profile?.isVerified ? 'Verified Buyer' : 'Not Verified'}
                                 </Text>
                             </View>
-                        </View>
+                        </View> */}
                     </View>
                 );
 
@@ -346,8 +352,8 @@ const BuyerProfileScreen: React.FC<BuyerProfileScreenProps> = ({ route }) => {
                                     />
                                 </View>
                                 <Text style={styles.progressText}>
-                                    {profile?.totalRequests === 0 
-                                        ? '0%' 
+                                    {profile?.totalRequests === 0
+                                        ? '0%'
                                         : Math.round(((profile?.completedOrders || 0) / Math.max(profile?.totalRequests || 1, 1)) * 100) + '%'
                                     }
                                 </Text>
@@ -471,15 +477,17 @@ const BuyerProfileScreen: React.FC<BuyerProfileScreenProps> = ({ route }) => {
                                 </View>
                             )}
                             <Text style={styles.ratingText}>
-                                {profile.rating > 0 
-                                    ? `${profile.rating} (${profile.totalRatings} reviews)` 
+                                {profile.rating > 0
+                                    ? `${profile.rating} (${profile.totalRatings} reviews)`
                                     : 'No ratings yet'
                                 }
                             </Text>
                         </View>
                         <View style={styles.locationContainer}>
                             <Icon name="location-outline" size={16} color="#6B7280" />
-                            <Text style={styles.locationText}>{profile.location || 'Location not available'}</Text>
+                            <Text style={styles.locationText}>
+                                {formatLocationValue(profile?.location)}
+                            </Text>
                         </View>
 
                         {/* Action Buttons */}
@@ -951,6 +959,7 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: '#6B7280',
         fontWeight: '500',
+        maxWidth: '85%',
     },
     actionButtonsContainer: {
         flexDirection: 'row',
@@ -1135,6 +1144,7 @@ const styles = StyleSheet.create({
     contactText: {
         fontSize: 15,
         color: '#111827',
+        maxWidth: '80%',
         fontWeight: '500',
     },
     verificationSection: {

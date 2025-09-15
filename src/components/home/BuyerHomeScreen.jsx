@@ -26,7 +26,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useFocusEffect } from '@react-navigation/native';
 import { getCompleteUserProfile, updateLastLogin, validateCurrentUser, updateUserLocation, isNetworkAvailable } from '../../services/firebaseService';
 import { getMarketplaceFruits } from '../../services/fruitService';
-import auth from '@react-native-firebase/auth';
+import { auth } from '../../config/firebaseModular';
 import { Colors } from '../../constants';
 import { getHeaderConstants } from '../../constants/Layout';
 import FilterScreen from './FilterScreen';
@@ -452,7 +452,7 @@ const BuyerHomeScreen = () => {
 
   const loadUserProfile = async (forceRefresh = false) => {
     try {
-      const user = auth().currentUser;
+  const user = auth.currentUser;
       if (!user) {
         const online = await isNetworkAvailable().catch(() => false);
         userValidationAttempts.current += 1;
@@ -1258,9 +1258,15 @@ const BuyerHomeScreen = () => {
                 {userProfile?.location ? (
                   <>
                     <Text style={styles.locPreviewMain} numberOfLines={2}>
-                      {`${userProfile.location.city || ''}${userProfile.location.city && userProfile.location.state ? ', ' : ''}${userProfile.location.state || ''}`.replace(/, $/, '') || '—'}
+                      {/* TODO: location may now be string | object; safeguard casting */}
+                      {(() => {
+                        const loc = userProfile.location || {};
+                        if (typeof loc === 'string') return loc || '—';
+                        const city = loc.city || ''; const state = loc.state || '';
+                        return `${city}${city && state ? ', ' : ''}${state}`.replace(/, $/, '') || '—';
+                      })()}
                     </Text>
-                    {!!userProfile.location.formattedAddress && (
+                    {!!(typeof userProfile.location === 'object' && userProfile.location?.formattedAddress) && (
                       <Text style={styles.locPreviewSub} numberOfLines={2}>
                         {userProfile.location.formattedAddress}
                       </Text>

@@ -5,7 +5,7 @@
  */
 
 import { firestoreNotificationService, FirestoreNotification } from './firestoreNotificationService';
-import auth from '@react-native-firebase/auth';
+import { auth } from '../config/firebaseModular';
 
 export interface Notification {
     id: string;
@@ -106,7 +106,7 @@ export const addNotificationListener = (listener: NotificationListener) => {
  */
 export const loadNotificationsFromFirestore = async (): Promise<void> => {
     try {
-        const currentUser = auth().currentUser;
+    const currentUser = auth.currentUser;
         if (!currentUser) {
             console.log('❌ No authenticated user, cannot load notifications');
             return;
@@ -134,7 +134,7 @@ export const loadNotificationsFromFirestore = async (): Promise<void> => {
  * Subscribe to real-time notification updates
  */
 export const subscribeToNotificationUpdates = (): (() => void) => {
-    const currentUser = auth().currentUser;
+    const currentUser = auth.currentUser;
     if (!currentUser) {
         console.log('❌ No authenticated user, cannot subscribe to notifications');
         return () => {};
@@ -204,7 +204,7 @@ export const markNotificationAsRead = async (id: string): Promise<void> => {
  * Mark all notifications as read
  */
 export const markAllNotificationsAsRead = async (): Promise<void> => {
-    const currentUser = auth().currentUser;
+    const currentUser = auth.currentUser;
     if (!currentUser) return;
 
     // Update local cache
@@ -236,7 +236,7 @@ export const deleteNotification = async (id: string): Promise<void> => {
  * @param notification - new notification data
  */
 export const addNotification = async (notification: Omit<Notification, 'id'>): Promise<void> => {
-    const currentUser = auth().currentUser;
+    const currentUser = auth.currentUser;
     if (!currentUser) {
         console.log('❌ No authenticated user, cannot save notification');
         return;

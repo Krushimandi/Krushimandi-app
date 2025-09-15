@@ -42,10 +42,10 @@ export function handleNotificationNavigation(data: any, notificationTabEmitter?:
       switch (data.screen) {
         case 'MyOrdersScreen':
         case 'Orders':
-          console.log('🔔 Navigating to Orders screen from notification');
+          console.log('🔔 Orders screen deprecated; redirecting to Chats tab');
           navigationRef.navigate('Main', {
             screen: 'BuyerTabs',
-            params: { screen: 'Orders' },
+            params: { screen: 'Chats' },
           });
           break;
           

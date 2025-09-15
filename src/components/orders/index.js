@@ -4,9 +4,9 @@
  */
 
 import { RequestsScreen } from '../requests';
-import MyOrdersScreen from './MyOrdersScreen.jsx';
+import MyOrdersScreen from './MyOrdersScreen.jsx'; // DEPRECATED: Orders merged into Requests + Chats tabs
 
 export {
   RequestsScreen,  // For Farmer requests
-  MyOrdersScreen,  // For Buyer orders
+  MyOrdersScreen,  // Deprecated; retained temporarily for backward compatibility
 };

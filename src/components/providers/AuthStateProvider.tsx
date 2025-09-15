@@ -5,7 +5,8 @@
 
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { auth } from '../../config/firebase';
+// Use unified modular firebase exports (replaces legacy namespace config)
+import { auth } from '../../config/firebaseModular';
 import { AuthBootstrapState } from '../../utils/authBootstrap';
 import { useAuthStore } from '../../store/authStore';
 import { getUserRole } from '../../utils/userRoleStorage';
@@ -108,7 +109,7 @@ export const AuthStateProvider: React.FC<AuthStateProviderProps> = ({
         console.log('🔥 Firebase user logged out, clearing local auth state');
         setUserRole(null);
         // Clear auth store
-        authStore.logout();
+  authStore.setUser(null);
         previousUidRef.current = null;
       } else {
         console.log('🔥 Firebase user available, auth state should be preserved');

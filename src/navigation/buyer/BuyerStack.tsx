@@ -10,7 +10,8 @@ import { BlurView } from '@react-native-community/blur';
 
 // Screens
 import { BuyerHomeScreen, RequestsScreen } from '../../components/home';
-import { MyOrdersScreen } from '../../components/orders';
+// Removed MyOrdersScreen (orders now merged into Requests)
+import ChatListScreen from '../../components/chat/ChatListScreen';
 import { ProductDetailScreen } from '../../components/products';
 import { FruitsScreen } from '../../components/auth';
 import NotificationBadge from '../../components/common/NotificationBadge';
@@ -96,30 +97,25 @@ const CustomTabBarIcon = ({ focused, color, size, route }: any) => {
   switch (route.name) {
     case 'Home':
       iconComponent = focused ? (
-        <MaterialIcons name="home-filled" size={size - 2} color={color} />
+        <MaterialIcons name="home-filled" size={size + 2} color={color} />
       ) : (
-        <Octicons name="home" size={size} color={color} />
+        <Octicons name="home" size={size} color={color}/>
       );
       break;
-    case 'Orders':
-      iconComponent = (
-        <View style={{ position: 'relative' }}>
-          {focused ? (
-            <MaterialDesignIcons name="shopping" size={size - 2} color={color} />
-          ) : (
-            <MaterialDesignIcons name="shopping-outline" size={size} color={color} />
-          )}
-          <NotificationBadge size="small" count={unseenOrders} />
-        </View>
+    case 'Chats':
+      iconComponent = focused ? (
+        <Ionicons name="chatbox-ellipses" size={size - 2} color={color} />
+      ) : (
+        <Ionicons name="chatbox-ellipses-outline" size={size} color={color} />
       );
       break;
     case 'Requests':
       iconComponent = (
         <View style={{ position: 'relative' }}>
           {focused ? (
-            <Ionicons name="chatbox-ellipses" size={size - 2} color={color} />
+            <MaterialDesignIcons name="shopping" size={size - 2} color={color} />
           ) : (
-            <Ionicons name="chatbox-ellipses-outline" size={size} color={color} />
+            <MaterialDesignIcons name="shopping-outline" size={size} color={color} />
           )}
         </View>
       );
@@ -261,11 +257,11 @@ const BuyerTabNavigator = () => {
         }}
       />
       <BuyerTab.Screen
-        name="Orders"
-        component={MyOrdersScreen}
+        name="Chats"
+        component={ChatListScreen}
         options={{
-          tabBarLabel: 'Orders',
-          tabBarAccessibilityLabel: 'My Orders Tab'
+          tabBarLabel: 'Chats',
+          tabBarAccessibilityLabel: 'Chats Tab'
         }}
       />
     </BuyerTab.Navigator>

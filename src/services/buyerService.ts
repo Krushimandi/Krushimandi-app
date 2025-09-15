@@ -7,11 +7,23 @@ import firestore from '@react-native-firebase/firestore';
 import { Alert } from 'react-native';
 
 // Types
+// Support both legacy string location and structured object location
+export interface UserLocation {
+    city?: string;
+    district?: string;
+    state?: string;
+    pincode?: string;
+    formattedAddress?: string;
+    // Allow any additional keys coming from Firestore (e.g., country, landmark, geoPoint etc.)
+    [key: string]: any;
+}
+
 export interface BuyerProfile {
     id: string;
     name: string;
     phone: string;
-    location: string;
+    // Previously always a string; now may be structured. UI should format with a helper.
+    location?: string | UserLocation;
     profileImage?: string;
     rating: number;
     totalRatings: number;
@@ -138,11 +150,34 @@ class BuyerService {
             const displayName = this.sanitizeString(data.displayName);
             const fullName = displayName || `${firstName} ${lastName}`.trim() || 'Unknown User';
 
+            // Preserve structured location objects instead of coercing to string ([object Object])
+            let locationValue: string | UserLocation | undefined;
+            if (data.location && typeof data.location === 'object') {
+                // Clone to avoid accidental mutation
+                const loc: UserLocation = { ...data.location };
+                // Build a formattedAddress if missing
+                if (!loc.formattedAddress) {
+                    const parts = [loc.city, loc.district, loc.state, loc.pincode].filter(Boolean).join(', ');
+                    if (parts) loc.formattedAddress = parts;
+                }
+                locationValue = loc;
+            } else if (data.address && typeof data.address === 'object') {
+                const addr: UserLocation = { ...data.address };
+                if (!addr.formattedAddress) {
+                    const parts = [addr.city, addr.district, addr.state, addr.pincode].filter(Boolean).join(', ');
+                    if (parts) addr.formattedAddress = parts;
+                }
+                locationValue = addr;
+            } else {
+                const locString = this.sanitizeString(data.location || data.address);
+                locationValue = locString || undefined;
+            }
+
             const profile: BuyerProfile = {
                 id: doc.id,
                 name: fullName,
                 phone: this.sanitizeString(data.phoneNumber),
-                location: this.sanitizeString(data.location || data.address),
+                location: locationValue,
                 profileImage: this.sanitizeString(data.profileImage || data.photoURL) || undefined,
                 rating: stats.rating,
                 totalRatings: stats.totalRatings,

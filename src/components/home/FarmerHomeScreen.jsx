@@ -23,7 +23,7 @@ import Octicons from 'react-native-vector-icons/Octicons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { getCompleteUserProfile, updateLastLogin, validateCurrentUser, updateUserProfile, updateUserLocation, isNetworkAvailable } from '../../services/firebaseService';
 import { getFruitsByFarmerOptimized, updateFruitStatus } from '../../services/fruitService';
-import auth from '@react-native-firebase/auth';
+import { auth } from '../../config/firebaseModular';
 import { Colors, } from '../../constants';
 import changeNavigationBarColor from 'react-native-navigation-bar-color';
 import { getHeaderConstants } from '../../constants/Layout';
@@ -285,7 +285,7 @@ const FarmerHomeScreen = () => {
     try {
       setIsLoading(true);
 
-      const user = auth().currentUser;
+      const user = auth.currentUser;
       if (!user) {
         // Guard: avoid immediate navigation reset if offline or early mount
         const online = await isNetworkAvailable().catch(() => false);
@@ -798,6 +798,39 @@ const FarmerHomeScreen = () => {
             ]}>
               <View style={styles.headerRow}>
                 <View style={styles.profileContainer}>
+                  {userProfile?.profileImage ? (
+                    <TouchableOpacity onPress={() => {
+                      safeNavigate('ProfileScreen');
+                    }}
+                      style={styles.profileImageButton}
+                      activeOpacity={0.7}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      <View style={styles.profileImage}>
+                        <Image
+                          source={{ uri: userProfile.profileImage }}
+                          style={{ width: '100%', height: '100%' }}
+                        />
+                      </View>
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity
+                      style={styles.profilePlaceholderButton}
+                      onPress={() => {
+                        safeNavigate('ProfileScreen');
+                      }}
+                      activeOpacity={0.7}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      <View style={styles.profilePlaceholder}>
+                        <Octicons
+                          name="person"
+                          size={24}
+                          color="#000"
+                        />
+                      </View>
+                    </TouchableOpacity>
+                  )}
 
                   <TouchableOpacity
                     style={styles.userInfo}
@@ -1340,9 +1373,15 @@ const FarmerHomeScreen = () => {
                 {userProfile?.location ? (
                   <>
                     <Text style={styles.locPreviewMain} numberOfLines={2}>
-                      {`${userProfile.location.city || ''}${userProfile.location.city && userProfile.location.state ? ', ' : ''}${userProfile.location.state || ''}`.replace(/, $/, '') || '—'}
+                      {/* TODO: location may now be string | object; safeguard casting */}
+                      {(() => {
+                        const loc = userProfile.location || {};
+                        if (typeof loc === 'string') return loc || '—';
+                        const city = loc.city || ''; const state = loc.state || '';
+                        return `${city}${city && state ? ', ' : ''}${state}`.replace(/, $/, '') || '—';
+                      })()}
                     </Text>
-                    {!!userProfile.location.formattedAddress && (
+                    {!!(typeof userProfile.location === 'object' && userProfile.location?.formattedAddress) && (
                       <Text style={styles.locPreviewSub} numberOfLines={2}>
                         {userProfile.location.formattedAddress}
                       </Text>
@@ -1491,10 +1530,10 @@ const styles = StyleSheet.create({
     marginLeft: 6,
   },
   welcome: {
-    paddingTop: 4,
-    fontSize: 30,
+    fontSize: 22,
     fontWeight: '800',
     color: '#111827',
+    marginBottom: 4,
     letterSpacing: -0.5,
     fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },

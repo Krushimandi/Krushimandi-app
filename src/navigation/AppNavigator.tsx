@@ -4,8 +4,8 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { navigationRef, isNavigationReady, pendingNotificationData, handleNotificationNavigation } from './navigationService';
 import { notificationTabEmitter } from './buyer/notificationTabEmitter';
 import { authFlowManager } from '../services/authFlowManager';
-import auth from '@react-native-firebase/auth';
-import firestore from '@react-native-firebase/firestore';
+// Modular Firebase instances (replaces deprecated auth() / firestore())
+import { auth, firestore, doc, onSnapshot } from '../config/firebaseModular';
 import { useAuthStore } from '../store/authStore';
 
 // Screen components
@@ -51,7 +51,7 @@ const AppNavigator: React.FC<AppNavigatorProps> = () => {
 
   // Primary auth listener
   useEffect(() => {
-    const unsubscribe = auth().onAuthStateChanged(async (user) => {
+  const unsubscribe = auth.onAuthStateChanged(async (user) => {
       if (user?.uid) {
         setUid(user.uid);
         try {
@@ -104,8 +104,8 @@ const AppNavigator: React.FC<AppNavigatorProps> = () => {
   // Live Firestore listener for remote role edits
   useEffect(() => {
     if (!uid) return;
-    const docRef = firestore().collection('profiles').doc(uid);
-    const unsubscribe = docRef.onSnapshot((snap) => {
+  const docRef = firestore.collection('profiles').doc(uid);
+  const unsubscribe = docRef.onSnapshot((snap) => {
       if (!snap.exists) return;
       const data: any = snap.data();
       const nextRole = data?.userRole;
