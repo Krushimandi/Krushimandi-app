@@ -23,7 +23,8 @@ interface FruitsScreenProps {
 const FruitsScreen: React.FC<FruitsScreenProps> = ({ navigation, route }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFruits, setSelectedFruits] = useState<number[]>([]);
-  const isOnboarding = !!(route?.params?.onboarding || route?.params?.mode === 'auth' || route?.params?.fromAuth);
+  // Treat as onboarding when explicitly requested via route OR when user has no saved preferences yet
+  const [isOnboarding, setIsOnboarding] = useState<boolean>(!!(route?.params?.onboarding || route?.params?.mode === 'auth' || route?.params?.fromAuth));
 
   // Load user's current preferred fruits when screen loads
   React.useEffect(() => {
@@ -37,7 +38,10 @@ const FruitsScreen: React.FC<FruitsScreenProps> = ({ navigation, route }) => {
           .filter(fruit => preferredFruits.includes(fruit.name))
           .map(fruit => fruit.id);
 
-        setSelectedFruits(fruitIds);
+  setSelectedFruits(fruitIds);
+
+  // If user has no preferred fruits stored, we are in onboarding flow
+  setIsOnboarding(prev => prev || !(preferredFruits && preferredFruits.length > 0));
       } catch (error) {
         console.error('Error loading user preferences:', error);
       }

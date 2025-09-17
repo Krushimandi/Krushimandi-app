@@ -2,7 +2,7 @@
 // This legacy file is retained to avoid wide import churn; it proxies modular exports.
 // Remove usages of this file gradually and import from './firebaseModular' directly.
 
-import { auth, firestore, functions, messaging, appCheck, storage } from './firebaseModular';
+import { auth, firestore, functions, messaging, appCheck, storage, rtdb, ServerValue } from './firebaseModular';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import BlobUtil from 'react-native-blob-util';
@@ -23,6 +23,39 @@ try {
 } catch (e) {
 	console.warn('[firebase] Firestore settings error (safe to ignore if already initialized):', e?.message);
 	firestoreReadyPromise = Promise.resolve();
+}
+
+// ------------------------------
+// Realtime Database Offline Mode
+// ------------------------------
+// Enable disk persistence for RTDB and provide helpers to keep critical paths in sync.
+let rtdbReadyPromise = Promise.resolve();
+try {
+	// Must be called before any other RTDB usage in the app lifecycle
+	rtdbReadyPromise = rtdb.setPersistenceEnabled(true)
+		.then(() => {
+			console.log('[firebase] RTDB persistence enabled');
+		})
+		.catch((e) => {
+			// If already enabled or called too late, this may throw on some platforms; safe to continue.
+			console.warn('[firebase] RTDB persistence enable warning:', e?.message);
+		});
+} catch (e) {
+	console.warn('[firebase] RTDB persistence error (safe to ignore if already initialized):', e?.message);
+}
+
+// Optional: helpers to keep specific paths synchronized while online
+export function keepChatsSynced(enable = true) {
+	try { rtdb.ref('chats').keepSynced(!!enable); } catch (e) { /* ignore */ }
+}
+
+export function keepChatThreadSynced(chatId, enable = true) {
+	if (!chatId) return;
+	try {
+		rtdb.ref(`chats/${chatId}`).keepSynced(!!enable);
+		rtdb.ref(`chats/${chatId}/messages`).keepSynced(!!enable);
+		rtdb.ref(`chats/${chatId}/typing`).keepSynced(!!enable);
+	} catch (e) { /* ignore */ }
 }
 
 // ------------------------------
@@ -51,6 +84,13 @@ NetInfo.addEventListener(state => {
 			if (isOnline) firestore().enableNetwork(); else firestore().disableNetwork();
 		} catch (err) {
 			console.warn('[firebase] Network toggle failed:', err?.message);
+		}
+		// Mirror network preference to Realtime Database as well
+		try {
+			if (isOnline && typeof rtdb.goOnline === 'function') rtdb.goOnline();
+			else if (!isOnline && typeof rtdb.goOffline === 'function') rtdb.goOffline();
+		} catch (err) {
+			console.warn('[firebase] RTDB network toggle failed:', err?.message);
 		}
 	}
 });
@@ -128,5 +168,5 @@ AppState.addEventListener('change', state => {
 });
 
 // Exports
-export { auth, firestore, functions, messaging, appCheck, storage, authReady, firestoreReadyPromise };
-export default { auth, firestore, functions, messaging, appCheck, storage, authReady, firestoreReadyPromise, cacheStorageImage };
+export { auth, firestore, functions, messaging, appCheck, storage, rtdb, ServerValue, authReady, firestoreReadyPromise, rtdbReadyPromise, keepChatsSynced, keepChatThreadSynced };
+export default { auth, firestore, functions, messaging, appCheck, storage, rtdb, ServerValue, authReady, firestoreReadyPromise, rtdbReadyPromise, cacheStorageImage, keepChatsSynced, keepChatThreadSynced };

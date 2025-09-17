@@ -12,18 +12,20 @@ import {
   Alert,
   ActivityIndicator,
   TextInput,
-  ScrollView,
   RefreshControl,
   Animated,
   Linking,
   Platform,
   Dimensions,
+  Modal,
+  ScrollView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Colors } from '../../constants/Colors';
 import { firestore, doc, getDoc } from '../../config/firebaseModular'; // modular firestore (ensure exported)
+import { buildChatId, ensureChatExists, fetchUserProfile } from '../../services/chatService';
 import Clipboard from '@react-native-clipboard/clipboard';
 import { getHeaderConstants } from '../../constants/Layout';
 import { useTabBarControl } from '../../utils/navigationControls.ts';
@@ -68,8 +70,24 @@ const RequestsScreen = () => {
   // Default to 'All' so user sees every request initially
   const [selectedFilter, setSelectedFilter] = useState('All');
   const [sortBy, setSortBy] = useState('date');
-  const [showFilters, setShowFilters] = useState(false);
+  const [filterMenuVisible, setFilterMenuVisible] = useState(false);
   const fadeAnim = useState(new Animated.Value(0))[0];
+  // Collapsing header pattern: absolute header that hides on scroll up and returns on scroll down
+  const scrollY = React.useRef(new Animated.Value(0)).current;
+  const [collapsibleHeaderHeight, setCollapsibleHeaderHeight] = useState(120);
+  const [headerHeight, setHeaderHeight] = useState(0);
+  const clampMax = Math.max(collapsibleHeaderHeight, 1);
+  const clampedScroll = React.useMemo(() => Animated.diffClamp(scrollY, 0, clampMax), [scrollY, clampMax]);
+  const headerTranslateY = clampedScroll.interpolate({
+    inputRange: [0, clampMax],
+    outputRange: [0, -clampMax],
+    extrapolate: 'clamp',
+  });
+  const headerOpacity = clampedScroll.interpolate({
+    inputRange: [0, clampMax * 0.7],
+    outputRange: [1, 0],
+    extrapolate: 'clamp',
+  });
 
   // Safely format any farmerLocation object into a displayable string
   const formatLocationValue = useCallback((loc) => {
@@ -93,8 +111,8 @@ const RequestsScreen = () => {
   const filters = ['All', 'Pending', 'Accepted', 'Sold', 'Rejected', 'Cancelled', 'Expired'];
   const sortOptions = [
     { key: 'date', label: 'Date', icon: 'calendar-outline' },
-  { key: 'alphabetical', label: 'A-Z', icon: 'list-outline' },
-  { key: 'quantity', label: 'Quantity', icon: 'stats-chart-outline' },
+    { key: 'alphabetical', label: 'A-Z', icon: 'list-outline' },
+    { key: 'quantity', label: 'Quantity', icon: 'stats-chart-outline' },
     { key: 'price', label: 'Price', icon: 'pricetag-outline' },
   ];
 
@@ -162,7 +180,7 @@ const RequestsScreen = () => {
   };
 
   // Advanced filtering and sorting
-  const soldStatusSet = new Set(['delivered','completed','complete','sold','soldout']);
+  const soldStatusSet = new Set(['delivered', 'completed', 'complete', 'sold', 'soldout']);
 
   const filteredAndSortedRequests = useMemo(() => {
     let filtered = requests.filter(item => {
@@ -200,7 +218,7 @@ const RequestsScreen = () => {
             return isNaN(num) ? 0 : num;
           };
           const qa = getQuantityValue(a.quantity, a.quantityUnit);
-            const qb = getQuantityValue(b.quantity, b.quantityUnit);
+          const qb = getQuantityValue(b.quantity, b.quantityUnit);
           return qb - qa; // Descending (largest first)
         }
         case 'price':
@@ -383,7 +401,7 @@ const RequestsScreen = () => {
       const ref = doc(firestore, 'profiles', farmerId);
       const snap = await getDoc(ref);
       console.log('🔍 (RequestsScreen) Farmer phone snapshot:', snap);
-      
+
       if (snap.exists()) {
         const data = snap.data() || {};
         const phone = data.phoneNumber || data.phone || data.mobile || null;
@@ -508,14 +526,41 @@ const RequestsScreen = () => {
     }
   };
 
+  // Start in-app chat with farmer (for Accepted requests)
+  const handleMessageInApp = useCallback(async (farmerId, farmerDisplayName) => {
+    try {
+      if (!user?.uid || !farmerId) return;
+      const currentUid = user.uid;
+      const chatId = buildChatId(currentUid, farmerId);
+
+      // Fetch minimal meta for other participant for better list display
+      let otherMeta = await fetchUserProfile(farmerId);
+      const participantsMeta = otherMeta ? { [farmerId]: otherMeta } : undefined;
+
+      // Ensure chat doc exists
+      await ensureChatExists(chatId, [currentUid, farmerId], participantsMeta);
+
+      // Navigate to ChatDetail with lightweight params
+      navigation.navigate('ChatDetail', {
+        chatId,
+        otherUid: farmerId,
+        name: farmerDisplayName || otherMeta?.displayName || 'User',
+        avatarUri: otherMeta?.avatar || null,
+      });
+    } catch (e) {
+      console.warn('Failed to start chat:', e?.message || e);
+      Toast.show({ type: 'error', text1: 'Chat unavailable', text2: 'Please try again in a moment.', position: 'bottom' });
+    }
+  }, [user?.uid, navigation]);
+
   const renderRequestItem = ({ item, index }) => {
     const isBuyer = user?.role === 'buyer';
     const productName = item.productSnapshot?.name || 'Unknown Product';
     const farmerName = item.productSnapshot?.farmerName || 'Unknown Farmer';
     const buyerName = item.buyerDetails?.name || 'Unknown Buyer';
     const displayName = isBuyer ? farmerName : buyerName;
-  const rawLocation = item.productSnapshot?.farmerLocation;
-  const locationStr = formatLocationValue(rawLocation);
+    const rawLocation = item.productSnapshot?.farmerLocation;
+    const locationStr = formatLocationValue(rawLocation);
     const price = item.productSnapshot?.price ? `₹${item.productSnapshot.price}/${item.productSnapshot.priceUnit || 'TON'}` : 'Price not available';
     const quantity = Array.isArray(item.quantity) ?
       `${item.quantity[0]}-${item.quantity[1]} ${item.quantityUnit || 'ton'}` :
@@ -613,7 +658,7 @@ const RequestsScreen = () => {
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.pillButton, styles.pillMessage]}
-                onPress={() => handleContactFarmer(item.farmerId, item.productSnapshot?.farmerName, item.productSnapshot?.name)}
+                onPress={() => handleMessageInApp(item.farmerId, item.productSnapshot?.farmerName)}
                 activeOpacity={0.85}
               >
                 <Icon name="chatbubble-ellipses-outline" size={16} color="#FFFFFF" />
@@ -667,42 +712,7 @@ const RequestsScreen = () => {
     }
   };
 
-  // Render filter chips
-  const renderFilterChips = () => (
-    <View style={styles.filterContainer}>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.filterContent}
-      >
-        {filters.map((filter) => (
-          <TouchableOpacity
-            key={filter}
-            style={[
-              styles.filterChip,
-              selectedFilter === filter && styles.filterChipActive
-            ]}
-            onPress={() => setSelectedFilter(filter)}
-          >
-            <Text style={[
-              styles.filterChipText,
-              selectedFilter === filter && styles.filterChipTextActive
-            ]}>
-              {filter}
-            </Text>
-            {filter !== 'All' && (
-              <Text style={[
-                styles.filterCount,
-                selectedFilter === filter && styles.filterCountActive
-              ]}>
-                {stats[filter.toLowerCase()] || 0}
-              </Text>
-            )}
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-    </View>
-  );
+  // Filter chips moved to header menu; no inline chips
 
   if (loading) {
     return (
@@ -722,7 +732,7 @@ const RequestsScreen = () => {
       />
 
       {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]} onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}>
         <View style={styles.headerTop}>
           <Text style={styles.headerTitle}>
             {user?.role === 'buyer' ? 'My Requests' : 'Received Requests'}
@@ -730,26 +740,10 @@ const RequestsScreen = () => {
           <View style={styles.headerActions}>
             <TouchableOpacity
               style={styles.sortButton}
-              onPress={() => setShowFilters(!showFilters)}
+              onPress={() => setFilterMenuVisible(true)}
             >
               <Icon name="options-outline" size={20} color="#6B7280" />
             </TouchableOpacity>
-
-            {/* Debug: Test Notification Button - Remove in production */}
-            {/* <TouchableOpacity
-              style={[styles.sortButton, styles.testNotificationButton]}
-              onPress={async () => {
-                const success = await sendTestNotification();
-                Toast.show({
-                  type: success ? 'success' : 'error',
-                  text1: success ? 'Test Notification Sent' : 'Failed to Send',
-                  text2: success ? 'Check your notification screen' : 'Error sending test notification',
-                  position: 'bottom',
-                });
-              }}
-            >
-              <Icon name="notifications-outline" size={20} color="#FFFFFF" />
-            </TouchableOpacity> */}
           </View>
         </View>
         <Text style={styles.headerSubtitle}>
@@ -757,64 +751,92 @@ const RequestsScreen = () => {
         </Text>
       </View>
 
-      {/* Search */}
-      <View style={styles.searchContainer}>
-        <Icon name="search" size={20} color="#6B7280" />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search products, farmers, locations..."
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          placeholderTextColor="#9CA3AF"
-        />
-        {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={() => setSearchQuery('')}>
-            <Icon name="close-circle" size={20} color="#9CA3AF" />
-          </TouchableOpacity>
-        )}
-      </View>
+      {/* Absolute collapsing header with Search + Chips */}
+      <Animated.View
+        style={{
+          backgroundColor: '#F8FAFC',
+          position: 'absolute',
+          top: headerHeight,
+          left: 0,
+          right: 0,
+          zIndex: 10,
+          transform: [{ translateY: headerTranslateY }],
+          opacity: headerOpacity,
+        }}
+        onLayout={(e) => {
+          const h = e.nativeEvent.layout.height;
+          if (h && Math.abs(h - collapsibleHeaderHeight) > 2) setCollapsibleHeaderHeight(h);
+        }}
+      >
+        {/* Search */}
+        <View style={styles.searchContainer}>
+          <Icon name="search" size={20} color="#6B7280" />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search products, farmers, locations..."
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholderTextColor="#9CA3AF"
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <Icon name="close-circle" size={20} color="#9CA3AF" />
+            </TouchableOpacity>
+          )}
+        </View>
 
-      {/* Filters */}
-      {renderFilterChips()}
-
-      {/* Sort Options */}
-      {showFilters && (
-        <View style={styles.sortContainer}>
-          <Text style={styles.sortTitle}>Sort by:</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            {sortOptions.map((option) => (
+        {/* Chips (status filters) */}
+        <View style={styles.filterContainer}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filterContent}
+          >
+            {filters.map((filter) => (
               <TouchableOpacity
-                key={option.key}
+                key={filter}
                 style={[
-                  styles.sortOption,
-                  sortBy === option.key && styles.sortOptionActive
+                  styles.filterChip,
+                  selectedFilter === filter && styles.filterChipActive
                 ]}
-                onPress={() => setSortBy(option.key)}
+                onPress={() => setSelectedFilter(filter)}
               >
-                <Icon
-                  name={option.icon}
-                  size={16}
-                  color={sortBy === option.key ? '#FFFFFF' : '#6B7280'}
-                />
                 <Text style={[
-                  styles.sortOptionText,
-                  sortBy === option.key && styles.sortOptionTextActive
+                  styles.filterChipText,
+                  selectedFilter === filter && styles.filterChipTextActive
                 ]}>
-                  {option.label}
+                  {filter}
                 </Text>
+                {filter !== 'All' && (
+                  <Text style={[
+                    styles.filterCount,
+                    selectedFilter === filter && styles.filterCountActive
+                  ]}>
+                    {stats[filter.toLowerCase()] || 0}
+                  </Text>
+                )}
               </TouchableOpacity>
             ))}
           </ScrollView>
         </View>
-      )}
+      </Animated.View>
 
       {/* List */}
-      <FlatList
+      <Animated.FlatList
         data={filteredAndSortedRequests}
         keyExtractor={(item) => item.id}
         renderItem={renderRequestItem}
         style={styles.list}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[
+          styles.listContent,
+          // Ensure minimum height for scrolling even with few items
+          filteredAndSortedRequests.length < 3 && {
+            minHeight: Dimensions.get('window').height * 0.8
+          },
+          // Push content below the absolute collapsing header (static header + collapsible header)
+          { paddingTop: collapsibleHeaderHeight }
+        ]}
+        ListHeaderComponent={null}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -823,8 +845,23 @@ const RequestsScreen = () => {
             tintColor={Colors.light.primary}
           />
         }
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          {
+            useNativeDriver: false,
+            listener: (event) => {
+              // Additional debug logging
+              const scrollY = event.nativeEvent.contentOffset.y;
+              console.log('📊 FlatList scroll event:', scrollY.toFixed(1));
+            }
+          }
+        )}
+        scrollEventThrottle={16}
+        showsVerticalScrollIndicator={true}
+        bounces={true}
+        alwaysBounceVertical={true}
         ListEmptyComponent={
-          <View style={styles.emptyState}>
+          <View style={[styles.emptyState, { minHeight: Dimensions.get('window').height * 0.6 }]}>
             <Icon name="document-text-outline" size={64} color="#D1D5DB" />
             <Text style={styles.emptyText}>
               {searchQuery || selectedFilter !== 'All' ? 'No matching requests' : 'No requests found'}
@@ -839,6 +876,83 @@ const RequestsScreen = () => {
           </View>
         }
       />
+
+      {/* Sort Menu (Header Menu) */}
+      <Modal
+        visible={filterMenuVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setFilterMenuVisible(false)}
+      >
+        {/* Backdrop */}
+        <TouchableOpacity
+          activeOpacity={1}
+          onPress={() => setFilterMenuVisible(false)}
+          style={{ flex: 1 }}
+        />
+        {/* Menu container anchored below header */}
+        <View
+          style={{
+            position: 'absolute',
+            top: insets.top + 36,
+            right: 12,
+            backgroundColor: '#FFFFFF',
+            borderRadius: 12,
+            paddingVertical: 8,
+            width: 200,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.15,
+            shadowRadius: 8,
+            elevation: 8,
+            borderWidth: 1,
+            borderColor: '#F1F5F9',
+          }}
+        >
+          <Text style={{
+            fontSize: 12,
+            fontWeight: '700',
+            color: '#64748B',
+            paddingHorizontal: 12,
+            paddingVertical: 6,
+            textTransform: 'uppercase'
+          }}>
+            Sort by
+          </Text>
+          {sortOptions.map((option) => {
+            const isActive = sortBy === option.key;
+            return (
+              <TouchableOpacity
+                key={option.key}
+                onPress={() => { setSortBy(option.key); setFilterMenuVisible(false); }}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  paddingHorizontal: 12,
+                  paddingVertical: 10,
+                  backgroundColor: isActive ? '#EEF2FF' : 'transparent',
+                }}
+                activeOpacity={0.8}
+              >
+                <Icon name={option.icon}
+                  size={16}
+                  color={isActive ? Colors.light.primary : '#6B7280'}
+                />
+                <Text style={{
+                  flex: 1,
+                  marginLeft: 10,
+                  fontSize: 14,
+                  color: isActive ? Colors.light.primary : '#111827',
+                  fontWeight: isActive ? '700' : '500',
+                }}>
+                  {option.label}
+                </Text>
+                {isActive && <Icon name="checkmark" size={18} color={Colors.light.primary} style={{ marginLeft: 6 }} />}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </Modal>
 
     </View>
   );
@@ -874,6 +988,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.04,
     shadowRadius: 3,
     elevation: 2,
+    zIndex: 20,
   },
   headerTop: {
     flexDirection: 'row',
@@ -1075,6 +1190,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingBottom: Platform.OS === 'ios' ? 120 : 100, // Better spacing for navigation
+    minHeight: Dimensions.get('window').height, // Ensure scrollable content
   },
   requestItem: {
     backgroundColor: '#FFFFFF',

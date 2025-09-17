@@ -22,9 +22,6 @@ const WelcomeScreen = ({ navigation }) => {
     
     const checkAuthAndNavigate = async () => {
       try {
-        // Mark first launch as complete when reaching welcome screen
-        await authFlowManager.markFirstLaunchComplete();
-        
         // Get the next route from auth flow manager
         const route = await authFlowManager.resumeAuthFlow();
         
@@ -53,8 +50,14 @@ const WelcomeScreen = ({ navigation }) => {
     checkAuthAndNavigate();
   }, [navigation]);
 
-  const handleGetStarted = () => {
+  const handleGetStarted = async () => {
     console.log('Get Started pressed');
+    try {
+      // Mark first launch complete only when user explicitly starts
+      await authFlowManager.markFirstLaunchComplete();
+    } catch (e) {
+      console.warn('WelcomeScreen: markFirstLaunchComplete failed (continuing):', e);
+    }
     navigation.navigate('MobileScreen');
   };
 

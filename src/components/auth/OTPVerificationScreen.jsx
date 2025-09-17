@@ -48,10 +48,13 @@ const OTPVerificationScreen = ({ navigation, route }) => {
 
   const scrollViewRef = useRef(null);
 
-  // Use phone number from context, fallback to route params, then default
-  const displayPhoneNumber = phoneNumber || route?.params?.phoneNumber || '+91 XXXXXXXXXX';
+  // Use phone number from route for this verification attempt, then context, then default
+  const displayPhoneNumber = route?.params?.phoneNumber || phoneNumber || '+91 XXXXXXXXXX';
 
   const insets = useSafeAreaInsets();
+
+  // Normalize phone helper for safe comparisons (keeps +, strips spaces)
+  const normalizePhone = useCallback((v) => String(v || '').replace(/\s+/g, ''), []);
 
   // Keyboard listeners
   useEffect(() => {
@@ -297,26 +300,20 @@ const OTPVerificationScreen = ({ navigation, route }) => {
       } catch (err) {
         console.error('OTP Verification Error:', err);
 
-        // Fallback: if instant verification already signed the user in, proceed
+        // Allow bypass ONLY if instant verification already signed the user in
+        // AND the signed-in user's phone matches the target phone being verified.
+        // This avoids navigating with an old session when OTP was incorrect for a new number.
         try {
           const currentUser = auth().currentUser;
-          if (currentUser?.uid) {
+          const targetPhone = normalizePhone(displayPhoneNumber);
+          const currentPhone = normalizePhone(currentUser?.phoneNumber);
+          if (currentUser?.uid && currentPhone && currentPhone === targetPhone) {
             const route = await authFlowManager.resumeAuthFlow();
-            
             if (route.screen === 'Main') {
-              Toast.show({ 
-                type: 'success', 
-                text1: 'Welcome Back!', 
-                position: 'bottom', 
-                visibilityTime: 1200 
-              });
+              Toast.show({ type: 'success', text1: 'Welcome Back!', position: 'bottom', visibilityTime: 1200 });
               navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
             } else {
-              if (route.params) {
-                navigation.replace(route.screen, route.params);
-              } else {
-                navigation.replace(route.screen);
-              }
+              navigation.replace(route.screen, route.params || {});
             }
             return;
           }

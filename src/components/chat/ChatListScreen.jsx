@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -21,6 +21,8 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import { useFocusEffect } from '@react-navigation/native';
 import { Colors } from '../../constants';
 import { useTabBarControl } from '../../utils/navigationControls';
+import { auth } from '../../config/firebaseModular';
+import { subscribeUserChats, fetchUserProfile, buildChatId } from '../../services/chatService';
 
 // Simple debounce helper (short + inline to avoid extra deps)
 const debounce = (fn, delay = 300) => {
@@ -85,38 +87,82 @@ const ChatListScreen = ({ navigation }) => {
   const fullHeaderHeight = baseHeaderHeight + searchHeight + spacing;
   const collapsedHeaderHeight = baseHeaderHeight + 6;
 
-  // Static demo data (would come from backend / firestore)
-  const chats = useMemo(() => ([
-    { id: '1', name: 'Shawn Jones', lastMessage: 'I love them! 😍', time: '09:36', avatar: require('../../assets/student.jpeg'), unread: 0, online: true },
-    { id: '2', name: 'Dianne Russell', lastMessage: 'Dianne is typing...', time: '08:42', avatar: require('../../assets/fruits/profile.jpg'), status: 'typing', unread: 2, online: true },
-    { id: '3', name: 'Bessie Cooper', lastMessage: '🎤 Voice message', time: 'Yesterday', avatar: require('../../assets/fruits/profile.jpg'), unread: 0, online: false },
-    { id: '4', name: 'Leslie Alexander', lastMessage: 'See you tomorrow then, take...', time: 'Mon', avatar: require('../../assets/fruits/profile.jpg'), unread: 3, online: true },
-    { id: '5', name: 'Robert Fox', lastMessage: 'Oh, thanks so much ❤️', time: '26 May', avatar: require('../../assets/fruits/profile.jpg'), unread: 0, online: false },
-    { id: '6', name: 'Guy Hawkins', lastMessage: '⚠️ Sticker', time: '12 Jun', avatar: require('../../assets/fruits/profile.jpg'), unread: 0, online: false },
-    { id: '7', name: 'Marvin McKinney', lastMessage: 'Thanks for the fresh apples! 🍎', time: '11:25', avatar: require('../../assets/fruits/profile.jpg'), unread: 1, online: true },
-    { id: '8', name: 'Kristin Watson', lastMessage: 'When will the oranges be ready?', time: '10:15', avatar: require('../../assets/fruits/profile.jpg'), unread: 0, online: true },
-    { id: '9', name: 'Jenny Wilson', lastMessage: 'Perfect quality as always! 👌', time: 'Yesterday', avatar: require('../../assets/fruits/profile.jpg'), unread: 0, online: false },
-    { id: '10', name: 'Devon Lane', lastMessage: 'Can you deliver tomorrow?', time: 'Yesterday', avatar: require('../../assets/fruits/profile.jpg'), unread: 5, online: true },
-    { id: '11', name: 'Ronald Richards', lastMessage: '📷 Photo', time: 'Tue', avatar: require('../../assets/fruits/profile.jpg'), unread: 0, online: false },
-    { id: '12', name: 'Theresa Webb', lastMessage: 'The mangoes were delicious! 🥭', time: 'Tue', avatar: require('../../assets/fruits/profile.jpg'), unread: 0, online: true },
-    { id: '13', name: 'Cody Fisher', lastMessage: 'Looking for bulk order...', time: 'Mon', avatar: require('../../assets/fruits/profile.jpg'), unread: 2, online: false },
-    { id: '14', name: 'Savannah Nguyen', lastMessage: 'Great service! Will order again', time: 'Mon', avatar: require('../../assets/fruits/profile.jpg'), unread: 0, online: true },
-    { id: '15', name: 'Brooklyn Simmons', lastMessage: 'What time for pickup?', time: 'Sun', avatar: require('../../assets/fruits/profile.jpg'), unread: 1, online: false },
-    { id: '16', name: 'Annette Black', lastMessage: 'The bananas are perfect! 🍌', time: 'Sun', avatar: require('../../assets/fruits/profile.jpg'), unread: 0, online: true },
-    { id: '17', name: 'Ralph Edwards', lastMessage: 'Do you have organic options?', time: 'Sat', avatar: require('../../assets/fruits/profile.jpg'), unread: 0, online: false },
-    { id: '18', name: 'Jane Cooper', lastMessage: 'Thank you for the quick delivery!', time: 'Sat', avatar: require('../../assets/fruits/profile.jpg'), unread: 0, online: true },
-    { id: '19', name: 'Albert Flores', lastMessage: 'Jane is typing...', time: 'Fri', avatar: require('../../assets/fruits/profile.jpg'), status: 'typing', unread: 3, online: true },
-    { id: '20', name: 'Jacob Jones', lastMessage: '🎵 Audio message', time: 'Fri', avatar: require('../../assets/fruits/profile.jpg'), unread: 0, online: false },
-    { id: '21', name: 'Cameron Williamson', lastMessage: 'Amazing quality fruits! 🌟', time: 'Thu', avatar: require('../../assets/fruits/profile.jpg'), unread: 0, online: true },
-    { id: '22', name: 'Esther Howard', lastMessage: 'Can I get a discount for bulk?', time: 'Thu', avatar: require('../../assets/fruits/profile.jpg'), unread: 1, online: false },
-  ]), []);
+  // Real chats from RTDB (profiles still from Firestore)
+  const [chats, setChats] = useState([]);
+  const [profiles, setProfiles] = useState({}); // cache { uid: { displayName, avatar } }
+
+  const formatTime = useCallback((ts) => {
+    try {
+      if (!ts) return '';
+      const date = new Date(ts);
+      const now = new Date();
+      const diff = now.getTime() - date.getTime();
+      const oneDay = 24 * 60 * 60 * 1000;
+      if (diff < oneDay) {
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      }
+      if (diff < oneDay * 7) {
+        return date.toLocaleDateString([], { weekday: 'short' });
+      }
+      return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    } catch (_) { return ''; }
+  }, []);
+
+  useEffect(() => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) return;
+    setLoading(true);
+    const unsub = subscribeUserChats(uid, async (list) => {
+      // Resolve participant profiles lazily with cache
+      const updates = {};
+      const items = await Promise.all(list.map(async (c) => {
+        const otherUid = (c.participants || []).find(p => p !== uid) || '';
+        let displayName = 'User';
+        let avatarUri = null;
+        const meta = (c.participantsMeta && c.participantsMeta[otherUid]) || null;
+
+        if (meta && (meta.displayName || meta.profileImage)) {
+          displayName = meta.displayName || displayName;
+          avatarUri = meta.profileImage || null;
+        } else if (profiles[otherUid]) {
+          displayName = profiles[otherUid].displayName || displayName;
+          avatarUri = profiles[otherUid].profileImage || null;
+        } else if (otherUid) {
+          const fetched = await fetchUserProfile(otherUid);
+          if (fetched) {
+            updates[otherUid] = fetched;
+            displayName = fetched.displayName || displayName;
+            avatarUri = fetched.profileImage || null;
+          }
+        }
+        return {
+          id: c.id,
+          chatId: c.id,
+          otherUid,
+          name: displayName,
+          lastMessage: c.lastMessage || '',
+          time: formatTime(c.updatedAt),
+          avatar: avatarUri ? { uri: avatarUri } : require('../../assets/fruits/profile.jpg'),
+          unread: (c.unreadCount && c.unreadCount[uid]) || 0,
+          online: false,
+        };
+      }));
+      if (Object.keys(updates).length) setProfiles(prev => ({ ...prev, ...updates }));
+  console.log('Fetched chats:', items);
+      setChats(items);
+      setLoading(false);
+    }, (err) => {
+      console.log('chat subscribe error', err?.message || err);
+      setLoading(false);
+    });
+    return () => unsub && unsub();
+  }, [setChats, setLoading, formatTime]);
 
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const handleSearchChange = useCallback(debounce(v => setDebouncedSearch(v.trim()), 300), []);
 
   const filteredChats = useMemo(() => {
-    return chats
-      .filter(c => c.name.toLowerCase().includes(debouncedSearch.toLowerCase()));
+    return chats.filter(c => c.name?.toLowerCase?.().includes(debouncedSearch.toLowerCase()));
   }, [chats, debouncedSearch]);
 
   // Show tab bar on focus (keeps consistency across navigation)
@@ -130,7 +176,15 @@ const ChatListScreen = ({ navigation }) => {
   }, []);
 
   const handleChatPress = useCallback((chat) => {
-    navigation.navigate('ChatDetail', { chat });
+    const uid = auth.currentUser?.uid;
+    if (!uid) return;
+    const chatId = chat.chatId || buildChatId(uid, chat.otherUid);
+    navigation.navigate('ChatDetail', {
+      chatId,
+      otherUid: chat.otherUid,
+      name: chat.name,
+      avatarUri: chat.avatar?.uri || null,
+    });
   }, [navigation]);
 
   const keyExtractor = useCallback(item => item.id, []);
@@ -234,7 +288,7 @@ const ChatListScreen = ({ navigation }) => {
         style={styles.listStyle}
         ListEmptyComponent={!loading && (
           <View style={styles.emptyState}>
-            <Feather name="message-circle" size={48} color={Colors.light.primary + '60'} />
+            <Feather name="message-circle" size={72} color={Colors.light.primary + '60'} />
             <Text style={styles.emptyTitle}>No Chats</Text>
             <Text style={styles.emptySubtitle}>Start a conversation with your buyers to see chats here.</Text>
             <TouchableOpacity style={styles.startChatButton} onPress={() => { /* placeholder */ }}>

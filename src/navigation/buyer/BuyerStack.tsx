@@ -99,7 +99,7 @@ const CustomTabBarIcon = ({ focused, color, size, route }: any) => {
       iconComponent = focused ? (
         <MaterialIcons name="home-filled" size={size + 2} color={color} />
       ) : (
-        <Octicons name="home" size={size} color={color}/>
+        <Octicons name="home" size={size} color={color} />
       );
       break;
     case 'Chats':
@@ -113,9 +113,9 @@ const CustomTabBarIcon = ({ focused, color, size, route }: any) => {
       iconComponent = (
         <View style={{ position: 'relative' }}>
           {focused ? (
-            <MaterialDesignIcons name="shopping" size={size - 2} color={color} />
+            <MaterialDesignIcons name="comment-account" size={size} color={color} />
           ) : (
-            <MaterialDesignIcons name="shopping-outline" size={size} color={color} />
+            <MaterialDesignIcons name="comment-account-outline" size={size + 2} color={color} />
           )}
         </View>
       );
