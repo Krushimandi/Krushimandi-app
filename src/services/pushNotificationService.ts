@@ -3,7 +3,14 @@
  * Integrates Firebase Cloud Messaging with Notifee for rich push notifications
  */
 
-import messaging from '@react-native-firebase/messaging';
+import {
+    messaging,
+    onMessage,
+    onNotificationOpenedApp,
+    getInitialNotification,
+    setBackgroundMessageHandler,
+    AuthorizationStatus
+} from '../config/firebaseModular';
 import notifee, { AndroidImportance, AndroidVisibility, EventType } from '@notifee/react-native';
 import { Platform, Alert } from 'react-native';
 import { addNotification, markNotificationAsRead } from './notificationService';
@@ -68,10 +75,10 @@ class PushNotificationService {
             console.log('🧹 Cleaning up universal topic subscriptions...');
             
             // Unsubscribe from universal topics that might be causing shared notifications
-            await messaging().unsubscribeFromTopic('all_users');
-            await messaging().unsubscribeFromTopic('general');
-            await messaging().unsubscribeFromTopic('universal');
-            await messaging().unsubscribeFromTopic('public');
+            await messaging.unsubscribeFromTopic('all_users');
+            await messaging.unsubscribeFromTopic('general');
+            await messaging.unsubscribeFromTopic('universal');
+            await messaging.unsubscribeFromTopic('public');
             
             console.log('✅ Unsubscribed from universal notification topics');
             
@@ -96,10 +103,10 @@ class PushNotificationService {
                 
                 // For iOS, also request Firebase messaging permission
                 if (Platform.OS === 'ios') {
-                    const authStatus = await messaging().requestPermission();
+                    const authStatus = await messaging.requestPermission();
                     const enabled =
-                        authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
-                        authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+                        authStatus === AuthorizationStatus.AUTHORIZED ||
+                        authStatus === AuthorizationStatus.PROVISIONAL;
 
                     if (enabled) {
                         console.log('✅ Firebase messaging permission granted');
@@ -186,12 +193,12 @@ class PushNotificationService {
      */
     private async getFCMToken(): Promise<string | null> {
         try {
-            const token = await messaging().getToken();
+            const token = await messaging.getToken();
             this.fcmToken = token;
             console.log('✅ FCM Token obtained:', token);
-            
+
             // Listen for token refresh
-            messaging().onTokenRefresh(token => {
+            messaging.onTokenRefresh((token: string) => {
                 this.fcmToken = token;
                 console.log('🔄 FCM Token refreshed:', token);
                 // You can send the new token to your server here
@@ -209,29 +216,27 @@ class PushNotificationService {
      */
     private setupMessageHandlers(): void {
         // Handle messages when app is in foreground
-        messaging().onMessage(async remoteMessage => {
+        onMessage(messaging, async (remoteMessage: any) => {
             console.log('📱 Foreground message received:', remoteMessage);
             await this.handleForegroundMessage(remoteMessage);
         });
 
         // Handle messages when app is in background/quit
-        messaging().onNotificationOpenedApp(remoteMessage => {
+        onNotificationOpenedApp(messaging, (remoteMessage: any) => {
             console.log('📱 Background message opened app:', remoteMessage);
             this.handleNotificationPress(remoteMessage);
         });
 
         // Handle messages when app is opened from quit state
-        messaging()
-            .getInitialNotification()
-            .then(remoteMessage => {
-                if (remoteMessage) {
-                    console.log('📱 App opened from quit state by notification:', remoteMessage);
-                    this.handleNotificationPress(remoteMessage);
-                }
-            });
+        getInitialNotification(messaging).then((remoteMessage: any) => {
+            if (remoteMessage) {
+                console.log('📱 App opened from quit state by notification:', remoteMessage);
+                this.handleNotificationPress(remoteMessage);
+            }
+        });
 
         // Handle background messages
-        messaging().setBackgroundMessageHandler(async remoteMessage => {
+        setBackgroundMessageHandler(messaging, async (remoteMessage: any) => {
             console.log('📱 Background message received:', remoteMessage);
             await this.handleBackgroundMessage(remoteMessage);
         });

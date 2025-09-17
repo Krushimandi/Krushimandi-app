@@ -12,17 +12,21 @@ import {
   Alert,
   ActivityIndicator,
   TextInput,
-  ScrollView,
   RefreshControl,
   Animated,
   Linking,
   Platform,
   Dimensions,
+  Modal,
+  ScrollView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Colors } from '../../constants/Colors';
+import { firestore, doc, getDoc } from '../../config/firebaseModular'; // modular firestore (ensure exported)
+import { buildChatId, ensureChatExists, fetchUserProfile } from '../../services/chatService';
+import Clipboard from '@react-native-clipboard/clipboard';
 import { getHeaderConstants } from '../../constants/Layout';
 import { useTabBarControl } from '../../utils/navigationControls.ts';
 import { useRequests } from '../../hooks/useRequests';
@@ -48,14 +52,12 @@ const RequestsScreen = () => {
 
   // Debug: Log requests state changes
   useEffect(() => {
-    const nonActiveRequests = requests.filter(r => r.status !== 'accepted');
     console.log('📊 Requests state updated:', {
-      count: nonActiveRequests.length,
       totalCount: requests.length,
       acceptedCount: requests.filter(r => r.status === 'accepted').length,
       loading,
       userRole: user?.role,
-      requestsPreview: nonActiveRequests.slice(0, 2).map(r => ({
+      preview: requests.slice(0, 2).map(r => ({
         id: r.id,
         productName: r.productSnapshot?.name,
         status: r.status
@@ -65,16 +67,52 @@ const RequestsScreen = () => {
 
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedFilter, setSelectedFilter] = useState('Pending');
+  // Default to 'All' so user sees every request initially
+  const [selectedFilter, setSelectedFilter] = useState('All');
   const [sortBy, setSortBy] = useState('date');
-  const [showFilters, setShowFilters] = useState(false);
+  const [filterMenuVisible, setFilterMenuVisible] = useState(false);
   const fadeAnim = useState(new Animated.Value(0))[0];
+  // Collapsing header pattern: absolute header that hides on scroll up and returns on scroll down
+  const scrollY = React.useRef(new Animated.Value(0)).current;
+  const [collapsibleHeaderHeight, setCollapsibleHeaderHeight] = useState(120);
+  const [headerHeight, setHeaderHeight] = useState(0);
+  const clampMax = Math.max(collapsibleHeaderHeight, 1);
+  const clampedScroll = React.useMemo(() => Animated.diffClamp(scrollY, 0, clampMax), [scrollY, clampMax]);
+  const headerTranslateY = clampedScroll.interpolate({
+    inputRange: [0, clampMax],
+    outputRange: [0, -clampMax],
+    extrapolate: 'clamp',
+  });
+  const headerOpacity = clampedScroll.interpolate({
+    inputRange: [0, clampMax * 0.7],
+    outputRange: [1, 0],
+    extrapolate: 'clamp',
+  });
 
-  // const filters = ['All', 'Pending', 'Accepted', 'Rejected', 'Expired'];
-  const filters = ['Pending', 'Rejected', 'Cancelled', 'Expired'];
+  // Safely format any farmerLocation object into a displayable string
+  const formatLocationValue = useCallback((loc) => {
+    if (!loc) return 'Unknown Location';
+    if (typeof loc === 'string') return loc;
+    if (typeof loc === 'object') {
+      const { city, district, state, formattedAddress } = loc;
+      const parts = [city, district, state].filter(p => !!p && String(p).trim().length > 0);
+      if (parts.length > 0) return parts.join(', ');
+      if (formattedAddress && typeof formattedAddress === 'string') return formattedAddress;
+      try {
+        return JSON.stringify(loc);
+      } catch {
+        return 'Unknown Location';
+      }
+    }
+    return String(loc);
+  }, []);
+
+  // Filters now include Accepted and Sold (derived: delivered/completed) so buyer sees all lifecycle states here
+  const filters = ['All', 'Pending', 'Accepted', 'Sold', 'Rejected', 'Cancelled', 'Expired'];
   const sortOptions = [
     { key: 'date', label: 'Date', icon: 'calendar-outline' },
-    { key: 'status', label: 'Status', icon: 'checkmark-circle-outline' },
+    { key: 'alphabetical', label: 'A-Z', icon: 'list-outline' },
+    { key: 'quantity', label: 'Quantity', icon: 'stats-chart-outline' },
     { key: 'price', label: 'Price', icon: 'pricetag-outline' },
   ];
 
@@ -142,21 +180,25 @@ const RequestsScreen = () => {
   };
 
   // Advanced filtering and sorting
+  const soldStatusSet = new Set(['delivered', 'completed', 'complete', 'sold', 'soldout']);
+
   const filteredAndSortedRequests = useMemo(() => {
     let filtered = requests.filter(item => {
       const productName = item.productSnapshot?.name || '';
       const buyerName = item.buyerDetails?.name || '';
       const farmerName = item.productSnapshot?.farmerName || '';
-      const location = item.productSnapshot?.farmerLocation || '';
+      const locationStr = formatLocationValue(item.productSnapshot?.farmerLocation || '');
+      const rawStatus = (item.status || '').toLowerCase();
+      const derivedStatus = soldStatusSet.has(rawStatus) ? 'sold' : rawStatus; // map extended statuses
 
       const matchesSearch =
         productName.toLowerCase().includes(searchQuery.toLowerCase()) ||
         buyerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
         farmerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        location.toLowerCase().includes(searchQuery.toLowerCase());
+        locationStr.toLowerCase().includes(searchQuery.toLowerCase());
 
       const matchesFilter = selectedFilter === 'All' ||
-        item.status.toLowerCase() === selectedFilter.toLowerCase();
+        derivedStatus === selectedFilter.toLowerCase();
 
       return matchesSearch && matchesFilter;
     });
@@ -164,9 +206,21 @@ const RequestsScreen = () => {
     // Sort requests
     filtered.sort((a, b) => {
       switch (sortBy) {
-        case 'status':
-          const statusOrder = { pending: 1, accepted: 2, cancelled: 3, rejected: 4, expired: 5 };
-          return statusOrder[a.status] - statusOrder[b.status];
+        case 'alphabetical':
+          return (a.productSnapshot?.name || '').localeCompare(b.productSnapshot?.name || '');
+        case 'quantity': {
+          const getQuantityValue = (q, unit) => {
+            if (Array.isArray(q)) {
+              const avg = (parseFloat(q[0]) + parseFloat(q[1])) / 2;
+              return isNaN(avg) ? 0 : avg;
+            }
+            const num = parseFloat(q);
+            return isNaN(num) ? 0 : num;
+          };
+          const qa = getQuantityValue(a.quantity, a.quantityUnit);
+          const qb = getQuantityValue(b.quantity, b.quantityUnit);
+          return qb - qa; // Descending (largest first)
+        }
         case 'price':
           const priceA = parseFloat(a.productSnapshot?.price?.toString().replace(/[^\d.]/g, '') || '0');
           const priceB = parseFloat(b.productSnapshot?.price?.toString().replace(/[^\d.]/g, '') || '0');
@@ -190,14 +244,15 @@ const RequestsScreen = () => {
 
   // Get statistics
   const stats = useMemo(() => {
-    const total = requests.filter(r => r.status !== 'accepted').length; // Exclude accepted requests
+    const total = requests.length; // Include accepted & sold
     const pending = requests.filter(r => r.status === RequestStatus.PENDING).length;
     const accepted = requests.filter(r => r.status === RequestStatus.ACCEPTED).length;
+    const sold = requests.filter(r => soldStatusSet.has((r.status || '').toLowerCase())).length;
     const cancelled = requests.filter(r => r.status === RequestStatus.CANCELLED).length;
     const rejected = requests.filter(r => r.status === RequestStatus.REJECTED).length;
     const expired = requests.filter(r => r.status === RequestStatus.EXPIRED).length;
 
-    return { total, pending, accepted, cancelled, rejected, expired };
+    return { total, pending, accepted, sold, cancelled, rejected, expired };
   }, [requests]);
 
   // Enhanced request tap handler
@@ -206,7 +261,10 @@ const RequestsScreen = () => {
     const farmerName = item.productSnapshot?.farmerName || 'Unknown Farmer';
     const buyerName = item.buyerDetails?.name || 'Unknown Buyer';
     const productName = item.productSnapshot?.name || 'Unknown Product';
-    const location = item.productSnapshot?.farmerLocation || 'Unknown Location';
+    let location = item.productSnapshot?.farmerLocation || 'Unknown Location';
+    if (location && typeof location === 'object') {
+      location = location.formattedAddress || JSON.stringify(location);
+    }
     const quantity = Array.isArray(item.quantity) ?
       `${item.quantity[0]}-${item.quantity[1]} ${item.quantityUnit || 'ton'}` :
       `${item.quantity} ${item.quantityUnit || 'ton'}`;
@@ -332,13 +390,177 @@ const RequestsScreen = () => {
   };
 
   // Enhanced request item rendering
+  // Cache farmer phone numbers to avoid repeated Firestore hits
+  const [farmerPhones, setFarmerPhones] = useState({});
+
+  const getFarmerPhoneNumber = useCallback(async (farmerId) => {
+    try {
+      if (!farmerId) return null;
+      if (farmerPhones[farmerId]) return farmerPhones[farmerId];
+      console.log('🔍 (RequestsScreen) Fetching farmer phone for', farmerId);
+      const ref = doc(firestore, 'profiles', farmerId);
+      const snap = await getDoc(ref);
+      console.log('🔍 (RequestsScreen) Farmer phone snapshot:', snap);
+
+      if (snap.exists()) {
+        const data = snap.data() || {};
+        const phone = data.phoneNumber || data.phone || data.mobile || null;
+        if (phone) {
+          const masked = phone.replace(/(\+?\d{3})\d{4}(\d{2,})/, '$1****$2');
+          console.log('📱 Farmer phone (masked):', masked);
+          setFarmerPhones(prev => ({ ...prev, [farmerId]: phone }));
+          return phone;
+        }
+      } else {
+        console.log('⚠️ Farmer profile not found for', farmerId);
+      }
+    } catch (e) {
+      console.warn('Failed to fetch farmer phone', e);
+    }
+    return null;
+  }, [farmerPhones]);
+
+  // Prefetch phone numbers for accepted requests so Call button is instant
+  useEffect(() => {
+    const acceptedFarmerIds = requests
+      .filter(r => r.status === RequestStatus.ACCEPTED && r.farmerId)
+      .map(r => r.farmerId);
+    const unique = [...new Set(acceptedFarmerIds)].filter(id => !farmerPhones[id]);
+    if (unique.length) {
+      (async () => {
+        for (const id of unique) {
+          await getFarmerPhoneNumber(id);
+        }
+      })();
+    }
+  }, [requests, getFarmerPhoneNumber, farmerPhones]);
+
+  const sanitizePhone = (phone) => (phone || '').replace(/[^\d+]/g, '');
+
+  const handleCallFarmer = async (farmerId) => {
+    try {
+      const phoneRaw = await getFarmerPhoneNumber(farmerId);
+      if (!phoneRaw) {
+        Alert.alert('Contact unavailable', 'Farmer phone not found');
+        return;
+      }
+      const phone = sanitizePhone(phoneRaw);
+      if (!phone || phone.length < 7) {
+        Alert.alert('Invalid number', 'Phone number appears invalid.');
+        return;
+      }
+      const telUrl = `tel:${phone}`;
+      console.log('📞 Dial attempt', telUrl);
+      Linking.openURL(telUrl).catch(err => {
+        console.warn('Primary tel: failed', err);
+        // iOS alt
+        const alt = `telprompt:${phone}`;
+        Linking.openURL(alt).catch(() => {
+          Alert.alert(
+            'Unable to open dialer',
+            `Please dial manually: ${phoneRaw}`,
+            [
+              { text: 'Copy', onPress: () => { Clipboard.setString(phoneRaw); Toast.show({ type: 'success', text1: 'Number Copied', position: 'bottom' }); } },
+              { text: 'OK', style: 'cancel' }
+            ]
+          );
+        });
+      });
+    } catch (e) {
+      Alert.alert('Error', 'Could not initiate call');
+    }
+  };
+
+  // Legacy-style comprehensive messaging logic from MyOrdersScreen
+  const handleContactFarmer = async (farmerId, farmerDisplayName, productName) => {
+    try {
+      if (!farmerId) {
+        Alert.alert('Farmer Unknown', 'Cannot find farmer ID for this request.');
+        return;
+      }
+
+      // Delay-based loading alert (only shows if fetch is slow)
+      const loadingTimeout = setTimeout(() => {
+        Alert.alert('Getting Contact Info', 'Fetching farmer contact details...', [], { cancelable: false });
+      }, 600);
+
+      const phoneRaw = await getFarmerPhoneNumber(farmerId);
+      clearTimeout(loadingTimeout);
+
+      if (!phoneRaw) {
+        Alert.alert('Contact Information Unavailable', `Could not find a phone number for ${farmerDisplayName || 'farmer'}.`);
+        return;
+      }
+
+      const cleanPhone = sanitizePhone(phoneRaw);
+      const demoMessage = `Hello ${farmerDisplayName || ''}! I have a question about ${productName || 'your product'}.`;
+      const encodedMessage = encodeURIComponent(demoMessage);
+      const smsUrl = `sms:${cleanPhone}?body=${encodedMessage}`;
+
+      Linking.openURL(smsUrl)
+        .then(() => console.log('✅ SMS intent opened'))
+        .catch(err => {
+          console.warn('Primary SMS failed, trying simple format', err);
+          const simpleUrl = `sms:${cleanPhone}`;
+          Linking.openURL(simpleUrl)
+            .then(() => {
+              Alert.alert('Compose Message', 'Paste the prepared message you copied.', [
+                { text: 'OK' }
+              ]);
+            })
+            .catch(() => {
+              Alert.alert(
+                'Unable to Open Messages',
+                `Phone: ${phoneRaw}`,
+                [
+                  { text: 'Copy Number', onPress: () => Clipboard.setString(phoneRaw) },
+                  { text: 'Copy Message', onPress: () => Clipboard.setString(demoMessage) },
+                  { text: 'Cancel', style: 'cancel' }
+                ]
+              );
+            });
+        });
+    } catch (e) {
+      console.error('handleContactFarmer error', e);
+      Alert.alert('Error', 'Could not open messaging app');
+    }
+  };
+
+  // Start in-app chat with farmer (for Accepted requests)
+  const handleMessageInApp = useCallback(async (farmerId, farmerDisplayName) => {
+    try {
+      if (!user?.uid || !farmerId) return;
+      const currentUid = user.uid;
+      const chatId = buildChatId(currentUid, farmerId);
+
+      // Fetch minimal meta for other participant for better list display
+      let otherMeta = await fetchUserProfile(farmerId);
+      const participantsMeta = otherMeta ? { [farmerId]: otherMeta } : undefined;
+
+      // Ensure chat doc exists
+      await ensureChatExists(chatId, [currentUid, farmerId], participantsMeta);
+
+      // Navigate to ChatDetail with lightweight params
+      navigation.navigate('ChatDetail', {
+        chatId,
+        otherUid: farmerId,
+        name: farmerDisplayName || otherMeta?.displayName || 'User',
+        avatarUri: otherMeta?.avatar || null,
+      });
+    } catch (e) {
+      console.warn('Failed to start chat:', e?.message || e);
+      Toast.show({ type: 'error', text1: 'Chat unavailable', text2: 'Please try again in a moment.', position: 'bottom' });
+    }
+  }, [user?.uid, navigation]);
+
   const renderRequestItem = ({ item, index }) => {
     const isBuyer = user?.role === 'buyer';
     const productName = item.productSnapshot?.name || 'Unknown Product';
     const farmerName = item.productSnapshot?.farmerName || 'Unknown Farmer';
     const buyerName = item.buyerDetails?.name || 'Unknown Buyer';
     const displayName = isBuyer ? farmerName : buyerName;
-    const location = item.productSnapshot?.farmerLocation || 'Unknown Location';
+    const rawLocation = item.productSnapshot?.farmerLocation;
+    const locationStr = formatLocationValue(rawLocation);
     const price = item.productSnapshot?.price ? `₹${item.productSnapshot.price}/${item.productSnapshot.priceUnit || 'TON'}` : 'Price not available';
     const quantity = Array.isArray(item.quantity) ?
       `${item.quantity[0]}-${item.quantity[1]} ${item.quantityUnit || 'ton'}` :
@@ -405,7 +627,7 @@ const RequestsScreen = () => {
 
           <View style={styles.locationRow}>
             <Icon name="location-outline" size={14} color="#6B7280" />
-            <Text style={styles.location}>{location}</Text>
+            <Text style={styles.location} numberOfLines={1} ellipsizeMode="tail">{locationStr}</Text>
           </View>
 
           <View style={styles.bottomRow}>
@@ -424,8 +646,27 @@ const RequestsScreen = () => {
         </TouchableOpacity>
 
         <View style={styles.actionButtons}>
-          {/* Buyer actions only */}
-          {item.status !== RequestStatus.CANCELLED && (
+          {item.status === RequestStatus.ACCEPTED && (
+            <View style={styles.acceptedActionsRow}>
+              <TouchableOpacity
+                style={[styles.pillButton, styles.pillCall]}
+                onPress={() => handleCallFarmer(item.farmerId)}
+                activeOpacity={0.85}
+              >
+                <Icon name="call" size={16} color="#FFFFFF" />
+                <Text style={styles.pillText}>Call</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.pillButton, styles.pillMessage]}
+                onPress={() => handleMessageInApp(item.farmerId, item.productSnapshot?.farmerName)}
+                activeOpacity={0.85}
+              >
+                <Icon name="chatbubble-ellipses-outline" size={16} color="#FFFFFF" />
+                <Text style={styles.pillText}>Message</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+          {item.status !== RequestStatus.CANCELLED && item.status !== RequestStatus.ACCEPTED && (
             <TouchableOpacity
               style={styles.cancelButton}
               onPress={() => handleCancelRequest(item.id)}
@@ -433,7 +674,6 @@ const RequestsScreen = () => {
               <Icon name="trash-outline" size={16} color="#EF4444" />
             </TouchableOpacity>
           )}
-
           {(item.status === RequestStatus.CANCELLED || item.status === RequestStatus.REJECTED || item.status === RequestStatus.EXPIRED) && (
             <TouchableOpacity
               style={styles.resendButton}
@@ -452,6 +692,7 @@ const RequestsScreen = () => {
     switch (status.toLowerCase()) {
       case 'pending': return '#F59E0B';
       case 'accepted': return '#10B981';
+      case 'sold': return '#2563EB';
       case 'cancelled': return '#6B7280';
       case 'rejected': return '#EF4444';
       case 'expired': return '#9CA3AF';
@@ -463,6 +704,7 @@ const RequestsScreen = () => {
     switch (status.toLowerCase()) {
       case 'pending': return '#FEF3C7';
       case 'accepted': return '#D1FAE5';
+      case 'sold': return '#DBEAFE';
       case 'cancelled': return '#F3F4F6';
       case 'rejected': return '#FEE2E2';
       case 'expired': return '#F9FAFB';
@@ -470,42 +712,7 @@ const RequestsScreen = () => {
     }
   };
 
-  // Render filter chips
-  const renderFilterChips = () => (
-    <View style={styles.filterContainer}>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.filterContent}
-      >
-        {filters.map((filter) => (
-          <TouchableOpacity
-            key={filter}
-            style={[
-              styles.filterChip,
-              selectedFilter === filter && styles.filterChipActive
-            ]}
-            onPress={() => setSelectedFilter(filter)}
-          >
-            <Text style={[
-              styles.filterChipText,
-              selectedFilter === filter && styles.filterChipTextActive
-            ]}>
-              {filter}
-            </Text>
-            {filter !== 'All' && (
-              <Text style={[
-                styles.filterCount,
-                selectedFilter === filter && styles.filterCountActive
-              ]}>
-                {stats[filter.toLowerCase()] || 0}
-              </Text>
-            )}
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-    </View>
-  );
+  // Filter chips moved to header menu; no inline chips
 
   if (loading) {
     return (
@@ -525,7 +732,7 @@ const RequestsScreen = () => {
       />
 
       {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]} onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}>
         <View style={styles.headerTop}>
           <Text style={styles.headerTitle}>
             {user?.role === 'buyer' ? 'My Requests' : 'Received Requests'}
@@ -533,26 +740,10 @@ const RequestsScreen = () => {
           <View style={styles.headerActions}>
             <TouchableOpacity
               style={styles.sortButton}
-              onPress={() => setShowFilters(!showFilters)}
+              onPress={() => setFilterMenuVisible(true)}
             >
               <Icon name="options-outline" size={20} color="#6B7280" />
             </TouchableOpacity>
-
-            {/* Debug: Test Notification Button - Remove in production */}
-            {/* <TouchableOpacity
-              style={[styles.sortButton, styles.testNotificationButton]}
-              onPress={async () => {
-                const success = await sendTestNotification();
-                Toast.show({
-                  type: success ? 'success' : 'error',
-                  text1: success ? 'Test Notification Sent' : 'Failed to Send',
-                  text2: success ? 'Check your notification screen' : 'Error sending test notification',
-                  position: 'bottom',
-                });
-              }}
-            >
-              <Icon name="notifications-outline" size={20} color="#FFFFFF" />
-            </TouchableOpacity> */}
           </View>
         </View>
         <Text style={styles.headerSubtitle}>
@@ -560,64 +751,92 @@ const RequestsScreen = () => {
         </Text>
       </View>
 
-      {/* Search */}
-      <View style={styles.searchContainer}>
-        <Icon name="search" size={20} color="#6B7280" />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search products, farmers, locations..."
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          placeholderTextColor="#9CA3AF"
-        />
-        {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={() => setSearchQuery('')}>
-            <Icon name="close-circle" size={20} color="#9CA3AF" />
-          </TouchableOpacity>
-        )}
-      </View>
+      {/* Absolute collapsing header with Search + Chips */}
+      <Animated.View
+        style={{
+          backgroundColor: '#F8FAFC',
+          position: 'absolute',
+          top: headerHeight,
+          left: 0,
+          right: 0,
+          zIndex: 10,
+          transform: [{ translateY: headerTranslateY }],
+          opacity: headerOpacity,
+        }}
+        onLayout={(e) => {
+          const h = e.nativeEvent.layout.height;
+          if (h && Math.abs(h - collapsibleHeaderHeight) > 2) setCollapsibleHeaderHeight(h);
+        }}
+      >
+        {/* Search */}
+        <View style={styles.searchContainer}>
+          <Icon name="search" size={20} color="#6B7280" />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search products, farmers, locations..."
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholderTextColor="#9CA3AF"
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <Icon name="close-circle" size={20} color="#9CA3AF" />
+            </TouchableOpacity>
+          )}
+        </View>
 
-      {/* Filters */}
-      {renderFilterChips()}
-
-      {/* Sort Options */}
-      {showFilters && (
-        <View style={styles.sortContainer}>
-          <Text style={styles.sortTitle}>Sort by:</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            {sortOptions.map((option) => (
+        {/* Chips (status filters) */}
+        <View style={styles.filterContainer}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filterContent}
+          >
+            {filters.map((filter) => (
               <TouchableOpacity
-                key={option.key}
+                key={filter}
                 style={[
-                  styles.sortOption,
-                  sortBy === option.key && styles.sortOptionActive
+                  styles.filterChip,
+                  selectedFilter === filter && styles.filterChipActive
                 ]}
-                onPress={() => setSortBy(option.key)}
+                onPress={() => setSelectedFilter(filter)}
               >
-                <Icon
-                  name={option.icon}
-                  size={16}
-                  color={sortBy === option.key ? '#FFFFFF' : '#6B7280'}
-                />
                 <Text style={[
-                  styles.sortOptionText,
-                  sortBy === option.key && styles.sortOptionTextActive
+                  styles.filterChipText,
+                  selectedFilter === filter && styles.filterChipTextActive
                 ]}>
-                  {option.label}
+                  {filter}
                 </Text>
+                {filter !== 'All' && (
+                  <Text style={[
+                    styles.filterCount,
+                    selectedFilter === filter && styles.filterCountActive
+                  ]}>
+                    {stats[filter.toLowerCase()] || 0}
+                  </Text>
+                )}
               </TouchableOpacity>
             ))}
           </ScrollView>
         </View>
-      )}
+      </Animated.View>
 
       {/* List */}
-      <FlatList
+      <Animated.FlatList
         data={filteredAndSortedRequests}
         keyExtractor={(item) => item.id}
         renderItem={renderRequestItem}
         style={styles.list}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[
+          styles.listContent,
+          // Ensure minimum height for scrolling even with few items
+          filteredAndSortedRequests.length < 3 && {
+            minHeight: Dimensions.get('window').height * 0.8
+          },
+          // Push content below the absolute collapsing header (static header + collapsible header)
+          { paddingTop: collapsibleHeaderHeight }
+        ]}
+        ListHeaderComponent={null}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -626,8 +845,23 @@ const RequestsScreen = () => {
             tintColor={Colors.light.primary}
           />
         }
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          {
+            useNativeDriver: false,
+            listener: (event) => {
+              // Additional debug logging
+              const scrollY = event.nativeEvent.contentOffset.y;
+              console.log('📊 FlatList scroll event:', scrollY.toFixed(1));
+            }
+          }
+        )}
+        scrollEventThrottle={16}
+        showsVerticalScrollIndicator={true}
+        bounces={true}
+        alwaysBounceVertical={true}
         ListEmptyComponent={
-          <View style={styles.emptyState}>
+          <View style={[styles.emptyState, { minHeight: Dimensions.get('window').height * 0.6 }]}>
             <Icon name="document-text-outline" size={64} color="#D1D5DB" />
             <Text style={styles.emptyText}>
               {searchQuery || selectedFilter !== 'All' ? 'No matching requests' : 'No requests found'}
@@ -642,6 +876,83 @@ const RequestsScreen = () => {
           </View>
         }
       />
+
+      {/* Sort Menu (Header Menu) */}
+      <Modal
+        visible={filterMenuVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setFilterMenuVisible(false)}
+      >
+        {/* Backdrop */}
+        <TouchableOpacity
+          activeOpacity={1}
+          onPress={() => setFilterMenuVisible(false)}
+          style={{ flex: 1 }}
+        />
+        {/* Menu container anchored below header */}
+        <View
+          style={{
+            position: 'absolute',
+            top: insets.top + 36,
+            right: 12,
+            backgroundColor: '#FFFFFF',
+            borderRadius: 12,
+            paddingVertical: 8,
+            width: 200,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.15,
+            shadowRadius: 8,
+            elevation: 8,
+            borderWidth: 1,
+            borderColor: '#F1F5F9',
+          }}
+        >
+          <Text style={{
+            fontSize: 12,
+            fontWeight: '700',
+            color: '#64748B',
+            paddingHorizontal: 12,
+            paddingVertical: 6,
+            textTransform: 'uppercase'
+          }}>
+            Sort by
+          </Text>
+          {sortOptions.map((option) => {
+            const isActive = sortBy === option.key;
+            return (
+              <TouchableOpacity
+                key={option.key}
+                onPress={() => { setSortBy(option.key); setFilterMenuVisible(false); }}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  paddingHorizontal: 12,
+                  paddingVertical: 10,
+                  backgroundColor: isActive ? '#EEF2FF' : 'transparent',
+                }}
+                activeOpacity={0.8}
+              >
+                <Icon name={option.icon}
+                  size={16}
+                  color={isActive ? Colors.light.primary : '#6B7280'}
+                />
+                <Text style={{
+                  flex: 1,
+                  marginLeft: 10,
+                  fontSize: 14,
+                  color: isActive ? Colors.light.primary : '#111827',
+                  fontWeight: isActive ? '700' : '500',
+                }}>
+                  {option.label}
+                </Text>
+                {isActive && <Icon name="checkmark" size={18} color={Colors.light.primary} style={{ marginLeft: 6 }} />}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </Modal>
 
     </View>
   );
@@ -677,6 +988,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.04,
     shadowRadius: 3,
     elevation: 2,
+    zIndex: 20,
   },
   headerTop: {
     flexDirection: 'row',
@@ -878,6 +1190,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingBottom: Platform.OS === 'ios' ? 120 : 100, // Better spacing for navigation
+    minHeight: Dimensions.get('window').height, // Ensure scrollable content
   },
   requestItem: {
     backgroundColor: '#FFFFFF',
@@ -1014,6 +1327,38 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#F3F4F6',
     gap: 12,
+  },
+  acceptedActionsRow: {
+    flexDirection: 'row',
+    flex: 1,
+    gap: 10,
+  },
+  pillButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 3,
+    flex: 1,
+    gap: 6,
+  },
+  pillCall: {
+    backgroundColor: '#059669',
+  },
+  pillMessage: {
+    backgroundColor: '#2563EB',
+  },
+  pillText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: 0.2,
   },
   cancelButton: {
     padding: 8,

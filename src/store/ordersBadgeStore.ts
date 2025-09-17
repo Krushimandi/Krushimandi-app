@@ -7,7 +7,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { StorageKeys } from '../constants';
 
 type RequestLike = { id: string; status?: string | null };
 
@@ -88,7 +87,7 @@ export const useOrdersBadgeStore = create<OrdersBadgeState>()(
       },
     }),
     {
-      name: StorageKeys.ORDERS_BADGE_STATE || '@krushimandi:orders_badge_state',
+      name: '@krushimandi:orders_badge_state',
       storage: createJSONStorage(() => AsyncStorage),
       // Persist only the minimal state
       partialize: (state) => ({

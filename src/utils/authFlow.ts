@@ -1,4 +1,4 @@
-import auth from '@react-native-firebase/auth';
+import { auth } from '../config/firebaseModular';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { validateCurrentUser } from '../services/firebaseService';
 import { clearUserRole } from './userRoleStorage';
@@ -24,7 +24,7 @@ export interface UserAuthState {
 export const isPhoneVerified = async (): Promise<boolean> => {
   try {
     // First check Firebase user
-    const user = auth().currentUser;
+  const user = auth.currentUser;
     if (user && user.phoneNumber) {
       console.log('✅ Phone verified via Firebase user:', user.phoneNumber);
       return true;
@@ -66,7 +66,7 @@ export const isRoleSelected = async (): Promise<boolean> => {
     if (userData) {
       const user = JSON.parse(userData);
       // Guard against stale data from previous session: ensure it belongs to current Firebase user
-      const currentUser = auth().currentUser;
+  const currentUser = auth.currentUser;
       if (currentUser && user?.uid && user.uid !== currentUser.uid) {
         console.log('⚠️ Stale userData detected (UID mismatch). Ignoring cached role.', {
           cachedUid: user.uid,
@@ -102,7 +102,7 @@ export const isProfileCompleted = async (): Promise<boolean> => {
       const userProfile = JSON.parse(userData);
 
       // Ensure the cached profile belongs to the current Firebase user to avoid cross-account leakage
-      const currentUser = auth().currentUser;
+  const currentUser = auth.currentUser;
       if (currentUser && userProfile?.uid && userProfile.uid !== currentUser.uid) {
         console.log('⚠️ Stale profile data detected (UID mismatch). Skipping cached profile.', {
           cachedUid: userProfile.uid,
@@ -114,6 +114,8 @@ export const isProfileCompleted = async (): Promise<boolean> => {
           console.log('✅ Profile marked as complete in AsyncStorage');
           return true;
         }
+
+  // continue to other profile checks
 
         // Check if we have all required profile data locally
         const hasFirstName = !!(userProfile.firstName && userProfile.firstName.trim());
@@ -142,7 +144,7 @@ export const isProfileCompleted = async (): Promise<boolean> => {
     }
 
     // Check Firebase user (as fallback or additional validation)
-    const user = auth().currentUser;
+  const user = auth.currentUser;
     console.log('  - Firebase user:', user ? user.uid : 'None');
 
     if (user) {
@@ -151,7 +153,8 @@ export const isProfileCompleted = async (): Promise<boolean> => {
 
       console.log('🔍 Firebase profile check:', {
         hasDisplayName,
-        displayName: user.displayName
+        displayName: user.displayName,
+        phoneNumber: user.phoneNumber,
       });
 
       // If Firebase has display name, consider profile complete
@@ -171,11 +174,31 @@ export const isProfileCompleted = async (): Promise<boolean> => {
 };
 
 /**
+ * Check if buyer has selected preferred fruits (used to gate Buyer onboarding)
+ */
+export const hasBuyerSelectedFruits = async (): Promise<boolean> => {
+  try {
+    const userData = await AsyncStorage.getItem('userData');
+    if (!userData) return false;
+
+    const parsed = JSON.parse(userData);
+    const role = parsed?.userRole;
+    if (role !== 'buyer') return true; // Not a buyer, this step doesn't apply
+
+    const fruits = parsed?.PreferedFruits;
+    return Array.isArray(fruits) && fruits.length > 0;
+  } catch (e) {
+    console.warn('Error checking buyer fruits selection:', e);
+    return false;
+  }
+};
+
+/**
  * Validate if current Firebase user still exists on server
  */
 export const validateFirebaseUser = async (): Promise<boolean> => {
   try {
-    const user = auth().currentUser;
+  const user = auth.currentUser;
     if (!user) {
       console.log('⚠️ No Firebase user found locally - may need re-authentication');
       return false;
@@ -234,12 +257,14 @@ export const getAuthState = async (): Promise<UserAuthState> => {
     const phoneVerified = await isPhoneVerified();
     const roleSelected = await isRoleSelected();
     const profileCompleted = await isProfileCompleted();
+    const fruitsSelected = await hasBuyerSelectedFruits();
     const authComplete = await isAuthComplete();
 
     console.log('📊 Auth state components:', {
       phoneVerified,
       roleSelected,
       profileCompleted,
+      fruitsSelected,
       authComplete
     });
 
@@ -248,7 +273,7 @@ export const getAuthState = async (): Promise<UserAuthState> => {
       console.log('✅ All auth steps complete, checking Firebase user...');
       
       // Check if we have a Firebase user
-      const user = auth().currentUser;
+  const user = auth.currentUser;
       if (user) {
         console.log('✅ Firebase user confirmed, going to Main');
         return {
@@ -274,7 +299,7 @@ export const getAuthState = async (): Promise<UserAuthState> => {
     }
 
     // Now check Firebase user for validation if we have partial auth state
-    const user = auth().currentUser;
+  const user = auth.currentUser;
     console.log('  - Firebase user:', user ? user.uid : 'None');
 
     // If we have partial progress but no Firebase user, validate if user still exists
@@ -300,7 +325,7 @@ export const getAuthState = async (): Promise<UserAuthState> => {
       }
     }
 
-    // Determine which step to resume from - but always route to 'Auth' container
+  // Determine which step to resume from - but always route to 'Auth' container
     let currentStep = 'welcome';
     // Always go to Auth container, let AuthNavigator handle internal routing
     let nextRoute = 'Auth';
@@ -320,10 +345,21 @@ export const getAuthState = async (): Promise<UserAuthState> => {
       currentStep = 'profile_setup';
       console.log('📝 Resuming from profile setup');
     }
+    // Step 3b: Buyer fruits selection (only if profile is complete already)
+    else if (phoneVerified && roleSelected) {
+      // Check for buyer-specific fruits step when authStep is not complete
+      const userData = await AsyncStorage.getItem('userData');
+      const authStep = await AsyncStorage.getItem('authStep');
+      const role = (() => { try { return userData ? JSON.parse(userData)?.userRole : null; } catch { return null; }})();
+      if (role === 'buyer' && !authComplete && profileCompleted && !fruitsSelected) {
+        currentStep = 'fruits_selection';
+        console.log('🍎 Resuming from fruits selection');
+      }
+    }
     // Step 4: If all main steps are complete, go to main app
     else if (phoneVerified && roleSelected && profileCompleted) {
       console.log('✅ All main auth steps complete - validating user binding before main app');
-      const fbUser = auth().currentUser;
+  const fbUser = auth.currentUser;
       if (fbUser) {
         const userData = await AsyncStorage.getItem('userData');
         if (userData) {
@@ -343,6 +379,17 @@ export const getAuthState = async (): Promise<UserAuthState> => {
             };
           }
         }
+      }
+      // If buyer fruits not selected and auth step not marked complete, route to fruits selection
+      if (!authComplete && !fruitsSelected) {
+        return {
+          isAuthenticated: true,
+          phoneVerified: true,
+          roleSelected: true,
+          profileCompleted: true,
+          currentStep: 'fruits_selection',
+          nextRoute: 'Auth'
+        };
       }
       return {
         isAuthenticated: true,
@@ -388,7 +435,7 @@ export const debugAuthState = async (): Promise<void> => {
   try {
     console.log('\n=== AUTH STATE DEBUG ===');
 
-    const user = auth().currentUser;
+  const user = auth.currentUser;
     console.log('Firebase User:', user ? {
       uid: user.uid,
       phoneNumber: user.phoneNumber,
@@ -428,17 +475,9 @@ export const debugAuthState = async (): Promise<void> => {
  */
 export const clearAuthData = async (): Promise<void> => {
   try {
-    console.log('🧹 Starting comprehensive auth data cleanup...');
-    
-    // Import StorageKeys for consistency
-    const { StorageKeys, SecureStorageKeys } = await import('../constants/AppConstants');
-    
+    console.log('🧹 Starting comprehensive auth data cleanup...'); 
     // Clear AsyncStorage keys - comprehensive list of all possible auth-related keys
     const keysToRemove = [
-      // Main StorageKeys
-      StorageKeys.USER_TOKEN,
-      StorageKeys.USER_DATA,
-      StorageKeys.USER_ROLE,
       
       // Legacy/additional auth keys (maintain backward compatibility)
       'userData',
@@ -454,15 +493,7 @@ export const clearAuthData = async (): Promise<void> => {
       '@auth:user',
       '@auth:state',
     ];
-    
-    // Also clear secure storage keys
-    try {
-      const { secureStorage } = await import('./secureStorage');
-      await secureStorage.clearAll();
-      console.log('✅ Secure storage cleared');
-    } catch (error) {
-      console.warn('⚠️ Failed to clear secure storage:', error);
-    }
+  
     
     // Remove duplicates and filter out undefined values
     const uniqueKeysToRemove = [...new Set(keysToRemove.filter(Boolean))];

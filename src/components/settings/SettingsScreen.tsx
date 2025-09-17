@@ -223,12 +223,71 @@ const SettingsScreen: React.FC = () => {
           subtitle: 'Switch role to buyer/farmer',
           icon: 'arrow-switch',
           type: 'navigation' as const,
-          action: () => Toast.show({
-            type: 'info',
-            position: 'bottom',
-            visibilityTime: 1000,
-            text1: 'This feature is coming soon!',
-          }),
+          action: async () => {
+            if (!userProfile?.uid && !userProfile?.id) {
+              Toast.show({ type: 'error', text1: 'Profile missing', position: 'bottom' });
+              return;
+            }
+            try {
+              const currentRole = userProfile.userRole === 'farmer' ? 'farmer' : 'buyer';
+              const nextRole = currentRole === 'farmer' ? 'buyer' : 'farmer';
+
+              Alert.alert(
+                'Switch Role',
+                `Are you sure you want to switch your role to ${nextRole.toUpperCase()}?`,
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Confirm',
+                    style: 'destructive',
+                    onPress: async () => {
+                      try {
+                        Toast.show({ type: 'info', text1: 'Switching role...', position: 'bottom' });
+                        const uid = userProfile.uid || userProfile.id;
+
+                        // 1. Update Firestore profile (unified collection)
+                        const { updateUserInFirestore } = await import('../../services/firebaseService');
+                        await updateUserInFirestore(uid, nextRole, { userRole: nextRole });
+
+                        // 2. Persist new role locally
+                        const { saveUserRole } = await import('../../utils/userRoleStorage');
+                        await saveUserRole(nextRole as any);
+
+                        // 3. Update cached userData (AsyncStorage userData blob)
+                        try {
+                          const raw = await AsyncStorage.getItem('userData');
+                          if (raw) {
+                            const parsed = JSON.parse(raw);
+                            parsed.userRole = nextRole;
+                            await AsyncStorage.setItem('userData', JSON.stringify(parsed));
+                          }
+                        } catch {}
+
+                        // 4. Update Zustand auth store userType if present
+                        try {
+                          const { useAuthStore } = await import('../../store/authStore');
+                          const store = useAuthStore.getState();
+                          if (store.user) {
+                            store.updateUser({ userType: nextRole } as any);
+                          }
+                        } catch {}
+
+                        // 5. Force refresh local profile
+                        await loadUserProfile();
+
+                        Toast.show({ type: 'success', text1: `Role switched to ${nextRole}`, position: 'bottom' });
+                      } catch (err) {
+                        console.log('Role switch error', err);
+                        Toast.show({ type: 'error', text1: 'Failed to switch role', position: 'bottom' });
+                      }
+                    }
+                  }
+                ]
+              );
+            } catch (e) {
+              Toast.show({ type: 'error', text1: 'Cannot switch role now', position: 'bottom' });
+            }
+          },
           color: '#3B82F6',
           badge: 'New',
         },
@@ -425,7 +484,7 @@ const SettingsScreen: React.FC = () => {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content"
         backgroundColor="#43B86C"
-         />
+      />
 
       {/* Updated Header with Emerald Theme */}
       <View style={styles.headerContainer}>
@@ -691,7 +750,7 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F8FAFC',
   },
   headerContainer: {
     position: 'relative',
@@ -787,7 +846,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     backgroundColor: '#FFFFFF',
     borderRadius: 24,
-    padding: 24,
+    padding: 16,
     elevation: 6,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 4 },

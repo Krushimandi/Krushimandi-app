@@ -13,8 +13,10 @@ import {
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { setAuthStep } from '../../utils/authFlow';
+import { authFlowManager } from '../../services/authFlowManager';
 import { saveUserRole } from '../../utils/userRoleStorage';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import auth from '@react-native-firebase/auth';
 
 const RoleSelectionScreen = ({ navigation }) => {
   const [selectedRole, setSelectedRole] = useState(null);
@@ -44,8 +46,40 @@ const RoleSelectionScreen = ({ navigation }) => {
     ]).start();
   }, [fadeAnim, slideAnim, scaleAnim]);
 
+  // Skip this screen for existing/returning users whose onboarding is complete
+  useEffect(() => {
+    let mounted = true;
+    const checkSkipCondition = async () => {
+      try {
+        const route = await authFlowManager.resumeAuthFlow();
+        
+        if (mounted && route.screen !== 'RoleSelection') {
+          if (route.screen === 'Main') {
+            const { navigateToMain } = await import('../../utils/navigationUtils');
+            navigateToMain();
+          } else {
+            if (route.params) {
+              navigation.replace(route.screen, route.params);
+            } else {
+              navigation.replace(route.screen);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('❌ Error checking role selection skip condition:', error);
+      }
+    };
+    
+    checkSkipCondition();
+    return () => { mounted = false; };
+  }, [navigation]);
+
   const handleBackPress = () => {
-    navigation.goBack();
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      navigation.navigate("MobileScreen");
+    }
   };
 
   const handleRoleSelect = (role) => {
@@ -55,26 +89,33 @@ const RoleSelectionScreen = ({ navigation }) => {
     if (selectedRole) {
       setIsLoading(true);
       try {
-        // Save role to dedicated localStorage
+        // Save role to local storage
         await saveUserRole(selectedRole);
 
-        // Also persist role inside userData for backward compatibility (merge, don't overwrite)
+        // Persist role in userData for backward compatibility
         try {
           const existing = await AsyncStorage.getItem('userData');
-          const merged = existing ? { ...JSON.parse(existing), userRole: selectedRole } : { userRole: selectedRole, createdAt: new Date().toISOString() };
+          const user = auth().currentUser;
+          const merged = existing 
+            ? { ...JSON.parse(existing), userRole: selectedRole }
+            : { 
+                uid: user?.uid || '',
+                userRole: selectedRole, 
+                phoneNumber: user?.phoneNumber || '',
+                createdAt: new Date().toISOString() 
+              };
           await AsyncStorage.setItem('userData', JSON.stringify(merged));
         } catch (mergeErr) {
-          console.warn('⚠️ Failed merging userData while saving role, writing minimal payload:', mergeErr);
-          await AsyncStorage.setItem('userData', JSON.stringify({ userRole: selectedRole, createdAt: new Date().toISOString() }));
+          console.warn('⚠️ Failed merging userData while saving role:', mergeErr);
         }
 
-        // Update auth step
-        await setAuthStep('RoleSelected');
+        // Update auth flow state
+        await authFlowManager.updateFlowState('profile_setup');
 
-        console.log('Selected role saved to localStorage:', selectedRole);
+        console.log('✅ Selected role saved:', selectedRole);
         navigation.navigate('IntroduceYourself', { userRole: selectedRole });
       } catch (err) {
-        console.error('Error saving role:', err);
+        console.error('❌ Error saving role:', err);
       } finally {
         setIsLoading(false);
       }
@@ -85,6 +126,8 @@ const RoleSelectionScreen = ({ navigation }) => {
   //   // Could show help modal
   //   console.log('Help pressed');
   // };
+
+  const insets = useSafeAreaInsets();
 
   return (
     <SafeAreaView style={styles.container}>
@@ -193,18 +236,18 @@ const RoleSelectionScreen = ({ navigation }) => {
               </TouchableOpacity>
             </View>
 
-            {/* Security note */}
+            {/* Security note
             <View style={styles.securityNote}>
               <Ionicons name="shield-checkmark" size={16} color="#007E2F" />
               <Text style={styles.securityText}>
                 You can change your role later in settings if needed
               </Text>
-            </View>
+            </View> */}
           </Animated.View>
         </ScrollView>
 
         {/* Get Started Button */}
-        <View style={styles.buttonContainer}>
+        <View style={[styles.buttonContainer, { paddingBottom: insets.bottom + 10 }]}>
           <TouchableOpacity
             style={[
               styles.getStartedButton,
@@ -308,7 +351,7 @@ const styles = StyleSheet.create({
   },
   textContainer: {
     alignItems: 'center',
-    marginBottom: 40,
+    marginBottom: 20,
   },
   heading: {
     fontSize: 28,
@@ -332,7 +375,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     width: '100%',
-    marginBottom: 30,
+    marginBottom: 20,
     gap: 16,
   },
   roleCard: {
@@ -396,6 +439,7 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 12,
     marginTop: 20,
+    marginBottom: 20,
     marginHorizontal: 20,
   },
   securityText: {

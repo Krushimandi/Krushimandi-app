@@ -1,18 +1,21 @@
 const { getDefaultConfig, mergeConfig } = require("@react-native/metro-config");
 const { withNativeWind } = require("nativewind/metro");
-const path = require('path');
- 
-const config = mergeConfig(getDefaultConfig(__dirname), {
+const path = require("path");
+
+// Get base config
+const defaultConfig = getDefaultConfig(__dirname);
+
+const config = mergeConfig(defaultConfig, {
   resolver: {
-    // Fix for React Native Firebase Storage web module issue
-    resolverMainFields: ['react-native', 'browser', 'main'],
-    platforms: ['ios', 'android', 'native'],
+    resolverMainFields: ["react-native", "browser", "main"],
+    platforms: ["ios", "android", "native"],
     alias: {
-      // Prevent Metro from trying to resolve web-specific modules
-      '@react-native-firebase/storage/lib/web': path.resolve(__dirname, 'node_modules/@react-native-firebase/storage/lib'),
+      "@react-native-firebase/storage/lib/web": path.resolve(
+        __dirname,
+        "node_modules/@react-native-firebase/storage/lib"
+      ),
     },
     blockList: [
-      // Block web-specific modules that cause issues in React Native
       /.*\/node_modules\/@react-native-firebase\/storage\/lib\/web\/.*$/,
     ],
   },
@@ -25,5 +28,5 @@ const config = mergeConfig(getDefaultConfig(__dirname), {
     }),
   },
 });
- 
+
 module.exports = withNativeWind(config, { input: "./global.css" });

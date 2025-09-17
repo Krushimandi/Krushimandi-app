@@ -1,29 +1,60 @@
-import firebase from '@react-native-firebase/app';
-import appCheck from '@react-native-firebase/app-check';
+import { Platform } from 'react-native';
+import { appCheckInstance, getAppCheckToken } from './firebaseModular';
 
-const activateAppCheck = async () => {
+export const initializeAppCheck = async () => {
   try {
-    console.log(`AppCheck: Activating in ${__DEV__ ? 'DEBUG' : 'PROD'} mode...`);
+    if (!appCheckInstance) {
+      console.warn('[AppCheck] appCheckInstance is undefined – ensure @react-native-firebase/app-check is installed and linked.');
+      return;
+    }
 
-    await appCheck().setTokenAutoRefreshEnabled(true);
+    // Create RNFirebase AppCheck provider and configure per env/platform
+    const provider = appCheckInstance.newReactNativeFirebaseAppCheckProvider();
 
-    // Use 'debug' token in development
-    const appCheckToken = __DEV__ 
-      ? 'debug' // using debug token for development
-      : 'play-integrity'; // This assumes you're using Play Integrity for release
+    if (__DEV__) {
+      // Use DEBUG provider on both platforms in development
+      provider.configure({
+        android: {
+          provider: 'debug',
+          debugToken: '35515E03-8C57-424C-8D9B-FBC0E1856296'
+        },
+        apple: {
+          provider: 'debug',
+          debugToken: '35515E03-8C57-424C-8D9B-FBC0E1856296'
+        },
+      });
+      console.log('[AppCheck] Using DEBUG provider');
+    } else if (Platform.OS === 'android') {
+      // Prefer Play Integrity on Android in release
+      provider.configure({
+        android: { provider: 'playIntegrity' },
+      });
+      console.log('[AppCheck] Using Play Integrity provider');
+    } else {
+      // Conservative default on iOS: DeviceCheck (App Attest requires extra setup)
+      provider.configure({
+        apple: { provider: 'deviceCheck' },
+      });
+      console.log('[AppCheck] Using DeviceCheck provider');
+    }
 
-    await appCheck().activate(appCheckToken, true);
-    console.log(`✅ AppCheck activated successfully in ${__DEV__ ? 'DEBUG' : 'PROD'} mode.`);
+    await appCheckInstance.initializeAppCheck({
+      provider,
+      isTokenAutoRefreshEnabled: true,
+    });
 
-    const tokenResult = await appCheck().getToken();
-    console.log('App Check token:', tokenResult.token);
-    
+  console.log('[AppCheck] initializeAppCheck invoked – fetching token...');
+  // Use modular API to avoid deprecation warnings
+  const tokenResult = await getAppCheckToken(appCheckInstance);
+    if (tokenResult?.token) {
+      console.log('✅ [AppCheck] Token acquired (length):', tokenResult.token.length);
+    } else {
+      console.warn('⚠️ [AppCheck] Token unavailable after initialization');
+    }
   } catch (error) {
-    console.error('❌ AppCheck: Failed to activate App Check', error);
+    console.error('AppCheck initialization failed:', error);
   }
 };
 
-// Call immediately or export
-activateAppCheck();
-
-export default firebase;
+// Auto-initialize on import. If you prefer manual control, remove this call and invoke initializeAppCheck() from App bootstrap.
+initializeAppCheck();

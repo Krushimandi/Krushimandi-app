@@ -1,4 +1,7 @@
+// Firebase modular consolidated imports
 import {
+  auth as firebaseAuth,
+  firestore as firebaseFirestore,
   serverTimestamp as firestoreServerTimestamp,
   collection,
   doc,
@@ -9,26 +12,23 @@ import {
   query,
   where,
   limit
-} from '@react-native-firebase/firestore';
+} from '../config/firebaseModular';
 import storage from '@react-native-firebase/storage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert } from 'react-native';
-import { clearUserRole } from '../utils/userRoleStorage';
-import firestore from '@react-native-firebase/firestore';
 import NetInfo from '@react-native-community/netinfo';
-import { auth as firebaseAuth, firestore as firebaseFirestore } from '../config/firebase';
+import { clearUserRole } from '../utils/userRoleStorage';
 import { persistentAuthManager } from '../utils/persistentAuthManager';
+// Temporary import for FieldValue.delete sentinel until exposed via firebaseModular (optional refactor later)
+import firestoreFieldValue from '@react-native-firebase/firestore';
 
 /**
  * Firebase Service for User Management
  * Handles Firestore, Storage, and AsyncStorage synchronization
  * With offline capability and network error handling
  */
-
-// Collection names based on user roles
 const COLLECTIONS = {
-  FARMERS: 'farmers',
-  BUYERS: 'buyers',
+  PROFILES: 'profiles',
 };
 
 // Storage paths based on user roles
@@ -306,8 +306,8 @@ export const clearOfflineAuthState = async () => {
  * @param {string} userRole - 'farmer' or 'buyer'
  * @returns {string} Collection name
  */
-const getCollectionName = (userRole) => {
-  return userRole === 'farmer' ? COLLECTIONS.FARMERS : COLLECTIONS.BUYERS;
+const getCollectionName = () => {
+  return COLLECTIONS.PROFILES;
 };
 
 /**
@@ -410,46 +410,38 @@ export const uploadProfileAvatar = async (imageUri, userId, userRole, onProgress
  */
 export const saveUserToFirestore = async (userData) => {
   try {
-
-    const collection = getCollectionName(userData.userRole);
-    await ensureCollectionExists(collection);
-
+    const collectionName = getCollectionName();
+    await ensureCollectionExists();
+    const now = firestoreServerTimestamp();
     const userDoc = {
       uid: userData.uid,
-      firstName: userData.firstName,
-      lastName: userData.lastName,
-      displayName: `${userData.firstName} ${userData.lastName}`,
-      phoneNumber: userData.phoneNumber,
+      firstName: userData.firstName || '',
+      lastName: userData.lastName || '',
+      displayName: (userData.displayName || `${userData.firstName || ''} ${userData.lastName || ''}`).trim(),
+      phoneNumber: userData.phoneNumber || null,
       userRole: userData.userRole,
       profileImage: userData.profileImage || null,
-      isProfileComplete: userData.isProfileComplete || false,
-      isPhoneVerified: userData.isPhoneVerified || true,
-      createdAt: firestoreServerTimestamp(),
-      updatedAt: firestoreServerTimestamp(),
-      lastLoginAt: firestoreServerTimestamp(),
-      status: 'active',
-      // Role-specific fields
+      isProfileComplete: !!userData.isProfileComplete,
+      isPhoneVerified: userData.isPhoneVerified !== undefined ? userData.isPhoneVerified : true,
+      createdAt: userData.createdAt || now,
+      updatedAt: now,
+      lastLoginAt: userData.lastLoginAt || now,
+      status: userData.status || 'active',
       ...(userData.userRole === 'farmer' && {
         farmDetails: userData.farmDetails || null,
         cropTypes: userData.cropTypes || [],
         farmLocation: userData.farmLocation || null,
       }),
       ...(userData.userRole === 'buyer' && {
-  businessType: userData.businessType || null,
-  // Rename preferredCrops -> PreferedFruits per new schema
-  PreferedFruits: userData.PreferedFruits || userData.preferredCrops || [],
+        businessType: userData.businessType || null,
+        PreferedFruits: userData.PreferedFruits || userData.preferredCrops || [],
       }),
     };
-
-    const collectionName = getCollectionName(userData.userRole);
-    await ensureCollectionExists(collectionName);
-
-    const userDocRef = doc(firebaseFirestore, collectionName, userData.uid);
-    await setDoc(userDocRef, userDoc, { merge: true });
-
-    console.log('✅ User saved to Firestore successfully');
+    const ref = doc(firebaseFirestore, collectionName, userData.uid);
+    await setDoc(ref, userDoc, { merge: true });
+    console.log('✅ User saved to unified profiles collection');
   } catch (error) {
-    console.error('❌ Failed to save user to Firestore:', error);
+    console.error('❌ Failed to save user to unified profiles collection:', error);
     throw new Error('Failed to save user data');
   }
 };
@@ -509,24 +501,14 @@ export const updateUserInFirestore = async (userId, userRole, updateData) => {
   }
 };
 
-/**
- * Cleanup unused fields from buyer profile in Firestore
- * Removes: email, businessLocation, isEmailVerified, businessDetails, preferredCrops
- */
 export const cleanupUnusedBuyerFields = async (userId) => {
   try {
-    const del = firestore.FieldValue.delete();
-    const userDocRef = doc(firebaseFirestore, COLLECTIONS.BUYERS, userId);
-    await updateDoc(userDocRef, {
-      email: del,
-      businessLocation: del,
-      isEmailVerified: del,
-      businessDetails: del,
-      preferredCrops: del,
-    });
-    console.log('🧹 Cleaned up unused buyer fields for:', userId);
+    const del = firestoreFieldValue.FieldValue.delete();
+    const ref = doc(firebaseFirestore, COLLECTIONS.PROFILES, userId);
+    await updateDoc(ref, { preferredCrops: del, businessDetails: del });
+    console.log('🧹 Cleaned legacy buyer fields inside profiles for:', userId);
   } catch (error) {
-    console.warn('⚠️ Cleanup of unused buyer fields failed (non-blocking):', error?.message || error);
+    console.warn('⚠️ Cleanup (legacy buyer fields) failed (non-blocking):', error?.message || error);
   }
 };
 
@@ -551,6 +533,8 @@ export const saveUserToAsyncStorage = async (userData) => {
       lastSyncAt: new Date().toISOString(),
       createdAt: userData.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
+      // Persist location when available
+      ...(userData.location ? { location: userData.location } : {}),
       // Persist new buyer-specific optional fields and fruits preference when present
       ...(userData.userRole === 'buyer' && {
         businessType: userData.businessType || null,
@@ -568,6 +552,60 @@ export const saveUserToAsyncStorage = async (userData) => {
     console.log('✅ User saved to AsyncStorage successfully');
   } catch (error) {
     console.error('❌ Failed to save user to AsyncStorage:', error);
+  }
+};
+
+/**
+ * Update user's location with offline support and local cache sync
+ * @param {string} userId - User UID
+ * @param {('farmer'|'buyer')} userRole - Role for collection selection
+ * @param {object} location - Location object { city, district, state, pincode, formattedAddress, latitude, longitude }
+ * @returns {Promise<boolean>} Success
+ */
+export const updateUserLocation = async (userId, userRole, location) => {
+  try {
+    if (!userId || !userRole || !location) {
+      throw new Error('Missing required parameters to update location');
+    }
+
+    // Normalize location payload
+    const normalizedLocation = {
+      city: location.city || '',
+      district: location.district || '',
+      state: location.state || '',
+      pincode: location.pincode || '',
+      formattedAddress: location.formattedAddress || '',
+      latitude: location.latitude,
+      longitude: location.longitude,
+      updatedAt: new Date().toISOString(),
+    };
+
+    const isOnline = await isNetworkAvailable();
+
+    if (isOnline) {
+      await updateUserInFirestore(userId, userRole, { location: normalizedLocation });
+    } else {
+      // Queue for later
+      addToOfflineQueue('updateUserProfile', { userId, userRole, updateData: { location: normalizedLocation } });
+    }
+
+    // Update local cache
+    const local = await getUserFromAsyncStorage();
+    if (local && local.uid === userId) {
+      await saveUserToAsyncStorage({ ...local, location: normalizedLocation });
+    }
+
+    // Also update offline auth state
+    const offlineAuth = await getOfflineAuthState();
+    if (offlineAuth && offlineAuth.uid === userId) {
+      await saveOfflineAuthState({ ...offlineAuth, location: normalizedLocation });
+    }
+
+    console.log('✅ Location update processed (online:', isOnline, ')');
+    return true;
+  } catch (error) {
+    console.error('❌ Failed to update user location:', error);
+    return false;
   }
 };
 
@@ -838,7 +876,7 @@ export const getCompleteUserProfile = async (forceRefresh = false) => {
     console.log(localData ? '✅ Local user data found' : '❌ No local user data found');
     console.log(userRole ? `✅ User role: ${userRole}` : '❌ No user role found in local data');
 
-    if (userRole) {
+  if (userRole) {
       try {
         // Get from Firestore and update AsyncStorage
         const firestoreData = await getUserFromFirestore(user.uid, userRole);
@@ -870,6 +908,22 @@ export const getCompleteUserProfile = async (forceRefresh = false) => {
           console.error('❌ Non-network error getting profile:', error);
         }
       }
+    }
+
+    // Fallback: no local userRole or role-based fetch failed earlier – try unified profiles/{uid}
+    try {
+      const unifiedRef = doc(firebaseFirestore, COLLECTIONS.PROFILES, user.uid);
+      const unifiedSnap = await getDoc(unifiedRef);
+      if (unifiedSnap.exists()) {
+        const unifiedData = { uid: user.uid, ...unifiedSnap.data() };
+        console.log('✅ User profile loaded from unified profiles collection');
+        await saveUserToAsyncStorage(unifiedData);
+        // Also update offline auth state for resilience
+        await saveOfflineAuthState(unifiedData);
+        return unifiedData;
+      }
+    } catch (unifiedErr) {
+      console.warn('⚠️ Unified profiles fallback failed:', unifiedErr?.message || unifiedErr);
     }
 
     console.log('❌ User profile not found');
@@ -1020,10 +1074,8 @@ export const debugUserData = async () => {
     console.log('Firebase Auth User:', user ? {
       uid: user.uid,
       phoneNumber: user.phoneNumber,
-      email: user.email,
       displayName: user.displayName,
       photoURL: user.photoURL,
-      emailVerified: user.emailVerified
     } : 'None');
 
     // AsyncStorage data
@@ -1106,6 +1158,24 @@ export const validateCurrentUser = async () => {
       const userData = await getUserFromAsyncStorage();
 
       if (userData?.phoneNumber) {
+        // ---------------------------------------------------------
+        // Grace period: if provisional login just occurred and we
+        // haven't yet assigned role/profile, don't clear session.
+        // Prevents first-login race causing auto logout.
+        // ---------------------------------------------------------
+        try {
+          const graceUntilStr = await AsyncStorage.getItem('initialValidationGraceUntil');
+          const now = Date.now();
+          if (graceUntilStr) {
+            const graceUntil = parseInt(graceUntilStr, 10);
+            if (!userData.userRole && now < graceUntil) {
+              console.log('⏳ In initial validation grace window; skipping destructive checks');
+              return true; // allow navigation to proceed until role stored
+            }
+          }
+        } catch (graceErr) {
+          console.warn('Grace period read failed:', graceErr);
+        }
         try {
           // Check in Firestore using phone number to ensure data integrity
           const firestoreCheck = await checkUserExistsInFirestore(userData.phoneNumber);
@@ -1139,7 +1209,21 @@ export const validateCurrentUser = async () => {
         const profile = await getCompleteUserProfile(true); // Force refresh
 
         if (!profile) {
-          console.log('❌ User profile not found, user data may have been deleted');
+          // Re-check grace period before clearing
+          try {
+            const graceUntilStr = await AsyncStorage.getItem('initialValidationGraceUntil');
+            const now = Date.now();
+            if (graceUntilStr) {
+              const graceUntil = parseInt(graceUntilStr, 10);
+              if (now < graceUntil) {
+                console.log('⏳ Profile missing but within grace period – deferring cleanup');
+                return true;
+              }
+            }
+          } catch (graceErr) {
+            console.warn('Grace period check failed:', graceErr);
+          }
+          console.log('❌ User profile not found (post-grace), clearing data');
           await clearUserData();
           await clearOfflineAuthState();
           return false;
@@ -1205,40 +1289,25 @@ export const validateCurrentUser = async () => {
 
 /**
  * Check if user data exists in Firestore for a given phone number
- * This function tries to locate a user document in both farmers and buyers collections
+ * (Unified) Previously checked farmers & buyers; now only queries 'profiles'
  * @param {string} phoneNumber - User's phone number (with country code)
  * @returns {Promise<{exists: boolean, userData: object|null, collection: string|null}>}
  */
 export const checkUserExistsInFirestore = async (phoneNumber) => {
   try {
-    console.log('🔍 Checking if user exists in Firestore by phone number:', phoneNumber);
-
-    // Check in farmers collection
-    const farmersCollectionRef = collection(firebaseFirestore, COLLECTIONS.FARMERS);
-    const farmersQuery = query(farmersCollectionRef, where('phoneNumber', '==', phoneNumber), limit(1));
-    let snapshot = await getDocs(farmersQuery);
-
+    console.log('🔍 Checking if user exists (profiles) by phone number:', phoneNumber);
+    const profilesRef = collection(firebaseFirestore, COLLECTIONS.PROFILES);
+    const q = query(profilesRef, where('phoneNumber', '==', phoneNumber), limit(1));
+    const snapshot = await getDocs(q);
     if (!snapshot.empty) {
       const userData = snapshot.docs[0].data();
-      console.log('✅ User found in farmers collection:', userData.uid);
-      return { exists: true, userData, collection: COLLECTIONS.FARMERS };
+      console.log('✅ User found in profiles collection:', userData.uid);
+      return { exists: true, userData, collection: COLLECTIONS.PROFILES };
     }
-
-    // Check in buyers collection
-    const buyersCollectionRef = collection(firebaseFirestore, COLLECTIONS.BUYERS);
-    const buyersQuery = query(buyersCollectionRef, where('phoneNumber', '==', phoneNumber), limit(1));
-    snapshot = await getDocs(buyersQuery);
-
-    if (!snapshot.empty) {
-      const userData = snapshot.docs[0].data();
-      console.log('✅ User found in buyers collection:', userData.uid);
-      return { exists: true, userData, collection: COLLECTIONS.BUYERS };
-    }
-
-    console.log('❌ User not found in any collection');
+    console.log('❌ User not found in profiles');
     return { exists: false, userData: null, collection: null };
   } catch (error) {
-    console.error('❌ Error checking if user exists in Firestore:', error);
+    console.error('❌ Error checking if user exists in unified profiles collection:', error);
     return { exists: false, userData: null, collection: null, error };
   }
 };
@@ -1248,21 +1317,18 @@ export const checkUserExistsInFirestore = async (phoneNumber) => {
  * @param {string} collectionName
  * @returns {Promise<void>}
  */
-const ensureCollectionExists = async (collectionName) => {
+const ensureCollectionExists = async () => {
   try {
-    const collectionRef = collection(firebaseFirestore, collectionName);
-    const querySnapshot = query(collectionRef, limit(1));
-    const snapshot = await getDocs(querySnapshot);
-
+    const collectionName = COLLECTIONS.PROFILES;
+    const refCol = collection(firebaseFirestore, collectionName);
+    const q = query(refCol, limit(1));
+    const snapshot = await getDocs(q);
     if (snapshot.empty) {
-      // Collection is empty, create a dummy document
-      const dummyDocRef = doc(firebaseFirestore, collectionName, 'dummyDoc');
-      await setDoc(dummyDocRef, { createdAt: firestoreServerTimestamp() });
-      console.log(`✅ Dummy document created in ${collectionName} collection`);
-    } else {
-      console.log(`✅ ${collectionName} collection already exists`);
+      const initRef = doc(firebaseFirestore, collectionName, '.__init__');
+      await setDoc(initRef, { createdAt: firestoreServerTimestamp(), note: 'init placeholder - safe to delete' });
+      console.log('✅ Initialized profiles collection with placeholder');
     }
   } catch (error) {
-    console.error(`❌ Error ensuring ${collectionName} collection exists:`, error);
+    console.error('❌ Error ensuring profiles collection exists:', error);
   }
 };

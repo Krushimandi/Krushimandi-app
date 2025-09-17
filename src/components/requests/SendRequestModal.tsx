@@ -214,13 +214,19 @@ const SendRequestModal: React.FC<SendRequestModalProps> = ({
               <TextInput
                 style={styles.messageInput}
                 value={message}
-                onChangeText={setMessage}
-                placeholder="Add any specific requirements or notes..."
+                onChangeText={(t) => {
+                  if (t.length <= 60) setMessage(t);
+                }}
+                placeholder="Add any specific requirements or notes... (max 60 chars)"
                 multiline
                 numberOfLines={4}
                 textAlignVertical="top"
                 placeholderTextColor="#9CA3AF"
+                maxLength={60}
               />
+              <View style={styles.charCounterRow}>
+                <Text style={styles.charCounterText}>{message.length}/60</Text>
+              </View>
             </View>
 
             {/* Send Button */}
@@ -314,7 +320,6 @@ const styles = StyleSheet.create({
   },
   section: {
     paddingHorizontal: 20,
-    marginTop: 20,
   },
   sectionTitle: {
     fontSize: 16,
@@ -355,6 +360,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#111827',
     minHeight: 100,
+  },
+  charCounterRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  charCounterText: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontWeight: '500',
   },
   sendButton: {
     flexDirection: 'row',

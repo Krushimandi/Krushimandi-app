@@ -16,7 +16,6 @@ interface OfflineUserData {
   lastName: string;
   userRole: string;
   phoneNumber?: string;
-  email?: string;
   profileImage?: string;
   isOfflineAuth?: boolean;
   [key: string]: any;

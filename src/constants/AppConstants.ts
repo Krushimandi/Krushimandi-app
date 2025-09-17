@@ -72,55 +72,6 @@ export const StorageKeys = {
   ORDERS_BADGE_STATE: '@krushimandi:orders_badge_state',
 } as const;
 
-// Secure Storage Keys for sensitive data (using react-native-keychain)
-export const SecureStorageKeys = {
-  AUTH_TOKEN: 'krushimandi_auth_token',
-  REFRESH_TOKEN: 'krushimandi_refresh_token',
-  FIREBASE_TOKEN: 'krushimandi_firebase_token',
-  USER_CREDENTIALS: 'krushimandi_user_credentials',
-} as const;
-
-// API Endpoints
-export const API_ENDPOINTS = {
-  AUTH: {
-    LOGIN: '/auth/login',
-    REGISTER: '/auth/register',
-    SEND_OTP: '/auth/send-otp',
-    VERIFY_OTP: '/auth/verify-otp',
-    REFRESH_TOKEN: '/auth/refresh-token',
-    LOGOUT: '/auth/logout',
-    FORGOT_PASSWORD: '/auth/forgot-password',
-    RESET_PASSWORD: '/auth/reset-password',
-  },
-  USER: {
-    PROFILE: '/user/profile',
-    UPDATE_PROFILE: '/user/update-profile',
-    UPLOAD_AVATAR: '/user/upload-avatar',
-    DELETE_ACCOUNT: '/user/delete-account',
-  },
-  PRODUCTS: {
-    LIST: '/products',
-    DETAILS: '/products/:id',
-    ADD: '/products',
-    UPDATE: '/products/:id',
-    DELETE: '/products/:id',
-    SEARCH: '/products/search',
-    CATEGORIES: '/products/categories',
-  },
-  ORDERS: {
-    LIST: '/orders',
-    CREATE: '/orders',
-    DETAILS: '/orders/:id',
-    UPDATE_STATUS: '/orders/:id/status',
-    CANCEL: '/orders/:id/cancel',
-  },
-  NOTIFICATIONS: {
-    LIST: '/notifications',
-    MARK_READ: '/notifications/:id/read',
-    MARK_ALL_READ: '/notifications/read-all',
-    SETTINGS: '/notifications/settings',
-  },
-} as const;
 
 // App Configuration
 export const APP_CONFIG = {
@@ -145,7 +96,6 @@ export const APP_CONFIG = {
   MAX_PRODUCT_IMAGES: 5,
   
   // Timeouts
-  API_TIMEOUT: 30000, // 30 seconds
   SPLASH_TIMEOUT: 2000, // 2 seconds
   
   // Deep Linking

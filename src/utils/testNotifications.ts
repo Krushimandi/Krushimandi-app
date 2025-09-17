@@ -33,7 +33,7 @@ export const testNotificationIntegration = async () => {
                 body: 'Get 10% off on oranges today!',
                 type: 'navigate',
                 data: {
-                    screen: 'MyOrdersScreen',
+                    screen: 'Requests', // Updated from deprecated MyOrdersScreen
                     description: 'Nice1'
                 }
             },

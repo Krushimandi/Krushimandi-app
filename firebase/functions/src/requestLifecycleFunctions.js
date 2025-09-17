@@ -4,7 +4,8 @@
  */
 
 const admin = require('firebase-admin');
-const functions = require('firebase-functions');
+const { onSchedule } = require('firebase-functions/v2/scheduler');
+const { onDocumentUpdated } = require('firebase-functions/v2/firestore');
 
 // Initialize Firebase Admin if not already done
 if (!admin.apps.length) {
@@ -12,95 +13,135 @@ if (!admin.apps.length) {
 }
 
 const db = admin.firestore();
+// Centralized notification helper
+const { createNotificationAndPush } = require('./notificationService');
 
 /**
  * Cloud Function: Check and expire old requests
  * Runs every day at midnight
  */
-exports.expireOldRequests = functions.pubsub
-  .schedule('0 0 * * *') // Every day at midnight
-  .timeZone('Asia/Kolkata')
-  .onRun(async (context) => {
-    console.log('🕒 Checking for expired requests...');
-    
+exports.expireOldRequests = onSchedule({ schedule: '0 0 * * *', timeZone: 'Asia/Kolkata' }, async () => {
+    console.log('🕒 Checking for pending requests older than 1 month...');
+
     try {
       const now = admin.firestore.Timestamp.now();
-      const batch = db.batch();
-      
-      // Find requests that have expired
-      const expiredRequestsQuery = await db.collection('requests')
-        .where('status', '==', 'pending')
-        .where('expiresAt', '<=', now)
-        .get();
-      
-      console.log(`📋 Found ${expiredRequestsQuery.size} expired requests`);
-      
-      const expiredRequests = [];
-      
-      expiredRequestsQuery.forEach((doc) => {
-        const requestData = doc.data();
-        expiredRequests.push({
-          id: doc.id,
-          ...requestData
-        });
-        
-        // Update request status to expired
-        batch.update(doc.ref, {
-          status: 'expired',
-          updatedAt: now
-        });
-      });
-      
-      // Commit the batch update
-      await batch.commit();
-      
-      // Send notifications for expired requests
-      const notificationPromises = expiredRequests.map(async (request) => {
+      const oneMonthAgo = admin.firestore.Timestamp.fromDate(
+        new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+      );
+
+      const pendingRef = db.collection('requests').where('status', '==', 'pending');
+
+      // Try efficient queries first
+      const candidates = new Map(); // id -> {ref, data}
+      const tryQuery = async (field) => {
         try {
-          // Create notification for buyer
-          await db.collection('notifications').add({
-            to: request.buyerId,
-            type: 'action',
-            category: 'request',
-            payload: {
-              title: 'Request Expired',
-              description: `Your request for ${request.productSnapshot.name} from ${request.productSnapshot.farmerName} has expired. You can resend it.`,
-              actionUrl: `request/${request.id}`,
-              requestData: {
-                requestId: request.id,
-                productName: request.productSnapshot.name,
-                status: 'expired',
-                actionType: 'request_expired'
-              },
-              type: 'request',
-              createdAt: new Date().toISOString(),
-            },
-            seen: false,
-            createdAt: now,
-            metadata: {
-              requestId: request.id,
-              actionType: 'request_expired',
-              fromUserId: 'system',
-              toUserId: request.buyerId
-            }
+          const snap = await pendingRef.where(field, '<=', oneMonthAgo).get();
+          snap.forEach((doc) => {
+            candidates.set(doc.id, { ref: doc.ref, data: doc.data() });
           });
-          
-          console.log(`✅ Expired notification sent for request ${request.id}`);
-        } catch (error) {
-          console.error(`❌ Error sending expiration notification for request ${request.id}:`, error);
+          console.log(`� Queried by ${field}: ${snap.size} docs`);
+        } catch (e) {
+          console.warn(`⚠️ Query by ${field} failed or requires index:`, e?.message || e);
         }
-      });
-      
-      await Promise.all(notificationPromises);
-      
-      console.log(`✅ Successfully expired ${expiredRequests.length} requests and sent notifications`);
-      
-      return { 
-        success: true, 
-        expiredCount: expiredRequests.length,
-        timestamp: now.toDate().toISOString()
       };
-      
+
+      // Try querying by updatedAt first as it's more likely to change
+      // await tryQuery('createdAt');
+      await tryQuery('updatedAt');
+
+      // Fallback: scan pending if no candidates found
+      if (candidates.size === 0) {
+        console.log('🔄 Fallback scan: fetching pending requests and filtering client-side');
+        const snap = await pendingRef.limit(5000).get();
+        snap.forEach((doc) => {
+          const d = doc.data() || {};
+          // Prefer createdAt/updatedAt Timestamp; else try created_at/dateCreated strings
+          const ts = d.createdAt || d.updatedAt || null;
+          let asDate = null;
+          if (ts && ts.toDate) {
+            asDate = ts.toDate();
+          } else if (typeof ts === 'string') {
+            asDate = new Date(ts);
+          } else if (d.created_at) {
+            asDate = new Date(d.created_at);
+          } else if (d.dateCreated) {
+            asDate = new Date(d.dateCreated);
+          }
+          if (asDate && asDate.getTime && asDate.getTime() <= oneMonthAgo.toDate().getTime()) {
+            candidates.set(doc.id, { ref: doc.ref, data: d });
+          }
+        });
+        console.log(`🧮 Fallback matched ${candidates.size} pending requests older than 1 month`);
+      }
+
+      if (candidates.size === 0) {
+        console.log('✅ No pending requests older than 1 month found');
+        return { success: true, expiredCount: 0, timestamp: now.toDate().toISOString() };
+      }
+
+      // Chunk updates to respect batch limits
+      const chunks = Array.from(candidates.values());
+      const expiredRequests = [];
+      const BATCH_LIMIT = 450;
+      for (let i = 0; i < chunks.length; i += BATCH_LIMIT) {
+        const batch = db.batch();
+        const window = chunks.slice(i, i + BATCH_LIMIT);
+        window.forEach(({ ref, data }) => {
+          expiredRequests.push({ id: ref.id, ...data });
+          batch.update(ref, { status: 'expired', updatedAt: now, expiredAt: now });
+        });
+        await batch.commit();
+      }
+
+      // Send notifications to buyers for expired requests
+      await Promise.all(
+        expiredRequests.map(async (request) => {
+          try {
+            const buyerId = request.buyerId || request.userId;
+            const productName = request.productSnapshot?.name || request.productName || 'your request';
+            const farmerName = request.productSnapshot?.farmerName || request.farmerName || '';
+            if (!buyerId) { console.warn('⚠️ Skipping expired notification, missing buyerId', request.id); return; }
+            await createNotificationAndPush({
+              to: buyerId,
+              type: 'action',
+              category: 'request',
+              payload: {
+                title: 'Request Expired',
+                description: farmerName
+                  ? `Your request for ${productName} from ${farmerName} has expired. You can resend it.`
+                  : `Your request for ${productName} has expired. You can resend it.`,
+                actionUrl: `request/${request.id}`,
+                requestData: {
+                  requestId: request.id,
+                  productName,
+                  status: 'expired',
+                  actionType: 'request_expired',
+                },
+                type: 'request',
+              },
+              metadata: {
+                requestId: request.id,
+                actionType: 'request_expired',
+                fromUserId: 'system',
+                toUserId: buyerId,
+              },
+              sendPush: true,
+              idempotencyKey: `${request.id}_expired`,
+            });
+            console.log(`✅ Expired notification queued for request ${request.id}`);
+          } catch (error) {
+            console.error(`❌ Error sending expiration notification for request ${request.id}:`, error);
+          }
+        })
+      );
+
+      console.log(`✅ Expired ${expiredRequests.length} pending requests (>1 month) and sent notifications`);
+
+      return {
+        success: true,
+        expiredCount: expiredRequests.length,
+        timestamp: now.toDate().toISOString(),
+      };
     } catch (error) {
       console.error('❌ Error in expireOldRequests function:', error);
       throw error;
@@ -111,12 +152,10 @@ exports.expireOldRequests = functions.pubsub
  * Cloud Function: Send notification when request status changes
  * Triggered on request document updates
  */
-exports.onRequestStatusChange = functions.firestore
-  .document('requests/{requestId}')
-  .onUpdate(async (change, context) => {
-    const beforeData = change.before.data();
-    const afterData = change.after.data();
-    const requestId = context.params.requestId;
+exports.onRequestStatusChange = onDocumentUpdated('requests/{requestId}', async (event) => {
+  const beforeData = event.data?.before.data();
+  const afterData = event.data?.after.data();
+  const requestId = event.params.requestId;
     
     // Only proceed if status actually changed
     if (beforeData.status === afterData.status) {
@@ -126,114 +165,92 @@ exports.onRequestStatusChange = functions.firestore
     console.log(`📋 Request ${requestId} status changed: ${beforeData.status} → ${afterData.status}`);
     
     try {
-      const now = admin.firestore.Timestamp.now();
-      let notificationData = null;
-      
-      switch (afterData.status) {
-        case 'accepted':
-          // Notify buyer that their request was accepted
-          notificationData = {
-            to: afterData.buyerId,
-            type: 'action',
-            category: 'request',
-            payload: {
-              title: 'Request Accepted! 🎉',
-              description: `${afterData.productSnapshot.farmerName} accepted your request for ${afterData.productSnapshot.name}. Contact them to proceed.`,
-              actionUrl: `request/${requestId}`,
-              requestData: {
-                requestId,
-                productName: afterData.productSnapshot.name,
-                status: 'accepted',
-                actionType: 'request_accepted',
-                farmerPhone: afterData.farmerResponse?.phone || 'Contact via app'
-              },
-              type: 'request',
-              createdAt: new Date().toISOString(),
-            },
-            seen: false,
-            createdAt: now,
-            metadata: {
-              requestId,
-              actionType: 'request_accepted',
-              fromUserId: afterData.farmerId,
-              toUserId: afterData.buyerId
-            }
-          };
-          break;
-          
-        case 'rejected':
-          // Notify buyer that their request was rejected
-          notificationData = {
-            to: afterData.buyerId,
-            type: 'action',
-            category: 'request',
-            payload: {
-              title: 'Request Declined',
-              description: `${afterData.productSnapshot.farmerName} declined your request for ${afterData.productSnapshot.name}${afterData.farmerResponse?.message ? `: ${afterData.farmerResponse.message}` : ''}`,
-              actionUrl: `request/${requestId}`,
-              requestData: {
-                requestId,
-                productName: afterData.productSnapshot.name,
-                status: 'rejected',
-                actionType: 'request_rejected',
-                rejectionReason: afterData.farmerResponse?.message
-              },
-              type: 'request',
-              createdAt: new Date().toISOString(),
-            },
-            seen: false,
-            createdAt: now,
-            metadata: {
-              requestId,
-              actionType: 'request_rejected',
-              fromUserId: afterData.farmerId,
-              toUserId: afterData.buyerId
-            }
-          };
-          break;
-          
-        case 'cancelled':
-          // Notify farmer that the request was cancelled
-          notificationData = {
-            to: afterData.farmerId,
-            type: 'action',
-            category: 'request',
-            payload: {
-              title: 'Request Cancelled',
-              description: `${afterData.buyerDetails.name} cancelled their request for ${afterData.productSnapshot.name}`,
-              actionUrl: `request/${requestId}`,
-              requestData: {
-                requestId,
-                productName: afterData.productSnapshot.name,
-                status: 'cancelled',
-                actionType: 'request_cancelled'
-              },
-              type: 'request',
-              createdAt: new Date().toISOString(),
-            },
-            seen: false,
-            createdAt: now,
-            metadata: {
-              requestId,
-              actionType: 'request_cancelled',
-              fromUserId: afterData.buyerId,
-              toUserId: afterData.farmerId
-            }
-          };
-          break;
-          
-        default:
-          // No notification needed for other status changes
-          return null;
+      const status = afterData.status;
+      let to = null;
+      let payload = null;
+      let metadata = null;
+
+      if (status === 'accepted') {
+        to = afterData.buyerId;
+        if (!to) { console.warn('⚠️ Missing buyerId on accepted request', requestId); return null; }
+        payload = {
+          title: 'Request Accepted! 🎉',
+          description: `${afterData.productSnapshot.farmerName} accepted your request for ${afterData.productSnapshot.name}. Contact them to proceed.`,
+          actionUrl: `request/${requestId}`,
+          requestData: {
+            requestId,
+            productName: afterData.productSnapshot.name,
+            status: 'accepted',
+            actionType: 'request_accepted',
+            farmerPhone: afterData.farmerResponse?.phone || 'Contact via app',
+          },
+          type: 'request',
+        };
+        metadata = {
+          requestId,
+          actionType: 'request_accepted',
+          fromUserId: afterData.farmerId,
+          toUserId: afterData.buyerId,
+        };
+      } else if (status === 'rejected') {
+        to = afterData.buyerId;
+        if (!to) { console.warn('⚠️ Missing buyerId on rejected request', requestId); return null; }
+        payload = {
+          title: 'Request Declined',
+          description: `${afterData.productSnapshot.farmerName} declined your request for ${afterData.productSnapshot.name}${afterData.farmerResponse?.message ? `: ${afterData.farmerResponse.message}` : ''}`,
+          actionUrl: `request/${requestId}`,
+          requestData: {
+            requestId,
+            productName: afterData.productSnapshot.name,
+            status: 'rejected',
+            actionType: 'request_rejected',
+            rejectionReason: afterData.farmerResponse?.message,
+          },
+          type: 'request',
+        };
+        metadata = {
+          requestId,
+          actionType: 'request_rejected',
+          fromUserId: afterData.farmerId,
+          toUserId: afterData.buyerId,
+        };
+      } else if (status === 'cancelled') {
+        to = afterData.farmerId;
+        if (!to) { console.warn('⚠️ Missing farmerId on cancelled request', requestId); return null; }
+        payload = {
+          title: 'Request Cancelled',
+          description: `${afterData.buyerDetails.name} cancelled their request for ${afterData.productSnapshot.name}`,
+          actionUrl: `request/${requestId}`,
+          requestData: {
+            requestId,
+            productName: afterData.productSnapshot.name,
+            status: 'cancelled',
+            actionType: 'request_cancelled',
+          },
+          type: 'request',
+        };
+        metadata = {
+          requestId,
+          actionType: 'request_cancelled',
+          fromUserId: afterData.buyerId,
+          toUserId: afterData.farmerId,
+        };
+      } else {
+        return null; // no-op
       }
-      
-      if (notificationData) {
-        await db.collection('notifications').add(notificationData);
-        console.log(`✅ Status change notification sent for request ${requestId}`);
-      }
-      
-      return { success: true, requestId, newStatus: afterData.status };
-      
+
+      await createNotificationAndPush({
+        to,
+        type: 'action',
+        category: 'request',
+        payload,
+        metadata,
+        sendPush: true,
+        idempotencyKey: `${requestId}_${status}`,
+      });
+
+      console.log(`✅ Status change notification sent for request ${requestId}`);
+      return { success: true, requestId, newStatus: status };
     } catch (error) {
       console.error(`❌ Error sending status change notification for request ${requestId}:`, error);
       throw error;
@@ -244,10 +261,7 @@ exports.onRequestStatusChange = functions.firestore
  * Cloud Function: Clean up old notifications
  * Runs every week to remove notifications older than 30 days
  */
-exports.cleanupOldNotifications = functions.pubsub
-  .schedule('0 2 * * 0') // Every Sunday at 2 AM
-  .timeZone('Asia/Kolkata')
-  .onRun(async (context) => {
+exports.cleanupOldNotifications = onSchedule({ schedule: '0 2 * * 0', timeZone: 'Asia/Kolkata' }, async () => {
     console.log('🧹 Cleaning up old notifications...');
     
     try {

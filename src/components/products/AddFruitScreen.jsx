@@ -25,6 +25,7 @@ import {
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { Colors } from '../../constants';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTabBarControl } from '../../utils/navigationControls';
 import { getCurrentLocation, reverseGeocode, getFastLocation, checkAndPromptGPSSettings, testReverseGeocode, getLocationWithCache } from '../../utils/permissions';
@@ -79,6 +80,10 @@ const AddFruitScreen = ({ navigation }) => {
   const [showValidationErrors, setShowValidationErrors] = useState(false);
   const [touchedFields, setTouchedFields] = useState({});
   const [isValidating, setIsValidating] = useState(false);
+
+  // Availability date state
+  const [availabilityDate, setAvailabilityDate] = useState(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   // Location states
   const [isGettingLocation, setIsGettingLocation] = useState(false);
@@ -320,6 +325,7 @@ const AddFruitScreen = ({ navigation }) => {
         // grade,
         quantity: quantityParts,
         description: description.trim(),
+  availability_date: availabilityDate || null,
         location: {
           city: city.trim(),
           district: district.trim(),
@@ -554,7 +560,13 @@ const AddFruitScreen = ({ navigation }) => {
       isValid = false;
     }
 
-    // 2. Location validation (second priority)
+    // 2. Availability date (new requirement)
+    if (!availabilityDate) {
+      firstError = firstError || { field: 'availabilityDate', message: 'Availability date is required' };
+      isValid = false;
+    }
+
+    // 3. Location validation (second priority)
     if (!city.trim()) {
       firstError = firstError || { field: 'city', message: 'City is required' };
       isValid = false;
@@ -575,7 +587,7 @@ const AddFruitScreen = ({ navigation }) => {
       isValid = false;
     }
 
-    // 3. Description validation (lowest priority)
+    // 4. Description validation (lowest priority)
     if (!description.trim()) {
       firstError = firstError || { field: 'description', message: 'Description is required' };
       isValid = false;
@@ -592,7 +604,7 @@ const AddFruitScreen = ({ navigation }) => {
     setValidationErrors(errors);
     setIsFormValid(isValid);
     return isValid;
-  }, [fruitName, city, district, state, pincode, description]);
+  }, [fruitName, availabilityDate, city, district, state, pincode, description]);
 
   // Debounced validation to prevent continuous updates while typing
   const debouncedValidation = useCallback(
@@ -606,7 +618,7 @@ const AddFruitScreen = ({ navigation }) => {
 
   // Calculate progress
   const calculateProgress = useCallback(() => {
-    const totalFields = 9;
+    const totalFields = 10; // includes availability date
     let filled = 0;
 
     if (fruitName.trim()) filled++;
@@ -614,13 +626,14 @@ const AddFruitScreen = ({ navigation }) => {
     // if (grade) filled++;
     if (quantity) filled++;
     if (description.trim() && description.trim().length >= 20) filled++;
+    if (availabilityDate) filled++;
     if (city.trim()) filled++;
     if (district.trim()) filled++;
     if (state.trim()) filled++;
     if (pincode.trim() && /^\d{6}$/.test(pincode.trim())) filled++;
 
     return (filled / totalFields) * 0.33; // 33% of total journey
-  }, [fruitName, category,
+  }, [fruitName, category, availabilityDate,
     // grade,
     quantity, description, city, district, state, pincode]);
 
@@ -628,6 +641,7 @@ const AddFruitScreen = ({ navigation }) => {
   useEffect(() => {
     // For immediate form validation state (isFormValid)
     const isValid = fruitName.trim() &&
+      availabilityDate &&
       city.trim() &&
       district.trim() &&
       state.trim() &&
@@ -643,7 +657,7 @@ const AddFruitScreen = ({ navigation }) => {
 
     const newProgress = calculateProgress();
     setProgress(newProgress);
-  }, [fruitName, city, district, state, pincode, description, debouncedValidation, calculateProgress]);
+  }, [fruitName, availabilityDate, city, district, state, pincode, description, debouncedValidation, calculateProgress]);
 
   // Cleanup debounced function on unmount
   useEffect(() => {
@@ -695,12 +709,16 @@ const AddFruitScreen = ({ navigation }) => {
           }, 100);
         }
 
-        // For Android, move button above keyboard
-        // For iOS, use a smaller offset since the system handles it better
-        const offset = Platform.OS === 'android' ? -keyboardHeight : -50;
+        // IMPORTANT:
+        // Android uses windowSoftInputMode=adjustResize (see AndroidManifest)
+        // and this screen also wraps content in KeyboardAvoidingView.
+        // Moving the fixed bottom button by -keyboardHeight causes a double adjustment
+        // which pushes the button to the top. So we keep Android offset at 0.
+        // On iOS, apply a tiny lift for visual comfort only.
+        const offset = Platform.OS === 'ios' ? -30 : 0;
         Animated.timing(buttonAnimY, {
           toValue: offset,
-          duration: 250,
+          duration: 200,
           useNativeDriver: true,
         }).start();
       }
@@ -712,7 +730,7 @@ const AddFruitScreen = ({ navigation }) => {
         // Animate button back to original position
         Animated.timing(buttonAnimY, {
           toValue: 0,
-          duration: 250,
+          duration: 200,
           useNativeDriver: true,
         }).start();
       }
@@ -962,6 +980,49 @@ const AddFruitScreen = ({ navigation }) => {
                     </View>
                     <Ionicons name="chevron-down" size={20} color="#64748B" />
                   </TouchableOpacity>
+                </View>
+
+                {/* Availability Date Picker (below Quantity) */}
+                <View style={styles.modernInputContainer}>
+                  <Text style={styles.modernLabel}>
+                    <Ionicons name="calendar-outline" size={16} color="#00C851" /> Availability Date *
+                  </Text>
+                  <TouchableOpacity
+                    style={[
+                      styles.modernInput,
+                      { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+                      (showValidationErrors || touchedFields.availabilityDate) && !availabilityDate && styles.modernInputError
+                    ]}
+                    onPress={() => {
+                      setTouchedFields(prev => ({ ...prev, availabilityDate: true }));
+                      setShowDatePicker(true);
+                    }}
+                    accessible={true}
+                    accessibilityLabel="Select availability date"
+                    accessibilityHint="Opens date picker"
+                  >
+                    <Text style={{ color: availabilityDate ? '#111827' : '#94A3B8', fontSize: 16 }}>
+                      {availabilityDate ? new Date(availabilityDate).toLocaleDateString() : 'Select availability date'}
+                    </Text>
+                    <Ionicons name="calendar" size={20} color="#64748B" />
+                  </TouchableOpacity>
+                  {(showValidationErrors || touchedFields.availabilityDate) && !availabilityDate && (
+                    <Text style={styles.errorText}>Availability date is required</Text>
+                  )}
+                  {showDatePicker && (
+                    <DateTimePicker
+                      value={availabilityDate ? new Date(availabilityDate) : new Date()}
+                      mode="date"
+                      display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                      onChange={(event, selectedDate) => {
+                        setShowDatePicker(Platform.OS === 'ios');
+                        if (selectedDate) {
+                          setAvailabilityDate(selectedDate.toISOString());
+                          setTouchedFields(prev => ({ ...prev, availabilityDate: true }));
+                        }
+                      }}
+                    />
+                  )}
                 </View>
 
                 {/* Location Section */}

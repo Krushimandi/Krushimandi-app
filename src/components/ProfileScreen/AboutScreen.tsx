@@ -74,8 +74,8 @@ const AboutPage: React.FC<AboutPageProps> = ({ navigation }) => {
           <AppLogo />
           {/* <Text style={styles.appName}>Krushimandi Innovations</Text> */}
           <Text style={styles.versionText}>Version : 1.0.0</Text>
-          <Text style={styles.buildText}>Build : 5.18.77.2045178916/2009 (general)</Text>
-          <Text style={styles.callingVersionText}>calling version : 2024.14.08.1</Text>
+          <Text style={styles.buildText}>Build : 5.18.77.2045178916/2025 (general)</Text>
+          <Text style={styles.callingVersionText}>calling version : 2025.1.10.1</Text>
           <Text style={styles.companyText}>Krushimandi Innovations PVT. LTD.</Text>
           <Text style={styles.copyrightText}>Copyright @ 2025</Text>
         </View>

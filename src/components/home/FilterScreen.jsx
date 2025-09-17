@@ -15,11 +15,14 @@ import { useNavigation } from '@react-navigation/native';
 
 const { width } = Dimensions.get('window');
 
+// Feature list: seasonal and rating-based options are disabled for now (kept as comments for later)
 const additionalFeatures = [
-  { name: 'Top Rated', icon: 'star', color: '#F39C12' },
+  // { name: 'Top Rated', icon: 'star', color: '#F39C12' }, // disabled for now
   { name: 'Fresh Stock', icon: 'time-outline', color: '#3498DB' },
-  { name: 'In Season', icon: 'sunny-outline', color: '#F39C12' },
-  { name: 'Off Season', icon: 'snow-outline', color: '#95A5A6' },
+  // { name: 'In Season', icon: 'sunny-outline', color: '#F39C12' }, // disabled for now
+  // { name: 'Off Season', icon: 'snow-outline', color: '#95A5A6' }, // disabled for now
+  { name: 'With Images', icon: 'images-outline', color: '#8B5CF6' },
+  { name: 'Available Now', icon: 'checkmark-circle-outline', color: '#10B981' },
 ];
 
 const priceRanges = [
@@ -47,6 +50,10 @@ const FilterScreen = ({ onApplyFilters, onClose, isModal = false, currentFilters
   const [minPrice, setMinPrice] = useState(currentFilters.minPrice || 0);
   const [maxPrice, setMaxPrice] = useState(currentFilters.maxPrice || 500);
   const [minRating, setMinRating] = useState(currentFilters.minRating || 0);
+  // New filters
+  const [freshProduceWindow, setFreshProduceWindow] = useState(currentFilters.freshProduceWindow || null); // 'today' | '2days' | 'week' | 'month' | null
+  const [sortNewestFirst, setSortNewestFirst] = useState(!!currentFilters.sortNewestFirst);
+  const [locationLevel, setLocationLevel] = useState(currentFilters.locationLevel || null); // 'city' | 'district' | 'state' | null
 
   // Update state when currentFilters prop changes
   useEffect(() => {
@@ -56,6 +63,9 @@ const FilterScreen = ({ onApplyFilters, onClose, isModal = false, currentFilters
     setMinPrice(currentFilters.minPrice || 0);
     setMaxPrice(currentFilters.maxPrice || 500);
     setMinRating(currentFilters.minRating || 0);
+  setFreshProduceWindow(currentFilters.freshProduceWindow || null);
+  setSortNewestFirst(!!currentFilters.sortNewestFirst);
+  setLocationLevel(currentFilters.locationLevel || null);
   }, [currentFilters]);
 
   const toggleFeature = useCallback((featureName) => {
@@ -77,7 +87,11 @@ const FilterScreen = ({ onApplyFilters, onClose, isModal = false, currentFilters
     let count = 0;
     if (selectedFeatures.length > 0) count += selectedFeatures.length;
     if (selectedPriceRange) count++;
-    if (minRating > 0) count++;
+  if (freshProduceWindow) count++;
+  if (sortNewestFirst) count++;
+  if (locationLevel) count++;
+    // Rating disabled for now; to re-enable, include minRating > 0
+    // if (minRating > 0) count++;
     return count;
   };
 
@@ -87,7 +101,10 @@ const FilterScreen = ({ onApplyFilters, onClose, isModal = false, currentFilters
       priceRange: selectedPriceRange,
       minPrice,
       maxPrice,
-      minRating
+      minRating,
+      freshProduceWindow,
+      sortNewestFirst,
+      locationLevel,
     };
 
     console.log('🎯 FilterScreen applying filters:', filters);
@@ -117,6 +134,9 @@ const FilterScreen = ({ onApplyFilters, onClose, isModal = false, currentFilters
     setMinPrice(0);
     setMaxPrice(500);
     setMinRating(0);
+  setFreshProduceWindow(null);
+  setSortNewestFirst(false);
+  setLocationLevel(null);
 
     // Call parent clear function if provided
     if (onClearFilters) {
@@ -180,17 +200,45 @@ const FilterScreen = ({ onApplyFilters, onClose, isModal = false, currentFilters
         </>
       )}
 
-      <ScrollView
+  <ScrollView
         style={styles.scrollContent}
         showsVerticalScrollIndicator={false}>
 
         {/* Quick Filter Tags */}
-        {(selectedFeatures.length > 0 || selectedPriceRange || minRating > 0) && (
+        {(selectedFeatures.length > 0 || selectedPriceRange || freshProduceWindow || sortNewestFirst || locationLevel /* || minRating > 0 */) && (
           <View style={styles.selectedTags}>
             {selectedPriceRange && (
               <View style={styles.tag}>
                 <Text style={styles.tagText}>{selectedPriceRange}</Text>
                 <TouchableOpacity onPress={() => setSelectedPriceRange(null)}>
+                  <Icon name="close" size={16} color="#6B7280" />
+                </TouchableOpacity>
+              </View>
+            )}
+            {freshProduceWindow && (
+              <View style={styles.tag}>
+                <Text style={styles.tagText}>
+                  {freshProduceWindow === 'today' ? 'Today' : freshProduceWindow === '2days' ? 'Last 2 days' : freshProduceWindow === 'week' ? 'Last week' : 'Last month'}
+                </Text>
+                <TouchableOpacity onPress={() => setFreshProduceWindow(null)}>
+                  <Icon name="close" size={16} color="#6B7280" />
+                </TouchableOpacity>
+              </View>
+            )}
+            {sortNewestFirst && (
+              <View style={styles.tag}>
+                <Text style={styles.tagText}>Newest First</Text>
+                <TouchableOpacity onPress={() => setSortNewestFirst(false)}>
+                  <Icon name="close" size={16} color="#6B7280" />
+                </TouchableOpacity>
+              </View>
+            )}
+            {locationLevel && (
+              <View style={styles.tag}>
+                <Text style={styles.tagText}>
+                  {locationLevel === 'city' ? 'Same City' : locationLevel === 'district' ? 'Same District' : 'Same State'}
+                </Text>
+                <TouchableOpacity onPress={() => setLocationLevel(null)}>
                   <Icon name="close" size={16} color="#6B7280" />
                 </TouchableOpacity>
               </View>
@@ -203,14 +251,15 @@ const FilterScreen = ({ onApplyFilters, onClose, isModal = false, currentFilters
                 </TouchableOpacity>
               </View>
             ))}
-            {minRating > 0 && (
+            {/* Rating tag disabled for now; keep for future */}
+            {/* {minRating > 0 && (
               <View style={styles.tag}>
                 <Text style={styles.tagText}>⭐ {minRating}+ Stars</Text>
                 <TouchableOpacity onPress={() => setMinRating(0)}>
                   <Icon name="close" size={16} color="#6B7280" />
                 </TouchableOpacity>
               </View>
-            )}
+            )} */}
           </View>
         )}
 
@@ -244,62 +293,89 @@ const FilterScreen = ({ onApplyFilters, onClose, isModal = false, currentFilters
           </View>
         </View>
 
-        {/* Features Section */}
+        {/* Fresh Produce (by availability date) */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Features</Text>
+          <Text style={styles.sectionTitle}>Fresh Produce</Text>
           <View style={styles.featuresGrid}>
-            {additionalFeatures.map((feature) => (
+            {[{ key: 'today', label: 'Today' }, { key: '2days', label: 'Last 2 days' }, { key: 'week', label: 'Last week' }, { key: 'month', label: 'Last month' }].map(opt => (
               <TouchableOpacity
-                key={feature.name}
-                style={[
-                  styles.featureCard,
-                  selectedFeatures.includes(feature.name) && styles.featureCardSelected,
-                ]}
-                onPress={() => toggleFeature(feature.name)}
+                key={opt.key}
+                style={[styles.featureCard, freshProduceWindow === opt.key && styles.featureCardSelected]}
+                onPress={() => setFreshProduceWindow(prev => prev === opt.key ? null : opt.key)}
                 activeOpacity={0.7}
               >
-                <Icon
-                  name={feature.icon}
-                  size={18}
-                  color={selectedFeatures.includes(feature.name) ? '#FFFFFF' : feature.color}
-                />
-                <Text style={[
-                  styles.featureCardText,
-                  selectedFeatures.includes(feature.name) && styles.featureCardTextSelected,
-                ]}>
-                  {feature.name}
+                <Icon name="time-outline" size={18} color={freshProduceWindow === opt.key ? '#FFFFFF' : '#3498DB'} />
+                <Text style={[styles.featureCardText, freshProduceWindow === opt.key && styles.featureCardTextSelected]}>
+                  {opt.label}
                 </Text>
               </TouchableOpacity>
             ))}
           </View>
         </View>
 
-        {/* Customer Rating Section */}
+        {/* Sort */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Customer Rating</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
-            <View style={styles.ratingHorizontalGrid}>
-              {[4, 3, 2, 1, 0].map((rating) => (
-                <TouchableOpacity
-                  key={rating}
-                  style={[
-                    styles.ratingHorizontalCard,
-                    minRating === rating && styles.ratingHorizontalCardSelected,
-                  ]}
-                  onPress={() => setMinRating(rating)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[
-                    styles.ratingHorizontalCardText,
-                    minRating === rating && styles.ratingHorizontalCardTextSelected,
-                  ]}>
-                    {rating === 0 ? '🌟 All' : `⭐ ${rating}+`}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </ScrollView>
+          <Text style={styles.sectionTitle}>Sort</Text>
+          <View style={styles.featuresGrid}>
+            <TouchableOpacity
+              style={[styles.featureCard, sortNewestFirst && styles.featureCardSelected]}
+              onPress={() => setSortNewestFirst((v) => !v)}
+              activeOpacity={0.7}
+            >
+              <Icon name="swap-vertical" size={18} color={sortNewestFirst ? '#FFFFFF' : '#10B981'} />
+              <Text style={[styles.featureCardText, sortNewestFirst && styles.featureCardTextSelected]}>Newest First</Text>
+            </TouchableOpacity>
+          </View>
         </View>
+
+        {/* Location */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>By Location</Text>
+          <View style={styles.featuresGrid}>
+            {[{ key: 'city', label: 'Same City', icon: 'business' }, { key: 'district', label: 'Same District', icon: 'map-outline' }, { key: 'state', label: 'Same State', icon: 'map' }].map(opt => (
+              <TouchableOpacity
+                key={opt.key}
+                style={[styles.featureCard, locationLevel === opt.key && styles.featureCardSelected]}
+                onPress={() => setLocationLevel(prev => prev === opt.key ? null : opt.key)}
+                activeOpacity={0.7}
+              >
+                <Icon name={opt.icon} size={18} color={locationLevel === opt.key ? '#FFFFFF' : '#6366F1'} />
+                <Text style={[styles.featureCardText, locationLevel === opt.key && styles.featureCardTextSelected]}>
+                  {opt.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* Customer Rating Section - disabled for now; keep markup for future re-enable */}
+        {false && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Customer Rating</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
+              <View style={styles.ratingHorizontalGrid}>
+                {[4, 3, 2, 1, 0].map((rating) => (
+                  <TouchableOpacity
+                    key={rating}
+                    style={[
+                      styles.ratingHorizontalCard,
+                      minRating === rating && styles.ratingHorizontalCardSelected,
+                    ]}
+                    onPress={() => setMinRating(rating)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[
+                      styles.ratingHorizontalCardText,
+                      minRating === rating && styles.ratingHorizontalCardTextSelected,
+                    ]}>
+                      {rating === 0 ? '🌟 All' : `⭐ ${rating}+`}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </ScrollView>
+          </View>
+        )}
 
         <View style={styles.bottomSpacing} />
       </ScrollView>

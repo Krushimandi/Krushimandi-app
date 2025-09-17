@@ -173,6 +173,11 @@ const FarmerRequestsScreen = ({ route }: { route?: any }) => {
         { label: 'Expired', value: 'expired' as FilterCategory }
     ];
 
+    // Only show non-cancelled requests in this screen
+    const visibleRequests = useMemo(() => {
+        return requests.filter(r => r.status !== 'cancelled');
+    }, [requests]);
+
     // Load requests when component mounts or user changes
     useEffect(() => {
         if (user?.uid && user?.role === 'farmer') {
@@ -401,7 +406,7 @@ const FarmerRequestsScreen = ({ route }: { route?: any }) => {
 
     // Advanced filtering
     const filteredRequests = useMemo(() => {
-        return requests.filter(item => {
+        return visibleRequests.filter(item => {
             const matchesSearch =
                 item.productSnapshot.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 item.buyerDetails.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -414,12 +419,12 @@ const FarmerRequestsScreen = ({ route }: { route?: any }) => {
 
             return matchesSearch && matchesFilter && matchesProduct;
         });
-    }, [requests, searchQuery, selectedFilter, effectiveFilterByProduct]);
+    }, [visibleRequests, searchQuery, selectedFilter, effectiveFilterByProduct]);
 
     // Get statistics
     const stats = useMemo(() => {
         const stats = {
-            total: requests.length,
+            total: visibleRequests.length,
             pending: 0,
             accepted: 0,
             rejected: 0,
@@ -427,7 +432,7 @@ const FarmerRequestsScreen = ({ route }: { route?: any }) => {
             expired: 0
         };
 
-        requests.forEach(request => {
+        visibleRequests.forEach(request => {
             switch (request.status) {
                 case 'pending':
                     stats.pending++;
@@ -448,7 +453,7 @@ const FarmerRequestsScreen = ({ route }: { route?: any }) => {
         });
 
         return stats;
-    }, [requests]);
+    }, [visibleRequests]);
 
     // Handle response to request (removed - using direct actions now)
     const handleContactBuyer = (request: Request) => {
@@ -510,7 +515,13 @@ const FarmerRequestsScreen = ({ route }: { route?: any }) => {
                         {/* Location */}
                         <View style={styles.locationRow}>
                             <Icon name="location-outline" size={14} color="#6B7280" />
-                            <Text style={styles.location}>{item.buyerDetails.location}</Text>
+                            <Text style={styles.location}>{
+                                typeof item.buyerDetails.location === 'string'
+                                    ? item.buyerDetails.location
+                                    : (item.buyerDetails.location && typeof item.buyerDetails.location === 'object'
+                                        ? Object.values(item.buyerDetails.location).filter(v => typeof v === 'string').join(', ')
+                                        : '')
+                            }</Text>
                         </View>
 
                         {/* Quantity and Price */}
@@ -630,7 +641,7 @@ const FarmerRequestsScreen = ({ route }: { route?: any }) => {
         </TouchableOpacity>
     );
 
-    if (loading && requests.length === 0) {
+    if (loading && visibleRequests.length === 0) {
         return (
             <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color={Colors.light.primary} />
@@ -682,7 +693,7 @@ const FarmerRequestsScreen = ({ route }: { route?: any }) => {
                 </View>
 
                 {/* Bulk Actions - Show when in manage mode */}
-                {isManageMode && requests.length > 0 && (
+                {isManageMode && visibleRequests.length > 0 && (
                     <View style={styles.bulkActionsHeader}>
                         <View style={styles.bulkActionsLeft}>
                             <Icon name="checkmark-circle" size={20} color={Colors.light.primary} />

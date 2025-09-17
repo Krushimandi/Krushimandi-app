@@ -14,11 +14,13 @@ import {
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
-import { useNavigation, NavigationProp } from '@react-navigation/native';
+import { useNavigation, NavigationProp, useFocusEffect } from '@react-navigation/native';
 import { useAuthBootstrap } from '../../hooks/useAuthBootstrap';
 import { getCompleteUserProfile, clearUserData } from '../../services/firebaseService';
 import { Colors } from '../../constants/Colors';
 import { clearAuthData } from '../../utils/authFlow';
+import { useTabBarControl } from '../../utils/navigationControls';
+import { head } from '../../../fcm-examples/notification-server';
 
 interface MenuItem {
   icon: string;
@@ -38,7 +40,6 @@ interface UserProfile {
     seconds: number;
   };
   phoneNumber?: string;
-  email?: string;
 }
 
 const ProfileScreen = () => {
@@ -47,6 +48,15 @@ const ProfileScreen = () => {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const { hideTabBar, showTabBar } = useTabBarControl();
+
+  // Hide tab bar when screen is focused, show when unfocused
+  useFocusEffect(
+    React.useCallback(() => {
+      hideTabBar();
+      return () => showTabBar();
+    }, [hideTabBar, showTabBar])
+  );
 
   useEffect(() => {
     loadUserProfile();
@@ -130,7 +140,7 @@ const ProfileScreen = () => {
 
   const handleMenuItemPress = (item: MenuItem) => {
     console.log('🔍 Menu item pressed:', item.text, 'Route:', item.route);
-    
+
     if (item.route) {
       try {
         navigation.navigate(item.route as never);
@@ -156,7 +166,15 @@ const ProfileScreen = () => {
   return (
     <ScrollView style={styles.container}>
 
-      <Text style={styles.screenTitle}>Profile</Text>
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.headerButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Ionicons name="chevron-back" size={24} color="#000" />
+        </TouchableOpacity>
+        <Text style={styles.screenTitle}>Profile</Text>
+      </View>
 
 
       <View style={styles.profileBox}>
@@ -201,8 +219,8 @@ const ProfileScreen = () => {
           { icon: 'info-circle', text: 'About', iconType: 'FontAwesome', route: 'About' },
           { icon: 'phone', text: 'Contact Us', iconType: 'FontAwesome' },
         ] as MenuItem[]).map((item, index) => (
-          <TouchableOpacity 
-            key={index} 
+          <TouchableOpacity
+            key={index}
             style={styles.optionRow}
             onPress={() => handleMenuItemPress(item)}
           >
@@ -282,6 +300,24 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.light.backgroundSecondary,
   },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 40,
+    marginBottom: 10,
+    marginLeft: 16,
+    gap: 6,
+  },
+  headerButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
   loadingContainer: {
     justifyContent: 'center',
     alignItems: 'center',
@@ -340,9 +376,6 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     textAlign: 'left',
-    marginTop: 40,
-    marginBottom: 10,
-    marginLeft: 30,
     color: Colors.light.text,
   },
   settingsSection: {

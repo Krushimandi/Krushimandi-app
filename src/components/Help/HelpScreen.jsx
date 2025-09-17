@@ -1,4 +1,4 @@
-import React from 'react';
+// import React from 'react';
 import {
   View,
   Text,
@@ -10,186 +10,189 @@ import {
   ImageBackground,
   SafeAreaView,
   StatusBar,
+  Linking,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import MaterialIcon from 'react-native-vector-icons/MaterialCommunityIcons';
+import Toast from 'react-native-toast-message';
+import auth from '@react-native-firebase/auth';
+import React, { useState, useEffect } from 'react';
+import firestore from '@react-native-firebase/firestore';
+
+
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - 48) / 2;
 const quickActions = [
   {
-    title: 'Farmer\nSupport',
+    title: 'User \nSupport',
     image: require('../../assets/help2.jpg'),
-    onPress: () => alert('Farmer Support clicked'),
+    onPress: async () => {
+      const phoneNumber = '8605755478';
+      try {
+        await Linking.openURL(`tel:${phoneNumber}`);
+      } catch (error) {
+        console.error('Error opening phone dialer:', error);
+        Alert.alert('Error', 'Could not open phone dialer');
+      }
+    },
   },
   {
     title: 'Chat with\nSupport',
     image: require('../../assets/help1.jpg'),
-    onPress: () => alert('Chat with KrushiMitra clicked'),
+    onPress: () => {
+      Toast.show({
+        type: 'info',
+        text1: 'Feature Coming Soon',
+        position: 'bottom',
+        visibilityTime: 2000,
+      });
+    },
   },
 ];
-
-const assistanceList = [
-  {
-    title: 'How to Sell',
-    subtitle: 'Step-by-step guide to start selling your produce',
-    icon: 'help-circle-outline',
-    onPress: () => navigation.navigate('HelpGuide', { userType: 'farmer' }),
-    color: '#3B82F6',
-  },
-  {
-    title: 'Price Meter Info',
-    subtitle: 'Understand how Krushimandi shows market-based price range',
-    icon: 'wallet-outline',
-    onPress: () => alert('Price Meter Info clicked'),
-    color: '#059669',
-  },
-  {
-    title: 'Commission Model',
-    subtitle: 'Know how commission is charged and how much',
-    icon: 'briefcase-outline',
-    onPress: () => alert('Commission Info clicked'),
-    color: '#DC2626',
-  },
-  {
-    title: 'Farmer Rank System',
-    subtitle: 'Your rank is based on quality & fair pricing',
-    icon: 'bar-chart-outline',
-    onPress: () => alert('Ranking Info clicked'),
-    color: '#F59E0B',
-  },
-];
-
 
 const HelpScreen = ({ navigation }) => {
+  const [userRole, setUserRole] = useState('farmer');
+
+  const filteredAssistanceList = [
+    // Show farmer or buyer guide based on role
+    userRole === 'farmer' ? {
+      title: 'For Farmers',
+      subtitle: 'User Guide to help you get started and make the most of Krushimandi as a Farmer',
+      icon: 'help-circle-outline',
+      onPress: () => navigation.navigate('HelpGuide', { userType: 'farmer' }), // Ensure correct userType is passed
+      color: '#3B82F6',
+    } : {
+      title: 'For Buyers',
+      subtitle: 'User Guide to help you get started and make the most of Krushimandi as a Buyer',
+      icon: 'wallet-outline',
+      onPress: () => navigation.navigate('HelpGuide', { userType: 'buyer' }), // Ensure correct userType is passed
+      color: '#059669',
+    },
+    {
+      title: 'Trust and Safety',
+      subtitle: 'Know how your data is protected and transactions are secured',
+      icon: 'briefcase-outline',
+      onPress: () => navigation.navigate('PaymentSecurity'),
+      color: '#DC2626',
+    },
+    {
+      title: 'App & Platform Info',
+      subtitle: 'Learn about the app features and platform policies',
+      icon: 'information-circle-outline',
+      onPress: () => navigation.navigate('AppPlatform'),
+      color: '#F59E0B',
+    },
+    {
+      title: 'Knowledge and Best Practices',
+      subtitle: 'Learn about the best practices for using the app effectively',
+      icon: 'bulb-outline',
+      onPress: () => navigation.navigate('BestPractices'),
+      color: '#8B5CF6',
+    }
+  ];
+
+  // useEffect(() => {
+  //   const fetchUserRole = async () => {
+  //     try {
+  //       const currentUser = auth().currentUser;
+  //       if (currentUser) {
+  //         const userDoc = await firestore()
+  //           .collection('users')
+  //           .doc(currentUser.uid)
+  //           .get();
+
+  //         if (userDoc.exists) {
+  //           setUserRole(userDoc.data().role);
+  //         }
+  //       }
+  //     } catch (error) {
+  //       console.error('Error fetching user role:', error);
+  //     }
+  //   };
+
+  //   fetchUserRole();
+  // }, []);
+
+
+
+
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#43B86C" translucent />
+    <>
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor="#43B86C" translucent />
 
-      {/* Header with same styling as SettingsScreen */}
-      <View style={styles.headerContainer}>
-        <View style={styles.headerBackground}>
-          <View style={styles.headerPattern} />
-          <View style={styles.headerOverlay} />
-        </View>
-
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.headerButton}
-            onPress={() => navigation.goBack()}
-          >
-            <Icon name="arrow-back" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
-
-          <View style={styles.headerTitleContainer}>
-            <Text style={styles.headerTitle}>Help Center</Text>
-            <Text style={styles.headerSubtitle}>Get help and support</Text>
+        {/* Header with same styling as SettingsScreen */}
+        <View style={styles.headerContainer}>
+          <View style={styles.headerBackground}>
+            <View style={styles.headerPattern} />
+            <View style={styles.headerOverlay} />
           </View>
 
-          {/* <View style={styles.headerButton} /> */}
-        </View>
-      </View>
+          <View style={styles.header}>
+            <TouchableOpacity
+              style={styles.headerButton}
+              onPress={() => navigation.goBack()}
+            >
+              <Icon name="arrow-back" size={24} color="#FFFFFF" />
+            </TouchableOpacity>
 
-      <ScrollView
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        {/* Search Bar */}
-        {/* <View style={styles.searchCard}>
-          <View style={styles.searchBarWrapper}>
-            <View style={styles.searchIconContainer}>
-              <Icon name="search" size={20} color="#43B86C" />
+            <View style={styles.headerTitleContainer}>
+              <Text style={styles.headerTitle}>Help Center</Text>
+              <Text style={styles.headerSubtitle}>Get help and support</Text>
             </View>
-            <TextInput
-              placeholder="Search by topics"
-              placeholderTextColor="#9CA3AF"
-              style={styles.searchBar}
-            />
-          </View>
-        </View> */}
 
-        {/* Quick Actions */}
-        <View style={styles.quickActionsContainer}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
-          <View style={styles.quickRow}>
-            <TouchableOpacity
-              style={styles.quickCard}
-              activeOpacity={0.8}
-              onPress={quickActions[0].onPress}
-            >
-              <ImageBackground
-                source={quickActions[0].image}
-                style={styles.quickImageBg}
-                imageStyle={styles.quickImageBgImg}
-                resizeMode="cover"
-              >
-                <View style={styles.quickTitleWrapper}>
-                  <Text style={styles.quickTitle}>{quickActions[0].title}</Text>
-                </View>
-              </ImageBackground>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.quickCard}
-              activeOpacity={0.8}
-              onPress={quickActions[1].onPress}
-            >
-              <ImageBackground
-                source={quickActions[1].image}
-                style={styles.quickImageBg}
-                imageStyle={styles.quickImageBgImg}
-                resizeMode="cover"
-              >
-                <View style={styles.quickTitleWrapper}>
-                  <Text style={styles.quickTitle}>{quickActions[1].title}</Text>
-                </View>
-              </ImageBackground>
-            </TouchableOpacity>
+            {/* <View style={styles.headerButton} /> */}
           </View>
         </View>
 
-        {/* Assistance Section */}
-        <View style={styles.assistanceContainer}>
-          <Text style={styles.sectionTitle}>Financial Assistance Hub</Text>
-          <View style={styles.assistanceItems}>
-            {assistanceList.map((item, index) => (
-              <TouchableOpacity
-                key={index}
-                style={[
-                  styles.assistanceItem,
-                  index === assistanceList.length - 1 && styles.lastItem
-                ]}
-                activeOpacity={0.7}
-                onPress={index === 0 ? () => navigation.navigate('HelpGuide', { userType: 'farmer' }) : item.onPress}
-              >
-                <View style={styles.assistanceLeft}>
-                  <View style={[
-                    styles.assistanceIconContainer,
-                    { backgroundColor: item.color + '15' }
-                  ]}>
-                    <Icon
-                      name={item.icon}
-                      size={22}
-                      color={item.color}
-                    />
+        <ScrollView
+          style={styles.scrollView}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+        >
+          <View style={styles.assistanceContainer}>
+            <Text style={styles.sectionTitle}>User Assistance Hub</Text>
+            <View style={styles.assistanceItems}>
+              {filteredAssistanceList.map((item, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={[
+                    styles.assistanceItem,
+                    index === filteredAssistanceList.length - 1 && styles.lastItem
+                  ]}
+                  activeOpacity={0.7}
+                  onPress={item.onPress}
+                >
+                  <View style={styles.assistanceLeft}>
+                    <View style={[
+                      styles.assistanceIconContainer,
+                      { backgroundColor: item.color + '15' }
+                    ]}>
+                      <Icon
+                        name={item.icon}
+                        size={22}
+                        color={item.color}
+                      />
+                    </View>
+
+                    <View style={styles.assistanceInfo}>
+                      <Text style={styles.assistanceTitle}>{item.title}</Text>
+                      <Text style={styles.assistanceSubtitle}>{item.subtitle}</Text>
+                    </View>
                   </View>
 
-                  <View style={styles.assistanceInfo}>
-                    <Text style={styles.assistanceTitle}>{item.title}</Text>
-                    <Text style={styles.assistanceSubtitle}>{item.subtitle}</Text>
+                  <View style={styles.chevronContainer}>
+                    <Icon name="chevron-forward" size={18} color="#9CA3AF" />
                   </View>
-                </View>
-
-                <View style={styles.chevronContainer}>
-                  <Icon name="chevron-forward" size={18} color="#9CA3AF" />
-                </View>
-              </TouchableOpacity>
-            ))}
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+        </ScrollView>
+      </SafeAreaView>
+      <Toast />
+    </>
   );
 };
 

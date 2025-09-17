@@ -5,6 +5,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import { auth } from '../config/firebaseModular';
 import { 
     getAllNotifications,
     getUnreadNotificationCount,
@@ -31,7 +32,7 @@ export const useNotifications = () => {
 
     // Update state from service with debug logging
     const refreshNotifications = () => {
-        const currentUser = require('@react-native-firebase/auth').default().currentUser;
+    const currentUser = auth.currentUser;
         if (!currentUser) {
             console.log('⚠️ No authenticated user during refresh - clearing notifications');
             setNotifications([]);
@@ -79,7 +80,7 @@ export const useNotifications = () => {
                 setLoading(true);
                 
                 // Check if user is authenticated before loading notifications
-                const currentUser = require('@react-native-firebase/auth').default().currentUser;
+                const currentUser = auth.currentUser;
                 if (!currentUser) {
                     console.log('⚠️ No authenticated user - skipping notification initialization');
                     setNotifications([]);
@@ -144,7 +145,7 @@ export const useNotifications = () => {
 
     // Get notifications by filter with user validation
     const getFilteredNotifications = (filter: string) => {
-        const currentUser = require('@react-native-firebase/auth').default().currentUser;
+    const currentUser = auth.currentUser;
         if (!currentUser) {
             console.log('⚠️ No authenticated user - returning empty filtered notifications');
             return [];
@@ -157,7 +158,7 @@ export const useNotifications = () => {
 
     // Force refresh notifications for current user (fixed infinite loop)
     const forceRefreshNotifications = useCallback(async () => {
-        const currentUser = require('@react-native-firebase/auth').default().currentUser;
+    const currentUser = auth.currentUser;
         if (!currentUser) {
             console.log('⚠️ No authenticated user - cannot force refresh');
             return;

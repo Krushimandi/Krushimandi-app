@@ -31,28 +31,13 @@ const EditProfileScreen = () => {
   const [uploading, setUploading] = useState<boolean>(false);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [userData, setUserData] = useState<any>(null);
   const [isSaving, setIsSaving] = useState<boolean>(false);
 
-  // Validation states
-  const [emailError, setEmailError] = useState('');
   const [phoneError, setPhoneError] = useState('');
   const [firstNameError, setFirstNameError] = useState('');
   const [lastNameError, setLastNameError] = useState('');
-
-  // Validation functions
-  const validateEmail = (email: string) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!email.trim()) {
-      return 'Email is required';
-    }
-    if (!emailRegex.test(email)) {
-      return 'Please enter a valid email address';
-    }
-    return '';
-  };
 
   const validatePhone = (phone: string) => {
     const phoneRegex = /^[0-9]{10}$/;
@@ -86,17 +71,13 @@ const EditProfileScreen = () => {
   };
 
   const validateAllFields = () => {
-    const emailErr = validateEmail(email);
     const phoneErr = validatePhone(phone);
     const firstNameErr = validateFirstName(firstName);
     const lastNameErr = validateLastName(lastName);
-
-    setEmailError(emailErr);
     setPhoneError(phoneErr);
     setFirstNameError(firstNameErr);
     setLastNameError(lastNameErr);
-
-    return !emailErr && !phoneErr && !firstNameErr && !lastNameErr;
+    return !phoneErr && !firstNameErr && !lastNameErr;
   };
 
   // Fetch latest profile from Firestore on mount/focus, like SettingsScreen
@@ -107,7 +88,6 @@ const EditProfileScreen = () => {
     if (user) {
       setFirstName(user.firstName || '');
       setLastName(user.lastName || '');
-      setEmail(user.email || '');
       // Remove +91 prefix from phone number if it exists
       const phoneNumber = user.phoneNumber || '';
       const cleanedPhone = phoneNumber.startsWith('+91') ? phoneNumber.substring(3) : phoneNumber;
@@ -250,7 +230,6 @@ const EditProfileScreen = () => {
       const updateData = {
         firstName,
         lastName,
-        email,
         displayName: `${firstName} ${lastName}`,
         profileImage: newProfileImageUrl || null,
       };
@@ -299,7 +278,7 @@ const EditProfileScreen = () => {
       <StatusBar
         barStyle="light-content"
         backgroundColor="#43B86C"
-        
+
       />
       {/* Header */}
       <View style={styles.headerContainer}>
@@ -397,27 +376,6 @@ const EditProfileScreen = () => {
                 />
               </View>
               {lastNameError ? <Text style={styles.errorText}>{lastNameError}</Text> : null}
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Email Address</Text>
-              <View style={[styles.inputContainer, emailError ? styles.inputError : {}]}>
-                <Ionicons name="mail-outline" size={20} color="#64748B" style={styles.inputIcon} />
-                <TextInput
-                  style={styles.input}
-                  value={email}
-                  onChangeText={(text) => {
-                    setEmail(text);
-                    if (emailError) setEmailError('');
-                  }}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  placeholder="Enter your email"
-                  placeholderTextColor="#94A3B8"
-                  editable={!isSaving}
-                />
-              </View>
-              {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
             </View>
 
             <View style={styles.inputGroup}>

@@ -3,11 +3,9 @@
  * Handles fruit data operations with Firestore and Storage
  */
 
-import firestore, { 
-  increment as firestoreIncrement, 
-  arrayUnion as firestoreArrayUnion, 
-  arrayRemove as firestoreArrayRemove, 
-  serverTimestamp as firestoreServerTimestamp,
+// Modular Firestore imports via shared helper
+import {
+  firestore as firebaseFirestore,
   collection,
   doc,
   getDoc,
@@ -18,16 +16,20 @@ import firestore, {
   query,
   where,
   limit,
-  orderBy
-} from '@react-native-firebase/firestore';
+  orderBy,
+  serverTimestamp as firestoreServerTimestamp,
+} from '../config/firebaseModular';
+// Field value helpers (increment / array ops) still accessed from RNFirebase module directly
+import firestoreModule, { increment as firestoreIncrement, arrayUnion as firestoreArrayUnion, arrayRemove as firestoreArrayRemove } from '@react-native-firebase/firestore';
 import storage from '@react-native-firebase/storage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Fruit } from '../types/fruit';
 import { SUPPORTED_FRUIT_TYPES, isValidFruitType } from '../constants/Fruits';
+// Removed legacy firebase namespace import; using modular firebaseFirestore
+
 
 const FRUITS_COLLECTION = 'fruits';
-const FARMERS_COLLECTION = 'farmers';
-const BUYERS_COLLECTION = 'buyers';
+const PROFILES_COLLECTION = 'profiles';
 
 /**
  * Retry function with exponential backoff for transient errors
@@ -128,9 +130,9 @@ export const uploadFruitImages = async (imageUris, fruitId) => {
  * @returns {string} Unique fruit ID
  */
 const generateFruitId = () => {
-  const collectionRef = collection(firestore(), FRUITS_COLLECTION);
-  const docRef = doc(collectionRef);
-  return docRef.id;
+  const collectionRef = collection(firebaseFirestore, FRUITS_COLLECTION);
+  const generatedDocRef = doc(collectionRef);
+  return generatedDocRef.id;
 };
 
 /**
@@ -169,7 +171,7 @@ export const createFruit = async (fruitData, imageUris = []) => {
       id: fruitId,
       name: fruitData.name || '',
       type: fruitData.type || '',
-      grade: fruitData.grade || 'A',
+      // grade: fruitData.grade || 'A',
       description: fruitData.description || '',
       quantity: fruitData.quantity || [0, 0], // [min, max] array
       price_per_kg: fruitData.price_per_kg || 0,
@@ -192,7 +194,7 @@ export const createFruit = async (fruitData, imageUris = []) => {
     };
     
     // Save to Firestore using modular API
-    const fruitsCollectionRef = collection(firestore(), FRUITS_COLLECTION);
+  const fruitsCollectionRef = collection(firebaseFirestore, FRUITS_COLLECTION);
     const fruitDocRef = doc(fruitsCollectionRef, fruitId);
     await setDoc(fruitDocRef, fruitDoc);
     
@@ -213,25 +215,70 @@ export const createFruit = async (fruitData, imageUris = []) => {
  * @param {Object} updateData - Data to update
  * @returns {Promise<void>}
  */
-export const updateFruit = async (fruitId, updateData) => {
+// export const updateFruit = async (fruitId, updateData) => {
+//   try {
+//     console.log('📝 Updating fruit:', fruitId);
+    
+//     const updateDoc = {
+//       ...updateData,
+//       updated_at: new Date().toISOString()
+//     };
+    
+//     const fruitsCollectionRef = collection(firestore(), FRUITS_COLLECTION);
+//     const fruitDocRef = doc(fruitsCollectionRef, fruitId);
+//     await updateDoc(fruitDocRef, updateDoc);
+    
+//     console.log('✅ Fruit updated successfully');
+//   } catch (error) {
+//     console.error('❌ Error updating fruit:', error);
+//     throw new Error('Failed to update fruit: ' + error.message);
+//   }
+// };
+
+
+export async function updateFruit(id, data = {}) {
+  if (!id) throw new Error('Missing fruit id');
+
   try {
-    console.log('📝 Updating fruit:', fruitId);
-    
-    const updateDoc = {
-      ...updateData,
-      updated_at: new Date().toISOString()
-    };
-    
-    const fruitsCollectionRef = collection(firestore(), FRUITS_COLLECTION);
-    const fruitDocRef = doc(fruitsCollectionRef, fruitId);
-    await updateDoc(fruitDocRef, updateDoc);
-    
-    console.log('✅ Fruit updated successfully');
-  } catch (error) {
-    console.error('❌ Error updating fruit:', error);
-    throw new Error('Failed to update fruit: ' + error.message);
+    // Sanitize payload: remove undefined by JSON round-trip
+    const cleanPayload = JSON.parse(JSON.stringify(data));
+
+  const fruitsCollectionRef = collection(firebaseFirestore, FRUITS_COLLECTION);
+  const docRef = doc(fruitsCollectionRef, id);
+
+    // Use set with merge to avoid overwriting other fields and to avoid unsupported undefined
+    await docRef.set(cleanPayload, { merge: true });
+
+    // Optionally fetch the updated doc (if you want authoritative server values)
+    const snapshot = await docRef.get();
+    const serverData = snapshot.exists ? snapshot.data() : null;
+
+    return serverData ? { id, ...serverData } : { id, ...cleanPayload };
+  } catch (err) {
+    console.error('fruitService.updateFruit error:', err);
+    throw new Error('Failed to update fruit: ' + (err.message || err));
   }
-};
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 /**
  * Get fruit by ID
@@ -241,7 +288,7 @@ export const updateFruit = async (fruitId, updateData) => {
 export const getFruitById = async (fruitId) => {
   try {
     return await retryWithBackoff(async () => {
-      const fruitsCollectionRef = collection(firestore(), FRUITS_COLLECTION);
+  const fruitsCollectionRef = collection(firebaseFirestore, FRUITS_COLLECTION);
       const fruitDocRef = doc(fruitsCollectionRef, fruitId);
       const docSnapshot = await getDoc(fruitDocRef);
       
@@ -265,7 +312,7 @@ export const getFruitById = async (fruitId) => {
  */
 export const getFruitsByFarmer = async (farmerId, status = null) => {
   try {
-    const fruitsCollectionRef = collection(firestore(), FRUITS_COLLECTION);
+  const fruitsCollectionRef = collection(firebaseFirestore, FRUITS_COLLECTION);
     let fruitQuery = query(
       fruitsCollectionRef,
       where('farmer_id', '==', farmerId),
@@ -305,7 +352,7 @@ export const getMarketplaceFruits = async (limitCount = 20) => {
     console.log('🔍 getMarketplaceFruits: Starting query...', { limitCount });
     
     const fruits = await retryWithBackoff(async () => {
-      const fruitsCollectionRef = collection(firestore(), FRUITS_COLLECTION);
+  const fruitsCollectionRef = collection(firebaseFirestore, FRUITS_COLLECTION);
       const fruitsQuery = query(
         fruitsCollectionRef,
         where('status', '==', 'active'),
@@ -378,7 +425,7 @@ export const deleteFruit = async (fruitId) => {
     }
     
     // Delete document
-    const fruitsCollectionRef = collection(firestore(), FRUITS_COLLECTION);
+  const fruitsCollectionRef = collection(firebaseFirestore, FRUITS_COLLECTION);
     const fruitDocRef = doc(fruitsCollectionRef, fruitId);
     await deleteDoc(fruitDocRef);
     
@@ -399,7 +446,7 @@ export const deleteFruit = async (fruitId) => {
  */
 export const incrementFruitViews = async (fruitId) => {
   try {
-    const fruitsCollectionRef = collection(firestore(), FRUITS_COLLECTION);
+  const fruitsCollectionRef = collection(firebaseFirestore, FRUITS_COLLECTION);
     const fruitDocRef = doc(fruitsCollectionRef, fruitId);
     await updateDoc(fruitDocRef, {
       views: firestoreIncrement(1),
@@ -419,7 +466,7 @@ export const incrementFruitViews = async (fruitId) => {
  */
 export const toggleFruitLike = async (fruitId, isLiked) => {
   try {
-    const fruitsCollectionRef = collection(firestore(), FRUITS_COLLECTION);
+  const fruitsCollectionRef = collection(firebaseFirestore, FRUITS_COLLECTION);
     const fruitDocRef = doc(fruitsCollectionRef, fruitId);
     await updateDoc(fruitDocRef, {
       likes: firestoreIncrement(isLiked ? 1 : -1),
@@ -441,7 +488,7 @@ export const addFruitToFarmer = async (farmerId, fruitId) => {
   try {
     console.log('🔗 Adding fruit to farmer\'s list...', { farmerId, fruitId });
     
-    const farmersCollectionRef = collection(firestore(), FARMERS_COLLECTION);
+  const farmersCollectionRef = collection(firebaseFirestore, PROFILES_COLLECTION);
     const farmerDocRef = doc(farmersCollectionRef, farmerId);
     await updateDoc(farmerDocRef, {
       fruit_ids: firestoreArrayUnion(fruitId),
@@ -467,7 +514,7 @@ export const removeFruitFromFarmer = async (farmerId, fruitId) => {
   try {
     console.log('🔗 Removing fruit from farmer\'s list...', { farmerId, fruitId });
     
-    const farmersCollectionRef = collection(firestore(), FARMERS_COLLECTION);
+  const farmersCollectionRef = collection(firebaseFirestore, PROFILES_COLLECTION);
     const farmerDocRef = doc(farmersCollectionRef, farmerId);
     await updateDoc(farmerDocRef, {
       fruit_ids: firestoreArrayRemove(fruitId),
@@ -496,7 +543,7 @@ export const getFruitsByFarmerOptimized = async (farmerId, status = null) => {
     
     // First get farmer's fruit IDs with retry
     const farmerData = await retryWithBackoff(async () => {
-      const farmersCollectionRef = collection(firestore(), FARMERS_COLLECTION);
+  const farmersCollectionRef = collection(firebaseFirestore, PROFILES_COLLECTION);
       const farmerDocRef = doc(farmersCollectionRef, farmerId);
       const farmerDoc = await getDoc(farmerDocRef);
       
@@ -529,7 +576,7 @@ export const getFruitsByFarmerOptimized = async (farmerId, status = null) => {
     const fruitPromises = fruitIds.map(async (fruitId) => {
       try {
         return await retryWithBackoff(async () => {
-          const fruitsCollectionRef = collection(firestore(), FRUITS_COLLECTION);
+          const fruitsCollectionRef = collection(firebaseFirestore, FRUITS_COLLECTION);
           const fruitDocRef = doc(fruitsCollectionRef, fruitId);
           const fruitDoc = await getDoc(fruitDocRef);
           
@@ -582,7 +629,7 @@ export const updateFruitStatus = async (fruitId, newStatus) => {
   try {
     console.log('🔄 Updating fruit status...', { fruitId, newStatus });
     
-    const fruitsCollectionRef = collection(firestore(), FRUITS_COLLECTION);
+  const fruitsCollectionRef = collection(firebaseFirestore, FRUITS_COLLECTION);
     const fruitDocRef = doc(fruitsCollectionRef, fruitId);
     await updateDoc(fruitDocRef, {
       status: newStatus,
@@ -607,7 +654,7 @@ export const getFarmerPublicProfile = async (farmerId) => {
     
     // Get farmer's basic info with retry
     const farmerData = await retryWithBackoff(async () => {
-      const farmersCollectionRef = collection(firestore(), FARMERS_COLLECTION);
+  const farmersCollectionRef = collection(firebaseFirestore, PROFILES_COLLECTION);
       const farmerDocRef = doc(farmersCollectionRef, farmerId);
       const farmerDoc = await getDoc(farmerDocRef);
       
@@ -653,7 +700,7 @@ export const getFilteredMarketplaceFruits = async (filters = {}) => {
     const { type, limit: queryLimit = 100 } = filters;
     
     const fruits = await retryWithBackoff(async () => {
-      const fruitsCollectionRef = collection(firestore(), FRUITS_COLLECTION);
+  const fruitsCollectionRef = collection(firebaseFirestore, FRUITS_COLLECTION);
       let fruitQuery = query(
         fruitsCollectionRef,
         where('status', '==', 'active')
@@ -693,6 +740,10 @@ export const getFilteredMarketplaceFruits = async (filters = {}) => {
   }
 };
 
+
+
+
+
 /**
  * Add test fruits to Firebase for debugging
  * Call this function to populate the database with sample data
@@ -706,7 +757,7 @@ export const addTestFruitsToFirebase = async () => {
       {
         name: "Fresh Alphonso Mango",
         type: "mango",
-        grade: "A",
+        // grade: "A",
         description: "Premium quality Alphonso mangoes from Ratnagiri",
         quantity: [10, 50],
         price_per_kg: 180,
@@ -733,7 +784,7 @@ export const addTestFruitsToFirebase = async () => {
       {
         name: "Sweet Oranges",
         type: "orange", 
-        grade: "A",
+        // grade: "A",
         description: "Fresh and juicy sweet oranges from Nagpur",
         quantity: [5, 25],
         price_per_kg: 60,
@@ -759,7 +810,7 @@ export const addTestFruitsToFirebase = async () => {
       {
         name: "Fresh Bananas",
         type: "banana",
-        grade: "A",
+        // grade: "A",
         description: "Sweet and fresh bananas from Kerala",
         quantity: [20, 100],
         price_per_kg: 45,
@@ -785,7 +836,7 @@ export const addTestFruitsToFirebase = async () => {
       {
         name: "Premium Grapes",
         type: "grape",
-        grade: "A+",
+        // grade: "A+",
         description: "Premium quality grapes from Nashik vineyards",
         quantity: [15, 75],
         price_per_kg: 120,
@@ -811,7 +862,7 @@ export const addTestFruitsToFirebase = async () => {
       {
         name: "Fresh Red Apples",
         type: "apple",
-        grade: "A",
+        // grade: "A",
         description: "Crisp and sweet red apples from Himachal Pradesh",
         quantity: [8, 40],
         price_per_kg: 150,
@@ -844,7 +895,7 @@ export const addTestFruitsToFirebase = async () => {
         ...fruitData
       };
       
-      const fruitsCollectionRef = collection(firestore(), FRUITS_COLLECTION);
+  const fruitsCollectionRef = collection(firebaseFirestore, FRUITS_COLLECTION);
       const fruitDocRef = doc(fruitsCollectionRef, fruitId);
       await setDoc(fruitDocRef, finalFruitData);
       

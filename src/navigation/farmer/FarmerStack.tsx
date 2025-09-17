@@ -9,6 +9,8 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Octicons from 'react-native-vector-icons/Octicons';
+import Feather from 'react-native-vector-icons/Feather';
+
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { BlurView } from '@react-native-community/blur';
 
@@ -16,6 +18,8 @@ import { BlurView } from '@react-native-community/blur';
 import { FarmerHomeScreen } from '../../components/home';
 import { FarmerRequestsScreen } from '../../components/requests';
 import { AddFruitScreen, PhotoUploadScreen, PriceSelectionScreen, ProductDetailScreen, ProductDetailsFarmer } from '../../components/products';
+import ChatListScreen from '../../components/chat/ChatListScreen';
+import { ProfileScreen } from '../../components/ProfileScreen';
 import NotificationBadge from '../../components/common/NotificationBadge';
 
 // Hooks
@@ -106,7 +110,7 @@ const CustomFarmerTabIcon = ({ focused, color, size, route }: any) => {
         }
       ]}>
         <View style={farmerStyles.fabButton}>
-          <MaterialIcons name="add" size={28} color="#FFFFFF" />
+          <Octicons name="plus" size={28} color="#FFFFFF" />
         </View>
       </Animated.View>
     );
@@ -116,7 +120,7 @@ const CustomFarmerTabIcon = ({ focused, color, size, route }: any) => {
   switch (route.name) {
     case 'Home':
       iconComponent = focused ? (
-        <MaterialIcons name="home-filled" size={size + 2} color={color} />
+        <MaterialIcons name="home-filled" size={size+2} color={color} />
       ) : (
         <Octicons name="home" size={size} color={color} />
       );
@@ -125,12 +129,26 @@ const CustomFarmerTabIcon = ({ focused, color, size, route }: any) => {
       iconComponent = (
         <View style={{ position: 'relative' }}>
           {focused ? (
-            <Icon name="chatbox-ellipses" size={size - 4} color={color} />
+            <Feather name="users" size={size - 2} color={color} />
           ) : (
-            <Icon name="chatbox-ellipses-outline" size={size} color={color} />
+            <Feather name="users" size={size } color={color} />
           )}
           <NotificationBadge size="small" />
         </View>
+      );
+      break;
+    case 'Chats':
+      iconComponent = focused ? (
+        <Icon name="chatbox-ellipses" size={size} color={color} />
+      ) : (
+        <Icon name="chatbox-ellipses-outline" size={size} color={color} />
+      );
+      break;
+    case 'Profiles':
+      iconComponent = focused ? (
+        <Icon name="person" size={size} color={color} />
+      ) : (
+        <Feather name="user" size={size} color={color} />
       );
       break;
     default:
@@ -187,18 +205,19 @@ const FarmerTabNavigator = () => {
         headerShown: false,
         tabBarShowLabel: true,
         tabBarActiveTintColor: Colors.light.primaryDark,
-        tabBarInactiveTintColor: Colors.light.gray,
+        tabBarInactiveTintColor: "#9DB2CE",
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: '600',
-          marginTop: 6,
+          marginTop: 4,
+          color: "#9DB2CE",
           marginBottom: Platform.OS === 'ios' ? 2 : 4,
         },
         tabBarStyle: {
           height: Platform.OS === 'ios' ? (isSmallScreen ? 100 : 115) : 90,
           position: 'absolute',
-          left: 15,
-          right: 15,
+          left: 10,
+          right: 10,
           borderRadius: 25,
           backgroundColor: isDark ? 'rgba(28, 28, 30, 0.95)' : '#ffffff',
           borderTopWidth: 0,
@@ -214,14 +233,16 @@ const FarmerTabNavigator = () => {
             }),
           }],
           display: tabBarVisible ? 'flex' : 'none',
-          paddingHorizontal: 10,
+          paddingHorizontal: 5,
           paddingTop: 8,
         },
         tabBarItemStyle: {
           flex: 1,
-          justifyContent: 'center',
+          justifyContent: 'flex-end',
           alignItems: 'center',
           paddingVertical: 5,
+          minHeight: 60,
+          maxWidth: 80,
         },
         tabBarBackground: () =>
           Platform.OS === 'ios' ? (
@@ -258,19 +279,35 @@ const FarmerTabNavigator = () => {
         }}
       />
       <MainTab.Screen
-        name="AddFruit"
-        component={NewFruitNavigator}
-        options={{
-          tabBarLabel: 'Add Fruits',
-          tabBarAccessibilityLabel: 'Add Fruits Tab'
-        }}
-      />
-      <MainTab.Screen
         name="Requests"
         component={FarmerRequestsScreen}
         options={{
           tabBarLabel: 'Requests',
           tabBarAccessibilityLabel: 'Requests Tab'
+        }}
+      />
+      <MainTab.Screen
+        name="AddFruit"
+        component={NewFruitNavigator}
+        options={{
+          tabBarLabel: () => null,
+          tabBarAccessibilityLabel: 'Add Fruits Tab'
+        }}
+      />
+      <MainTab.Screen
+        name="Chats"
+        component={ChatListScreen}
+        options={{
+          tabBarLabel: 'Chats',
+          tabBarAccessibilityLabel: 'Chats Tab'
+        }}
+      />
+      <MainTab.Screen
+        name="Profiles"
+        component={ProfileScreen}
+        options={{
+          tabBarLabel: 'Profile',
+          tabBarAccessibilityLabel: 'Profile Tab'
         }}
       />
     </MainTab.Navigator>
@@ -292,15 +329,15 @@ const farmerStyles = StyleSheet.create({
   tabIconContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    width: 50,
-    height: 50,
+    width: 44,
+    height: 44,
     position: 'relative',
   },
   activeTabBackground: {
     position: 'absolute',
-    width: 42,
-    height: 42,
-    borderRadius: 22.5,
+    width: 36,
+    height: 36,
+    borderRadius: 19,
     backgroundColor: Colors.light.primaryDark + '15',
     justifyContent: 'center',
     alignItems: 'center',
@@ -314,22 +351,26 @@ const farmerStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
-    top: -20,
   },
   fabButton: {
-    width: 68,
-    height: 68,
-    borderRadius: 60,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: Colors.light.primaryDark,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: Colors.light.primaryDark,
+    bottom: -2,
+
+    // iOS shadow
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    borderWidth: 4,
-    // elevation: 8,
-    borderColor: '#DFF1E6',
+    shadowOpacity: 0.2, // slightly softer
+    shadowRadius: 6, // smoother shadow
+
+    // Android shadow
+    elevation: 20,
+    // borderWidth: 3,
+    // borderColor: '#DFF1E6',
   },
   blurBackground: {
     flex: 1,

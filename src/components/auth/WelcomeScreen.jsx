@@ -9,7 +9,8 @@ import {
   StatusBar,
   Dimensions
 } from 'react-native';
-import { isPhoneVerified, isRoleSelected, isProfileCompleted, isAuthComplete } from '../../utils/authFlow';
+import { authFlowManager } from '../../services/authFlowManager';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 
 const { width, height } = Dimensions.get('window');
@@ -18,47 +19,49 @@ const WelcomeScreen = ({ navigation }) => {
 
   useEffect(() => {
     console.log('🔍 WelcomeScreen - useEffect triggered');
-    // Check auth state and navigate to appropriate screen
+    
     const checkAuthAndNavigate = async () => {
       try {
-        const [phoneVerified, roleSelected, profileCompleted, authComplete] = await Promise.all([
-          isPhoneVerified(),
-          isRoleSelected(),
-          isProfileCompleted(),
-          isAuthComplete(),
-        ]);
-
-        console.log('🔍 WelcomeScreen - Auth state check:', {
-          phoneVerified,
-          roleSelected,
-          profileCompleted
-        });
-
-        // If fully complete, do nothing here; AppNavigator will switch to Main automatically
-        if (phoneVerified && roleSelected && profileCompleted && authComplete) {
-          console.log('✅ Auth complete, awaiting AppNavigator to switch to Main');
-          return;
+        // Get the next route from auth flow manager
+        const route = await authFlowManager.resumeAuthFlow();
+        
+        console.log('🔍 WelcomeScreen - Auth flow route:', route);
+        
+        // If user should be elsewhere, navigate
+        if (route.screen !== 'Welcome') {
+          if (route.screen === 'Main') {
+            console.log('✅ Auth complete, navigating to Main');
+            navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
+          } else {
+            console.log(`📱 Navigating to ${route.screen}`);
+            if (route.params) {
+              navigation.replace(route.screen, route.params);
+            } else {
+              navigation.replace(route.screen);
+            }
+          }
         }
-        if (phoneVerified && !roleSelected) {
-          console.log('📱 Phone verified, navigating to RoleSelection');
-          navigation.replace('RoleSelection');
-        } else if (phoneVerified && roleSelected && !profileCompleted) {
-          console.log('👤 Role selected, navigating to IntroduceYourself');
-          navigation.replace('IntroduceYourself');
-        }
-        // If phone not verified, stay on Welcome screen
       } catch (error) {
-        console.error('Error checking auth state in WelcomeScreen:', error);
+        console.error('❌ Error in WelcomeScreen auth check:', error);
+        // Stay on welcome screen on error
       }
     };
 
     checkAuthAndNavigate();
   }, [navigation]);
 
-  const handleGetStarted = () => {
+  const handleGetStarted = async () => {
     console.log('Get Started pressed');
+    try {
+      // Mark first launch complete only when user explicitly starts
+      await authFlowManager.markFirstLaunchComplete();
+    } catch (e) {
+      console.warn('WelcomeScreen: markFirstLaunchComplete failed (continuing):', e);
+    }
     navigation.navigate('MobileScreen');
   };
+
+  const insets = useSafeAreaInsets();
 
   return (
     <View style={styles.container}>
@@ -66,9 +69,7 @@ const WelcomeScreen = ({ navigation }) => {
 
       {/* Background Image */}
       <ImageBackground
-        source={{
-          uri: 'https://images.unsplash.com/photo-1560493676-04071c5f467b?w=800&h=1200&fit=crop'
-        }}
+        source={require('../../assets/images/background.jpg')}
         style={styles.backgroundImage}
         resizeMode="cover"
       >
@@ -89,7 +90,7 @@ const WelcomeScreen = ({ navigation }) => {
           </View>
 
           {/* Bottom Section */}
-          <View style={styles.bottomSection}>
+          <View style={[styles.bottomSection, { paddingBottom: insets.bottom * 0.8 }]}>
             <TouchableOpacity style={styles.getStartedButton} onPress={handleGetStarted}>
               <Text style={styles.getStartedText}>Get Started</Text>
             </TouchableOpacity>

@@ -1,0 +1,37 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "userChats": {
+      "$uid": {
+        ".read": "auth != null && auth.uid == $uid",
+        "$chatId": {
+          ".write": "auth != null && (auth.uid == $uid || root.child('chatParticipantsIndex/'+$chatId+'/'+auth.uid).val() == true)",
+          ".validate": "newData.hasChildren(['chatId','otherUid','updatedAt'])"
+        }
+      }
+    },
+    "chats": {
+      ".indexOn": ["updatedAt", "createdAt"],
+      "$chatId": {
+        ".read": "auth != null && auth.uid != null && root.child('chats/'+$chatId+'/participants').val().hasAny([auth.uid])",
+        ".write": "auth != null && auth.uid != null && (newData.child('participants').val() == null || newData.child('participants').val().hasAny([auth.uid]))",
+        "messages": {
+          ".indexOn": ["createdAt"],
+          "$msgId": {
+            ".read": "auth != null && root.child('chats/'+$chatId+'/participants').val().hasAny([auth.uid])",
+            ".write": "auth != null && root.child('chats/'+$chatId+'/participants').val().hasAny([auth.uid]) && newData.child('senderId').val() == auth.uid",
+            ".validate": "newData.hasChildren(['senderId','text','createdAt']) && newData.child('senderId').isString() && newData.child('text').isString()"
+          }
+        },
+        "typing": {
+          "$uid": {
+            ".read": "auth != null && root.child('chats/'+$chatId+'/participants').val().hasAny([auth.uid])",
+            ".write": "auth != null && root.child('chats/'+$chatId+'/participants').val().hasAny([auth.uid]) && $uid == auth.uid",
+            ".validate": "newData.isBoolean()"
+          }
+        }
+      }
+    }
+  }
+}

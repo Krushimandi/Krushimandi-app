@@ -1,4 +1,4 @@
-import auth from '@react-native-firebase/auth';
+import { auth } from '../config/firebaseModular';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getCompleteUserProfile, clearUserData, updateLastLogin, validateUserProfileCompleteness, validateCurrentUser } from '../services/firebaseService';
 import { clearUserRole } from './userRoleStorage';
@@ -8,15 +8,13 @@ import { clearUserRole } from './userRoleStorage';
  * @returns {Object|null} User information or null if not authenticated
  */
 export const getCurrentUser = () => {
-  const user = auth().currentUser;
+  const user = auth.currentUser;
   if (user) {
     return {
       uid: user.uid,
-      email: user.email,
       displayName: user.displayName,
       photoURL: user.photoURL,
       phoneNumber: user.phoneNumber,
-      emailVerified: user.emailVerified,
     };
   }
   return null;
@@ -45,7 +43,6 @@ export const updateUserLastLogin = async () => {
     console.error('Failed to update last login:', error);
   }
 };
-
 /**
  * Update user profile in Firebase Auth and AsyncStorage
  * @param {Object} profileData - Profile data to update
@@ -53,7 +50,7 @@ export const updateUserLastLogin = async () => {
  */
 export const updateUserProfile = async (profileData) => {
   try {
-    const user = auth().currentUser;
+    const user = auth.currentUser;
     if (!user) {
       throw new Error('No authenticated user found');
     }
@@ -88,7 +85,6 @@ export const updateUserProfile = async (profileData) => {
     return false;
   }
 };
-
 /**
  * Get user's first and last name from display name
  * @param {string} displayName - Full display name
@@ -112,7 +108,7 @@ export const parseDisplayName = (displayName) => {
  */
 export const isAuthComplete = async () => {
   try {
-    const user = auth().currentUser;
+    const user = auth.currentUser;
     if (!user) {
       console.log('❌ No authenticated user found');
       return false;
@@ -147,7 +143,7 @@ export const isAuthComplete = async () => {
  */
 export const signOut = async () => {
   try {
-    await auth().signOut();
+    await auth.signOut();
     await AsyncStorage.multiRemove(['userData', 'authStep']);
     await clearUserRole();
     return true;

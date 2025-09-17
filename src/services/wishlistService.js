@@ -45,7 +45,7 @@ export const addToWishlist = async (fruitId) => {
     const wishlistsCollectionRef = collection(fruitDocRef, 'wishlists');
     const fruitWishlistDocRef = doc(wishlistsCollectionRef, user.uid);
 
-    const buyersCollectionRef = collection(firestore, 'buyers');
+  const buyersCollectionRef = collection(firestore, 'profiles'); // unified collection
     const userDocRef = doc(buyersCollectionRef, user.uid);
     const userWishlistCollectionRef = collection(userDocRef, 'wishlist');
     const userWishlistDocRef = doc(userWishlistCollectionRef, fruitId);
@@ -54,7 +54,6 @@ export const addToWishlist = async (fruitId) => {
     const wishlistData = {
       user_id: user.uid,
       added_at: firestoreServerTimestamp(),
-      user_email: user.email || null,
     };
 
     const userWishlistData = {
@@ -107,7 +106,7 @@ export const removeFromWishlist = async (fruitId) => {
     const wishlistsCollectionRef = collection(fruitDocRef, 'wishlists');
     const fruitWishlistDocRef = doc(wishlistsCollectionRef, user.uid);
 
-    const buyersCollectionRef = collection(firestore, 'buyers');
+  const buyersCollectionRef = collection(firestore, 'profiles'); // unified collection
     const userDocRef = doc(buyersCollectionRef, user.uid);
     const userWishlistCollectionRef = collection(userDocRef, 'wishlist');
     const userWishlistDocRef = doc(userWishlistCollectionRef, fruitId);
@@ -173,7 +172,7 @@ export const getUserWishlist = async () => {
 
     console.log('📋 Getting user wishlist for:', user.uid);
 
-    const buyersCollectionRef = collection(firestore, 'buyers');
+  const buyersCollectionRef = collection(firestore, 'profiles'); // unified collection
     const userDocRef = doc(buyersCollectionRef, user.uid);
     const userWishlistCollectionRef = collection(userDocRef, 'wishlist');
     const wishlistQuery = query(userWishlistCollectionRef, orderBy('added_at', 'desc'));
@@ -216,7 +215,6 @@ export const getFruitLikers = async (fruitId) => {
       likers.push({
         user_id: doc.id,
         added_at: doc.data().added_at,
-        user_email: doc.data().user_email,
       });
     });
 
@@ -330,7 +328,7 @@ export const cleanupWishlistInconsistencies = async (fruitId) => {
     const fruitWishlistDocRef = doc(wishlistsCollectionRef, user.uid);
     const fruitWishlistDoc = await getDoc(fruitWishlistDocRef);
 
-    const buyersCollectionRef = collection(firestore, 'buyers');
+  const buyersCollectionRef = collection(firestore, 'profiles'); // unified collection
     const userDocRef = doc(buyersCollectionRef, user.uid);
     const userWishlistCollectionRef = collection(userDocRef, 'wishlist');
     const userWishlistDocRef = doc(userWishlistCollectionRef, fruitId);

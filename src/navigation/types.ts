@@ -38,6 +38,9 @@ export type RootStackParamList = {
   HelpGuide: undefined;
   HelpScreen: undefined;
   FaqDetail: undefined;
+  PaymentSecurity: undefined;
+  AppPlatform: undefined;
+  BestPractices: undefined;
   Languages: undefined;
   PrivacyPolicy: undefined;
   ProfileSettings: undefined;
@@ -46,7 +49,9 @@ export type RootStackParamList = {
     buyerId: string;
     buyerName?: string;
   };
-  ReviewTest: undefined; // Test screen for review system
+  ChatList: undefined;
+  ChatDetail: undefined;
+
 };
 
 // Auth Stack
@@ -56,6 +61,7 @@ export type AuthStackParamList = {
   OTPVerification: { phoneNumber: string };
   RoleSelection: undefined;
   IntroduceYourself: undefined;
+  FruitsScreen: { onboarding?: boolean; mode?: string; fromAuth?: boolean } | undefined;
 };
 
 // Common Screens Stack
@@ -79,15 +85,16 @@ export type CommonScreensParamList = {
 // Main Tab Navigator (Farmer)
 export type MainTabParamList = {
   Home: undefined;
-  AddFruit: undefined;
-  AddFarm: undefined;
   Requests: undefined;
+  AddFruit: undefined;
+  Chats: undefined;
+  Profiles: undefined;
 };
 
 // Buyer Tab Navigator
 export type BuyerTabParamList = {
   Home: undefined;
-  Orders: undefined;
+  Chats: undefined;
   Requests: undefined;
 };
 
@@ -95,6 +102,7 @@ export type BuyerTabParamList = {
 export type BuyerStackParamList = {
   BuyerTabs: undefined;
   ProductDetail: { productId: string; product?: any };
+  FruitsScreen: undefined;
 };
 
 // Product Stack (for buyers)

@@ -15,14 +15,15 @@ import {
   SafeAreaView,
   Dimensions,
   Modal,
+  Pressable,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Octicons from 'react-native-vector-icons/Octicons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import { getCompleteUserProfile, updateLastLogin, validateCurrentUser, updateUserProfile } from '../../services/firebaseService';
+import { getCompleteUserProfile, updateLastLogin, validateCurrentUser, updateUserProfile, updateUserLocation, isNetworkAvailable } from '../../services/firebaseService';
 import { getFruitsByFarmerOptimized, updateFruitStatus } from '../../services/fruitService';
-import auth from '@react-native-firebase/auth';
+import { auth } from '../../config/firebaseModular';
 import { Colors, } from '../../constants';
 import changeNavigationBarColor from 'react-native-navigation-bar-color';
 import { getHeaderConstants } from '../../constants/Layout';
@@ -36,6 +37,8 @@ import {
 import { RefreshControl } from 'react-native-gesture-handler';
 import Toast from 'react-native-toast-message';
 import ErrorBoundary from '../common/ErrorBoundary';
+import { getLocationWithCache, getCurrentLocation, getFastLocation } from '../../utils/permissions';
+import { initializeLocationCache } from '../../utils/locationCache';
 
 const fruitCategories = [
   { name: 'All Fruits', type: 'all', icon: null },
@@ -133,6 +136,29 @@ const FarmerHomeScreen = () => {
   const [sortBy, setSortBy] = useState('newest');
   const [showSortModal, setShowSortModal] = useState(false);
   const scrollY = useRef(new Animated.Value(0)).current;
+  // Prevent premature logout due to transient null firebase user (race/offline)
+  const userValidationAttempts = useRef(0);
+  const validatingUserRef = useRef(false);
+  // Location modal state and animation
+  const [isLocationModalVisible, setIsLocationModalVisible] = useState(false);
+  const [isGettingLocation, setIsGettingLocation] = useState(false);
+  const locationTapAnim = useRef(new Animated.Value(0)).current;
+
+  const onLocationPress = useCallback(() => {
+    locationTapAnim.setValue(0);
+    Animated.sequence([
+      Animated.timing(locationTapAnim, { toValue: 1, duration: 90, useNativeDriver: true }),
+      Animated.timing(locationTapAnim, { toValue: 0, duration: 120, useNativeDriver: true }),
+    ]).start();
+    setTimeout(() => setIsLocationModalVisible(true), 90);
+  }, [locationTapAnim]);
+
+  const locationAnimatedStyle = useMemo(() => ({
+    transform: [{
+      scale: locationTapAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 0.97] })
+    }],
+    opacity: locationTapAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 0.9] })
+  }), [locationTapAnim]);
 
   // Make sure tab bar is visible when screen comes into focus
   useFocusEffect(
@@ -145,6 +171,11 @@ const FarmerHomeScreen = () => {
     changeNavigationBarColor('#ffffff', true);
     // 1st arg = color
     // 2nd arg = light/dark icons (true = light icons, false = dark icons)
+  }, []);
+
+  // Initialize background location cache on mount
+  useEffect(() => {
+    initializeLocationCache();
   }, []);
 
   useFocusEffect(
@@ -254,9 +285,26 @@ const FarmerHomeScreen = () => {
     try {
       setIsLoading(true);
 
-      const user = auth().currentUser;
+      const user = auth.currentUser;
       if (!user) {
-        console.log('❌ No authenticated user found in BuyerHomeScreen');
+        // Guard: avoid immediate navigation reset if offline or early mount
+        const online = await isNetworkAvailable().catch(() => false);
+        userValidationAttempts.current += 1;
+        console.log('⚠️ Firebase user null during profile load (FarmerHomeScreen).', {
+          attempt: userValidationAttempts.current,
+          online
+        });
+        if (!online && userValidationAttempts.current <= 5) {
+          // Likely offline; keep session and retry later
+          setTimeout(() => loadUserProfile(forceRefresh), 600);
+          return;
+        }
+        if (userValidationAttempts.current <= 3) {
+          // Race condition: retry a few times before declaring failure
+          setTimeout(() => loadUserProfile(forceRefresh), 400 * userValidationAttempts.current);
+          return;
+        }
+        console.log('❌ No authenticated user after retries – triggering validation failure');
         handleUserValidationFailure();
         return;
       }
@@ -264,11 +312,21 @@ const FarmerHomeScreen = () => {
       console.log('📱 Loading user profile for:', user.uid, forceRefresh ? '(force refresh)' : '');
 
       // First validate if the user still exists on Firebase server
-      const isValidUser = await validateCurrentUser();
-      if (!isValidUser) {
-        console.log('❌ User validation failed, user may have been deleted');
-        handleUserValidationFailure();
-        return;
+      if (!validatingUserRef.current) {
+        validatingUserRef.current = true;
+        const isValidUser = await validateCurrentUser();
+        validatingUserRef.current = false;
+        if (!isValidUser) {
+          console.log('❌ User validation failed (online confirmation)');
+          // Extra safeguard: only logout if online to avoid offline false negatives
+          const online = await isNetworkAvailable().catch(() => false);
+          if (online) {
+            handleUserValidationFailure();
+            return;
+          } else {
+            console.log('📱 Skipping logout due to offline state despite validation failure');
+          }
+        }
       }
 
       // Always check for remote changes and sync if needed
@@ -311,13 +369,7 @@ const FarmerHomeScreen = () => {
       routes: [{ name: 'Auth' }],
     });
 
-    Toast.show({
-      type: 'error',
-      visibilityTime: 1000,
-      position: 'bottom',
-      text1: "Session Expired",
-      text2: "Please sign in again."
-    });
+    console.log("Error for validation. user deleted from DB or logout.");
   };
 
   // Get display name for greeting - memoized to prevent recalculations
@@ -734,8 +786,7 @@ const FarmerHomeScreen = () => {
             styles.header,
             {
               height: headerHeight,
-              paddingTop: insets.top + 4, // Use safe area insets
-              backgroundColor: '#FFFFFF', // Ensure background stays white
+              paddingTop: insets.top + 4,
             }
           ]}>
             <Animated.View style={[
@@ -748,22 +799,26 @@ const FarmerHomeScreen = () => {
               <View style={styles.headerRow}>
                 <View style={styles.profileContainer}>
                   {userProfile?.profileImage ? (
-                    <TouchableOpacity
-                      onPress={() => safeNavigate('ProfileScreen')}
+                    <TouchableOpacity onPress={() => {
+                      safeNavigate('ProfileScreen');
+                    }}
                       style={styles.profileImageButton}
                       activeOpacity={0.7}
                       hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     >
-                      <Image
-                        pointerEvents="none"
-                        source={{ uri: userProfile.profileImage }}
-                        style={styles.profileImage}
-                      />
+                      <View style={styles.profileImage}>
+                        <Image
+                          source={{ uri: userProfile.profileImage }}
+                          style={{ width: '100%', height: '100%' }}
+                        />
+                      </View>
                     </TouchableOpacity>
                   ) : (
                     <TouchableOpacity
                       style={styles.profilePlaceholderButton}
-                      onPress={() => safeNavigate('ProfileScreen')}
+                      onPress={() => {
+                        safeNavigate('ProfileScreen');
+                      }}
                       activeOpacity={0.7}
                       hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     >
@@ -776,6 +831,7 @@ const FarmerHomeScreen = () => {
                       </View>
                     </TouchableOpacity>
                   )}
+
                   <TouchableOpacity
                     style={styles.userInfo}
                     onPress={() => safeNavigate('ProfileScreen')}
@@ -785,18 +841,24 @@ const FarmerHomeScreen = () => {
                     <Text style={styles.welcome}>
                       Namste, {getDisplayName}!
                     </Text>
-                    <View style={styles.locationContainer}>
-                      <Text style={styles.location}>
-                        {userProfile?.location ?
-                          `${userProfile.location.city || ''}, ${userProfile.location.state || ''}`.replace(/, $/, '')
-                          : 'Paithan, Maharashtra'}
-                      </Text>
-                      <Icon name="chevron-down" size={12} color="#505050" />
-                    </View>
+                    <TouchableOpacity activeOpacity={0.9} onPress={onLocationPress}>
+                      <Animated.View style={[styles.locationContainer, styles.locationInteractive, locationAnimatedStyle]}>
+                        <Text
+                          style={styles.location}
+                          numberOfLines={1}
+                          ellipsizeMode="tail"
+                        >
+                          {userProfile?.location ?
+                            `${userProfile.location.city || ''}, ${userProfile.location.state || ''}`.replace(/, $/, '')
+                            : 'Set your Location'}
+                        </Text>
+                        <Icon name="chevron-down" size={12} color="#505050" />
+                      </Animated.View>
+                    </TouchableOpacity>
                   </TouchableOpacity>
                 </View>
                 <TouchableOpacity
-                  onPress={() => safeNavigate('Notification')}
+                  onPress={() => safeNavigate('ChatList')}
                   style={styles.notificationIconButton}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
@@ -1280,6 +1342,104 @@ const FarmerHomeScreen = () => {
             </View>
           </TouchableOpacity>
         </Modal>
+        {/* Location Modal */}
+        <Modal
+          visible={isLocationModalVisible}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setIsLocationModalVisible(false)}
+          statusBarTranslucent={true}
+          hardwareAccelerated={true}
+        >
+          <View style={[styles.locModalOverlay, { paddingBottom: insets.bottom }]}>
+            <Pressable style={StyleSheet.absoluteFill} onPress={() => setIsLocationModalVisible(false)} />
+            <View style={styles.locModalContainer}>
+              <View style={styles.locModalHeader}>
+                <Text style={styles.locModalTitle}>Location</Text>
+                <TouchableOpacity onPress={() => setIsLocationModalVisible(false)} style={styles.locCloseBtn}>
+                  <Icon name="close" size={20} color="#6B7280" />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.locPrivacyRow}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Icon name="lock-closed-outline" size={16} color="#10B981" />
+                  <Text style={styles.locPrivacyLabel}>Private</Text>
+                </View>
+                <Text style={styles.locSetLabel}>Set Location</Text>
+              </View>
+
+              <View style={styles.locPreviewCard}>
+                {userProfile?.location ? (
+                  <>
+                    <Text style={styles.locPreviewMain} numberOfLines={2}>
+                      {/* TODO: location may now be string | object; safeguard casting */}
+                      {(() => {
+                        const loc = userProfile.location || {};
+                        if (typeof loc === 'string') return loc || '—';
+                        const city = loc.city || ''; const state = loc.state || '';
+                        return `${city}${city && state ? ', ' : ''}${state}`.replace(/, $/, '') || '—';
+                      })()}
+                    </Text>
+                    {!!(typeof userProfile.location === 'object' && userProfile.location?.formattedAddress) && (
+                      <Text style={styles.locPreviewSub} numberOfLines={2}>
+                        {userProfile.location.formattedAddress}
+                      </Text>
+                    )}
+                  </>
+                ) : (
+                  <Text style={styles.locPreviewPlaceholder}>No location set yet</Text>
+                )}
+              </View>
+
+              <TouchableOpacity
+                style={[styles.locActionBtn, isGettingLocation && { opacity: 0.7 }]}
+                activeOpacity={0.8}
+                disabled={isGettingLocation}
+                onPress={async () => {
+                  if (!userProfile?.uid || !userProfile?.userRole) return;
+                  try {
+                    setIsGettingLocation(true);
+                    // Detect current location (prefer cache speed)
+                    let locData = null;
+                    const cached = await getLocationWithCache();
+                    if (cached?.locationData) {
+                      locData = {
+                        ...cached.locationData,
+                        latitude: cached.location?.latitude,
+                        longitude: cached.location?.longitude,
+                      };
+                    } else {
+                      const gps = await getCurrentLocation();
+                      const address = await getFastLocation(gps.latitude, gps.longitude);
+                      locData = { ...address, latitude: gps.latitude, longitude: gps.longitude };
+                    }
+
+                    const ok = await updateUserLocation(userProfile.uid, userProfile.userRole, locData);
+                    if (ok) {
+                      setUserProfile(prev => prev ? { ...prev, location: locData } : prev);
+                      Toast.show({ type: 'success', text1: 'Location Updated', position: 'bottom' });
+                      setIsLocationModalVisible(false);
+                    } else {
+                      Toast.show({ type: 'error', text1: 'Update Failed', text2: 'Could not save location. Try again.' });
+                    }
+                  } catch (e) {
+                    console.error('Location update failed:', e?.message || e);
+                    Toast.show({ type: 'error', text1: 'Location Failed', text2: e?.userMessage || 'Unable to update location.' });
+                  } finally {
+                    setIsGettingLocation(false);
+                  }
+                }}
+              >
+                {isGettingLocation ? (
+                  <Text style={styles.locActionBtnText}>Updating…</Text>
+                ) : (
+                  <Text style={styles.locActionBtnText}>Update Location</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
       </SafeAreaView>
     </ErrorBoundary>
   );
@@ -1288,28 +1448,21 @@ const FarmerHomeScreen = () => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    // Match BuyerHomeScreen lighter app background
+    backgroundColor: '#F8FAFC',
   },
   scrollViewContent: {
     paddingBottom: 90,
+    // Ensure background carries through behind transparent header
+    backgroundColor: '#F8FAFC',
   },
   header: {
-    backgroundColor: '#FFFFFF',
+    // Align with BuyerHomeScreen collapsing header styling (minimal + transparent)
     paddingHorizontal: 16,
     paddingBottom: 16,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 5,
+    backgroundColor: 'transparent',
     zIndex: 10,
-    overflow: 'hidden', // Ensure proper clipping
-    // Ensure background stays solid during animation
-    opacity: 1,
-    // Prevent background color from becoming transparent
-    backgroundColor: '#FFFFFF',
+    overflow: 'visible',
   },
   headerContent: {
     flex: 1,
@@ -1325,7 +1478,7 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFFFF', // Keep solid for readability when collapsed
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -1333,10 +1486,9 @@ const styles = StyleSheet.create({
     zIndex: 1000, // High z-index to stay on top
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0, // Will be animated
+    shadowOpacity: 0, // Animated via interpolation (kept consistent with Buyer)
     shadowRadius: 4,
-    elevation: 0, // Will be animated
-    // Ensure background color stays opaque
+    elevation: 0, // Animated value will raise on scroll
     opacity: 1,
   },
   fixedHeaderImage: {
@@ -1356,11 +1508,11 @@ const styles = StyleSheet.create({
     borderRadius: 60,
   },
   profileImage: {
-    width: 48,
-    height: 48,
-    borderRadius: 60,
+    width: 54,
+    height: 54,
+    borderRadius: 28,
     borderWidth: 1,
-    borderColor: '#EEEEEE',
+    borderColor: '#FFFFFF',
     overflow: 'hidden',
   },
   profilePlaceholder: {
@@ -1375,22 +1527,31 @@ const styles = StyleSheet.create({
     backgroundColor: '#F6F6F6',
   },
   userInfo: {
-    marginLeft: 12,
+    marginLeft: 6,
   },
   welcome: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: Colors.light.primaryDark,
-    marginBottom: 2,
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#111827',
+    marginBottom: 4,
+    letterSpacing: -0.5,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
   locationContainer: {
     flexDirection: 'row',
     alignItems: 'center',
   },
+  locationInteractive: {
+    borderRadius: 8,
+  },
   location: {
-    fontSize: 13,
-    color: '#505050',
-    marginRight: 4,
+    fontSize: 14,
+    color: '#6B7280',
+    marginRight: 6,
+    fontWeight: '500',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+    maxWidth: 170,
+    flexShrink: 1,
   },
   notificationIconButton: {
     padding: 5,
@@ -1399,25 +1560,34 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
-    marginTop: 10,
+    marginTop: 12,
   },
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F6F6F6',
-    borderRadius: 25,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
     flex: 1,
-    height: 48,
+    height: 52,
+    paddingHorizontal: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
     borderWidth: 1,
-    borderColor: '#EFEFEF',
+    borderColor: '#F3F4F6',
+    elevation: 2,
   },
   searchInput: {
     flex: 1,
     paddingHorizontal: 12,
-    fontSize: 15,
-    color: '#505050',
-    height: 48,
+    fontSize: 16,
+    color: '#111827',
+    height: 52,
+    fontWeight: '500',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
+
   clearSearchButton: {
     paddingHorizontal: 8,
     paddingVertical: 4,
@@ -1433,7 +1603,8 @@ const styles = StyleSheet.create({
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 3,
+    shadowRadius: 4,
+    elevation: 2,
   },
   sortBtn: {
     backgroundColor: '#E8F5E8',
@@ -1469,7 +1640,7 @@ const styles = StyleSheet.create({
   },
   section: {
     paddingHorizontal: 20,
-    marginTop: 28, // Increased for better spacing with new header height
+    marginTop: 20,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -1539,7 +1710,7 @@ const styles = StyleSheet.create({
   },
   tabContainer: {
     flexDirection: 'row',
-    backgroundColor: '#F6F6F6',
+    backgroundColor: '#93939315',
     borderRadius: 8,
     padding: 2,
   },
@@ -1567,8 +1738,17 @@ const styles = StyleSheet.create({
   },
   emptyState: {
     alignItems: 'center',
-    paddingVertical: 60,
-    paddingHorizontal: 20,
+    justifyContent: 'center',
+    paddingVertical: 36,
+    paddingHorizontal: 24,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    marginVertical: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
   },
   emptyStateText: {
     fontSize: 18,
@@ -1909,6 +2089,100 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#666666',
+  },
+
+  // Location Modal Styles
+  locModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+    alignItems: 'stretch',
+  },
+  locModalContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    margin: 16,
+    borderTopWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  locModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  locModalTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#111827',
+  },
+  locCloseBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  locPrivacyRow: {
+    marginTop: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  locPrivacyLabel: {
+    marginLeft: 6,
+    color: '#10B981',
+    fontWeight: '700',
+  },
+  locSetLabel: {
+    color: '#111827',
+    fontWeight: '700',
+  },
+  locPreviewCard: {
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 12,
+  },
+  locPreviewMain: {
+    fontSize: 16,
+    color: '#111827',
+    fontWeight: '700',
+  },
+  locPreviewSub: {
+    marginTop: 4,
+    fontSize: 13,
+    color: '#6B7280',
+  },
+  locPreviewPlaceholder: {
+    fontSize: 14,
+    color: '#9CA3AF',
+  },
+  locActionBtn: {
+    marginTop: 14,
+    backgroundColor: '#E8F5E8',
+    borderWidth: 1,
+    borderColor: Colors.light.primary,
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  locActionBtnText: {
+    color: Colors.light.primaryDark,
+    fontWeight: '700',
+    fontSize: 15,
   },
 });
 

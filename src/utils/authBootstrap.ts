@@ -4,21 +4,17 @@
  * Ensures Zustand hydration, Firebase auth, and user profile are ready
  */
 
-import auth from '@react-native-firebase/auth';
+import { auth } from '../config/firebaseModular';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useAuthStore } from '../store/authStore';
 import { getCompleteUserProfile } from '../services/firebaseService';
 import { getUserRole, syncUserRole, initializeUserRoleFromUserData } from './userRoleStorage';
-import { StorageKeys } from '../constants';
-import { authService } from '../services/authService';
-import { persistentAuthManager } from './persistentAuthManager';
+
 
 export interface AuthBootstrapState {
   isReady: boolean;
   isAuthenticated: boolean;
   user: any | null;
   userRole: 'farmer' | 'buyer' | null;
-  token: string | null;
   error: string | null;
 }
 
@@ -34,7 +30,6 @@ class AuthBootstrap {
     isAuthenticated: false,
     user: null,
     userRole: null,
-    token: null,
     error: null
   };
 
@@ -54,8 +49,7 @@ class AuthBootstrap {
     try {
       log('🚀 Starting auth bootstrap...');
       
-      // Step 0: Initialize persistent auth manager
-      await persistentAuthManager.initialize();
+
       
       // Step 1: Wait for Zustand persist to hydrate
       await this.waitForZustandHydration(maxWaitTime, log);
@@ -63,9 +57,10 @@ class AuthBootstrap {
       // Step 2: Initialize Firebase Auth and wait for state restoration
       await this.initializeFirebaseAuth(maxWaitTime, log);
       
+
       // Step 3: Validate and sync auth state
       const authState = await this.validateAndSyncAuthState(log);
-      
+
       // Step 4: Load user profile and role if authenticated
       if (authState.isAuthenticated) {
         await this.loadUserProfileAndRole(log);
@@ -86,7 +81,6 @@ class AuthBootstrap {
         isAuthenticated: false,
         user: null,
         userRole: null,
-        token: null,
         error: errorMessage
       };
       
@@ -115,7 +109,7 @@ class AuthBootstrap {
           
           // Zustand persist usually takes a few ms to hydrate
           // We'll check if we have any persisted data or if enough time has passed
-          const hasPersistedData = authStore.isAuthenticated || authStore.user || authStore.token;
+          const hasPersistedData = authStore.isAuthenticated || authStore.user;
           
           if (hasPersistedData) {
             log('✅ Zustand hydration detected with data');
@@ -148,11 +142,13 @@ class AuthBootstrap {
     log('⏳ Initializing Firebase Auth...');
     
     try {
-      const authState = await authService.initializeAuth();
-      log('🔐 Firebase Auth initialized:', authState.isAuthenticated ? 'User authenticated' : 'No user');
+      // Use Firebase Auth directly, since custom authService is removed
+  const user = auth.currentUser;
+      const isAuthenticated = !!user;
+      log('🔐 Firebase Auth initialized:', isAuthenticated ? 'User authenticated' : 'No user');
       
-      if (authState.isAuthenticated && authState.user) {
-        log('🔐 Firebase user available:', authState.user.id);
+      if (isAuthenticated && user) {
+        log('🔐 Firebase user available:', user.uid);
       }
     } catch (error) {
       log('❌ Firebase Auth initialization failed:', error);
@@ -173,7 +169,7 @@ class AuthBootstrap {
       }, maxWaitTime);
 
       // Check if user is already available (for immediate cases)
-      const currentUser = auth().currentUser;
+  const currentUser = auth.currentUser;
       if (currentUser) {
         log('🔐 Firebase user already available:', currentUser.uid);
         clearTimeout(timeout);
@@ -185,7 +181,7 @@ class AuthBootstrap {
       }
 
       // Listen for auth state changes
-      const unsubscribe = auth().onAuthStateChanged((user) => {
+  const unsubscribe = auth.onAuthStateChanged((user: any) => {
         if (!resolved) {
           log('🔐 Firebase auth state changed:', user ? `User: ${user.uid}` : 'No user');
           clearTimeout(timeout);
@@ -198,7 +194,7 @@ class AuthBootstrap {
       // Also set a minimum wait time to ensure Firebase has time to restore
       setTimeout(() => {
         if (!resolved) {
-          const currentUser = auth().currentUser;
+          const currentUser = auth.currentUser;
           log('🔐 Firebase auth check after wait:', currentUser ? `User: ${currentUser.uid}` : 'No user');
           clearTimeout(timeout);
           unsubscribe();
@@ -218,7 +214,7 @@ class AuthBootstrap {
     // Import dynamically to avoid issues
     const { useAuthStore } = require('../store/authStore');
     const authStore = useAuthStore.getState();
-    const firebaseUser = auth().currentUser;
+  const firebaseUser = auth.currentUser;
     
     // Check AsyncStorage for additional auth data
     const userData = await AsyncStorage.getItem('userData');
@@ -227,78 +223,72 @@ class AuthBootstrap {
     log('📊 Auth state components:', {
       zustandAuth: authStore.isAuthenticated,
       zustandUser: !!authStore.user,
-      zustandToken: !!authStore.token,
-      firebaseUser: !!firebaseUser,
-      firebaseUID: firebaseUser?.uid,
-      asyncStorageUserData: !!userData,
-      authStep
+  // zustandToken: !!authStore.token, // removed
+  firebaseUser: !!firebaseUser,
+  firebaseUID: firebaseUser?.uid,
+  asyncStorageUserData: !!userData,
+  authStep
     });
 
     // Determine final auth state
     let isAuthenticated = false;
-    let finalUser = null;
-    let finalToken = null;
+    let finalUser: any = null;
 
-    // Priority: Firebase User is the source of truth for authentication
+    /**
+     * Updated logic:
+     * 1. Accept backend-only authentication (Zustand store/token) even if Firebase user missing
+     * 2. Only treat data as stale if neither Firebase nor valid backend store state present
+     */
     if (firebaseUser) {
+      // Firebase authenticated (may or may not have backend info yet)
       isAuthenticated = true;
-      
-      // Use Zustand user data if available, otherwise try AsyncStorage
       if (authStore.user) {
         finalUser = authStore.user;
-        finalToken = authStore.token;
         log('✅ Auth state: Firebase user + Zustand data');
       } else if (userData) {
         try {
           finalUser = JSON.parse(userData);
-          finalToken = authStore.token;
           log('✅ Auth state: Firebase user + AsyncStorage data');
-        } catch (error) {
+        } catch {
           log('⚠️ Failed to parse AsyncStorage userData');
-          // We'll fetch user profile later
         }
       } else {
         log('✅ Auth state: Firebase user only (will fetch profile)');
       }
-    } else {
-      // No Firebase user - check if we have stale Zustand/AsyncStorage data
-      if (authStore.isAuthenticated || (userData && authStep === 'Complete')) {
-        log('⚠️ Found stale auth data without Firebase user - cleaning up');
-        
-        // Clear stale data
-        authStore.logout();
-        await AsyncStorage.removeItem('userData');
-        await AsyncStorage.removeItem('authStep');
-        
-        isAuthenticated = false;
-        finalUser = null;
-        finalToken = null;
-      } else {
-        log('✅ No authentication data found - user is logged out');
+    } else if (userData) {
+      // Attempt to restore from AsyncStorage userData alone (best-effort)
+      try {
+        finalUser = JSON.parse(userData);
+        isAuthenticated = true; // Consider authenticated until proven otherwise
+        log('✅ Auth state: Restored from AsyncStorage userData (no Firebase)');
+      } catch {
+        log('⚠️ Failed to parse AsyncStorage userData – treating as logged out');
       }
+    } else {
+      log('✅ No authentication data found - user is logged out');
+    }
+
+    // If we still ended up marking authenticated but there is absolutely no user consistency, downgrade
+    if (isAuthenticated && !finalUser) {
+      log('⚠️ Auth flagged but no user object available – downgrading to logged out');
+      isAuthenticated = false;
     }
 
     // Update current state
     this.currentState.isAuthenticated = isAuthenticated;
     this.currentState.user = finalUser;
-    this.currentState.token = finalToken;
 
     // Sync Zustand store if needed
-    if (isAuthenticated && (!authStore.isAuthenticated || !authStore.user)) {
-      log('🔄 Syncing auth state to Zustand store');
-      if (finalUser) {
-        authStore.updateUser(finalUser);
-      }
-      // Only flag as authenticated without injecting a default role
-      try {
-        const { useAuthStore } = require('../store/authStore');
-        useAuthStore.setState({ isAuthenticated: true });
-      } catch (e) {
-        log('⚠️ Failed to set auth flag on store:', e);
+    if (isAuthenticated) {
+      if (!authStore.isAuthenticated || !authStore.user) {
+        log('🔄 Syncing resolved auth state to Zustand store');
+        if (finalUser) {
+          authStore.setUser(finalUser);
+        }
       }
     } else if (!isAuthenticated && authStore.isAuthenticated) {
-      log('🔄 Clearing stale Zustand auth state');
-      authStore.logout();
+      log('🔄 Clearing stale Zustand auth state (no valid Firebase session)');
+      authStore.setUser(null);
     }
 
     return { isAuthenticated };
@@ -320,7 +310,7 @@ class AuthBootstrap {
       }
       
       // If we have a Firebase user, try to load complete profile
-      const firebaseUser = auth().currentUser;
+  const firebaseUser = auth.currentUser;
       if (firebaseUser) {
         try {
           const userProfile = await getCompleteUserProfile();
@@ -334,11 +324,9 @@ class AuthBootstrap {
               id: (userProfile as any).uid,
               firstName: (userProfile as any).firstName,
               lastName: (userProfile as any).lastName,
-              email: (userProfile as any).email || '',
               phone: (userProfile as any).phoneNumber,
               userType: profileRole as 'farmer' | 'buyer',
               status: 'active',
-              isVerified: (userProfile as any).isVerified || true,
               createdAt: (userProfile as any).createdAt,
               updatedAt: (userProfile as any).updatedAt,
               avatar: (userProfile as any).profileImage
@@ -358,8 +346,8 @@ class AuthBootstrap {
         }
       }
       
-      this.currentState.userRole = userRole;
-      log('✅ User role loaded:', userRole);
+  this.currentState.userRole = userRole;
+  log('✅ User role loaded:', userRole);
       
     } catch (error) {
       log('❌ Error loading user profile and role:', error);
@@ -391,7 +379,6 @@ class AuthBootstrap {
       isAuthenticated: false,
       user: null,
       userRole: null,
-      token: null,
       error: null
     };
   }

@@ -7,7 +7,6 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Theme, NotificationSettings } from '../types';
-import { StorageKeys } from '../constants';
 
 interface AppState {
   theme: Theme;
@@ -25,7 +24,6 @@ interface AppState {
 
 const initialNotificationSettings: NotificationSettings = {
   push: true,
-  email: true,
   sms: false,
   orderUpdates: true,
   promotional: false,
@@ -71,7 +69,7 @@ export const useAppStore = create<AppState>()(
       },
     }),
     {
-      name: StorageKeys.APP_SETTINGS,
+      name: 'appSettings',
       storage: createJSONStorage(() => AsyncStorage),
     }
   )

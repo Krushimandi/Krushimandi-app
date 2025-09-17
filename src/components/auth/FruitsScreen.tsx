@@ -10,17 +10,45 @@ import {
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { Fruits } from '../../constants/Fruits';
-import { setAuthStep } from '../../utils/authFlow';
+import { authFlowManager } from '../../services/authFlowManager';
 import { updateUserInFirestore, getUserFromAsyncStorage, saveUserToAsyncStorage, cleanupUnusedBuyerFields } from '../../services/firebaseService';
 import { auth } from '../../config/firebase';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface FruitsScreenProps {
   navigation?: any;
+  route?: any;
 }
 
-const FruitsScreen: React.FC<FruitsScreenProps> = ({ navigation }) => {
+const FruitsScreen: React.FC<FruitsScreenProps> = ({ navigation, route }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFruits, setSelectedFruits] = useState<number[]>([]);
+  // Treat as onboarding when explicitly requested via route OR when user has no saved preferences yet
+  const [isOnboarding, setIsOnboarding] = useState<boolean>(!!(route?.params?.onboarding || route?.params?.mode === 'auth' || route?.params?.fromAuth));
+
+  // Load user's current preferred fruits when screen loads
+  React.useEffect(() => {
+    const loadUserPreferences = async () => {
+      try {
+        const localUser = await getUserFromAsyncStorage();
+        const preferredFruits = (localUser as any)?.PreferedFruits || [];
+
+        // Convert fruit names to IDs
+        const fruitIds = Fruits
+          .filter(fruit => preferredFruits.includes(fruit.name))
+          .map(fruit => fruit.id);
+
+  setSelectedFruits(fruitIds);
+
+  // If user has no preferred fruits stored, we are in onboarding flow
+  setIsOnboarding(prev => prev || !(preferredFruits && preferredFruits.length > 0));
+      } catch (error) {
+        console.error('Error loading user preferences:', error);
+      }
+    };
+
+    loadUserPreferences();
+  }, []);
 
   const filteredFruits = Fruits.filter(fruit =>
     fruit.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -74,19 +102,56 @@ const FruitsScreen: React.FC<FruitsScreenProps> = ({ navigation }) => {
         PreferedFruits: selectedFruitNames,
       } as any);
 
-      // Complete the auth flow
-      await setAuthStep('Complete');
-      console.log('✅ Buyer fruits selection saved and auth completed');
+      // Route after saving based on context
+      if (isOnboarding) {
+        // Completing onboarding: mark auth as complete and go to main buyer home
+        await authFlowManager.updateFlowState('complete');
+        try {
+          const { useAuthStore } = await import('../../store/authStore');
+          const uid = user?.uid || (localUser as any)?.uid;
+          if (uid) {
+            useAuthStore.setState((prev: any) => ({
+              isAuthenticated: true,
+              user: {
+                ...(prev.user || {}),
+                id: uid,
+                userType: 'buyer',
+              },
+            }));
+          }
+        } catch { }
+        
+        // Navigate to main app
+        navigation?.reset?.({ index: 0, routes: [{ name: 'Main' }] });
+        console.log('✅ Buyer fruits selection saved and navigating to home');
+      } else if (navigation && navigation.canGoBack()) {
+        // Editing from within the main app: just go back
+        navigation.goBack();
+        console.log('✅ Buyer fruits preferences updated and returned to previous screen');
+      } else {
+        // Default safety: try to go to main
+        await authFlowManager.updateFlowState('complete');
+        navigation?.reset?.({ index: 0, routes: [{ name: 'Main' }] });
+      }
     } catch (error) {
       console.error('❌ Error completing auth flow:', error);
     }
   };
 
+  const insets = useSafeAreaInsets();
+
   return (
-    <View style={styles.container}>
-      {/* Title */}
-      <Text style={styles.title}>Choose Your Favorite Fruits</Text>
-      <Text style={styles.subtitle}>Select fruits you're interested in buying</Text>
+    <View style={[styles.container, { paddingBottom: insets.bottom }]}>
+      {/* Header with Back Button */}
+      <View style={styles.headerContainer}>
+        <View style={styles.titleRow}>
+          <TouchableOpacity onPress={() => navigation?.goBack?.()} style={styles.backButton}>
+            <Ionicons name="chevron-back" size={24} color="#000" />
+          </TouchableOpacity>
+          <Text style={styles.titleText}>Choose Your Favorite Fruits</Text>
+        </View>
+        {/* <Text style={styles.subtitleText}>Select fruits you're interested in buying</Text> */}
+      </View>
 
       {/* Search Bar */}
       <View style={styles.searchContainer}>
@@ -101,43 +166,68 @@ const FruitsScreen: React.FC<FruitsScreenProps> = ({ navigation }) => {
       </View>
 
       {/* Fruit Grid */}
-      <FlatList
-        data={filteredFruits}
-        keyExtractor={item => item.id.toString()}
-        numColumns={2}
-        columnWrapperStyle={styles.row}
-        contentContainerStyle={styles.gridContainer}
-        renderItem={({ item }) => {
-          const isSelected = selectedFruits.includes(item.id);
-          return (
+      {filteredFruits.length > 0 ? (
+        <FlatList
+          data={filteredFruits}
+          keyExtractor={item => item.id.toString()}
+          numColumns={2}
+          columnWrapperStyle={styles.row}
+          contentContainerStyle={styles.gridContainer}
+          renderItem={({ item }) => {
+            const isSelected = selectedFruits.includes(item.id);
+            return (
+              <TouchableOpacity
+                style={[
+                  styles.card,
+                  { backgroundColor: item.bgColor },
+                  isSelected && styles.selectedCard
+                ]}
+                onPress={() => handleFruitSelection(item.id)}
+              >
+                <Image source={item.image} style={styles.image} />
+                <Text style={styles.name}>{item.name}</Text>
+                {isSelected && (
+                  <View style={styles.selectedIndicator}>
+                    <Ionicons name="checkmark" size={20} color="#FFF" />
+                  </View>
+                )}
+              </TouchableOpacity>
+            );
+          }}
+        />
+      ) : (
+        <View style={styles.noResultsContainer}>
+          <Ionicons name="search-outline" size={64} color="#B0B0B0" />
+          <Text style={styles.noResultsTitle}>No fruits found</Text>
+          <Text style={styles.noResultsSubtitle}>
+            {searchQuery
+              ? `No fruits match "${searchQuery}". Try a different search term.`
+              : "No fruits available at the moment."
+            }
+          </Text>
+          {searchQuery && (
             <TouchableOpacity
-              style={[
-                styles.card,
-                { backgroundColor: item.bgColor },
-                isSelected && styles.selectedCard
-              ]}
-              onPress={() => handleFruitSelection(item.id)}
+              style={styles.clearSearchButton}
+              onPress={() => setSearchQuery('')}
             >
-              <Image source={item.image} style={styles.image} />
-              <Text style={styles.name}>{item.name}</Text>
-              {isSelected && (
-                <View style={styles.selectedIndicator}>
-                  <Ionicons name="checkmark" size={20} color="#FFF" />
-                </View>
-              )}
+              <Text style={styles.clearSearchText}>Clear search</Text>
             </TouchableOpacity>
-          );
-        }}
-      />
+          )}
+        </View>
+      )}
 
       {/* Continue Button */}
       <View style={styles.continueContainer}>
         <TouchableOpacity style={styles.continueButton} onPress={handleContinue}>
-          <Text style={styles.continueText}>Continue to Home</Text>
+          <Text style={styles.continueText}>
+            {navigation && navigation.canGoBack() ? 'Save Preferences' : 'Continue to Home'}
+          </Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.skipButton} onPress={handleContinue}>
-          <Text style={styles.skipText}>Skip for now</Text>
-        </TouchableOpacity>
+        {(!navigation || !navigation.canGoBack()) && (
+          <TouchableOpacity style={styles.skipButton} onPress={handleContinue}>
+            <Text style={styles.skipText}>Skip for now</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );
@@ -150,6 +240,21 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'transparent',
     paddingTop: 40,
+  },
+  headerContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  backButton: {
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#F0F0F0',
+    marginRight: 12,
   },
   topBar: {
     flexDirection: 'row',
@@ -176,18 +281,16 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#000',
   },
-  title: {
+  titleText: {
     fontSize: 22,
     fontWeight: 'bold',
     color: '#000',
-    paddingHorizontal: 22,
-    marginBottom: 8,
-    marginTop: 15,
+    flex: 1,
   },
-  subtitle: {
+  subtitleText: {
     fontSize: 16,
     color: '#666',
-    paddingHorizontal: 22,
+    paddingHorizontal: 4,
     marginBottom: 16,
   },
   searchContainer: {
@@ -287,5 +390,40 @@ const styles = StyleSheet.create({
     color: '#666',
     fontSize: 14,
     fontWeight: '500',
+  },
+  noResultsContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+    paddingVertical: 64,
+    backgroundColor: '#F9F9F9',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+  },
+  noResultsTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  noResultsSubtitle: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 24,
+  },
+  clearSearchButton: {
+    backgroundColor: '#4CAF50',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 20,
+  },
+  clearSearchText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

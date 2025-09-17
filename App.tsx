@@ -3,7 +3,15 @@
  */
 
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
-import messaging from '@react-native-firebase/messaging';
+import { getApp } from '@react-native-firebase/app';
+import {
+    getMessaging,
+    onNotificationOpenedApp,
+    getInitialNotification,
+    AuthorizationStatus
+} from '@react-native-firebase/messaging';
+// Modular Cloud Functions import
+import { getFunctions, httpsCallable, httpsCallableFromUrl } from '@react-native-firebase/functions';
 import { navigationRef, isNavigationReady, pendingNotificationData, handleNotificationNavigation } from './src/navigation/navigationService';
 import { notificationTabEmitter } from './src/navigation/buyer/notificationTabEmitter';
 import { StatusBar, Alert, View, Text, TouchableOpacity } from 'react-native';
@@ -246,21 +254,22 @@ const App: React.FC = () => {
         };
 
         // Handle foreground and background notifications
-        const unsubscribeOpenedApp = messaging().onNotificationOpenedApp(remoteMessage => {
+        const messagingInstance = getMessaging(getApp());
+        const unsubscribeOpenedApp = onNotificationOpenedApp(messagingInstance, (remoteMessage: any) => {
             if (isEffectMounted) {
                 handleNotificationSafely(remoteMessage, 'background');
             }
         });
 
         // Handle quit state notifications
-        messaging().getInitialNotification()
-            .then(remoteMessage => {
+        getInitialNotification(messagingInstance)
+            .then((remoteMessage: any) => {
                 if (isEffectMounted && remoteMessage) {
                     handleNotificationSafely(remoteMessage, 'quit state');
                 }
             })
             .catch(error => {
-                console.error('❌ Failed to get initial notification:', error);
+                console.error('  Failed to get initial notification:', error);
             });
 
         // Track cleanup functions
@@ -271,22 +280,89 @@ const App: React.FC = () => {
             unsubscribeOpenedApp();
         };
     }, [addCleanupFunction]);
-    // Safe FCM token handling with validation
+    // Safe FCM token handling with validation + backend registration
+    const lastRegisteredTokenRef = useRef<string | null>(null);
     useEffect(() => {
-        if (fcmToken && typeof fcmToken === 'string' && fcmToken.length > 0) {
+        const registerToken = async () => {
+            // Ensure authentication/bootstrap is fully completed before attempting registration
+            if (!isBootstrapped || !bootstrapState) return;
+            if (!fcmToken || typeof fcmToken !== 'string' || fcmToken.length === 0) return;
+
             console.log('🔔 FCM Token received:', fcmToken.substring(0, 20) + '...');
 
-            // Validate token format (basic check)
-            if (fcmToken.length < 100) {
-                console.warn('⚠️ FCM Token seems too short, might be invalid');
+            if (fcmToken.length < 50) {
+                console.warn('⚠️ FCM Token seems short, double-check device registration');
             }
 
-            // TODO: Send this token to your backend server for push notification targeting
-            // Example: sendTokenToBackend(fcmToken);
-        } else if (fcmToken === null) {
-            console.warn('⚠️ FCM Token is null - push notifications may not work');
-        }
-    }, [fcmToken]);
+            const uid = bootstrapState?.user?.uid || bootstrapState?.user?.id;
+            const rawRole = (bootstrapState?.user?.userRole || bootstrapState?.user?.role || '').toString().toLowerCase();
+            if (!uid || !rawRole) {
+                console.log('⏳ Skipping FCM token registration: user not ready');
+                return;
+            }
+
+            const sig = `${uid}:${fcmToken}`;
+            if (lastRegisteredTokenRef.current === sig) return;
+
+            const role = (rawRole.includes('farmer') || rawRole.includes('seller')) ? 'farmer' : 'buyer';
+
+            // Build callable endpoints explicitly for region (asia-south1)
+            // Use modular functions instance (defaults to region defined in backend; we explicitly target a region when building URLs)
+            const functionsInstance = getFunctions();
+            const projectId = functionsInstance.app?.options?.projectId;
+            const region = 'asia-south1';
+            const makeCallable = (name: string) => {
+                if (projectId) {
+                    const url = `https://${region}-${projectId}.cloudfunctions.net/${name}`;
+                    // Use modular API for callable functions
+                    // Prefer httpsCallableFromURL when available, else fallback to httpsCallable with name (should exist in all modern versions)
+                    return httpsCallableFromUrl
+                        ? httpsCallableFromUrl(functionsInstance, url)
+                        : httpsCallable(functionsInstance, name);
+                }
+                return httpsCallable(functionsInstance, name);
+            };
+
+            try {
+                console.log('🌐 Checking existing tokens (region asia-south1)...');
+                const getRes: any = await makeCallable('getFcmTokens')({ uid, role });
+                const existing = Array.isArray(getRes?.data?.tokens) ? (getRes.data.tokens as string[]) : [];
+                console.log('📦 Existing tokens from backend:', existing);
+                if (existing.includes(fcmToken)) {
+                    lastRegisteredTokenRef.current = sig;
+                    console.log('ℹ️ FCM token already registered (no action)');
+                    return;
+                }
+
+                console.log('📝 Registering new FCM token to backend...');
+                await makeCallable('registerFcmToken')({ uid, role, token: fcmToken });
+                lastRegisteredTokenRef.current = sig;
+                console.log('✅ FCM token registered with backend (asia-south1)');
+            } catch (e: any) {
+                const msg = e?.message || e?.toString?.() || 'unknown error';
+                console.error('❌ Failed (asia-south1) callable:', msg);
+
+                // Fallback: try default region us-central1 in case of region mismatch
+                try {
+                    console.log('🔁 Fallback attempt in default region (us-central1)...');
+                    const defaultGet: any = await httpsCallable(functionsInstance, 'getFcmTokens')({ uid, role });
+                    const existing2 = Array.isArray(defaultGet?.data?.tokens) ? defaultGet.data.tokens : [];
+                    if (existing2.includes(fcmToken)) {
+                        lastRegisteredTokenRef.current = sig;
+                        console.log('ℹ️ Token already registered in fallback region');
+                        return;
+                    }
+                    await httpsCallable(functionsInstance, 'registerFcmToken')({ uid, role, token: fcmToken });
+                    lastRegisteredTokenRef.current = sig;
+                    console.log('✅ Token registered via fallback region (us-central1)');
+                } catch (fallbackErr: any) {
+                    console.error('❌ Fallback registration failed:', fallbackErr?.message || fallbackErr);
+                }
+            }
+        };
+
+        registerToken();
+    }, [isBootstrapped, fcmToken, bootstrapState?.user?.uid, bootstrapState?.user?.userRole]);
 
     // Enhanced push notification initialization - NON-BLOCKING
     useEffect(() => {
