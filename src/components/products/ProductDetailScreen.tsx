@@ -11,22 +11,24 @@ import {
   Dimensions,
   Platform,
   PanResponder,
-  Animated,
   Alert,
   FlatList,
+  Modal,
+  Pressable,
+  Animated, // React Native Animated (existing screen usage)
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import Octicons from 'react-native-vector-icons/Octicons';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp, useFocusEffect } from '@react-navigation/native';
-import { Colors } from '../../constants';
 import { BuyerStackParamList } from '../../navigation/types';
 import { type Fruit } from '../../types/fruit';
 import { formatPrice, formatLocation, formatFruitQuantity, getRelativeTime, getDisplayParts } from '../../utils/formatters';
 import { toggleWishlist, isInWishlist, getFruitLikesCount, getFruitLikers, syncFruitLikesCount, addToWishlist, removeFromWishlist, cleanupWishlistInconsistencies } from '../../services/wishlistService';
 import Toast from 'react-native-toast-message';
-import { auth, firestore } from '../../config/firebase';
+import { auth, firestore } from '../../config/firebaseModular';
 import { increment } from '@react-native-firebase/firestore';
+import { GestureHandlerRootView, Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Reanimated, { useSharedValue, useAnimatedStyle, withTiming, withSpring, runOnJS } from 'react-native-reanimated';
 import { useRequests } from '../../hooks/useRequests';
 import { useAuthState } from '../providers/AuthStateProvider';
 import SendRequestModal from '../requests/SendRequestModal';
@@ -167,6 +169,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
     requestCount: 0,
     hasExistingRequestForProduct: false,
     isCheckingExistingRequest: true,
+    showImagePreview: false,
   }));
 
   // Auth context
@@ -239,6 +242,149 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
   const setShowRequestModal = useCallback((show: boolean) => {
     safeSetState(prev => ({ ...prev, showRequestModal: show }));
   }, [safeSetState]);
+
+  const setShowImagePreview = useCallback((show: boolean) => {
+    safeSetState(prev => ({ ...prev, showImagePreview: show }));
+  }, [safeSetState]);
+
+  // -------------------------
+  // Zoomable Image Preview
+  // -------------------------
+  const previewIndexRef = useRef(0);
+  const [previewIndexState, setPreviewIndexState] = useState(0);
+  const onChangePreviewIndex = useCallback((i: number) => {
+    setPreviewIndexState(i);
+    setSelectedImageIndex(i); // keep main screen in sync
+  }, [setSelectedImageIndex]);
+
+  const openImagePreview = useCallback((startIndex: number) => {
+    previewIndexRef.current = startIndex;
+    setPreviewIndexState(startIndex);
+    setShowImagePreview(true);
+  }, [setShowImagePreview]);
+
+  const closeImagePreview = useCallback(() => {
+    setShowImagePreview(false);
+  }, [setShowImagePreview]);
+
+  const hasMultipleImages = product.image_urls && product.image_urls.length > 1;
+
+  // Prefetch neighboring images for smoother swipes inside preview
+  useEffect(() => {
+    if (!screenState.showImagePreview || !product.image_urls?.length) return;
+    const total = product.image_urls.length;
+    if (total < 2) return;
+    const current = previewIndexState;
+    const prev = product.image_urls[(current - 1 + total) % total];
+    const next = product.image_urls[(current + 1) % total];
+    // Fire & forget prefetch (cache layer); ignore rejections silently
+    if (typeof Image?.prefetch === 'function') {
+      try { Image.prefetch(prev); } catch { }
+      try { Image.prefetch(next); } catch { }
+    }
+  }, [previewIndexState, screenState.showImagePreview, product.image_urls]);
+
+  // Mini component: Zoomable single image with pinch + pan + double-tap reset (Gesture API version)
+  const ZoomableImage: React.FC<{ uri: string; width: number; height: number; index: number; total: number; onSwipe?: (dir: 'next' | 'prev') => void; }>
+    = ({ uri, width, height, index, total, onSwipe }) => {
+      const scale = useSharedValue(1);
+      const baseScale = useSharedValue(1);
+      const translateX = useSharedValue(0);
+      const translateY = useSharedValue(0);
+      const lastTranslateX = useSharedValue(0);
+      const lastTranslateY = useSharedValue(0);
+      const lastTapRef = useRef(0);
+
+      const pinch = Gesture.Pinch()
+        .onBegin(() => { baseScale.value = scale.value; })
+        .onUpdate(e => {
+          const next = Math.min(Math.max(baseScale.value * e.scale, 1), 4);
+          scale.value = next;
+        })
+        .onEnd(() => {
+          if (scale.value < 1) scale.value = withSpring(1);
+          if (scale.value > 4) scale.value = withSpring(4);
+        });
+
+      const pan = Gesture.Pan()
+        .onBegin(() => {
+          lastTranslateX.value = translateX.value;
+          lastTranslateY.value = translateY.value;
+        })
+        .onUpdate(e => {
+          if (scale.value > 1) {
+            translateX.value = lastTranslateX.value + e.translationX;
+            translateY.value = lastTranslateY.value + e.translationY;
+          }
+        })
+        .onEnd(e => {
+          const dx = e.translationX;
+          if (scale.value === 1 && Math.abs(dx) > 80 && onSwipe) {
+            if (dx < 0) runOnJS(onSwipe)('next'); else runOnJS(onSwipe)('prev');
+            return;
+          }
+          if (scale.value === 1) {
+            translateX.value = withTiming(0);
+            translateY.value = withTiming(0);
+          }
+        });
+
+      const gesture = Gesture.Simultaneous(pinch, pan);
+
+      const imgStyle = useAnimatedStyle(() => ({
+        transform: [
+          { translateX: translateX.value },
+          { translateY: translateY.value },
+          { scale: scale.value }
+        ]
+      }));
+
+      const resetZoom = () => {
+        scale.value = withTiming(1, { duration: 120 });
+        translateX.value = withTiming(0, { duration: 120 });
+        translateY.value = withTiming(0, { duration: 120 });
+        baseScale.value = 1;
+      };
+
+      const handleDoubleTap = () => {
+        const now = Date.now();
+        if (now - lastTapRef.current < 250) {
+          const target = scale.value > 1 ? 1 : 2.2;
+          scale.value = withSpring(target, { damping: 15 });
+          if (target === 1) {
+            translateX.value = withTiming(0);
+            translateY.value = withTiming(0);
+            baseScale.value = 1;
+          } else {
+            baseScale.value = target;
+          }
+        }
+        lastTapRef.current = now;
+      };
+
+      return (
+        <GestureDetector gesture={gesture}>
+          <Reanimated.View style={{ width, height, justifyContent: 'center', alignItems: 'center' }}>
+            <Pressable onPress={handleDoubleTap}>
+              <Reanimated.Image
+                source={{ uri }}
+                style={[{ width, height, resizeMode: 'contain' }, imgStyle]}
+              />
+            </Pressable>
+            <TouchableOpacity
+              onPress={resetZoom}
+              activeOpacity={0.6}
+              style={{ position: 'absolute', top: -26, right: 20, backgroundColor: 'rgba(0,0,0,0.4)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20 }}>
+              <Text style={{ color: '#fff', fontSize: 12 }}>Reset</Text>
+            </TouchableOpacity>
+            <View style={{ position: 'absolute', bottom: -20, alignItems: 'center' }}>
+              <Text style={{ color: '#fff', fontSize: 13, fontWeight: '600' }}>{index + 1}/{total}</Text>
+              <Text style={{ color: '#fff', fontSize: 11, marginTop: 4 }}>Pinch or Double-tap to zoom</Text>
+            </View>
+          </Reanimated.View>
+        </GestureDetector>
+      );
+    };
 
   const setRequestCount = useCallback((count: number) => {
     safeSetState(prev => ({ ...prev, requestCount: count }));
@@ -824,6 +970,53 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
           text2: `Your request has been sent to ${product.farmer_name || 'the farmer'}.`,
           visibilityTime: 3000,
         });
+
+        // After sending the request, automatically open a chat with an intro message.
+        try {
+          // Lazy import chat helpers to avoid increasing initial bundle
+          const { buildChatId, ensureChatExists, sendMessage, fetchUserProfile, chatHasMessages } = await import('../../services/chatService');
+
+          const buyerId = user?.uid;
+            // product.farmer_id already validated earlier when sending request
+          const farmerId = product.farmer_id;
+          if (buyerId && farmerId && buyerId !== farmerId) {
+            const chatId = buildChatId(buyerId, farmerId);
+
+            // Best-effort fetch of participant meta so names/avatars appear immediately
+            let buyerMeta: any = undefined;
+            let farmerMeta: any = undefined;
+            try { buyerMeta = await fetchUserProfile(buyerId); } catch (_) {}
+            try { farmerMeta = await fetchUserProfile(farmerId); } catch (_) {}
+
+            await ensureChatExists(chatId, [buyerId, farmerId], {
+              ...(buyerMeta ? { [buyerId]: buyerMeta } : {}),
+              ...(farmerMeta ? { [farmerId]: farmerMeta } : {}),
+            });
+
+            // Only send intro message if chat currently has no prior messages
+            const hasMsgs = await chatHasMessages(chatId);
+            if (!hasMsgs) {
+              const fruitName = (product.name || (product as any).title || 'your produce').toString().trim();
+              const introMsg = `I am interested in your ${fruitName}. Can we connect?`;
+              await sendMessage(chatId, buyerId, farmerId, introMsg);
+            }
+
+            // Navigate to ChatDetail screen with expected params
+            try {
+              const displayMeta = farmerMeta || { displayName: (product as any).farmer_name || 'Farmer', profileImage: (product as any).farmer_profileImage || null };
+              (navigation as any).navigate('ChatDetail', {
+                chatId,
+                otherUid: farmerId,
+                name: displayMeta.displayName || 'Farmer',
+                avatarUri: displayMeta.profileImage || null,
+              });
+            } catch (navErr) {
+              console.log('Navigation to ChatDetail failed', navErr);
+            }
+          }
+        } catch (chatErr) {
+          console.log('Auto chat initialization failed (non-blocking):', chatErr);
+        }
       }
     } catch (error) {
       console.error('Error sending request:', error);
@@ -927,7 +1120,11 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
             {product.image_urls && product.image_urls.length > 0 ? (
               <>
                 {/* Hero Image Container */}
-                <View style={styles.heroImageContainer}>
+                <TouchableOpacity
+                  activeOpacity={0.9}
+                  onPress={() => openImagePreview(selectedImageIndex)}
+                  style={styles.heroImageContainer}
+                >
                   <Image
                     source={{ uri: product.image_urls[selectedImageIndex] }}
                     style={styles.heroProductImage}
@@ -955,7 +1152,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                       </View>
                     </View>
                   )}
-                </View>
+                </TouchableOpacity>
 
                 {/* Enhanced Thumbnail Carousel */}
                 {product.image_urls.length > 1 && (
@@ -973,6 +1170,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                             selectedImageIndex === index && styles.enhancedSelectedThumbnail
                           ]}
                           onPress={() => setSelectedImageIndex(index)}
+                          onLongPress={() => openImagePreview(index)}
                           activeOpacity={0.8}
                         >
                           <Image
@@ -1428,6 +1626,54 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
           </View>
         </ScrollView>
 
+        {/* Image Preview Modal */}
+        <Modal
+          visible={screenState.showImagePreview}
+          transparent
+          animationType="fade"
+          onRequestClose={closeImagePreview}
+        >
+          <GestureHandlerRootView style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.9)' }}>
+            <Pressable
+              onPress={closeImagePreview}
+              style={{ position: 'absolute', top: 40, left: 20, zIndex: 20, backgroundColor: 'rgba(0,0,0,0.5)', padding: 10, borderRadius: 24 }}>
+              <Ionicons name="close" size={22} color="#fff" />
+            </Pressable>
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+              {product.image_urls?.length ? (
+                <ZoomableImage
+                  uri={product.image_urls[previewIndexState]}
+                  width={width}
+                  height={height * 0.7}
+                  index={previewIndexState}
+                  total={product.image_urls.length}
+                  onSwipe={(dir) => {
+                    if (!hasMultipleImages) return;
+                    if (dir === 'next') {
+                      const next = (previewIndexState + 1) % product.image_urls.length;
+                      onChangePreviewIndex(next);
+                    } else {
+                      const prev = (previewIndexState - 1 + product.image_urls.length) % product.image_urls.length;
+                      onChangePreviewIndex(prev);
+                    }
+                  }}
+                />
+              ) : null}
+            </View>
+            {hasMultipleImages && (
+              <View style={{ position: 'absolute', bottom: 24, width: '100%', flexDirection: 'row', justifyContent: 'center' }}>
+                {product.image_urls.map((_, i) => (
+                  <TouchableOpacity
+                    key={i}
+                    onPress={() => onChangePreviewIndex(i)}
+                    style={{ width: 8, height: 8, borderRadius: 4, marginHorizontal: 5, backgroundColor: i === previewIndexState ? '#4CAF50' : 'rgba(255,255,255,0.4)' }}
+                  />
+                ))}
+              </View>
+            )}
+          </GestureHandlerRootView>
+        </Modal>
+
         {/* Enhanced Swipe to Request with Haptic Feedback */}
         <View style={styles.enhancedSwipeContainer}>
           <View style={[
@@ -1551,7 +1797,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
   },
-  
+
   modernActionButton: {
     width: 44,
     height: 44,

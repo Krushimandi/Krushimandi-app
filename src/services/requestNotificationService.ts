@@ -4,7 +4,7 @@
  */
 
 import { addDoc, collection, Timestamp } from '@react-native-firebase/firestore';
-import { firestore } from '../config/firebase';
+import { firestore } from '../config/firebaseModular';
 import auth from '@react-native-firebase/auth';
 import { RequestStatus } from '../types/Request';
 

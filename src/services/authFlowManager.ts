@@ -87,19 +87,23 @@ class AuthFlowManager {
         lastLoginAt: data.lastLoginAt,
       };
 
-      // Update Zustand store
-      const authStore = useAuthStore.getState();
-      authStore.setUser({
-        id: uid,
-        phone: profile.phoneNumber,
-        firstName: profile.firstName,
-        lastName: profile.lastName,
-        avatar: profile.profileImage,
-        userType: profile.userRole,
-        status: profile.status as any,
-        createdAt: profile.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
-        updatedAt: profile.updatedAt?.toDate?.()?.toISOString() || new Date().toISOString(),
-      });
+      // Update Zustand store ONLY if userRole exists (otherwise we'll re-route to role selection)
+      if (profile.userRole) {
+        const authStore = useAuthStore.getState();
+        authStore.setUser({
+          id: uid,
+          phone: profile.phoneNumber,
+          firstName: profile.firstName,
+            lastName: profile.lastName,
+          avatar: profile.profileImage,
+          userType: profile.userRole,
+          status: profile.status as any,
+          createdAt: profile.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+          updatedAt: profile.updatedAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+        });
+      } else {
+        console.log('⚠️ Profile exists but missing userRole, will force role_selection.');
+      }
 
       // Persist to AsyncStorage for offline access
       await this.persistUserData(profile);
@@ -176,11 +180,23 @@ class AuthFlowManager {
       const profile = await this.loadUserProfile(user.uid);
       
       if (!profile) {
-        // User authenticated but no profile exists
+        console.log('[AuthFlow] No profile document -> role_selection');
         return {
           step: 'role_selection',
           isFirstLaunch: false,
           hasProfile: false,
+          userRole: null,
+          isProfileComplete: false,
+          needsFruitSelection: false,
+        };
+      }
+
+      if (!profile.userRole) {
+        console.log('[AuthFlow] Profile loaded but userRole missing -> role_selection');
+        return {
+          step: 'role_selection',
+          isFirstLaunch: false,
+          hasProfile: true,
           userRole: null,
           isProfileComplete: false,
           needsFruitSelection: false,
@@ -358,19 +374,19 @@ class AuthFlowManager {
 
       // Try to load existing profile
       const profile = await this.loadUserProfile(user.uid);
+      console.log('📋 Loaded profile after OTP:', profile);
       
-      if (!profile) {
-        // No profile exists, go to role selection
+      if (!profile || !profile.userRole) {
         await this.updateFlowState('role_selection');
         return { screen: 'RoleSelection' };
       }
 
-      // Profile exists, determine next step
-      if (!profile.isProfileComplete || !profile.firstName || !profile.lastName) {
+      const needsProfileSetup = (!profile.isProfileComplete || !profile.firstName || !profile.lastName);
+      if (needsProfileSetup) {
         await this.updateFlowState('profile_setup');
         return { 
           screen: 'IntroduceYourself', 
-          params: { userRole: profile.userRole } 
+          params: { userRole: profile.userRole }
         };
       }
 

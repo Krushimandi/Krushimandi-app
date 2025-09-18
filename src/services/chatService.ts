@@ -158,6 +158,22 @@ export const markChatRead = async (chatId: string, uid: string) => {
   await chatUnreadRef.set(0);
 };
 
+// Lightweight existence check to avoid sending duplicate introductory messages.
+// Uses lastMessage (cheap) then falls back to one child read of messages list if needed.
+export const chatHasMessages = async (chatId: string): Promise<boolean> => {
+  try {
+    const chatRef = database().ref(`chats/${chatId}`);
+    const snap = await chatRef.child('lastMessage').once('value');
+    const last = snap.val();
+    if (last && typeof last === 'string' && last.trim().length > 0) return true;
+    // Fallback: check if at least one message node exists
+    const oneMsg = await chatRef.child('messages').limitToFirst(1).once('value');
+    return oneMsg.exists();
+  } catch (e) {
+    return false; // treat errors as empty to be safe (caller may decide to skip intro if unsure)
+  }
+};
+
 export const fetchUserProfile = async (
   uid: string
 ): Promise<{ displayName: string; profileImage?: string | null } | null> => {

@@ -24,7 +24,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Colors } from '../../constants/Colors';
-import { firestore, doc, getDoc } from '../../config/firebaseModular'; // modular firestore (ensure exported)
+import { firestore, doc, getDoc } from '../../config/firebaseModular';
 import { buildChatId, ensureChatExists, fetchUserProfile } from '../../services/chatService';
 import Clipboard from '@react-native-clipboard/clipboard';
 import { getHeaderConstants } from '../../constants/Layout';
@@ -203,40 +203,87 @@ const RequestsScreen = () => {
       return matchesSearch && matchesFilter;
     });
 
-    // Sort requests
+    // Sort requests (stable, multi-mode)
     filtered.sort((a, b) => {
-      switch (sortBy) {
-        case 'alphabetical':
-          return (a.productSnapshot?.name || '').localeCompare(b.productSnapshot?.name || '');
-        case 'quantity': {
-          const getQuantityValue = (q, unit) => {
-            if (Array.isArray(q)) {
-              const avg = (parseFloat(q[0]) + parseFloat(q[1])) / 2;
-              return isNaN(avg) ? 0 : avg;
-            }
-            const num = parseFloat(q);
-            return isNaN(num) ? 0 : num;
-          };
-          const qa = getQuantityValue(a.quantity, a.quantityUnit);
-          const qb = getQuantityValue(b.quantity, b.quantityUnit);
-          return qb - qa; // Descending (largest first)
+      // Helpers kept inside to avoid polluting outer scope; cheap relative to list size
+      const normString = (v) => (v || '').toString().trim().toLowerCase();
+      const getDate = (tsPrimary, tsFallback) => {
+        const ts = tsPrimary || tsFallback;
+        if (!ts) return 0;
+        if (typeof ts === 'string') {
+          const t = Date.parse(ts);
+            return isNaN(t) ? 0 : t;
         }
-        case 'price':
-          const priceA = parseFloat(a.productSnapshot?.price?.toString().replace(/[^\d.]/g, '') || '0');
-          const priceB = parseFloat(b.productSnapshot?.price?.toString().replace(/[^\d.]/g, '') || '0');
-          return priceB - priceA;
-        default: // date
-          // Handle both Firestore Timestamp and string dates
-          const getDateFromTimestamp = (timestamp) => {
-            if (!timestamp) return new Date(0);
-            if (typeof timestamp === 'string') return new Date(timestamp);
-            if (timestamp.toDate && typeof timestamp.toDate === 'function') return timestamp.toDate();
-            if (timestamp.seconds) return new Date(timestamp.seconds * 1000);
-            return new Date(timestamp);
-          };
+        if (ts.toDate && typeof ts.toDate === 'function') return ts.toDate().getTime();
+        if (typeof ts.seconds === 'number') return ts.seconds * 1000;
+        try {
+          return new Date(ts).getTime();
+        } catch {
+          return 0;
+        }
+      };
+      const getQuantityPair = (q) => {
+        if (!q) return [0,0];
+        if (Array.isArray(q) && q.length === 2) {
+          const min = Number(q[0]) || 0;
+          const max = Number(q[1]) || 0;
+          return [min, max];
+        }
+        const single = Number(q) || 0;
+        return [single, single];
+      };
+      const getPrice = (p) => {
+        if (p == null) return 0;
+        if (typeof p === 'number') return p;
+        if (typeof p === 'string') {
+          const num = parseFloat(p.replace(/[^\d.]/g, ''));
+          return isNaN(num) ? 0 : num;
+        }
+        return 0;
+      };
 
-          return getDateFromTimestamp(b.createdAt).getTime() - getDateFromTimestamp(a.createdAt).getTime();
+      // Primary comparator switch
+      let cmp = 0;
+      switch (sortBy) {
+        case 'alphabetical': {
+          const nameA = normString(a.productSnapshot?.name);
+          const nameB = normString(b.productSnapshot?.name);
+          cmp = nameA.localeCompare(nameB);
+          break;
+        }
+        case 'quantity': {
+          // Ascending by min, then max (explicit requirement: treat array [min,max])
+          const [amin, amax] = getQuantityPair(a.quantity);
+          const [bmin, bmax] = getQuantityPair(b.quantity);
+          if (amin !== bmin) cmp = amin - bmin; else cmp = amax - bmax;
+          break;
+        }
+        case 'price': {
+          // Descending (higher price first); adjust if user prefers ascending
+          const priceA = getPrice(a.productSnapshot?.price);
+          const priceB = getPrice(b.productSnapshot?.price);
+          cmp = priceB - priceA;
+          break;
+        }
+        case 'date':
+        default: {
+          // Newest first using updatedAt (fallback createdAt)
+          const tA = getDate(a.updatedAt, a.createdAt);
+          const tB = getDate(b.updatedAt, b.createdAt);
+          cmp = tB - tA; // descending by timestamp
+          break;
+        }
       }
+
+      if (cmp !== 0) return cmp;
+      // Tie-breakers for stability: date desc, then name, then id
+      const tA2 = getDate(a.updatedAt, a.createdAt);
+      const tB2 = getDate(b.updatedAt, b.createdAt);
+      if (tA2 !== tB2) return tB2 - tA2;
+      const nA = normString(a.productSnapshot?.name);
+      const nB = normString(b.productSnapshot?.name);
+      if (nA !== nB) return nA.localeCompare(nB);
+      return (a.id || '').localeCompare(b.id || '');
     });
 
     return filtered;
@@ -861,7 +908,7 @@ const RequestsScreen = () => {
         bounces={true}
         alwaysBounceVertical={true}
         ListEmptyComponent={
-          <View style={[styles.emptyState, { minHeight: Dimensions.get('window').height * 0.6 }]}>
+          <View style={[styles.emptyState, { minHeight: Dimensions.get('window').height * 0.4 }]}>
             <Icon name="document-text-outline" size={64} color="#D1D5DB" />
             <Text style={styles.emptyText}>
               {searchQuery || selectedFilter !== 'All' ? 'No matching requests' : 'No requests found'}

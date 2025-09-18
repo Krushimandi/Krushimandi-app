@@ -167,6 +167,4 @@ AppState.addEventListener('change', state => {
 	}
 });
 
-// Exports
-export { auth, firestore, functions, messaging, appCheck, storage, rtdb, ServerValue, authReady, firestoreReadyPromise, rtdbReadyPromise, keepChatsSynced, keepChatThreadSynced };
 export default { auth, firestore, functions, messaging, appCheck, storage, rtdb, ServerValue, authReady, firestoreReadyPromise, rtdbReadyPromise, cacheStorageImage, keepChatsSynced, keepChatThreadSynced };

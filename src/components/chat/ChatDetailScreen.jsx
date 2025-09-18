@@ -2,7 +2,6 @@ import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import {
   View,
   Text,
-  TextInput,
   TouchableOpacity,
   Image,
   StyleSheet,
@@ -10,8 +9,9 @@ import {
   Animated,
   Dimensions,
   Platform,
-  Keyboard,
   FlatList,
+  Keyboard,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Feather from 'react-native-vector-icons/Feather';
@@ -19,6 +19,9 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import { BlurView } from '@react-native-community/blur';
 import { auth } from '../../config/firebaseModular';
 import { subscribeMessages, sendMessage, markChatRead, buildChatId, fetchUserProfile, ensureChatExists, backfillChatParticipants, setTyping, subscribeTyping } from '../../services/chatService';
+import useKeyboardHeight from '../../hooks/useKeyboardHeight';
+import useKeyboardLayoutMode from '../../hooks/useKeyboardLayoutMode';
+import ChatInputBar from './ChatInputBar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Constants
@@ -45,30 +48,32 @@ const COLORS = {
   price: '#EF4444',
 };
 
-const MessageBubble = React.memo(({ item, isMe }) => {
-  return (
-    <View style={[styles.messageContainer, isMe ? styles.myMessageContainer : styles.otherMessageContainer]}>
-      <View style={[styles.messageBubble, isMe ? styles.myBubble : styles.otherBubble]}>
-        <Text style={[styles.messageText, isMe ? styles.myMessageText : styles.otherMessageText]}>
-          {item.content}
+const MessageBubble = React.memo(({ item, isMe, onPress }) => (
+  <TouchableOpacity
+    activeOpacity={0.75}
+    onPress={onPress}
+    style={[styles.messageContainer, isMe ? styles.myMessageContainer : styles.otherMessageContainer]}
+  >
+    <View style={[styles.messageBubble, isMe ? styles.myBubble : styles.otherBubble]}>
+      <Text style={[styles.messageText, isMe ? styles.myMessageText : styles.otherMessageText]}>
+        {item.content}
+      </Text>
+      <View style={styles.messageFooter}>
+        <Text style={[styles.messageTime, isMe ? styles.myMessageTime : styles.otherMessageTime]}>
+          {item.time}
         </Text>
-        <View style={styles.messageFooter}>
-          <Text style={[styles.messageTime, isMe ? styles.myMessageTime : styles.otherMessageTime]}>
-            {item.time}
-          </Text>
-          {isMe && (
-            <MaterialCommunityIcons
-              name="check-all"
-              size={12}
-              color="rgba(255, 255, 255, 0.7)"
-              style={styles.readStatus}
-            />
-          )}
-        </View>
+        {isMe && (
+          <MaterialCommunityIcons
+            name="check-all"
+            size={12}
+            color="rgba(255, 255, 255, 0.7)"
+            style={styles.readStatus}
+          />
+        )}
       </View>
     </View>
-  );
-});
+  </TouchableOpacity>
+));
 
 const TypingIndicator = React.memo(() => {
   const dot1 = useRef(new Animated.Value(0)).current;
@@ -115,8 +120,9 @@ const ChatDetailScreen = ({ route, navigation }) => {
   const inputRef = useRef(null);
   const flatListRef = useRef(null);
   const headerOpacity = useRef(new Animated.Value(0)).current;
-  const keyboardHeight = useRef(new Animated.Value(0)).current;
-  const inputContainerTranslateY = useRef(new Animated.Value(0)).current;
+  const { keyboardHeightAnimated, keyboardHeight, keyboardVisible } = useKeyboardHeight();
+  const [inputBarHeight, setInputBarHeight] = useState(0);
+  const { layoutMode, handleRootLayout, isResizeLike } = useKeyboardLayoutMode({ debounceMs: 100 });
 
   // Safe fallback for chat and avatar
   const defaultAvatar = require('../../../assets/logo.png');
@@ -136,67 +142,24 @@ const ChatDetailScreen = ({ route, navigation }) => {
   const [messageText, setMessageText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
-  const [keyboardVisible, setKeyboardVisible] = useState(false);
-  const [inputHeight, setInputHeight] = useState(0);
   const [isNearBottom, setIsNearBottom] = useState(true);
   const initialScrollDone = useRef(false);
   const [messages, setMessages] = useState([]);
 
-  // Keyboard event handlers
+
+  const windowHeight = Dimensions.get("window").height;
+
   useEffect(() => {
-    const keyboardWillShow = (event) => {
-      const kbHeight = event?.endCoordinates?.height ?? 0;
-      setKeyboardVisible(true);
-
-      Animated.parallel([
-        Animated.timing(inputContainerTranslateY, {
-          toValue: -kbHeight,
-          duration: event.duration || 250,
-          useNativeDriver: true,
-        }),
-        Animated.timing(keyboardHeight, {
-          toValue: kbHeight,
-          duration: event.duration || 250,
-          useNativeDriver: false,
-        })
-      ]).start();
-
-      // Auto-scroll to bottom when keyboard shows if user is near bottom
-      if (isNearBottom) {
-        setTimeout(() => {
-          flatListRef.current?.scrollToEnd({ animated: true });
-        }, 100);
-      }
-    };
-
-    const keyboardWillHide = (event) => {
-      setKeyboardVisible(false);
-
-      Animated.parallel([
-        Animated.timing(inputContainerTranslateY, {
-          toValue: 0,
-          duration: event.duration || 250,
-          useNativeDriver: true,
-        }),
-        Animated.timing(keyboardHeight, {
-          toValue: 0,
-          duration: event.duration || 250,
-          useNativeDriver: false,
-        })
-      ]).start();
-    };
-
-    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-
-    const showListener = Keyboard.addListener(showEvent, keyboardWillShow);
-    const hideListener = Keyboard.addListener(hideEvent, keyboardWillHide);
-
-    return () => {
-      showListener?.remove();
-      hideListener?.remove();
-    };
-  }, [inputContainerTranslateY, keyboardHeight, isNearBottom]);
+    console.log("chat Window height:", windowHeight);
+  }, [windowHeight]);
+  // Auto-scroll when keyboard appears if near bottom
+  useEffect(() => {
+    if (keyboardVisible && isNearBottom) {
+      requestAnimationFrame(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      });
+    }
+  }, [keyboardVisible, isNearBottom]);
 
   // Utility functions
   const formatTime = (date) => date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -205,11 +168,12 @@ const ChatDetailScreen = ({ route, navigation }) => {
     if (!messageText.trim() || !chatId || !currentUid || !otherUid) return;
     const text = messageText.trim();
     setMessageText('');
-    setInputHeight(48);
+    // ChatInputBar manages its own height; just refocus after send optionally
+    requestAnimationFrame(() => inputRef.current?.focus?.());
     try {
       await ensureChatExists(chatId, [currentUid, otherUid]);
       await sendMessage(chatId, currentUid, otherUid, text);
-      try { await setTyping(chatId, currentUid, false); } catch (_) {}
+      try { await setTyping(chatId, currentUid, false); } catch (_) { }
     } catch (e) {
       console.log('sendMessage error', e?.message || e);
     }
@@ -247,13 +211,7 @@ const ChatDetailScreen = ({ route, navigation }) => {
     setShowMenu(false);
   }, []);
 
-  // Handle input height changes
-  const handleContentSizeChange = useCallback((event) => {
-    const { height } = event.nativeEvent.contentSize;
-    const next = Math.min(Math.max(height + 24, 48), 120);
-    // Avoid tiny oscillations causing repeated re-renders
-    setInputHeight(prev => (Math.abs(prev - next) > 1 ? next : prev));
-  }, []);
+  // input height logic handled internally by ChatInputBar
 
   // Header animation effect
   useEffect(() => {
@@ -276,10 +234,10 @@ const ChatDetailScreen = ({ route, navigation }) => {
   useEffect(() => {
     if (!chatId || !currentUid) return;
     const hasText = messageText.trim().length > 0;
-    setTyping(chatId, currentUid, hasText).catch(() => {});
+    setTyping(chatId, currentUid, hasText).catch(() => { });
     if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
     typingTimerRef.current = setTimeout(() => {
-      setTyping(chatId, currentUid, false).catch(() => {});
+      setTyping(chatId, currentUid, false).catch(() => { });
     }, 1500);
     return () => { if (typingTimerRef.current) clearTimeout(typingTimerRef.current); };
   }, [messageText, chatId, currentUid]);
@@ -290,7 +248,7 @@ const ChatDetailScreen = ({ route, navigation }) => {
     (async () => {
       if (!chatId || !currentUid) return;
       // Best-effort backfill for legacy chats missing participants
-      try { await backfillChatParticipants(chatId); } catch (_) {}
+      try { await backfillChatParticipants(chatId); } catch (_) { }
       unsub = subscribeMessages(chatId, (list) => {
         const mapped = list.map((m) => ({
           id: m.id,
@@ -316,7 +274,7 @@ const ChatDetailScreen = ({ route, navigation }) => {
       const fetched = await fetchUserProfile(otherUid);
       console.log('Fetched chat profile:', fetched);
       if (fetched) {
-          const uri = fetched.profileImage || null;
+        const uri = fetched.profileImage || null;
         setContact((prev) => ({
           ...prev,
           name: fetched.displayName || prev.name,
@@ -334,25 +292,38 @@ const ChatDetailScreen = ({ route, navigation }) => {
     setIsNearBottom(atBottom);
   }, []);
 
+  // Focus input programmatically (used when tapping messages or blank space if needed)
+  const focusInput = useCallback(() => {
+    inputRef.current?.focus?.();
+  }, []);
+
   // Memoize contentContainerStyle to avoid prop churn on FlatList
-  const messagesContentStyle = useMemo(() => ([
-    styles.messagesContent,
-    {
-      paddingTop: HEADER_HEIGHT + insets.top + 20,
-      paddingBottom: keyboardVisible ? 20 : 120,
-    }
-  ]), [insets.top, keyboardVisible]);
+  const messagesContentStyle = useMemo(() => {
+    const kbExtra = isResizeLike ? 0 : keyboardHeight;
+    return [
+      styles.messagesContent,
+      {
+        paddingTop: HEADER_HEIGHT + insets.top + 20,
+        paddingBottom: kbExtra + inputBarHeight + Math.max(insets.bottom, 8) + 12,
+      }
+    ];
+  }, [insets.top, insets.bottom, keyboardHeight, inputBarHeight, isResizeLike]);
 
   // Memoized renderItem to avoid re-creating per render
   const renderItem = useCallback(({ item }) => (
-    <MessageBubble item={item} isMe={item.sender === 'me'} />
-  ), []);
+    <MessageBubble item={item} isMe={item.sender === 'me'} onPress={focusInput} />
+  ), [focusInput]);
 
   // Memoized footer to avoid unnecessary recalculations
   const ListFooter = useCallback(() => (isTyping ? <TypingIndicator /> : null), [isTyping]);
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? HEADER_HEIGHT : 0}
+      onLayout={handleRootLayout}
+    >
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
 
       {/* Header */}
@@ -367,7 +338,10 @@ const ChatDetailScreen = ({ route, navigation }) => {
         ) : (
           <View style={[styles.headerBlur, { backgroundColor: COLORS.surface }]} />
         )}
-        <SafeAreaView style={styles.headerContent}>
+        {/* Only apply top safe area to avoid extra bottom padding in header */}
+        <SafeAreaView
+          edges={['top']}
+          style={styles.headerContent}>
           <View style={styles.headerRow}>
             <TouchableOpacity
               style={styles.backButton}
@@ -483,84 +457,25 @@ const ChatDetailScreen = ({ route, navigation }) => {
         />
       </View>
 
-      {/* Input Container - Always stays above keyboard */}
       <Animated.View
         style={[
           styles.inputContainer,
-          {
-            transform: [{ translateY: inputContainerTranslateY }],
-          }
+          (Platform.OS === 'android' && !isResizeLike)
+            ? { bottom: keyboardHeightAnimated }
+            : { bottom: 0 }
         ]}
       >
-        <View style={[
-          styles.inputWrapper,
-          {
-            paddingBottom: Math.max(insets.bottom, 20),
-            minHeight: inputHeight + 32,
-          }
-        ]}>
-          <View style={styles.inputRow}>
-            <View style={[
-              styles.textInputContainer,
-              { minHeight: inputHeight }
-            ]}>
-              <TextInput
-                ref={inputRef}
-                style={[
-                  styles.textInput,
-                  { minHeight: inputHeight }
-                ]}
-                placeholder="Type your message..."
-                placeholderTextColor={COLORS.textTertiary}
-                value={messageText}
-                onChangeText={setMessageText}
-                multiline
-                maxLength={1000}
-                onSubmitEditing={handleSend}
-                blurOnSubmit={false}
-                selectionColor={COLORS.primary}
-                onContentSizeChange={handleContentSizeChange}
-                accessible={true}
-                accessibilityLabel="Message input field"
-                accessibilityHint="Type your message here"
-              />
-
-              {messageText.length > 500 && (
-                <View style={styles.characterCounter}>
-                  <Text style={styles.characterCountText}>
-                    {1000 - messageText.length}
-                  </Text>
-                </View>
-              )}
-            </View>
-
-            <TouchableOpacity
-              style={[
-                styles.sendButton,
-                messageText.trim() && styles.sendButtonActive
-              ]}
-              onPress={messageText.trim() ? handleSend : undefined}
-              disabled={!messageText.trim()}
-              activeOpacity={0.8}
-              accessible={true}
-              accessibilityLabel={messageText.trim() ? "Send message" : "Type a message to send"}
-              accessibilityRole="button"
-            >
-              <Animated.View style={[
-                styles.sendIconContainer,
-                messageText.trim() && styles.sendIconActive
-              ]}>
-                {messageText.trim() ? (
-                  <Feather name="send" size={20} color="#FFFFFF" />
-                ) : (
-                  <Feather name="edit-3" size={20} color={COLORS.textSecondary} />
-                )}
-              </Animated.View>
-            </TouchableOpacity>
-          </View>
-        </View>
+        <ChatInputBar
+          ref={inputRef}
+          value={messageText}
+          onChangeText={setMessageText}
+          onSend={handleSend}
+          onHeightChange={setInputBarHeight}
+          maxLength={1000}
+          onFocus={() => setShowMenu(false)}
+        />
       </Animated.View>
-    </View>
+    </KeyboardAvoidingView>
   );
 };
 
@@ -587,6 +502,9 @@ const styles = StyleSheet.create(
       left: 0,
       right: 0,
       bottom: 0,
+    },
+    headerContent: {
+      paddingBottom: 8,
     },
     headerRow: {
       flexDirection: 'row',
@@ -791,90 +709,7 @@ const styles = StyleSheet.create(
       borderTopColor: COLORS.border,
       zIndex: 100,
     },
-    inputWrapper: {
-      paddingHorizontal: 16,
-      paddingTop: 16,
-      backgroundColor: 'rgba(255, 255, 255, 0.95)',
-      borderTopLeftRadius: 25,
-      borderTopRightRadius: 25,
-      shadowColor: COLORS.shadow,
-      shadowOffset: { width: 0, height: -4 },
-      shadowOpacity: 0.1,
-      shadowRadius: 12,
-      elevation: 8,
-    },
-    inputRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 12,
-    },
-    textInputContainer: {
-      flex: 1,
-      backgroundColor: 'rgba(249, 250, 251, 0.8)',
-      borderRadius: 25,
-      borderWidth: 1.5,
-      borderColor: 'rgba(229, 231, 235, 0.6)',
-      paddingHorizontal: 18,
-      maxHeight: 120,
-      position: 'relative',
-      justifyContent: 'center',
-      shadowColor: 'rgba(16, 185, 129, 0.1)',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.8,
-      shadowRadius: 8,
-      elevation: 4,
-    },
-    textInput: {
-      fontSize: 16,
-      color: COLORS.text,
-      fontWeight: '400',
-      lineHeight: 22,
-      textAlignVertical: 'center',
-      alignContent: 'center',
-    },
-   
-    characterCounter: {
-      position: 'absolute',
-      bottom: 4,
-      right: 8,
-      backgroundColor: 'rgba(107, 114, 128, 0.1)',
-      borderRadius: 8,
-      paddingHorizontal: 6,
-      paddingVertical: 2,
-    },
-    characterCountText: {
-      fontSize: 10,
-      color: COLORS.textSecondary,
-      fontWeight: '500',
-    },
-    sendButton: {
-      width: 48,
-      height: 48,
-      borderRadius: 24,
-      backgroundColor: 'rgba(229, 231, 235, 0.8)',
-      alignItems: 'center',
-      justifyContent: 'center',
-      position: 'relative',
-      shadowColor: COLORS.shadow,
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-      elevation: 3,
-    },
-    sendButtonActive: {
-      backgroundColor: COLORS.primary,
-      shadowColor: COLORS.primary,
-      shadowOpacity: 0.3,
-      shadowRadius: 8,
-      elevation: 6,
-      transform: [{ scale: 1.05 }],
-    },
-    sendIconContainer: {
-      transform: [{ scale: 1 }],
-    },
-    sendIconActive: {
-      transform: [{ scale: 1.1 }],
-    },
+    // old input-related styles removed (handled by ChatInputBar)
   }
 );
 

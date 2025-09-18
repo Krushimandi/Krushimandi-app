@@ -19,7 +19,7 @@ import { FarmerHomeScreen } from '../../components/home';
 import { FarmerRequestsScreen } from '../../components/requests';
 import { AddFruitScreen, PhotoUploadScreen, PriceSelectionScreen, ProductDetailScreen, ProductDetailsFarmer } from '../../components/products';
 import ChatListScreen from '../../components/chat/ChatListScreen';
-import { ProfileScreen } from '../../components/ProfileScreen';
+import { ProfileScreen } from "../../components/ProfileScreen";
 import NotificationBadge from '../../components/common/NotificationBadge';
 
 // Hooks
@@ -302,6 +302,7 @@ const FarmerTabNavigator = () => {
           tabBarAccessibilityLabel: 'Chats Tab'
         }}
       />
+      
       <MainTab.Screen
         name="Profiles"
         component={ProfileScreen}

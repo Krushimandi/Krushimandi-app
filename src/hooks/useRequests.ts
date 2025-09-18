@@ -20,7 +20,7 @@ export const useRequests = () => {
   const getActiveUid = () => auth().currentUser?.uid || user?.uid || null;
 
   // Create a new request
-  const createRequest = useCallback(async (input: CreateRequestInput): Promise<string | null> => {
+  const createRequest = useCallback(async (input: CreateRequestInput, options?: { includeMeta?: boolean }): Promise<string | { requestId: string; fruitData: any; farmerData: any; buyerData: any; } | null> => {
     const uid = getActiveUid();
     if (!uid) {
       setError('User not authenticated');
@@ -30,7 +30,8 @@ export const useRequests = () => {
     try {
       setLoading(true);
       setError(null);
-  const requestId = await requestService.createRequest(uid, input);
+  const created = await requestService.createRequest(uid, input, options);
+      const requestId = typeof created === 'string' ? created : created?.requestId;
       
       if (requestId) {
         // Get the created request to access product snapshot and farmer details

@@ -12,7 +12,7 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import { Fruits } from '../../constants/Fruits';
 import { authFlowManager } from '../../services/authFlowManager';
 import { updateUserInFirestore, getUserFromAsyncStorage, saveUserToAsyncStorage, cleanupUnusedBuyerFields } from '../../services/firebaseService';
-import { auth } from '../../config/firebase';
+import { auth } from '../../config/firebaseModular';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface FruitsScreenProps {

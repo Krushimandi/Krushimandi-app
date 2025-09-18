@@ -20,9 +20,6 @@ import {
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import auth from '@react-native-firebase/auth';
-import firestore from '@react-native-firebase/firestore';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { saveUserRole } from '../../utils/userRoleStorage';
 import { authFlowManager } from '../../services/authFlowManager';
 import Toast from 'react-native-toast-message';
 import { useAuth } from '../../contexts/AuthContext';
@@ -307,6 +304,7 @@ const OTPVerificationScreen = ({ navigation, route }) => {
           const currentUser = auth().currentUser;
           const targetPhone = normalizePhone(displayPhoneNumber);
           const currentPhone = normalizePhone(currentUser?.phoneNumber);
+          console.log('Current user after OTP error:', currentUser, 'targetPhone:', targetPhone, 'currentPhone:', currentPhone);
           if (currentUser?.uid && currentPhone && currentPhone === targetPhone) {
             const route = await authFlowManager.resumeAuthFlow();
             if (route.screen === 'Main') {

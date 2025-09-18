@@ -3,7 +3,8 @@
  * Handles wishlist functionality for buyers
  * Uses new structure: fruits/{fruitId}/wishlists/{userId}
  */
-import { 
+// Use modular firebase exports to avoid calling functions like firestore() incorrectly.
+import {
   collection,
   doc,
   getDoc,
@@ -19,7 +20,7 @@ import {
   serverTimestamp as firestoreServerTimestamp,
   increment as firestoreIncrement
 } from '@react-native-firebase/firestore';
-import { auth, firestore } from '../config/firebase';
+import { auth, firestore } from '../config/firebaseModular';
 
 /**
  * Add fruit to user's wishlist - OPTIMIZED VERSION
@@ -37,7 +38,7 @@ export const addToWishlist = async (fruitId) => {
     console.log('➕ Adding fruit to wishlist (optimized):', fruitId, 'user:', user.uid);
 
     // Create batch for atomic operations
-    const batch = writeBatch(firestore);
+  const batch = writeBatch(firestore);
 
     // Prepare document references
     const fruitsCollectionRef = collection(firestore, 'fruits');
@@ -66,9 +67,7 @@ export const addToWishlist = async (fruitId) => {
     batch.set(userWishlistDocRef, userWishlistData);
     
     // Also increment the fruit likes count in the same batch
-    batch.update(fruitDocRef, {
-      likes: firestoreIncrement(1)
-    });
+    batch.update(fruitDocRef, { likes: firestoreIncrement(1) });
 
     // Commit all operations atomically
     await batch.commit();
@@ -98,7 +97,7 @@ export const removeFromWishlist = async (fruitId) => {
     console.log('➖ Removing fruit from wishlist (optimized):', fruitId, 'user:', user.uid);
 
     // Create batch for atomic operations
-    const batch = writeBatch(firestore);
+  const batch = writeBatch(firestore);
 
     // Prepare document references
     const fruitsCollectionRef = collection(firestore, 'fruits');
@@ -116,9 +115,7 @@ export const removeFromWishlist = async (fruitId) => {
     batch.delete(userWishlistDocRef);
     
     // Also decrement the fruit likes count in the same batch
-    batch.update(fruitDocRef, {
-      likes: firestoreIncrement(-1)
-    });
+    batch.update(fruitDocRef, { likes: firestoreIncrement(-1) });
 
     // Commit all operations atomically
     await batch.commit();
