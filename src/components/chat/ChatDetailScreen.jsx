@@ -338,7 +338,10 @@ const ChatDetailScreen = ({ route, navigation }) => {
         ) : (
           <View style={[styles.headerBlur, { backgroundColor: COLORS.surface }]} />
         )}
-        <SafeAreaView style={styles.headerContent}>
+        {/* Only apply top safe area to avoid extra bottom padding in header */}
+        <SafeAreaView
+          edges={['top']}
+          style={styles.headerContent}>
           <View style={styles.headerRow}>
             <TouchableOpacity
               style={styles.backButton}
@@ -457,7 +460,6 @@ const ChatDetailScreen = ({ route, navigation }) => {
       <Animated.View
         style={[
           styles.inputContainer,
-          // In pan/none modes on Android, manually elevate above keyboard.
           (Platform.OS === 'android' && !isResizeLike)
             ? { bottom: keyboardHeightAnimated }
             : { bottom: 0 }
@@ -500,6 +502,9 @@ const styles = StyleSheet.create(
       left: 0,
       right: 0,
       bottom: 0,
+    },
+    headerContent: {
+      paddingBottom: 8,
     },
     headerRow: {
       flexDirection: 'row',

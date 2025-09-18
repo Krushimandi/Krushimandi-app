@@ -73,7 +73,7 @@ export const ChatInputBar = forwardRef(({
 
     return (
         <View style={styles.container}>
-            <View style={[styles.inputWrapper, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+            <View style={[styles.inputWrapper, { paddingBottom: Math.max(insets.bottom * 0.65, 12) }]}>
                 <View style={styles.row}>
                     <View style={[styles.textInputContainer, { minHeight: inputHeight }]}>
                         <TextInput

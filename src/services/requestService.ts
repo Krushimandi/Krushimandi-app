@@ -3,7 +3,7 @@
  * Handles all request-related operations between buyers and farmers
  */
 
-import { auth, firestore } from '../config/firebase';
+import { auth, firestore } from '../config/firebaseModular';
 import { addDoc, collection, increment, serverTimestamp, Timestamp } from '@react-native-firebase/firestore';
 import { Request, RequestStatus, CreateRequestInput, RequestResponseInput, RequestFilters, ProductRequestCount } from '../types/Request';
 
@@ -53,7 +53,7 @@ class RequestService {
     }
 
     // Create a new request
-    async createRequest(buyerId: string, input: CreateRequestInput): Promise<string> {
+    async createRequest(buyerId: string, input: CreateRequestInput, options?: { includeMeta?: boolean }): Promise<string | { requestId: string; fruitData: any; farmerData: any; buyerData: any; }> {
         try {
             // Check for existing requests from this buyer for this product
             console.log('🔍 Checking for existing requests from buyer:', buyerId, 'for product:', input.productId);
@@ -180,6 +180,9 @@ class RequestService {
             // Update fruit request count
             await this.updateProductRequestCount(input.productId, 1);
 
+            if (options?.includeMeta) {
+                return { requestId: docRef.id, fruitData, farmerData, buyerData };
+            }
             return docRef.id;
         } catch (error) {
             console.error('Error creating request:', error);
