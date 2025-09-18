@@ -52,7 +52,6 @@ const RoleSelectionScreen = ({ navigation }) => {
     const checkSkipCondition = async () => {
       try {
         const route = await authFlowManager.resumeAuthFlow();
-        
         if (mounted && route.screen !== 'RoleSelection') {
           if (route.screen === 'Main') {
             const { navigateToMain } = await import('../../utils/navigationUtils');

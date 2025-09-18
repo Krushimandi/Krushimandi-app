@@ -43,15 +43,12 @@ export type RootStackParamList = {
   BestPractices: undefined;
   Languages: undefined;
   PrivacyPolicy: undefined;
-  ProfileSettings: undefined;
-  Settings: undefined;
   BuyerProfile: {
     buyerId: string;
     buyerName?: string;
   };
   ChatList: undefined;
   ChatDetail: undefined;
-
 };
 
 // Auth Stack

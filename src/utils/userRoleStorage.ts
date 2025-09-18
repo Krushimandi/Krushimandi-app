@@ -6,25 +6,34 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StorageKeys } from '../constants';
 import { getCompleteUserProfile, updateUserInFirestore } from '../services/firebaseService';
-import { auth } from '../config/firebase';
+import { auth as modularAuth } from '../config/firebaseModular';
 
 export type UserRole = 'farmer' | 'buyer';
 
+// Single auth instance (avoid mixing legacy config). If undefined, we'll handle defensively.
+const authInstance = modularAuth as any;
+
+const getUid = (): string | undefined => {
+  try {
+    return authInstance?.currentUser?.uid;
+  } catch {
+    return undefined;
+  }
+};
+
 /**
- * Save user role to localStorage
- * @param role - User role to save
+ * Save user role to storage (scoped per UID + legacy key)
  */
 export const saveUserRole = async (role: UserRole): Promise<void> => {
   try {
-    const uid = auth.currentUser?.uid;
+    const uid = getUid();
     if (uid) {
       await AsyncStorage.setItem(`${StorageKeys.USER_ROLE}:${uid}`, role);
-      // Also set plain key for backward compatibility
-      await AsyncStorage.setItem(StorageKeys.USER_ROLE, role);
-      console.log('✅ User role saved to localStorage with UID binding:', { role, uid });
+      await AsyncStorage.setItem(StorageKeys.USER_ROLE, role); // legacy
+      console.log('✅ User role saved (scoped & legacy):', { role, uid });
     } else {
       await AsyncStorage.setItem(StorageKeys.USER_ROLE, role);
-      console.log('⚠️ No UID, saved role without UID binding:', role);
+      console.log('⚠️ Saved role without UID (no authenticated user yet):', role);
     }
   } catch (error) {
     console.error('❌ Failed to save user role:', error);
@@ -38,12 +47,11 @@ export const saveUserRole = async (role: UserRole): Promise<void> => {
  */
 export const getUserRole = async (): Promise<UserRole | null> => {
   try {
-    const uid = auth.currentUser?.uid;
+    const uid = getUid();
     if (uid) {
       const roleForUid = await AsyncStorage.getItem(`${StorageKeys.USER_ROLE}:${uid}`);
       if (roleForUid) return roleForUid as UserRole;
     }
-    // Fallback to legacy key
     const legacyRole = await AsyncStorage.getItem(StorageKeys.USER_ROLE);
     return legacyRole as UserRole | null;
   } catch (error) {
@@ -57,12 +65,10 @@ export const getUserRole = async (): Promise<UserRole | null> => {
  */
 export const clearUserRole = async (): Promise<void> => {
   try {
-    const uid = auth.currentUser?.uid;
-    if (uid) {
-      await AsyncStorage.removeItem(`${StorageKeys.USER_ROLE}:${uid}`);
-    }
+    const uid = getUid();
+    if (uid) await AsyncStorage.removeItem(`${StorageKeys.USER_ROLE}:${uid}`);
     await AsyncStorage.removeItem(StorageKeys.USER_ROLE);
-    console.log('✅ User role cleared from localStorage');
+    console.log('✅ User role cleared from storage');
   } catch (error) {
     console.error('❌ Failed to clear user role:', error);
   }
@@ -75,73 +81,48 @@ export const clearUserRole = async (): Promise<void> => {
  */
 export const syncUserRole = async (): Promise<UserRole | null> => {
   try {
-    const user = auth.currentUser;
-    if (!user) {
+    const uid = getUid();
+    if (!uid) {
       console.log('❌ No authenticated user for role sync');
       return null;
     }
 
-    // Get role from localStorage
     const localRole = await getUserRole();
-    
-    // Get user profile from Firestore
     const userProfile = await getCompleteUserProfile();
-    const firestoreRole = (userProfile as any)?.userRole;
+    const firestoreRole = (userProfile as any)?.userRole as UserRole | undefined;
 
-    console.log('🔄 Role sync check:', {
-      localRole,
-      firestoreRole,
-      userId: user.uid
-    });
+    console.log('🔄 Role sync check:', { localRole, firestoreRole, userId: uid });
 
-    // If Firestore has a role and localStorage doesn't, adopt Firestore (server is source of truth)
     if (!localRole && firestoreRole) {
       await saveUserRole(firestoreRole);
-      console.log('✅ Role synced from Firestore to localStorage:', firestoreRole);
+      console.log('✅ Adopted Firestore role to storage:', firestoreRole);
       return firestoreRole;
     }
 
-    // If both exist and match, nothing to do
     if (localRole && firestoreRole && localRole === firestoreRole) {
-      console.log('✅ Roles already in sync:', localRole);
       return localRole;
     }
 
-    // If both exist and differ, prefer Firestore role to avoid propagating stale local role
     if (localRole && firestoreRole && localRole !== firestoreRole) {
       await saveUserRole(firestoreRole);
-      console.log('⚠️ Role mismatch detected. Adopted Firestore role over local:', {
-        localRole,
-        firestoreRole
-      });
+      console.log('⚠️ Mismatch -> using Firestore:', { localRole, firestoreRole });
       return firestoreRole;
     }
 
-    // If localStorage has role but Firestore doesn't, update Firestore from local
     if (localRole && !firestoreRole) {
       try {
-        await updateUserInFirestore(user.uid, localRole, { userRole: localRole });
-        console.log('✅ Role synced from localStorage to Firestore:', localRole);
-      } catch (error) {
-        console.error('❌ Failed to sync role to Firestore:', error);
-        // Continue with localStorage role even if Firestore update fails
+        await updateUserInFirestore(uid, localRole, { userRole: localRole });
+        console.log('✅ Pushed local role up to Firestore:', localRole);
+      } catch (err) {
+        console.error('❌ Failed pushing local role to Firestore:', err);
       }
       return localRole;
     }
 
-    // If only localStorage has role (shouldn't happen in normal flow)
-    if (localRole && !firestoreRole) {
-      console.log('⚠️ Only localStorage has role, keeping it:', localRole);
-      return localRole;
-    }
-
-    // If neither exists, return null
-    console.log('❌ No role found in either localStorage or Firestore');
+    console.log('❌ No role anywhere');
     return null;
-
   } catch (error) {
     console.error('❌ Error syncing user role:', error);
-    // Fallback to localStorage role if sync fails
     return await getUserRole();
   }
 };

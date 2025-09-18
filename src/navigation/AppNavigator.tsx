@@ -11,7 +11,6 @@ import { useAuthStore } from '../store/authStore';
 // Screen components
 import LoadingScreen from '../components/common/LoadingScreen';
 import { NotificationScreen, NotificationDetail } from '../components/notification';
-import { SettingsScreen } from '../components/settings';
 import BuyerProfileScreen from '../components/ProfileScreen/BuyerProfileScreen';
 import EditProfileScreen from '../components/ProfileScreen/EditProfileScreen';
 import AboutScreen from '../components/ProfileScreen/AboutScreen';
@@ -20,7 +19,6 @@ import LanguagesScreen from '../components/ProfileScreen/LanguagesScreen';
 import PrivacyPolicyScreen from '../components/ProfileScreen/PrivacyPolicyScreen';
 import ChatListScreen from '../components/chat/ChatListScreen';
 import ChatDetailScreen from '../components/chat/ChatDetailScreen';
-
 // Navigation provider
 import { NavigationProvider } from './NavigationProvider';
 
@@ -32,6 +30,7 @@ import BuyerStack from './buyer/BuyerStack';
 // Types
 import { RootStackParamList } from './types';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import ProfileScreen from 'components/ProfileScreen/ProfileScreen';
 
 const RootStack = createStackNavigator<RootStackParamList>();
 
@@ -51,7 +50,7 @@ const AppNavigator: React.FC<AppNavigatorProps> = () => {
 
   // Primary auth listener
   useEffect(() => {
-  const unsubscribe = auth.onAuthStateChanged(async (user) => {
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
       if (user?.uid) {
         setUid(user.uid);
         try {
@@ -97,15 +96,15 @@ const AppNavigator: React.FC<AppNavigatorProps> = () => {
       }
     });
     return () => {
-      try { unsub(); } catch {}
+      try { unsub(); } catch { }
     };
   }, []);
 
   // Live Firestore listener for remote role edits
   useEffect(() => {
     if (!uid) return;
-  const docRef = firestore.collection('profiles').doc(uid);
-  const unsubscribe = docRef.onSnapshot((snap) => {
+    const docRef = firestore.collection('profiles').doc(uid);
+    const unsubscribe = docRef.onSnapshot((snap) => {
       if (!snap.exists) return;
       const data: any = snap.data();
       const nextRole = data?.userRole;
@@ -188,8 +187,7 @@ const AppNavigator: React.FC<AppNavigatorProps> = () => {
           <RootStack.Screen name="BestPractices" component={BestPractices} />
           <RootStack.Screen name="Languages" component={LanguagesScreen} />
           <RootStack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
-          <RootStack.Screen name="ProfileSettings" component={SettingsScreen} />
-          <RootStack.Screen name="ProfileScreen" component={SettingsScreen} options={{ presentation: 'modal' }} />
+          <RootStack.Screen name="ProfileScreen" component={ProfileScreen} />
           <RootStack.Screen name="BuyerProfile" component={BuyerProfileScreen} />
           <RootStack.Screen name="ChatList" component={ChatListScreen} />
           <RootStack.Screen name="ChatDetail" component={ChatDetailScreen} />

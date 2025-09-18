@@ -1,4 +1,4 @@
-# 🌾 MyApp - Agricultural Marketplace
+# 🌾 Krushimandi - Agricultural Marketplace
 
 A modern React Native application connecting farmers directly with buyers, enabling fresh produce trading with real-time communication and smart logistics.
 
@@ -10,7 +10,7 @@ A modern React Native application connecting farmers directly with buyers, enabl
 
 ## 📱 About
 
-MyApp is an innovative agricultural marketplace that eliminates middlemen by connecting farmers directly with buyers. The platform enables fresh produce trading with features like real-time chat, order tracking, and intelligent market insights.
+Krushimandi is an innovative agricultural marketplace that eliminates middlemen by connecting farmers directly with buyers. The platform enables fresh produce trading with features like real-time chat, order tracking, and intelligent market insights.
 
 ### 🎯 Key Features
 
@@ -145,8 +145,8 @@ src/
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/MyApp.git
-   cd MyApp
+   git clone https://github.com/yourusername/Krushimandi.git
+   cd Krushimandi
    ```
 
 2. **Install dependencies**
@@ -262,11 +262,11 @@ android {
             keyPassword 'android'
         }
         release {
-            if (project.hasProperty('MYAPP_UPLOAD_STORE_FILE')) {
-                storeFile file(MYAPP_UPLOAD_STORE_FILE)
-                storePassword MYAPP_UPLOAD_STORE_PASSWORD
-                keyAlias MYAPP_UPLOAD_KEY_ALIAS
-                keyPassword MYAPP_UPLOAD_KEY_PASSWORD
+            if (project.hasProperty('Krushimandi_UPLOAD_STORE_FILE')) {
+                storeFile file(Krushimandi_UPLOAD_STORE_FILE)
+                storePassword Krushimandi_UPLOAD_STORE_PASSWORD
+                keyAlias Krushimandi_UPLOAD_KEY_ALIAS
+                keyPassword Krushimandi_UPLOAD_KEY_PASSWORD
             }
         }
     }
@@ -288,13 +288,13 @@ android {
 
 #### 1. Bundle Identifier
 ```bash
-# Update bundle identifier in ios/MyApp.xcodeproj
-# Format: com.yourcompany.myapp
+# Update bundle identifier in ios/Krushimandi.xcodeproj
+# Format: com.yourcompany.Krushimandi
 ```
 
 #### 2. Info.plist Permissions
 ```xml
-<!-- ios/MyApp/Info.plist -->
+<!-- ios/Krushimandi/Info.plist -->
 <key>NSCameraUsageDescription</key>
 <string>This app needs access to camera to take product photos</string>
 <key>NSPhotoLibraryUsageDescription</key>
@@ -370,7 +370,7 @@ cd android
 #### 1. Archive in Xcode
 ```bash
 # Open iOS project in Xcode
-open ios/MyApp.xcworkspace
+open ios/Krushimandi.xcworkspace
 
 # In Xcode:
 # 1. Select "Any iOS Device" or your device
