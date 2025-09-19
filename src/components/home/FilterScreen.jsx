@@ -63,9 +63,9 @@ const FilterScreen = ({ onApplyFilters, onClose, isModal = false, currentFilters
     setMinPrice(currentFilters.minPrice || 0);
     setMaxPrice(currentFilters.maxPrice || 500);
     setMinRating(currentFilters.minRating || 0);
-  setFreshProduceWindow(currentFilters.freshProduceWindow || null);
-  setSortNewestFirst(!!currentFilters.sortNewestFirst);
-  setLocationLevel(currentFilters.locationLevel || null);
+    setFreshProduceWindow(currentFilters.freshProduceWindow || null);
+    setSortNewestFirst(!!currentFilters.sortNewestFirst);
+    setLocationLevel(currentFilters.locationLevel || null);
   }, [currentFilters]);
 
   const toggleFeature = useCallback((featureName) => {
@@ -87,9 +87,9 @@ const FilterScreen = ({ onApplyFilters, onClose, isModal = false, currentFilters
     let count = 0;
     if (selectedFeatures.length > 0) count += selectedFeatures.length;
     if (selectedPriceRange) count++;
-  if (freshProduceWindow) count++;
-  if (sortNewestFirst) count++;
-  if (locationLevel) count++;
+    if (freshProduceWindow) count++;
+    if (sortNewestFirst) count++;
+    if (locationLevel) count++;
     // Rating disabled for now; to re-enable, include minRating > 0
     // if (minRating > 0) count++;
     return count;
@@ -134,9 +134,9 @@ const FilterScreen = ({ onApplyFilters, onClose, isModal = false, currentFilters
     setMinPrice(0);
     setMaxPrice(500);
     setMinRating(0);
-  setFreshProduceWindow(null);
-  setSortNewestFirst(false);
-  setLocationLevel(null);
+    setFreshProduceWindow(null);
+    setSortNewestFirst(false);
+    setLocationLevel(null);
 
     // Call parent clear function if provided
     if (onClearFilters) {
@@ -200,7 +200,7 @@ const FilterScreen = ({ onApplyFilters, onClose, isModal = false, currentFilters
         </>
       )}
 
-  <ScrollView
+      <ScrollView
         style={styles.scrollContent}
         showsVerticalScrollIndicator={false}>
 
