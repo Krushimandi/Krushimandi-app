@@ -175,7 +175,7 @@ const HelpGuideScreen = ({ route, navigation }) => {
     {
       title: 'How do I receive notifications?',
       content: 'App notifications: Ensure push notifications are enabled in settings. You’ll get alerts for requests, promotions, updates, and more.',
-      image: require('../../assets/help_center/Notification.png'),
+      image: require('../../assets/help_center/Notification_1.png'),
       category: 'Profile',
     },
     {

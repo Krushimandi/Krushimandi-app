@@ -858,7 +858,7 @@ const FarmerHomeScreen = () => {
                   </TouchableOpacity>
                 </View>
                 <TouchableOpacity
-                  onPress={() => safeNavigate('ChatList')}
+                  onPress={() => safeNavigate('Notification')}
                   style={styles.notificationIconButton}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
