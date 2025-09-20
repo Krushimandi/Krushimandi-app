@@ -3,7 +3,7 @@
  * Modal for buyers to send requests to farmers
  */
 
-import React, { useState ,useEffect} from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -33,6 +33,7 @@ interface SendRequestModalProps {
     name: string;
     price: number;
     priceUnit: string;
+    availability_date: string; // ISO date string
     farmerName: string;
     quantity: [number, number];
   };
@@ -51,11 +52,11 @@ const SendRequestModal: React.FC<SendRequestModalProps> = ({
 
 
 
-// const [selectedQuantity, setSelectedQuantity] = useState(product.quantity[0]);
+  // const [selectedQuantity, setSelectedQuantity] = useState(product.quantity[0]);
 
-//   // useEffect(() => {
-//   //   setSelectedQuantity(product.quantity[0]);
-//   // }, [product]);
+  //   // useEffect(() => {
+  //   //   setSelectedQuantity(product.quantity[0]);
+  //   // }, [product]);
 
 
 
@@ -74,7 +75,7 @@ const SendRequestModal: React.FC<SendRequestModalProps> = ({
 
   const handleSend = async () => {
     const quantityRange = product.quantity;
-    
+
     if (quantityRange[0] <= 0 && quantityRange[1] <= 0) {
       Alert.alert('Invalid Product', 'This product has no available quantity');
       return;
@@ -82,7 +83,7 @@ const SendRequestModal: React.FC<SendRequestModalProps> = ({
 
     try {
       setLoading(true);
-      
+
       const request: CreateRequestInput = {
         productId: product.id,
         quantity: quantityRange,
@@ -93,7 +94,7 @@ const SendRequestModal: React.FC<SendRequestModalProps> = ({
 
 
       await onSend(request);
-      
+
       // Reset form
       setMessage('');
       onClose();
@@ -123,7 +124,7 @@ const SendRequestModal: React.FC<SendRequestModalProps> = ({
 
 
 
-  
+
   return (
     <Modal visible={visible} animationType="slide" transparent>
       <View style={styles.overlay}>
@@ -147,7 +148,12 @@ const SendRequestModal: React.FC<SendRequestModalProps> = ({
                 ₹{product.price}/{product.priceUnit}
               </Text>
               <Text style={styles.productQuantity}>
-                Available: {formatQuantityRange(product.quantity)}
+                Available from: {new Date(product.availability_date).toLocaleDateString('en-IN', {
+                  weekday: 'long',
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric'
+                })}
               </Text>
               <Text style={styles.farmerName}>
                 Farmer: {product.farmerName}
@@ -164,10 +170,10 @@ const SendRequestModal: React.FC<SendRequestModalProps> = ({
                   You are requesting the full available quantity
                 </Text>
               </View>
-            </View> 
+            </View>
 
 
-{/* 
+            {/* 
 
 
 <View style={styles.section}>

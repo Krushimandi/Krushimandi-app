@@ -839,7 +839,7 @@ const FarmerHomeScreen = () => {
                     hitSlop={{ top: 10, bottom: 10, left: 0, right: 10 }}
                   >
                     <Text style={styles.welcome}>
-                      Namste, {getDisplayName}!
+                      Namaste, {getDisplayName}!
                     </Text>
                     <TouchableOpacity activeOpacity={0.9} onPress={onLocationPress}>
                       <Animated.View style={[styles.locationContainer, styles.locationInteractive, locationAnimatedStyle]}>

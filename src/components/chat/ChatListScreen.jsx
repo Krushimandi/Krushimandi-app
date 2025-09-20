@@ -17,12 +17,13 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Feather from 'react-native-vector-icons/Feather';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useFocusEffect } from '@react-navigation/native';
 import { Colors } from '../../constants';
+import Toast from 'react-native-toast-message';
+import { useAuthState } from '../providers/AuthStateProvider';
 import { useTabBarControl } from '../../utils/navigationControls';
 import { auth } from '../../config/firebaseModular';
-import { subscribeUserChats, fetchUserProfile, buildChatId } from '../../services/chatService';
+import { subscribeUserChats, fetchUserProfile, buildChatId, markChatRead } from '../../services/chatService';
 
 // Simple debounce helper (short + inline to avoid extra deps)
 const debounce = (fn, delay = 300) => {
@@ -71,9 +72,13 @@ const ChatItem = React.memo(({ item, onPress }) => {
 
 const ChatListScreen = ({ navigation }) => {
   const { showTabBar } = useTabBarControl();
+  const { user } = useAuthState();
   const [search, setSearch] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [menuVisible, setMenuVisible] = useState(false);
+  const [showUnreadOnly, setShowUnreadOnly] = useState(false);
+  const [sortBy, setSortBy] = useState('recent'); // 'recent' | 'name'
   const scrollY = useRef(new Animated.Value(0)).current;
 
   // Get screen dimensions for dynamic calculations
@@ -114,25 +119,29 @@ const ChatListScreen = ({ navigation }) => {
     setLoading(true);
     const unsub = subscribeUserChats(uid, async (list) => {
       // Resolve participant profiles lazily with cache
-      const updates = {};
+  const updates = {};
       const items = await Promise.all(list.map(async (c) => {
         const otherUid = (c.participants || []).find(p => p !== uid) || '';
         let displayName = 'User';
         let avatarUri = null;
+        let phoneNumber = null;
         const meta = (c.participantsMeta && c.participantsMeta[otherUid]) || null;
 
         if (meta && (meta.displayName || meta.profileImage)) {
           displayName = meta.displayName || displayName;
           avatarUri = meta.profileImage || null;
+          if (meta.phoneNumber) phoneNumber = meta.phoneNumber;
         } else if (profiles[otherUid]) {
           displayName = profiles[otherUid].displayName || displayName;
           avatarUri = profiles[otherUid].profileImage || null;
+          if (profiles[otherUid].phoneNumber) phoneNumber = profiles[otherUid].phoneNumber;
         } else if (otherUid) {
           const fetched = await fetchUserProfile(otherUid);
           if (fetched) {
             updates[otherUid] = fetched;
             displayName = fetched.displayName || displayName;
             avatarUri = fetched.profileImage || null;
+            if (fetched.phoneNumber) phoneNumber = fetched.phoneNumber;
           }
         }
         return {
@@ -140,8 +149,10 @@ const ChatListScreen = ({ navigation }) => {
           chatId: c.id,
           otherUid,
           name: displayName,
+          phoneNumber,
           lastMessage: c.lastMessage || '',
           time: formatTime(c.updatedAt),
+          updatedAt: c.updatedAt || 0,
           avatar: avatarUri ? { uri: avatarUri } : require('../../assets/fruits/profile.jpg'),
           unread: (c.unreadCount && c.unreadCount[uid]) || 0,
           online: false,
@@ -162,8 +173,24 @@ const ChatListScreen = ({ navigation }) => {
   const handleSearchChange = useCallback(debounce(v => setDebouncedSearch(v.trim()), 300), []);
 
   const filteredChats = useMemo(() => {
-    return chats.filter(c => c.name?.toLowerCase?.().includes(debouncedSearch.toLowerCase()));
-  }, [chats, debouncedSearch]);
+    let arr = chats;
+    // text filter
+    if (debouncedSearch) {
+      const q = debouncedSearch.toLowerCase();
+      arr = arr.filter(c => c.name?.toLowerCase?.().includes(q));
+    }
+    // unread filter
+    if (showUnreadOnly) {
+      arr = arr.filter(c => (c.unread || 0) > 0);
+    }
+    // sort
+    if (sortBy === 'name') {
+      arr = [...arr].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    } else {
+      arr = [...arr].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+    }
+    return arr;
+  }, [chats, debouncedSearch, showUnreadOnly, sortBy]);
 
   // Show tab bar on focus (keeps consistency across navigation)
   useFocusEffect(useCallback(() => { showTabBar(); }, [showTabBar]));
@@ -184,6 +211,7 @@ const ChatListScreen = ({ navigation }) => {
       otherUid: chat.otherUid,
       name: chat.name,
       avatarUri: chat.avatar?.uri || null,
+      phoneNumber: chat.phoneNumber || null,
     });
   }, [navigation]);
 
@@ -235,9 +263,9 @@ const ChatListScreen = ({ navigation }) => {
             <Animated.Text style={[styles.screenTitle, { fontSize: titleSize }]}>Chats</Animated.Text>
             <Text style={styles.screenSubtitle}>Stay connected with your buyers</Text>
           </View>
-          <TouchableOpacity style={styles.iconButton} activeOpacity={0.8}>
+          {/* <TouchableOpacity style={styles.iconButton} activeOpacity={0.8} onPress={() => setMenuVisible(true)}>
             <Icon name="ellipsis-vertical" size={22} color={Colors.light.textSecondary} />
-          </TouchableOpacity>
+          </TouchableOpacity> */}
         </View>
 
         {/* Search Bar */}
@@ -291,10 +319,27 @@ const ChatListScreen = ({ navigation }) => {
             <Feather name="message-circle" size={72} color={Colors.light.primary + '60'} />
             <Text style={styles.emptyTitle}>No Chats</Text>
             <Text style={styles.emptySubtitle}>Start a conversation with your buyers to see chats here.</Text>
-            <TouchableOpacity style={styles.startChatButton} onPress={() => { /* placeholder */ }}>
-              <Feather name="plus" size={18} color="#FFFFFF" />
-              <Text style={styles.startChatButtonText}>Start Chat</Text>
-            </TouchableOpacity>
+            {user?.role === 'buyer' && (
+              <TouchableOpacity
+                style={styles.startChatButton}
+                onPress={() => {
+                  Toast.show({
+                    type: 'info',
+                    position: 'bottom',
+                    text1: 'Start with a Request',
+                    text2: 'First send a request to the farmer, then chat.',
+                  });
+                  try {
+                    navigation.navigate('Main', { screen: 'BuyerTabs', params: { screen: 'Home' } });
+                  } catch (_) {
+                    try { navigation.navigate('Home'); } catch (_) {}
+                  }
+                }}
+              >
+                <Feather name="plus" size={18} color="#FFFFFF" />
+                <Text style={styles.startChatButtonText}>Start Chat</Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
         onScroll={Animated.event(
@@ -313,6 +358,64 @@ const ChatListScreen = ({ navigation }) => {
           index,
         })}
       />
+
+      {/* Three-dot Menu */}
+      {menuVisible && (
+        <View style={styles.menuOverlay}>
+          <TouchableOpacity style={styles.menuBackdrop} activeOpacity={1} onPress={() => setMenuVisible(false)} />
+          <View style={styles.menuSheet}>
+            {user?.role === 'buyer' && (
+              <TouchableOpacity style={styles.menuItem} onPress={() => {
+                setMenuVisible(false);
+                Toast.show({ type: 'info', position: 'bottom', text1: 'Start with a Request', text2: 'First send a request to the farmer, then chat.' });
+                try {
+                  navigation.navigate('Main', { screen: 'BuyerTabs', params: { screen: 'Home' } });
+                } catch (_) { try { navigation.navigate('Home'); } catch (_) {} }
+              }}>
+                <Icon name="chatbubbles-outline" size={18} color="#111827" style={styles.menuIcon} />
+                <Text style={styles.menuText}>Start New Chat</Text>
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity style={styles.menuItem} onPress={() => { setMenuVisible(false); onRefresh(); }}>
+              <Icon name="refresh-outline" size={18} color="#111827" style={styles.menuIcon} />
+              <Text style={styles.menuText}>Refresh</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.menuItem} onPress={() => { setShowUnreadOnly(v => !v); }}>
+              <Icon name={showUnreadOnly ? 'checkbox-outline' : 'square-outline'} size={18} color="#111827" style={styles.menuIcon} />
+              <Text style={styles.menuText}>{showUnreadOnly ? 'Show All Chats' : 'Show Unread Only'}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.menuItem} onPress={() => { setSortBy(s => (s === 'recent' ? 'name' : 'recent')); }}>
+              <Icon name="swap-vertical-outline" size={18} color="#111827" style={styles.menuIcon} />
+              <Text style={styles.menuText}>{sortBy === 'recent' ? 'Sort by Name' : 'Sort by Recent'}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.menuItem} onPress={async () => {
+              try {
+                const uid = auth.currentUser?.uid;
+                if (!uid) { setMenuVisible(false); return; }
+                const toMark = chats.filter(c => (c.unread || 0) > 0);
+                await Promise.allSettled(toMark.map(c => markChatRead(uid, c.chatId)));
+                Toast.show({ type: 'success', position: 'bottom', text1: 'All chats marked as read' });
+              } catch (e) {
+                Toast.show({ type: 'error', position: 'bottom', text1: 'Failed to mark all as read' });
+              } finally {
+                setMenuVisible(false);
+              }
+            }}>
+              <Icon name="checkmark-done-outline" size={18} color="#111827" style={styles.menuIcon} />
+              <Text style={styles.menuText}>Mark All as Read</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.menuItem} onPress={() => { setMenuVisible(false); try { navigation.navigate('HelpScreen'); } catch (_) {} }}>
+              <Icon name="help-circle-outline" size={18} color="#111827" style={styles.menuIcon} />
+              <Text style={styles.menuText}>Help Center</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
     </SafeAreaView>
   );
 };
@@ -548,6 +651,39 @@ const styles = StyleSheet.create({
     height: 3,
     backgroundColor: Colors.light.primary + '30'
   },
+  // Menu styles
+  menuOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 50,
+  },
+  menuBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.15)'
+  },
+  menuSheet: {
+    position: 'absolute',
+    right: 12,
+    top: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 56 : 64,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingVertical: 6,
+    width: 220,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB'
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  menuIcon: { marginRight: 10 },
+  menuText: { fontSize: 14, color: '#111827', fontWeight: '600' },
 });
 
 export default ChatListScreen;

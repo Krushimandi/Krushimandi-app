@@ -70,6 +70,8 @@ const RequestsScreen = () => {
   // Default to 'All' so user sees every request initially
   const [selectedFilter, setSelectedFilter] = useState('All');
   const [sortBy, setSortBy] = useState('date');
+  // For 'date' sort, allow toggling ascending/descending (default: newest first)
+  const [dateAsc, setDateAsc] = useState(false);
   const [filterMenuVisible, setFilterMenuVisible] = useState(false);
   const fadeAnim = useState(new Animated.Value(0))[0];
   // Collapsing header pattern: absolute header that hides on scroll up and returns on scroll down
@@ -203,7 +205,7 @@ const RequestsScreen = () => {
       return matchesSearch && matchesFilter;
     });
 
-    // Sort requests (stable, multi-mode)
+  // Sort requests (stable, multi-mode)
     filtered.sort((a, b) => {
       // Helpers kept inside to avoid polluting outer scope; cheap relative to list size
       const normString = (v) => (v || '').toString().trim().toLowerCase();
@@ -212,7 +214,7 @@ const RequestsScreen = () => {
         if (!ts) return 0;
         if (typeof ts === 'string') {
           const t = Date.parse(ts);
-            return isNaN(t) ? 0 : t;
+          return isNaN(t) ? 0 : t;
         }
         if (ts.toDate && typeof ts.toDate === 'function') return ts.toDate().getTime();
         if (typeof ts.seconds === 'number') return ts.seconds * 1000;
@@ -223,7 +225,7 @@ const RequestsScreen = () => {
         }
       };
       const getQuantityPair = (q) => {
-        if (!q) return [0,0];
+        if (!q) return [0, 0];
         if (Array.isArray(q) && q.length === 2) {
           const min = Number(q[0]) || 0;
           const max = Number(q[1]) || 0;
@@ -267,10 +269,10 @@ const RequestsScreen = () => {
         }
         case 'date':
         default: {
-          // Newest first using updatedAt (fallback createdAt)
+          // Sort by date; direction controlled by dateAsc
           const tA = getDate(a.updatedAt, a.createdAt);
           const tB = getDate(b.updatedAt, b.createdAt);
-          cmp = tB - tA; // descending by timestamp
+          cmp = dateAsc ? (tA - tB) : (tB - tA);
           break;
         }
       }
@@ -279,7 +281,7 @@ const RequestsScreen = () => {
       // Tie-breakers for stability: date desc, then name, then id
       const tA2 = getDate(a.updatedAt, a.createdAt);
       const tB2 = getDate(b.updatedAt, b.createdAt);
-      if (tA2 !== tB2) return tB2 - tA2;
+      if (tA2 !== tB2) return dateAsc ? (tA2 - tB2) : (tB2 - tA2);
       const nA = normString(a.productSnapshot?.name);
       const nB = normString(b.productSnapshot?.name);
       if (nA !== nB) return nA.localeCompare(nB);
@@ -301,60 +303,6 @@ const RequestsScreen = () => {
 
     return { total, pending, accepted, sold, cancelled, rejected, expired };
   }, [requests]);
-
-  // Enhanced request tap handler
-  const handleRequestTap = (item) => {
-    const isBuyer = user?.role === 'buyer';
-    const farmerName = item.productSnapshot?.farmerName || 'Unknown Farmer';
-    const buyerName = item.buyerDetails?.name || 'Unknown Buyer';
-    const productName = item.productSnapshot?.name || 'Unknown Product';
-    let location = item.productSnapshot?.farmerLocation || 'Unknown Location';
-    if (location && typeof location === 'object') {
-      location = location.formattedAddress || JSON.stringify(location);
-    }
-    const quantity = Array.isArray(item.quantity) ?
-      `${item.quantity[0]}-${item.quantity[1]} ${item.quantityUnit || 'ton'}` :
-      `${item.quantity} ${item.quantityUnit || 'ton'}`;
-
-    if (item.status === RequestStatus.ACCEPTED && item.buyerDetails?.phone) {
-      const contactName = isBuyer ? farmerName : buyerName;
-      const contactPhone = isBuyer ? item.buyerDetails.phone : item.buyerDetails?.phone;
-
-      if (contactPhone) {
-        Alert.alert(
-          'Contact Details',
-          `${contactName}\n📱 ${contactPhone}\n📍 ${location}\n⭐ N/A/5`,
-          [
-            { text: 'Call', onPress: () => Linking.openURL(`tel:${contactPhone}`) },
-            { text: 'Message', onPress: () => Linking.openURL(`sms:${contactPhone}`) },
-            { text: 'Close', style: 'cancel' }
-          ]
-        );
-        return;
-      }
-    }
-
-    const statusInfo = getStatusInfo(item);
-    const roleSpecificName = isBuyer ? `Farmer: ${farmerName}` : `Buyer: ${buyerName}`;
-
-    const actions = [{ text: 'OK' }];
-
-    // Buyer actions only
-    if (isBuyer) {
-      // Add resend option for cancelled and rejected requests
-      if (item.status === RequestStatus.CANCELLED || item.status === RequestStatus.REJECTED || item.status === RequestStatus.EXPIRED) {
-        actions.unshift({ text: 'Resend', onPress: () => handleResendRequest(item.id) });
-      }
-      // Add delete option for all requests
-      actions.unshift({ text: 'Delete', onPress: () => handleCancelRequest(item.id), style: 'destructive' });
-    }
-
-    // Alert.alert(
-    //   'Request Details',
-    //   `${productName}\n\n${roleSpecificName}\nLocation: ${location}\nQuantity: ${quantity}\nStatus: ${item.status}\n${statusInfo}`,
-    //   actions
-    // );
-  };
 
   // Get additional status info
   const getStatusInfo = (item) => {
@@ -616,15 +564,19 @@ const RequestsScreen = () => {
 
     // Helper function to safely convert timestamp to Date
     const getDateFromTimestamp = (timestamp) => {
-      if (!timestamp) return new Date();
+      if (!timestamp) return new Date(0);
       if (typeof timestamp === 'string') return new Date(timestamp);
       if (timestamp.toDate && typeof timestamp.toDate === 'function') return timestamp.toDate();
       if (timestamp.seconds) return new Date(timestamp.seconds * 1000);
       if (timestamp._seconds) return new Date(timestamp._seconds * 1000);
-      return new Date(timestamp);
+      try {
+        return new Date(timestamp);
+      } catch {
+        return new Date(0);
+      }
     };
 
-    const requestDate = getDateFromTimestamp(item.updatedAt);
+    const requestDate = getDateFromTimestamp(item.updatedAt || item.createdAt);
 
     return (
       <Animated.View
@@ -641,11 +593,7 @@ const RequestsScreen = () => {
           }
         ]}
       >
-        <TouchableOpacity
-          style={styles.requestContent}
-          onPress={() => handleRequestTap(item)}
-          activeOpacity={0.7}
-        >
+        <View style={styles.requestContent}>
           <View style={styles.requestHeader}>
             <View style={styles.titleSection}>
               <Text style={styles.productName}>{productName}</Text>
@@ -690,7 +638,7 @@ const RequestsScreen = () => {
               })}
             </Text>
           </View>
-        </TouchableOpacity>
+        </View>
 
         <View style={styles.actionButtons}>
           {item.status === RequestStatus.ACCEPTED && (
@@ -876,11 +824,9 @@ const RequestsScreen = () => {
         style={styles.list}
         contentContainerStyle={[
           styles.listContent,
-          // Ensure minimum height for scrolling even with few items
           filteredAndSortedRequests.length < 3 && {
             minHeight: Dimensions.get('window').height * 0.8
           },
-          // Push content below the absolute collapsing header (static header + collapsible header)
           { paddingTop: collapsibleHeaderHeight }
         ]}
         ListHeaderComponent={null}
@@ -890,6 +836,8 @@ const RequestsScreen = () => {
             onRefresh={onRefresh}
             colors={[Colors.light.primary]}
             tintColor={Colors.light.primary}
+            progressViewOffset={collapsibleHeaderHeight}
+
           />
         }
         onScroll={Animated.event(
@@ -971,7 +919,15 @@ const RequestsScreen = () => {
             return (
               <TouchableOpacity
                 key={option.key}
-                onPress={() => { setSortBy(option.key); setFilterMenuVisible(false); }}
+                onPress={() => {
+                  if (option.key === 'date' && isActive) {
+                    setDateAsc((prev) => !prev);
+                  } else {
+                    setSortBy(option.key);
+                    if (option.key !== 'date') setDateAsc(false);
+                  }
+                  setFilterMenuVisible(false);
+                }}
                 style={{
                   flexDirection: 'row',
                   alignItems: 'center',
@@ -994,7 +950,17 @@ const RequestsScreen = () => {
                 }}>
                   {option.label}
                 </Text>
-                {isActive && <Icon name="checkmark" size={18} color={Colors.light.primary} style={{ marginLeft: 6 }} />}
+                {isActive && option.key === 'date' && (
+                  <Icon
+                    name={dateAsc ? 'arrow-up' : 'arrow-down'}
+                    size={16}
+                    color={Colors.light.primary}
+                    style={{ marginLeft: 6 }}
+                  />
+                )}
+                {isActive && option.key !== 'date' && (
+                  <Icon name="checkmark" size={18} color={Colors.light.primary} style={{ marginLeft: 6 }} />
+                )}
               </TouchableOpacity>
             );
           })}

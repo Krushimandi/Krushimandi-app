@@ -8,11 +8,15 @@ import type { FirebaseDatabaseTypes } from '@react-native-firebase/database';
 export type ChatSummary = {
   id: string;
   participants: string[];
-  participantsMeta?: Record<string, { displayName?: string; profileImage?: string | null }>;
+  participantsMeta?: Record<string, { displayName?: string; profileImage?: string | null; phoneNumber?: string | null }>;
   lastMessage?: string;
   lastMessageBy?: string;
   updatedAt?: number | null; // RTDB timestamp (ms)
   unreadCount?: Record<string, number>;
+  // Stronger semantics: last time each participant read this chat (ms). Stored as number in UI; RTDB may hold a placeholder object briefly.
+  lastReadAt?: Record<string, number>;
+  // Convenience flags derived client-side (optional; not persisted)
+  derivedUnread?: boolean;
 };
 
 export type MessageDoc = {
@@ -26,29 +30,76 @@ export const buildChatId = (uidA: string, uidB: string) => {
   return [uidA, uidB].sort().join('_');
 };
 
+// Helper to fetch minimal public meta used in chats
+const getUserPublicMeta = async (
+  uid: string
+): Promise<{ displayName?: string; profileImage?: string | null; phoneNumber?: string | null } | null> => {
+  const p = await fetchUserProfile(uid);
+  if (!p) return null;
+  return { displayName: p.displayName, profileImage: p.profileImage || null, phoneNumber: p.phoneNumber || null };
+};
+
 export const ensureChatExists = async (
   chatId: string,
   participants: [string, string],
-  participantsMeta?: Record<string, { displayName?: string; profileImage?: string | null }>
+  participantsMeta?: Record<string, { displayName?: string; profileImage?: string | null; phoneNumber?: string | null }>
 ) => {
   const [uidA, uidB] = participants.sort() as [string, string];
   const chatRef = database().ref(`chats/${chatId}`);
   const snap = await chatRef.once('value');
   if (!snap.exists()) {
     const createdAt = database.ServerValue.TIMESTAMP as any;
+    // Fetch both participants' public meta including phoneNumber
+    let metaA = participantsMeta?.[uidA];
+    let metaB = participantsMeta?.[uidB];
+    try { if (!metaA) metaA = await getUserPublicMeta(uidA) || undefined; } catch (_) {}
+    try { if (!metaB) metaB = await getUserPublicMeta(uidB) || undefined; } catch (_) {}
     const base = {
       participants: [uidA, uidB],
-      participantsMeta: participantsMeta || {},
+      participantsMeta: {
+        ...(participantsMeta || {}),
+        ...(metaA ? { [uidA]: metaA } : {}),
+        ...(metaB ? { [uidB]: metaB } : {}),
+      },
       lastMessage: '',
       lastMessageBy: '',
       updatedAt: createdAt,
       createdAt: createdAt,
       unreadCount: { [uidA]: 0, [uidB]: 0 },
+      lastReadAt: { [uidA]: 0, [uidB]: 0 },
     } as any;
     await chatRef.set(base);
   } else {
     // Ensure participants array is present
-    await chatRef.child('participants').set([uidA, uidB]);
+    try {
+      const partSnap = await chatRef.child('participants').once('value');
+      const existing: string[] = Array.isArray(partSnap.val()) ? (partSnap.val() as string[]) : [];
+      const merged = Array.from(new Set([...(existing || []), uidA, uidB])).sort();
+      await chatRef.child('participants').set(merged);
+    } catch (_) {
+      await chatRef.child('participants').set([uidA, uidB]);
+    }
+    // Best-effort: backfill participantsMeta missing fields (displayName/profileImage/phoneNumber)
+    try {
+      const pmSnap = await chatRef.child('participantsMeta').once('value');
+      const pm = (pmSnap.val() || {}) as Record<string, any>;
+      const updates: any = {};
+      for (const u of [uidA, uidB]) {
+        const existing = pm[u] || {};
+        const missingName = !existing.displayName;
+        const missingAvatar = typeof existing.profileImage === 'undefined';
+        const missingPhone = typeof existing.phoneNumber === 'undefined' || existing.phoneNumber === null || existing.phoneNumber === '';
+        if (missingName || missingAvatar || missingPhone) {
+          try {
+            const meta = await getUserPublicMeta(u);
+            if (meta) {
+              updates[`participantsMeta/${u}`] = { ...existing, ...meta };
+            }
+          } catch (_) {}
+        }
+      }
+      if (Object.keys(updates).length) await chatRef.update(updates);
+    } catch (_) { /* ignore */ }
   }
 };
 
@@ -64,15 +115,27 @@ export const subscribeUserChats = (
     const list: ChatSummary[] = Object.keys(all)
       .map((chatId) => ({ id: chatId, ...(all[chatId] || {}) }))
       .filter((c: any) => Array.isArray(c.participants) && c.participants.includes(uid))
-      .map((c: any) => ({
-        id: c.id,
-        participants: c.participants || [],
-        participantsMeta: c.participantsMeta || {},
-        lastMessage: c.lastMessage || '',
-        lastMessageBy: c.lastMessageBy || '',
-        updatedAt: typeof c.updatedAt === 'number' ? c.updatedAt : 0,
-        unreadCount: c.unreadCount || {},
-      }));
+      .map((c: any) => {
+        const updatedAt = typeof c.updatedAt === 'number' ? c.updatedAt : (typeof c.createdAt === 'number' ? c.createdAt : 0);
+        // Coerce lastReadAt[uid] into a number for client use; if it's a ServerValue placeholder, approximate with updatedAt to avoid flashing unread
+        const rawLr = c.lastReadAt && c.lastReadAt[uid];
+        let lastReadAt = 0;
+        if (typeof rawLr === 'number') lastReadAt = rawLr;
+        else if (rawLr) lastReadAt = updatedAt || Date.now();
+        const derivedUnread = (updatedAt || 0) > (lastReadAt || 0);
+        const res: ChatSummary = {
+          id: c.id,
+          participants: c.participants || [],
+          participantsMeta: c.participantsMeta || {},
+          lastMessage: c.lastMessage || '',
+          lastMessageBy: c.lastMessageBy || '',
+          updatedAt,
+          unreadCount: c.unreadCount || {},
+          lastReadAt: typeof c.lastReadAt === 'object' ? { ...c.lastReadAt, [uid]: lastReadAt } : { [uid]: lastReadAt },
+          derivedUnread,
+        };
+        return res;
+      });
     list.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
     onUpdate(list);
   };
@@ -90,13 +153,33 @@ export const subscribeMessages = (
   const handler = (snap: FirebaseDatabaseTypes.DataSnapshot) => {
     const val = snap.val() || {};
     const msgs: MessageDoc[] = Object.keys(val)
-      .map((id) => ({ id, senderId: val[id].senderId, text: val[id].text, createdAt: val[id].createdAt || null }))
-      .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+      .map((id) => ({ id, senderId: val[id].senderId, text: val[id].text, createdAt: typeof val[id].createdAt === 'number' ? val[id].createdAt : null }))
+      // Sort by createdAt if present; fallback to push key order (lexicographic) to keep chronological
+      .sort((a, b) => {
+        const ca = a.createdAt ?? Number.MAX_SAFE_INTEGER;
+        const cb = b.createdAt ?? Number.MAX_SAFE_INTEGER;
+        if (ca !== cb) return ca - cb;
+        return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+      });
     onUpdate(msgs);
   };
   const errorHandler = (err: any) => onError?.(err);
   ref.on('value', handler, errorHandler);
   return () => ref.off('value', handler);
+};
+
+// Helper: derive unread count using lastReadAt timestamp on client side
+export const computeUnreadCountFromMessages = (
+  messages: MessageDoc[],
+  lastReadAt: number | undefined | null
+): number => {
+  const lr = typeof lastReadAt === 'number' ? lastReadAt : 0;
+  let count = 0;
+  for (const m of messages) {
+    const ts = typeof m.createdAt === 'number' ? m.createdAt : 0;
+    if (ts > lr) count += 1;
+  }
+  return count;
 };
 
 export const sendMessage = async (
@@ -155,7 +238,17 @@ export const sendMessage = async (
 
 export const markChatRead = async (chatId: string, uid: string) => {
   const chatUnreadRef = database().ref(`chats/${chatId}/unreadCount/${uid}`);
-  await chatUnreadRef.set(0);
+  try {
+    await chatUnreadRef.transaction(() => 0);
+  } catch (e) {
+    await chatUnreadRef.set(0);
+  }
+  // Also record definitive read time to eliminate race conditions for derived unread
+  try {
+    await database().ref(`chats/${chatId}/lastReadAt/${uid}`).set((database.ServerValue.TIMESTAMP as any));
+  } catch (_) {
+    // ignore best-effort
+  }
 };
 
 // Lightweight existence check to avoid sending duplicate introductory messages.
@@ -176,16 +269,38 @@ export const chatHasMessages = async (chatId: string): Promise<boolean> => {
 
 export const fetchUserProfile = async (
   uid: string
-): Promise<{ displayName: string; profileImage?: string | null } | null> => {
+): Promise<{
+  displayName: string;
+  profileImage?: string | null;
+  phoneNumber?: string | null;
+  // Optional role fields (for call gating and UI logic)
+  userRole?: string; // normalized to lowercase if present
+  userType?: string;
+  role?: string;
+} | null> => {
   try {
-    // Firestore still used for profiles
-    const { doc, getDoc } = await import('@react-native-firebase/firestore');
-    const ref = doc(firestore, 'profiles', uid);
-    const snap = await getDoc(ref);
+    // React Native Firebase API (not Web modular)
+    const RNFS: any = (await import('@react-native-firebase/firestore')).default;
+    const snap = await RNFS().collection('profiles').doc(uid).get();
     if (!snap.exists) return null;
     const d = snap.data() as any;
     const displayName = d.displayName || d.name || `${d.firstName || ''} ${d.lastName || ''}`.trim() || 'User';
-    return { displayName, profileImage: d.profileImage || null };
+    // Normalize phoneNumber to string if present
+    let phoneNumber: string | null = null;
+    if (typeof d.phoneNumber === 'string') phoneNumber = d.phoneNumber;
+    else if (typeof d.phoneNumber === 'number') phoneNumber = String(d.phoneNumber);
+    else if (typeof d.phone === 'string') phoneNumber = d.phone; // optional fallback
+    // Extract and normalize role fields (support multiple schema variants)
+    const normalizedRole = ((d.userRole || d.role || d.userType || '') as string).toLowerCase?.() || undefined;
+    return {
+      displayName,
+      profileImage: d.profileImage || null,
+      phoneNumber,
+      userRole: normalizedRole,
+      // passthrough raw fields when present (optional)
+      userType: d.userType,
+      role: d.role,
+    };
   } catch (e) {
     return null;
   }
@@ -197,7 +312,7 @@ export const upsertParticipantMeta = async (chatId: string, uid: string) => {
     const my = await fetchUserProfile(uid);
     if (!my) return;
     const updates: any = {};
-    updates[`chats/${chatId}/participantsMeta/${uid}`] = { displayName: my.displayName, profileImage: my.profileImage || null };
+    updates[`chats/${chatId}/participantsMeta/${uid}`] = { displayName: my.displayName, profileImage: my.profileImage || null, phoneNumber: my.phoneNumber || null };
     await database().ref().update(updates);
   } catch (_) {
     // ignore
@@ -230,7 +345,8 @@ export const setTyping = async (chatId: string, uid: string, isTyping: boolean) 
   try {
     const ref = database().ref(`chats/${chatId}/typing/${uid}`);
     if (isTyping) {
-      await ref.set(true);
+      // store timestamp so stale entries can be treated as false
+      await ref.set({ ts: database.ServerValue.TIMESTAMP });
       // Ensure cleanup when the app disconnects
       try { await ref.onDisconnect().remove(); } catch (_) {}
     } else {
@@ -247,9 +363,24 @@ export const subscribeTyping = (
   onChange: (isTyping: boolean) => void
 ) => {
   const ref = database().ref(`chats/${chatId}/typing/${otherUid}`);
+  let staleTimer: any = null;
   const handler = (snap: FirebaseDatabaseTypes.DataSnapshot) => {
-    onChange(!!snap.val());
+    const val = snap.val();
+    if (val === true) {
+      // Backward-compat: boolean true without timestamp. Treat as typing then auto-clear after 8s.
+      if (staleTimer) { try { clearTimeout(staleTimer); } catch (_) {} staleTimer = null; }
+      onChange(true);
+      staleTimer = setTimeout(() => onChange(false), 8000);
+      return;
+    }
+    if (val && typeof val.ts === 'number') {
+      const now = Date.now();
+      // consider typing active if updated within last 8 seconds
+      onChange(now - val.ts < 8000);
+      return;
+    }
+    onChange(false);
   };
   ref.on('value', handler, () => {});
-  return () => ref.off('value', handler);
+  return () => { if (staleTimer) { try { clearTimeout(staleTimer); } catch (_) {} } ref.off('value', handler); };
 };

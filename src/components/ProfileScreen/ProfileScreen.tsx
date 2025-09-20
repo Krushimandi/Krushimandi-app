@@ -32,6 +32,7 @@ import { clearUserRole } from '../../utils/userRoleStorage';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../../navigation';
 import Toast from 'react-native-toast-message';
+import { useRemoteConfig } from '../../hooks/useRemoteConfig';
 
 const { width } = Dimensions.get('window');
 
@@ -57,6 +58,8 @@ const ProfileScreen: React.FC = () => {
   const [userProfile, setUserProfile] = useState<any>(null);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [darkModeEnabled, setDarkModeEnabled] = useState(false);
+  const rc = useRemoteConfig();
+  const currentYear = new Date().getFullYear();
 
   // Modal state for profile image
   const [modalVisible, setModalVisible] = useState(false);
@@ -225,6 +228,10 @@ const ProfileScreen: React.FC = () => {
           icon: 'arrow-switch',
           type: 'navigation' as const,
           action: async () => {
+            if (!rc.RoleSwitchEnabled) {
+              Toast.show({ type: 'info', text1: 'This feature is Disabled Currently.', position: 'bottom', visibilityTime: 1600 });
+              return;
+            }
             if (!userProfile?.uid && !userProfile?.id) {
               Toast.show({ type: 'error', text1: 'Profile missing', position: 'bottom' });
               return;
@@ -381,7 +388,7 @@ const ProfileScreen: React.FC = () => {
         {
           id: 'about',
           title: 'About App',
-          subtitle: 'Version 1.0.0',
+          subtitle: `Version ${rc.app_version}`,
           icon: 'information-circle-outline',
           type: 'navigation' as const,
           action: () => navigation.navigate('About'),
@@ -482,7 +489,7 @@ const ProfileScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={[styles.container, isInsideTab && isFocused ? {paddingBottom: 80} : null]}>
+    <SafeAreaView style={[styles.container, isInsideTab && isFocused ? { paddingBottom: 80 } : null]}>
       <StatusBar barStyle="light-content"
         backgroundColor="#43B86C"
       />
@@ -640,8 +647,8 @@ const ProfileScreen: React.FC = () => {
         {/* App Info */}
         <View style={styles.appInfo}>
           <Text style={styles.appName}>Krushimandi</Text>
-          <Text style={styles.appVersion}>Version 1.0.0</Text>
-          <Text style={styles.appCopyright}>© 2025 Krushimandi. All rights reserved.</Text>
+          <Text style={styles.appVersion}>Version {rc.app_version}</Text>
+          <Text style={styles.appCopyright}>© {currentYear} Krushimandi. All rights reserved.</Text>
         </View>
         <FeedbackModal
           isVisible={isModalVisible}

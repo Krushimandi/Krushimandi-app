@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { Colors } from '../../constants';
+import { useRemoteConfig } from '../../hooks/useRemoteConfig';
 
 interface NavigationProp {
   goBack: () => void;
@@ -30,6 +31,8 @@ interface MenuItemProps {
 }
 
 const AboutPage: React.FC<AboutPageProps> = ({ navigation }) => {
+  const rc = useRemoteConfig();
+  const currentYear = new Date().getFullYear();
 
   const AppLogo: React.FC = () => (
     <View style={styles.logoContainer}>
@@ -73,11 +76,11 @@ const AboutPage: React.FC<AboutPageProps> = ({ navigation }) => {
         <View style={styles.appInfoSection}>
           <AppLogo />
           {/* <Text style={styles.appName}>Krushimandi Innovations</Text> */}
-          <Text style={styles.versionText}>Version : 1.0.0</Text>
-          <Text style={styles.buildText}>Build : 5.18.77.2045178916/2025 (general)</Text>
-          <Text style={styles.callingVersionText}>calling version : 2025.1.10.1</Text>
+          <Text style={styles.versionText}>Version : {rc.app_version}</Text>
+          <Text style={styles.buildText}>Build : {rc.buildNumber}</Text>
+          <Text style={styles.callingVersionText}>calling version : {rc.calling_version}</Text>
           <Text style={styles.companyText}>Krushimandi Innovations PVT. LTD.</Text>
-          <Text style={styles.copyrightText}>Copyright @ 2025</Text>
+          <Text style={styles.copyrightText}>Copyright @ {currentYear}</Text>
         </View>
 
       </View>

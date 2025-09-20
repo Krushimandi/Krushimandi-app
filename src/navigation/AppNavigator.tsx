@@ -31,6 +31,8 @@ import BuyerStack from './buyer/BuyerStack';
 import { RootStackParamList } from './types';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ProfileScreen from 'components/ProfileScreen/ProfileScreen';
+import UnderMaintenanceScreen from '../components/common/UnderMaintenanceScreen';
+import { useRemoteConfig } from '../hooks/useRemoteConfig';
 
 const RootStack = createStackNavigator<RootStackParamList>();
 
@@ -47,6 +49,7 @@ const AppNavigator: React.FC<AppNavigatorProps> = () => {
   const [navigationKey] = useState(0);
   const [mainStackKey, setMainStackKey] = useState(0); // force remount of role stack when role changes
   const insets = useSafeAreaInsets();
+  const rc = useRemoteConfig();
 
   // Primary auth listener
   useEffect(() => {
@@ -130,6 +133,15 @@ const AppNavigator: React.FC<AppNavigatorProps> = () => {
   }, [isAuthenticated, hasRole, role]);
 
   if (initializing) return <LoadingScreen />;
+  if (rc.maintenanceMode) {
+    return (
+      <NavigationProvider>
+        <NavigationContainer ref={navigationRef}>
+          <UnderMaintenanceScreen />
+        </NavigationContainer>
+      </NavigationProvider>
+    );
+  }
   return (
     <NavigationProvider>
       <NavigationContainer

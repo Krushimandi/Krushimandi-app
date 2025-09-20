@@ -456,6 +456,28 @@ class RequestService {
         }
     }
 
+    // Efficiently check if the latest request from a buyer to a specific farmer is accepted
+    async isLatestRequestAccepted(buyerId: string, farmerId: string): Promise<boolean> {
+        try {
+            const querySnapshot = await this.db.collection('requests')
+                .where('buyerId', '==', buyerId)
+                .where('farmerId', '==', farmerId)
+                .orderBy('createdAt', 'desc')
+                .limit(1)
+                .get();
+            console.log('🔍 Latest request query snapshot:', querySnapshot);
+            if (querySnapshot.empty) return false;
+            const status = (querySnapshot.docs[0].data() as any)?.status;
+            console.log('Latest request status for buyer:', buyerId, 'and farmer:', farmerId, 'is', status);
+            
+            return status === RequestStatus.ACCEPTED;
+        } catch (error) {
+            console.error('Error checking latest request status:', error);
+            // Fail closed: if we cannot verify acceptance, do not allow call
+            return false;
+        }
+    }
+
     // Clean up expired requests (utility function)
     async cleanupExpiredRequests(): Promise<void> {
         try {

@@ -12,12 +12,15 @@ import {
   FlatList,
   Keyboard,
   KeyboardAvoidingView,
+  Linking,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Feather from 'react-native-vector-icons/Feather';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { BlurView } from '@react-native-community/blur';
 import { auth } from '../../config/firebaseModular';
+import { requestService } from '../../services/requestService';
 import { subscribeMessages, sendMessage, markChatRead, buildChatId, fetchUserProfile, ensureChatExists, backfillChatParticipants, setTyping, subscribeTyping } from '../../services/chatService';
 import useKeyboardHeight from '../../hooks/useKeyboardHeight';
 import useKeyboardLayoutMode from '../../hooks/useKeyboardLayoutMode';
@@ -28,6 +31,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const MESSAGE_AVATAR_SIZE = 32;
 const HEADER_HEIGHT = Platform.OS === 'ios' ? 100 : 80;
+const BOTTOM_GUTTER = 12; // extra padding so last bubble clears the input
 
 const COLORS = {
   primary: '#10B981',
@@ -130,12 +134,14 @@ const ChatDetailScreen = ({ route, navigation }) => {
   const paramChatId = route?.params?.chatId;
   const otherUid = route?.params?.otherUid;
   const initialName = route?.params?.name || 'Unknown';
+  const initialPhone = route?.params?.phoneNumber || null;
   const initialAvatarUri = route?.params?.avatarUri || null;
   const chatId = paramChatId || (otherUid && currentUid ? buildChatId(currentUid, otherUid) : undefined);
   const [contact, setContact] = useState({
     name: initialName,
     avatar: initialAvatarUri ? { uri: initialAvatarUri } : defaultAvatar,
     online: false,
+    phone: initialPhone,
   });
 
   // State
@@ -145,6 +151,11 @@ const ChatDetailScreen = ({ route, navigation }) => {
   const [isNearBottom, setIsNearBottom] = useState(true);
   const initialScrollDone = useRef(false);
   const [messages, setMessages] = useState([]);
+  // Defer clipping until after first scroll to bottom to avoid measurement issues
+  const [clippingEnabled, setClippingEnabled] = useState(false);
+  // Roles for gating calls
+  const [myRole, setMyRole] = useState(null);
+  const [otherRole, setOtherRole] = useState(null);
 
 
   const windowHeight = Dimensions.get("window").height;
@@ -152,14 +163,6 @@ const ChatDetailScreen = ({ route, navigation }) => {
   useEffect(() => {
     console.log("chat Window height:", windowHeight);
   }, [windowHeight]);
-  // Auto-scroll when keyboard appears if near bottom
-  useEffect(() => {
-    if (keyboardVisible && isNearBottom) {
-      requestAnimationFrame(() => {
-        flatListRef.current?.scrollToEnd({ animated: true });
-      });
-    }
-  }, [keyboardVisible, isNearBottom]);
 
   // Utility functions
   const formatTime = (date) => date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -177,9 +180,7 @@ const ChatDetailScreen = ({ route, navigation }) => {
     } catch (e) {
       console.log('sendMessage error', e?.message || e);
     }
-    setTimeout(() => {
-      flatListRef.current?.scrollToEnd({ animated: true });
-    }, 80);
+    // No auto-scroll after sending; user controls position
   }, [messageText, chatId, currentUid, otherUid]);
 
   const toggleMenu = useCallback(() => {
@@ -205,6 +206,50 @@ const ChatDetailScreen = ({ route, navigation }) => {
         break;
     }
   }, []);
+
+  // Place a phone call using the device dialer
+  const handleCall = useCallback(async () => {
+    const phone = contact?.phone;
+    if (!phone) {
+      Alert.alert('No phone number', 'This user has no phone number available.');
+      return;
+    }
+
+    try {
+      // If current user is a buyer and other party is a farmer (or unknown), ensure the latest request is accepted
+      const buyerId = auth.currentUser?.uid;
+      const farmerId = otherUid;
+      if (buyerId && farmerId && (myRole?.toLowerCase?.() === 'buyer')) {
+        // Only strictly require farmer on the other side; if unknown, fail-closed and still check
+        const shouldCheck = !otherRole || otherRole?.toLowerCase?.() === 'farmer';
+        if (shouldCheck) {
+          const ok = await requestService.isLatestRequestAccepted(buyerId, farmerId);
+          if (!ok) {
+            Alert.alert('Request not accepted', 'You can call once the farmer accepts your latest request.');
+            return;
+          }
+        }
+      }
+    } catch (_) {
+      // If we can’t verify, fail closed
+      Alert.alert('Request not accepted', 'You can call once the farmer accepts your latest request.');
+      return;
+    }
+
+    // Sanitize to digits and plus, then open dialer
+    const cleaned = String(phone).replace(/[^0-9+]/g, '');
+    const url = `tel:${cleaned}`;
+    try {
+      const supported = await Linking.canOpenURL(url);
+      if (supported) {
+        await Linking.openURL(url);
+      } else {
+        Alert.alert('Cannot start call', 'Your device cannot open the phone dialer.');
+      }
+    } catch (e) {
+      Alert.alert('Call failed', 'Unable to initiate the call.');
+    }
+  }, [contact?.phone, otherUid, myRole, otherRole]);
 
   const dismissKeyboard = useCallback(() => {
     Keyboard.dismiss();
@@ -266,23 +311,64 @@ const ChatDetailScreen = ({ route, navigation }) => {
     return () => { if (unsub) unsub(); };
   }, [chatId, currentUid]);
 
+  // Ensure initial position starts at bottom once messages and input height are ready
+  useEffect(() => {
+    if (!messages.length || initialScrollDone.current || !inputBarHeight) return;
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: false });
+        initialScrollDone.current = true;
+        if (Platform.OS === 'android') setClippingEnabled(true);
+      }, 0);
+    });
+  }, [messages.length, inputBarHeight]);
+
   // Load contact profile if missing
   useEffect(() => {
     (async () => {
       if (!otherUid) return;
-      if (contact.name && contact.avatar !== defaultAvatar) return;
-      const fetched = await fetchUserProfile(otherUid);
-      console.log('Fetched chat profile:', fetched);
-      if (fetched) {
-        const uri = fetched.profileImage || null;
-        setContact((prev) => ({
-          ...prev,
-          name: fetched.displayName || prev.name,
-          avatar: uri ? { uri } : prev.avatar,
-        }));
+      // Always ensure we have a phone number; don't early-return just because name/avatar are set
+      if (!contact.phone || !contact.name || contact.avatar === defaultAvatar) {
+        const fetched = await fetchUserProfile(otherUid);
+        console.log('Fetched chat profile:', fetched);
+        if (fetched) {
+          const uri = fetched.profileImage || null;
+          const phone = fetched.phoneNumber || null;
+          setContact((prev) => ({
+            ...prev,
+            name: fetched.displayName || prev.name,
+            avatar: uri ? { uri } : prev.avatar,
+            phone: phone || prev.phone,
+          }));
+          // capture other user's role for call gating
+          const role = (fetched.userRole || fetched.role || fetched.userType || '').toLowerCase();
+          if (role) setOtherRole(role);
+        }
+      } else {
+        // still attempt to get role for gating if we haven't yet
+        if (!otherRole) {
+          const fetched = await fetchUserProfile(otherUid);
+          const role = (fetched?.userRole || fetched?.role || fetched?.userType || '').toLowerCase();
+          if (role) setOtherRole(role);
+        }
       }
     })();
-  }, [otherUid]);
+  }, [otherUid, contact.phone, contact.name, contact.avatar, otherRole]);
+
+  // Load my profile role for robust gating
+  useEffect(() => {
+    (async () => {
+      const uid = auth.currentUser?.uid;
+      if (!uid) return;
+      if (!myRole) {
+        try {
+          const mine = await fetchUserProfile(uid);
+          const role = (mine?.userRole || '').toLowerCase();
+          if (role) setMyRole(role);
+        } catch (_) { /* ignore */ }
+      }
+    })();
+  }, [myRole]);
 
   // Track if user is near bottom to avoid fighting user scroll
   const handleScroll = useCallback((e) => {
@@ -299,15 +385,20 @@ const ChatDetailScreen = ({ route, navigation }) => {
 
   // Memoize contentContainerStyle to avoid prop churn on FlatList
   const messagesContentStyle = useMemo(() => {
-    const kbExtra = isResizeLike ? 0 : keyboardHeight;
+    // In Android adjustPan-like mode, we add keyboardHeight as bottom inset
+    // so messages stay above the keyboard; the input bar is absolute.
+    const extraKeyboardPad = (Platform.OS === 'android' && !isResizeLike && keyboardVisible)
+      ? keyboardHeight
+      : 0;
     return [
       styles.messagesContent,
       {
         paddingTop: HEADER_HEIGHT + insets.top + 20,
-        paddingBottom: kbExtra + inputBarHeight + Math.max(insets.bottom, 8) + 12,
+        // Ensure last messages sit above input + keyboard (in pan mode) while keeping a small gutter
+        paddingBottom: inputBarHeight + extraKeyboardPad + Math.max(insets.bottom, 8) + BOTTOM_GUTTER,
       }
     ];
-  }, [insets.top, insets.bottom, keyboardHeight, inputBarHeight, isResizeLike]);
+  }, [insets.top, insets.bottom, inputBarHeight, isResizeLike, keyboardVisible, keyboardHeight]);
 
   // Memoized renderItem to avoid re-creating per render
   const renderItem = useCallback(({ item }) => (
@@ -377,13 +468,14 @@ const ChatDetailScreen = ({ route, navigation }) => {
               <TouchableOpacity
                 style={styles.headerActionBtn}
                 hitSlop={{ top: 5, bottom: 5, left: 5, right: 5 }}
+                onPress={handleCall}
                 accessible={true}
                 accessibilityLabel="Make voice call"
                 accessibilityRole="button"
               >
                 <Feather name="phone" size={20} color={COLORS.primary} />
               </TouchableOpacity>
-              <TouchableOpacity
+              {/* <TouchableOpacity
                 style={styles.headerActionBtn}
                 hitSlop={{ top: 5, bottom: 5, left: 5, right: 5 }}
                 onPress={toggleMenu}
@@ -392,7 +484,7 @@ const ChatDetailScreen = ({ route, navigation }) => {
                 accessibilityRole="button"
               >
                 <Feather name="more-vertical" size={20} color={COLORS.text} />
-              </TouchableOpacity>
+              </TouchableOpacity> */}
 
               {showMenu && (
                 <View style={styles.dropdownMenu}>
@@ -429,26 +521,11 @@ const ChatDetailScreen = ({ route, navigation }) => {
           contentContainerStyle={messagesContentStyle}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
-          removeClippedSubviews={Platform.OS === 'android'}
+          removeClippedSubviews={Platform.OS === 'android' && clippingEnabled}
           onScroll={handleScroll}
           scrollEventThrottle={16}
-          onLayout={() => {
-            // Auto-scroll to bottom on initial load
-            if (!initialScrollDone.current) {
-              initialScrollDone.current = true;
-              setTimeout(() => {
-                flatListRef.current?.scrollToEnd({ animated: false });
-              }, 100);
-            }
-          }}
-          onContentSizeChange={() => {
-            // Auto-scroll to bottom when new messages are added
-            if (isNearBottom) {
-              setTimeout(() => {
-                flatListRef.current?.scrollToEnd({ animated: true });
-              }, 100);
-            }
-          }}
+          onLayout={() => { /* initial scroll handled in effect once input height known */ }}
+          onContentSizeChange={() => { /* no-op to avoid premature flagging */ }}
           ListFooterComponent={ListFooter}
           initialNumToRender={8}
           maxToRenderPerBatch={8}
@@ -472,7 +549,9 @@ const ChatDetailScreen = ({ route, navigation }) => {
           onSend={handleSend}
           onHeightChange={setInputBarHeight}
           maxLength={1000}
-          onFocus={() => setShowMenu(false)}
+          onFocus={() => {
+            setShowMenu(false);
+          }}
         />
       </Animated.View>
     </KeyboardAvoidingView>
@@ -606,7 +685,9 @@ const styles = StyleSheet.create(
     },
     messagesContent: {
       paddingHorizontal: 16,
-      // Avoid flexGrow which can cause ScrollView content to fill height and disrupt scrolling
+      // Make content fill available height and align to bottom so short chats stick to bottom
+      flexGrow: 1,
+      justifyContent: 'flex-end'
     },
     messageContainer: {
       maxWidth: SCREEN_WIDTH * 0.75,

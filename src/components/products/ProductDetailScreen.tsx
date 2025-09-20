@@ -1748,6 +1748,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
             name: product.name,
             price: product.price_per_kg,
             priceUnit: 'kg',
+            availability_date: product.availability_date,
             farmerName: farmerData?.displayName || 'Unknown Farmer',
             quantity: product.quantity,
           }}

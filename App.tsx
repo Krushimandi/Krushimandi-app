@@ -8,13 +8,12 @@ import {
     getMessaging,
     onNotificationOpenedApp,
     getInitialNotification,
-    AuthorizationStatus
 } from '@react-native-firebase/messaging';
 // Modular Cloud Functions import
 import { getFunctions, httpsCallable, httpsCallableFromUrl } from '@react-native-firebase/functions';
-import { navigationRef, isNavigationReady, pendingNotificationData, handleNotificationNavigation } from './src/navigation/navigationService';
+import { handleNotificationNavigation } from './src/navigation/navigationService';
 import { notificationTabEmitter } from './src/navigation/buyer/notificationTabEmitter';
-import { StatusBar, Alert, View, Text, TouchableOpacity } from 'react-native';
+import { StatusBar, View, Text, TouchableOpacity } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import RNBootSplash from 'react-native-bootsplash';
 import { AppNavigator } from './src/navigation';
@@ -32,9 +31,10 @@ import { notificationInitService } from './src/services/notificationInitService'
 import NetworkStatusIndicator from './src/components/common/NetworkStatusIndicator';
 import { persistentAuthManager } from './src/utils/persistentAuthManager';
 import ErrorBoundary from './src/components/common/ErrorBoundary';
-
-// In App.js or index.js
+import { initRemoteConfig } from './src/services/remoteConfigService';
+import { useRemoteConfig } from './src/hooks/useRemoteConfig';
 import { LogBox, Appearance } from 'react-native';
+
 const App: React.FC = () => {
     LogBox.ignoreAllLogs(true); // Hide all warnings
 
@@ -60,6 +60,10 @@ const App: React.FC = () => {
             // analytics.timing('app_initialization', initTime);
         }
     }, [isBootstrapped, isInitializing]);
+
+    // Initialize Remote Config (non-blocking)
+    useEffect(() => { (async () => { try { await initRemoteConfig(); } catch { } })(); }, []);
+    const rc = useRemoteConfig();
 
     // Memoize theme colors to prevent unnecessary recalculations
     const themeColors = useMemo(() => ({
