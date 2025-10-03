@@ -68,13 +68,11 @@ const convertFirestoreNotification = (fsNotification: FirestoreNotification): No
 const isUserSpecificNotification = (notification: FirestoreNotification, userId: string): boolean => {
     // Explicitly exclude any universal notifications
     if (notification.to === 'all' || notification.to === 'universal' || notification.to === 'public') {
-        console.log('🚫 Filtering out universal notification:', notification.id);
         return false;
     }
     
     // Only include notifications specifically for this user
     if (notification.to !== userId) {
-        console.log('🚫 Filtering out notification not for current user:', notification.id);
         return false;
     }
     
@@ -108,11 +106,8 @@ export const loadNotificationsFromFirestore = async (): Promise<void> => {
     try {
     const currentUser = auth.currentUser;
         if (!currentUser) {
-            console.log('❌ No authenticated user, cannot load notifications');
             return;
         }
-
-        console.log('📬 Loading notifications from Firestore...');
         const firestoreNotifications = await firestoreNotificationService.loadUserNotifications(currentUser.uid);
         
         // Filter out any universal notifications and convert
@@ -122,8 +117,6 @@ export const loadNotificationsFromFirestore = async (): Promise<void> => {
         
         notifications = userSpecificNotifications.map(convertFirestoreNotification);
         
-        console.log('✅ Loaded', notifications.length, 'user-specific notifications from Firestore');
-        console.log('🔒 Filtered out', firestoreNotifications.length - userSpecificNotifications.length, 'universal notifications');
         notifyListeners();
     } catch (error) {
         console.error('❌ Error loading notifications from Firestore:', error);
@@ -136,11 +129,8 @@ export const loadNotificationsFromFirestore = async (): Promise<void> => {
 export const subscribeToNotificationUpdates = (): (() => void) => {
     const currentUser = auth.currentUser;
     if (!currentUser) {
-        console.log('❌ No authenticated user, cannot subscribe to notifications');
         return () => {};
     }
-
-    console.log('🔔 Subscribing to real-time notification updates...');
     
     return firestoreNotificationService.subscribeToNotifications(
         currentUser.uid,
@@ -151,9 +141,6 @@ export const subscribeToNotificationUpdates = (): (() => void) => {
             );
             
             notifications = userSpecificNotifications.map(convertFirestoreNotification);
-            
-            console.log('🔄 Real-time update: Loaded', notifications.length, 'user-specific notifications');
-            console.log('🔒 Filtered out', firestoreNotifications.length - userSpecificNotifications.length, 'universal notifications');
             
             notifyListeners();
         }
@@ -238,7 +225,6 @@ export const deleteNotification = async (id: string): Promise<void> => {
 export const addNotification = async (notification: Omit<Notification, 'id'>): Promise<void> => {
     const currentUser = auth.currentUser;
     if (!currentUser) {
-        console.log('❌ No authenticated user, cannot save notification');
         return;
     }
 

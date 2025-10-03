@@ -17,15 +17,25 @@ buildscript {
         classpath("org.jetbrains.kotlin:kotlin-gradle-plugin")
         classpath("com.google.gms:google-services:4.4.0")
     }
-    allprojects {
+}
+
+allprojects {
+    repositories {
+        maven {
+            // Notifee local repository
+            url "$rootDir/../node_modules/@notifee/react-native/android/libs"
+        }
+        google()
+        mavenCentral()
+        maven {
+            url 'https://repo1.maven.org/maven2/'
+        }
+    }
     configurations.all {
         resolutionStrategy {
             force 'androidx.core:core:1.13.1'
-            exclude group: 'com.android.support', module: 'support-compat'
         }
     }
-}
-
 }
 
 apply plugin: "com.facebook.react.rootproject"

@@ -3,6 +3,9 @@
   "compilerOptions": {
     "typeRoots": ["./types", "./node_modules/@types"],
     "baseUrl": "src",
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
     "paths": {
       "@ui/*": ["ui/*"],
       "@component/*": ["component/*"]

@@ -44,7 +44,7 @@ class FirestoreNotificationService {
    */
   async loadUserNotifications(userId: string): Promise<FirestoreNotification[]> {
     try {
-      console.log('📬 Loading user-specific notifications for user:', userId);
+      
 
       const notificationsRef = collection(firestore, 'notifications');
       
@@ -70,8 +70,7 @@ class FirestoreNotificationService {
         }
       });
 
-      console.log('✅ Loaded', notifications.length, 'user-specific notifications from Firestore');
-      console.log('🔒 All notifications verified to belong to user:', userId);
+      
       
       return notifications;
 
@@ -89,7 +88,7 @@ class FirestoreNotificationService {
     callback: (notifications: FirestoreNotification[]) => void
   ): () => void {
     try {
-      console.log('🔔 Setting up real-time notification listener for user-specific notifications:', userId);
+      
 
       const notificationsRef = collection(firestore, 'notifications');
       // Query ONLY for user-specific notifications (removed 'all' to fix shared notifications)
@@ -114,8 +113,7 @@ class FirestoreNotificationService {
           }
         });
 
-        console.log('🔄 Real-time update:', notifications.length, 'user-specific notifications');
-        console.log('🔒 All notifications verified to belong to user:', userId);
+        
         callback(notifications);
       }, (error) => {
         console.error('❌ Notification listener error:', error);
@@ -138,7 +136,7 @@ class FirestoreNotificationService {
       await updateDoc(notificationRef, {
         seen: true
       });
-      console.log('✅ Notification marked as read:', notificationId);
+      
     } catch (error) {
       console.error('❌ Error marking notification as read:', error);
     }
@@ -151,7 +149,7 @@ class FirestoreNotificationService {
     try {
       const notificationRef = doc(firestore, 'notifications', notificationId);
       await deleteDoc(notificationRef);
-      console.log('✅ Notification deleted:', notificationId);
+      
     } catch (error) {
       console.error('❌ Error deleting notification:', error);
     }
@@ -162,14 +160,14 @@ class FirestoreNotificationService {
    */
   async markAllAsRead(userId: string): Promise<void> {
     try {
-      console.log('📝 Marking all notifications as read for user:', userId);
+      
       
       // Load only user-specific notifications to mark as read
       const notifications = await this.loadUserNotifications(userId);
       const unreadNotifications = notifications.filter(n => !n.seen);
 
       if (unreadNotifications.length === 0) {
-        console.log('ℹ️ No unread notifications to mark as read');
+        
         return;
       }
 
@@ -178,7 +176,7 @@ class FirestoreNotificationService {
       );
 
       await Promise.all(promises);
-      console.log(`✅ Marked ${unreadNotifications.length} user-specific notifications as read`);
+      
     } catch (error) {
       console.error('❌ Error marking all notifications as read:', error);
     }
@@ -205,7 +203,7 @@ class FirestoreNotificationService {
       const existingSnapshot = await getDocs(existingQuery);
       
       if (!existingSnapshot.empty) {
-        console.log('📬 Notification already exists, skipping save');
+        
         return;
       }
 
@@ -227,7 +225,7 @@ class FirestoreNotificationService {
       };
 
       await addDoc(collection(firestore, 'notifications'), notificationDoc);
-      console.log('✅ FCM notification saved to Firestore');
+      
 
     } catch (error) {
       console.error('❌ Error saving FCM notification to Firestore:', error);

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -27,13 +27,17 @@ import { updateFruitStatus } from '../../services/fruitService';
 import Toast from 'react-native-toast-message';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
-import { Modal, TextInput } from 'react-native';
+import { Modal, TextInput, Share } from 'react-native';
 
 import { updateFruit } from '../../services/fruitService';
+import { firestore } from '../../config/firebaseModular';
+import { useTranslation } from 'react-i18next';
+import { categories } from 'utils/fruitCategories';
 
 const { width } = Dimensions.get('window');
 
 const ProductDetailsFarmer = ({ route, navigation }) => {
+  const { t, i18n } = useTranslation();
   // Get product from route params (passed from FarmerHomeScreen)
   // Use local state for product to enable UI updates
   const initialProduct = route?.params?.product;
@@ -58,19 +62,28 @@ const ProductDetailsFarmer = ({ route, navigation }) => {
   const productImages = productState?.image_urls || [product?.image].filter(Boolean);
 
 
-  const QUANTITY_OPTIONS = [
-    '1-2 tons',
-    '3-5 tons',
-    '6-9 tons',
-    '10-12 tons',
-    '13-15 tons',
-    '16-20 tons',
-    '20+ tons'
-  ];
+  const QUANTITY_OPTIONS = useMemo(() => {
+    const ton = t('units.ton_other');
+    return [
+      `1-2 ${ton}`,
+      `3-5 ${ton}`,
+      `6-9 ${ton}`,
+      `10-12 ${ton}`,
+      `13-15 ${ton}`,
+      `16-20 ${ton}`,
+      `20+ ${ton}`,
+    ];
+  }, [t, i18n.language]);
 
 
   const [showQuantityOptions, setShowQuantityOptions] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  // Mounted flag to avoid setState after unmount
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => { isMountedRef.current = false; };
+  }, []);
 
 
 
@@ -116,15 +129,16 @@ const ProductDetailsFarmer = ({ route, navigation }) => {
     if (!Array.isArray(quantity) || quantity.length !== 2) return '';
 
     const [min, max] = quantity;
+    const ton = t('units.ton_other');
 
-    // Match the range to a predefined option
-    if (max <= 2) return '1-2 tons';
-    if (max <= 5) return '3-5 tons';
-    if (max <= 9) return '6-9 tons';
-    if (max <= 12) return '10-12 tons';
-    if (max <= 15) return '13-15 tons';
-    if (max <= 20) return '16-20 tons';
-    return '20+ tons';
+    // Match the range to a predefined option (localized unit)
+    if (max <= 2) return `1-2 ${ton}`;
+    if (max <= 5) return `3-5 ${ton}`;
+    if (max <= 9) return `6-9 ${ton}`;
+    if (max <= 12) return `10-12 ${ton}`;
+    if (max <= 15) return `13-15 ${ton}`;
+    if (max <= 20) return `16-20 ${ton}`;
+    return `20+ ${ton}`;
   };
 
 
@@ -166,20 +180,68 @@ const ProductDetailsFarmer = ({ route, navigation }) => {
           setIsLoadingRequests(true);
           const counts = await getProductRequestCounts([product.id]);
           const productCount = counts.find(c => c.productId === productState.id);
-          setRequestCount(productCount?.count || 0);
+          // One-time fallback; will be overridden by live snapshot if available
+          if (isMountedRef.current) setRequestCount(productCount?.count || 0);
         } catch (error) {
           console.error('Error loading request counts:', error);
-          setRequestCount(0);
+          if (isMountedRef.current) setRequestCount(0);
         } finally {
-          setIsLoadingRequests(false);
+          if (isMountedRef.current) setIsLoadingRequests(false);
         }
       } else {
-        setIsLoadingRequests(false);
+        if (isMountedRef.current) setIsLoadingRequests(false);
       }
     };
 
     loadRequestCounts();
   }, [product?.id, getProductRequestCounts]);
+
+  // Live sync views and requestCount from the fruit document (single source of truth)
+  useEffect(() => {
+    if (!product?.id) return;
+    const unsub = firestore
+      .collection('fruits')
+      .doc(product.id)
+      .onSnapshot(
+        (doc) => {
+          if (!doc?.exists) return;
+          const data = doc.data() || {};
+          // Sync views to local product state
+          const newViews = typeof data.views === 'number' ? data.views : 0;
+          if (isMountedRef.current && newViews !== (productState?.views ?? 0)) {
+            setProductState(prev => ({ ...prev, views: newViews }));
+          }
+          // We will prefer live query of pending requests below; keep doc.requestCount as a soft fallback only
+          if (typeof data.requestCount === 'number' && !isMountedRef.current) {
+            // no-op: guarded; pending snapshot effect will set the visible value
+          }
+        },
+        (error) => {
+          console.error('❌ Product snapshot error:', error);
+        }
+      );
+    return () => { unsub && unsub(); };
+  }, [product?.id, productState?.views, isLoadingRequests]);
+
+  // Live pending requests count (mirrors Buyer logic that counts PENDING only)
+  useEffect(() => {
+    if (!product?.id) return;
+    const q = firestore
+      .collection('requests')
+      .where('productId', '==', product.id)
+      .where('status', '==', 'pending');
+    const unsub = q.onSnapshot(
+      (snap) => {
+        if (!isMountedRef.current) return;
+        setRequestCount(snap.size || 0);
+        if (isLoadingRequests) setIsLoadingRequests(false);
+      },
+      (error) => {
+        console.error('❌ Pending requests snapshot error:', error);
+      }
+    );
+    return () => { unsub && unsub(); };
+  }, [product?.id, isLoadingRequests]);
 
   const onImageScroll = Animated.event(
     [{ nativeEvent: { contentOffset: { x: scrollX } } }],
@@ -197,12 +259,12 @@ const ProductDetailsFarmer = ({ route, navigation }) => {
       <SafeAreaView style={styles.container}>
         <View style={styles.errorContainer}>
           <Ionicons name="alert-circle-outline" size={48} color="#E0E0E0" />
-          <Text style={styles.errorText}>Product not found</Text>
+          <Text style={styles.errorText}>{t('product.farmerDetail.errors.notFound')}</Text>
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => navigation.goBack()}
           >
-            <Text style={styles.backButtonText}>Go Back</Text>
+            <Text style={styles.backButtonText}>{t('common.goBack')}</Text>
           </TouchableOpacity>
         </View>
         {renderEditModal()}
@@ -217,13 +279,15 @@ const ProductDetailsFarmer = ({ route, navigation }) => {
       await updateFruitStatus(fruitId, newStatus);
       // Update local product state so UI reflects change immediately
       setProductState(prev => ({ ...prev, status: newStatus }));
-      const statusMessage = newStatus === 'sold' ? 'marked as sold' :
-        newStatus === 'inactive' ? 'deactivated' :
-          'updated';
-      Alert.alert('Success', `Fruit ${statusMessage} successfully!`);
+      const msgKey = newStatus === 'sold'
+        ? 'product.farmerDetail.toast.markedSold'
+        : newStatus === 'inactive'
+          ? 'product.farmerDetail.toast.deactivated'
+          : 'product.farmerDetail.toast.updated';
+      Alert.alert(t('common.success'), t(msgKey));
     } catch (error) {
       console.error('❌ Error updating fruit status:', error);
-      Alert.alert('Error', 'Failed to update fruit status: ' + error.message);
+      Alert.alert(t('alerts.errorTitle'), error?.message || '');
     }
   };
 
@@ -373,7 +437,7 @@ const ProductDetailsFarmer = ({ route, navigation }) => {
   const handleSaveEdit = async () => {
     try {
       if (!editFields.name || !editFields.quantity) {
-        Alert.alert('Validation', 'Please provide a name and quantity.');
+        Alert.alert(t('validation.title'), t('product.farmerDetail.validation.nameQuantityRequired'));
         return;
       }
 
@@ -425,35 +489,39 @@ const ProductDetailsFarmer = ({ route, navigation }) => {
 
       Toast.show({
         type: 'success',
-        text1: 'Product updated successfully!',
+        text1: t('product.farmerDetail.toast.updated'),
         position: 'bottom',
         visibilityTime: 1500,
       });
     } catch (error) {
       console.error('Error updating product (handleSaveEdit):', error);
-      Alert.alert('Error', 'Failed to update product. ' + (error?.message || 'Please try again.'));
+      Alert.alert(
+        t('alerts.errorTitle'),
+        `${t('product.farmerDetail.errors.updateFailed')} ${error?.message ? `(${error.message})` : ''}`.trim()
+      );
     }
   };
 
 
   const handleShare = async () => {
     try {
-      // Create a comprehensive product description for sharing
-      const productDescription = `🍎 ${product.name} for Sale!
+      // Localized share content
+      const perKg = t('units.perKg');
+      const productDescription = `🍎 ${t('product.farmerDetail.share.forSale', { name: product.name })}
 
-📍 Location: ${product.location ? formatLocation(product.location) : 'Available'}
-💰 Price: ${formatPrice(product.price_per_kg || 0)} per kg
-📦 Quantity: ${product.quantity ? formatFruitQuantity(product.quantity) : (product.available || 'Available')}
-🌱 Type: ${product.type ? product.type.charAt(0).toUpperCase() + product.type.slice(1) : (product.category || 'Fresh Fruit')}
+📍 ${t('product.farmerDetail.share.location', { location: product.location ? formatLocation(product.location) : t('product.farmerDetail.placeholders.locationNA') })}
+💰 ${t('product.farmerDetail.share.price', { price: formatPrice(product.price_per_kg || 0), perKg })}
+📦 ${t('product.farmerDetail.share.quantity', { quantity: product.quantity ? formatFruitQuantity(product.quantity) : (product.available || t('product.farmerDetail.placeholders.notSpecified')) })}
+🌱 ${t('product.farmerDetail.share.type', { type: product.type ? (product.type.charAt(0).toUpperCase() + product.type.slice(1)) : (product.category || t('fruits.generic')) })}
 
-${product.description ? `📝 Description: ${product.description}\n` : ''}📅 Available: ${product.availability_date ? new Date(product.availability_date).toLocaleDateString() : 'Now'}
+${product.description ? `📝 ${t('product.farmerDetail.share.description', { description: product.description })}\n` : ''}📅 ${t('product.farmerDetail.share.available', { date: product.availability_date ? new Date(product.availability_date).toLocaleDateString() : t('product.farmerDetail.share.availableNow') })}
 
-Contact for more details and bulk orders!
+${t('product.farmerDetail.share.contact')}
 
 #FreshFruits #DirectFromFarmer #Krushimandi`;
 
       const shareOptions = {
-        title: `${product.name} - Fresh from Farm`,
+        title: t('product.farmerDetail.share.title', { name: product.name, tagline: t('product.farmerDetail.share.tagline') }),
         message: productDescription,
         url: product.image_urls && product.image_urls.length > 0 ? product.image_urls[0] : undefined,
       };
@@ -475,9 +543,9 @@ Contact for more details and bulk orders!
     } catch (error) {
       console.error('Error sharing product:', error);
       Alert.alert(
-        'Share Error',
-        'Unable to share the product at the moment. Please try again.',
-        [{ text: 'OK' }]
+        t('product.farmerDetail.share.errorTitle'),
+        t('product.farmerDetail.share.errorMessage'),
+        [{ text: t('common.ok') }]
       );
     }
   };
@@ -495,28 +563,28 @@ Contact for more details and bulk orders!
 
   const handleRemoveFromListing = () => {
     Alert.alert(
-      'Mark as Sold',
-      'This will hide your product from public view and move it to history.',
+      t('product.farmerDetail.alerts.markAsSoldTitle'),
+      t('product.farmerDetail.alerts.markAsSoldMessage'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('product.farmerDetail.alerts.cancel'), style: 'cancel' },
         {
-          text: 'Mark as Sold',
+          text: t('product.farmerDetail.alerts.markAsSold'),
           style: 'destructive',
           onPress: async () => {
             try {
               await updateFruitStatus(product.id, 'sold')
                 .then(() => setProductState(prev => ({ ...prev, status: 'sold' })))
-                .catch(error => Alert.alert('Error', 'Failed to mark as sold: ' + error.message));
+                .catch(error => Alert.alert(t('alerts.errorTitle'), error?.message || ''));
 
               Toast.show({
                 type: 'success',
-                text1: 'Fruits Sold',
+                text1: t('product.farmerDetail.alerts.saleRecordedTitle'),
                 position: 'bottom',
                 visibilityTime: 1000,
               });
 
             } catch (error) {
-              Alert.alert('Error', 'Failed to hide product: ' + error.message);
+              Alert.alert(t('alerts.errorTitle'), error?.message || '');
             }
           }
         }
@@ -526,12 +594,12 @@ Contact for more details and bulk orders!
 
   const handleMarkSold = () => {
     Alert.alert(
-      'Mark as Sold',
-      'Please provide details about the sale to help us improve the platform.',
+      t('product.farmerDetail.alerts.markAsSoldTitle'),
+      t('product.farmerDetail.alerts.provideDetails'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('product.farmerDetail.alerts.cancel'), style: 'cancel' },
         {
-          text: 'Provide Details',
+          text: t('product.farmerDetail.alerts.provideDetails'),
           onPress: () => showSoldDetailsModal()
         }
       ]
@@ -540,23 +608,23 @@ Contact for more details and bulk orders!
 
   const showSoldDetailsModal = () => {
     Alert.alert(
-      '🎉 Sale Completed!',
-      'Congratulations on your successful sale! Help us understand how this sale happened to improve our platform:',
+      t('product.farmerDetail.alerts.saleCompletedTitle'),
+      t('product.farmerDetail.alerts.saleCompletedMessage'),
       [
         {
-          text: '📱 Sold via App Inquiry',
+          text: t('product.farmerDetail.alerts.soldViaApp'),
           onPress: () => handleSaleComplete('app_inquiry')
         },
         {
-          text: '🤝 Sold Directly/Offline',
+          text: t('product.farmerDetail.alerts.soldDirect'),
           onPress: () => handleSaleComplete('direct_sale')
         },
         {
-          text: '🏪 Sold to Local Market',
+          text: t('product.farmerDetail.alerts.soldLocalMarket'),
           onPress: () => handleSaleComplete('local_market')
         },
         {
-          text: '❌ Cancel',
+          text: t('product.farmerDetail.alerts.cancel'),
           style: 'cancel',
           onPress: async () => {
             // Optionally, mark as sold if user cancels
@@ -570,25 +638,25 @@ Contact for more details and bulk orders!
 
   const handleSaleComplete = (saleType) => {
     const saleTypeText = saleType === 'app_inquiry'
-      ? '📱 through an app inquiry'
+      ? t('product.farmerDetail.alerts.soldViaApp')
       : saleType === 'direct_sale'
-        ? '🤝 through direct/offline channels'
-        : '🏪 to local market';
+        ? t('product.farmerDetail.alerts.soldDirect')
+        : t('product.farmerDetail.alerts.soldLocalMarket');
 
     Alert.alert(
-      '📊 Sale Details',
-      `You mentioned this was sold ${saleTypeText}.\n\nWhat quantity was sold? This helps us provide better market insights.`,
+      t('product.farmerDetail.alerts.saleDetailsTitle'),
+      `${t('product.farmerDetail.alerts.saleDetailsTitle')}: ${saleTypeText}`,
       [
         {
-          text: '📦 Partial Sale',
+          text: t('product.farmerDetail.alerts.partialSale', 'Partial Sale'),
           onPress: () => showQuantitySelector(saleType, 'partial')
         },
         {
-          text: '✅ Complete Sale',
+          text: t('product.farmerDetail.alerts.completeSale', 'Complete Sale'),
           onPress: () => showQuantitySelector(saleType, 'complete')
         },
         {
-          text: '← Back',
+          text: t('product.farmerDetail.alerts.back'),
           style: 'cancel',
           onPress: () => showSoldDetailsModal()
         }
@@ -609,13 +677,14 @@ Contact for more details and bulk orders!
       onPress: () => confirmSaleDetails(saleType, saleAmount, qty.label, qty.value)
     }));
 
+    const availableQtyText = product.available || formatFruitQuantity(product.quantity || [0, 0]);
     Alert.alert(
-      '📊 Sale Quantity',
-      `What percentage of your ${product.available} was sold?\n\n💡 This helps us provide better market insights.`,
+      t('product.farmerDetail.alerts.saleQuantityTitle'),
+      t('product.farmerDetail.alerts.saleQuantityMessage', { available: availableQtyText }),
       [
         ...quantityOptions,
         {
-          text: '← Back',
+          text: t('product.farmerDetail.alerts.back'),
           style: 'cancel',
           onPress: () => handleSaleComplete(saleType)
         }
@@ -648,11 +717,11 @@ Contact for more details and bulk orders!
       .then(() => setProductState(prev => ({ ...prev, status: 'sold' })))
       .catch(error => Alert.alert('Error', 'Failed to mark as sold: ' + error.message));
     Alert.alert(
-      '🎉 Sale Recorded Successfully!',
-      `Thank you for the details!\n\n📈 ${quantity} of your ${product.name} (${soldAmount} kg) has been marked as sold.\n💰 Estimated revenue: ₹${estimatedRevenue.toLocaleString()}\n\n✨ This data helps improve our platform and provides better market insights for all farmers.`,
+      t('product.farmerDetail.alerts.saleRecordedTitle'),
+      t('product.farmerDetail.alerts.saleRecordedMessage'),
       [
         {
-          text: '✅ Done',
+          text: t('product.farmerDetail.alerts.done'),
           onPress: () => navigation.goBack()
         }
       ]
@@ -683,7 +752,7 @@ Contact for more details and bulk orders!
               <View style={editModalStyles.handle} />
 
               <View style={editModalStyles.modalHeader}>
-                <Text style={editModalStyles.modalTitle}>Edit Product</Text>
+                <Text style={editModalStyles.modalTitle}>{t('product.farmerDetail.modals.editTitle')}</Text>
                 <TouchableOpacity
                   onPress={() => setEditModalVisible(false)}
                   style={editModalStyles.closeButton}
@@ -693,15 +762,15 @@ Contact for more details and bulk orders!
               </View>
 
               <ScrollView style={editModalStyles.formContainer} showsVerticalScrollIndicator={false}>
-                <Text style={editModalStyles.label}>Name</Text>
+                <Text style={editModalStyles.label}>{t('product.farmerDetail.labels.name')}</Text>
                 <TextInput
                   style={editModalStyles.input}
                   value={editFields.name}
                   onChangeText={(text) => setEditFields(prev => ({ ...prev, name: text }))}
-                  placeholder="Product Name"
+                  placeholder={t('product.add.labels.fruitName')}
                 />
 
-                <Text style={editModalStyles.label}>Availability Date</Text>
+                <Text style={editModalStyles.label}>{t('product.farmerDetail.labels.availabilityDate')}</Text>
                 <TouchableOpacity
                   style={[editModalStyles.input, { justifyContent: 'center' }]}
                   onPress={() => setShowDatePicker(true)}
@@ -709,21 +778,21 @@ Contact for more details and bulk orders!
                   <Text style={{ color: editFields.availability_date ? '#000' : '#9CA3AF' }}>
                     {editFields.availability_date
                       ? new Date(editFields.availability_date).toLocaleDateString()
-                      : 'Select availability date'}
+                      : t('product.farmerDetail.placeholders.selectAvailability')}
                   </Text>
                 </TouchableOpacity>
 
-                <Text style={editModalStyles.label}>Description</Text>
+                <Text style={editModalStyles.label}>{t('product.farmerDetail.labels.description')}</Text>
                 <TextInput
                   style={[editModalStyles.input, editModalStyles.textArea]}
                   value={editFields.description}
                   onChangeText={(text) => setEditFields(prev => ({ ...prev, description: text }))}
-                  placeholder="Product Description"
+                  placeholder={t('product.farmerDetail.placeholders.productDescription')}
                   multiline
                   numberOfLines={4}
                 />
 
-                <Text style={editModalStyles.label}>Quantity</Text>
+                <Text style={editModalStyles.label}>{t('product.farmerDetail.labels.quantity')}</Text>
                 <TouchableOpacity
                   style={[editModalStyles.input, {
                     flexDirection: 'row',
@@ -737,7 +806,7 @@ Contact for more details and bulk orders!
                     color: editFields.quantity ? '#000' : '#9CA3AF',
                     fontSize: 16
                   }}>
-                    {editFields.quantity || 'Select quantity'}
+                    {editFields.quantity || t('product.farmerDetail.placeholders.selectQuantity')}
                   </Text>
                   <Ionicons
                     name={showQuantityOptions ? 'chevron-up' : 'chevron-down'}
@@ -776,7 +845,7 @@ Contact for more details and bulk orders!
                   </View>
                 )}
 
-                <Text style={editModalStyles.label}>Price (per kg)</Text>
+                <Text style={editModalStyles.label}>{t('product.farmerDetail.labels.pricePerKg')}</Text>
                 <View style={editModalStyles.priceInputContainer}>
                   <View style={editModalStyles.priceDisplayBox}>
                     <Text style={editModalStyles.rupeeSymbol}>₹</Text>
@@ -787,11 +856,11 @@ Contact for more details and bulk orders!
                         const sanitizedText = text.replace(/[^0-9]/g, '');
                         setEditFields(prev => ({ ...prev, price: sanitizedText }))
                       }}
-                      placeholder="Enter price"
+                      placeholder={t('product.farmerDetail.placeholders.enterPrice')}
                       keyboardType="numeric"
                       maxLength={4}
                     />
-                    <Text style={editModalStyles.perKgText}>/kg</Text>
+                    <Text style={editModalStyles.perKgText}>{t('units.perKg')}</Text>
                   </View>
 
 
@@ -804,7 +873,7 @@ Contact for more details and bulk orders!
                 style={editModalStyles.saveButton}
                 onPress={handleSaveEdit}
               >
-                <Text style={editModalStyles.saveButtonText}>Save Changes</Text>
+                <Text style={editModalStyles.saveButtonText}>{t('product.farmerDetail.actions.saveChanges')}</Text>
               </TouchableOpacity>
 
               {showDatePicker && (
@@ -852,7 +921,7 @@ Contact for more details and bulk orders!
           <Ionicons name="arrow-back" size={24} color={Colors.light.text} />
         </TouchableOpacity>
 
-        <Text style={styles.headerTitle}>Product Overview</Text>
+        <Text style={styles.headerTitle}>{t('product.farmerDetail.headerTitle')}</Text>
 
         <View style={styles.headerRight}>
           <TouchableOpacity
@@ -958,14 +1027,20 @@ Contact for more details and bulk orders!
               <Text style={styles.productName}>{product.name}</Text>
 
               <View style={{ flexDirection: 'row', gap: 8 }}>
-                <View style={styles.categoryBadge}>
+                {product.type && <View style={styles.categoryBadge}>
                   <Text style={styles.categoryText}>
-                    {product.type ? product.type.charAt(0).toUpperCase() + product.type.slice(1) : (product.category || 'Fruit')}
+                    {t(categories.find(c => c.type === product.type)?.labelKey)}
                   </Text>
-                </View>
+                </View>}
                 <View style={styles.categoryBadge}>
                   {/* Status Badge */}
-                  <Text style={styles.statusText}>{product.status.charAt(0).toUpperCase() + product.status.slice(1)}</Text>
+                  <Text style={styles.statusText}>
+                    {product.status === 'active'
+                      ? t('farmerHome.statusLive')
+                      : product.status === 'sold'
+                        ? t('farmerHome.soldOut')
+                        : t('farmerHome.expired')}
+                  </Text>
                 </View>
               </View>
             </View>
@@ -990,7 +1065,7 @@ Contact for more details and bulk orders!
                 <Ionicons name="eye" size={24} color="#1976D2" />
               </View>
               <Text style={styles.statNumber}>{product.views}</Text>
-              <Text style={styles.statLabel}>Views</Text>
+              <Text style={styles.statLabel}>{t('product.farmerDetail.stats.views')}</Text>
             </TouchableOpacity>
 
             {/* Requests Card */}
@@ -1005,7 +1080,7 @@ Contact for more details and bulk orders!
               <Text style={styles.statNumber}>
                 {isLoadingRequests ? '...' : requestCount}
               </Text>
-              <Text style={styles.statLabel}>Requests</Text>
+              <Text style={styles.statLabel}>{t('product.farmerDetail.stats.requests')}</Text>
             </TouchableOpacity>
 
             {/* Days Active Card */}
@@ -1025,14 +1100,14 @@ Contact for more details and bulk orders!
                   (product.listedDate || '0')
                 }
               </Text>
-              <Text style={styles.statLabel}>Days ago</Text>
+              <Text style={styles.statLabel}>{t('product.farmerDetail.stats.daysAgo')}</Text>
             </TouchableOpacity>
           </View>
         </View>
 
         {/* Details Section */}
         <View style={styles.detailsSection}>
-          <Text style={styles.sectionTitle}>Product Details</Text>
+          <Text style={styles.sectionTitle}>{t('product.farmerDetail.section.details')}</Text>
 
           <View style={styles.detailCard}>
             <View style={styles.detailRow}>
@@ -1040,9 +1115,9 @@ Contact for more details and bulk orders!
                 <Ionicons name="location" size={20} color={Colors.light.success} />
               </View>
               <View style={styles.detailContent}>
-                <Text style={styles.detailLabel}>Location</Text>
+                <Text style={styles.detailLabel}>{t('product.farmerDetail.labels.location')}</Text>
                 <Text style={styles.detailValue}>
-                  {product.location ? formatLocation(product.location) : 'Location not available'}
+                  {product.location ? formatLocation(product.location) : t('product.farmerDetail.placeholders.locationNA')}
                 </Text>
               </View>
             </View>
@@ -1054,9 +1129,9 @@ Contact for more details and bulk orders!
                 <Ionicons name="cube" size={20} color={Colors.light.primary} />
               </View>
               <View style={styles.detailContent}>
-                <Text style={styles.detailLabel}>Available Quantity</Text>
+                <Text style={styles.detailLabel}>{t('product.farmerDetail.labels.availableQuantity')}</Text>
                 <Text style={styles.detailValue}>
-                  {product.quantity ? formatFruitQuantity(product.quantity) : (product.available || 'Not specified')}
+                  {product.quantity ? formatFruitQuantity(product.quantity) : (product.available || t('product.farmerDetail.placeholders.notSpecified'))}
                 </Text>
               </View>
             </View>
@@ -1075,17 +1150,17 @@ Contact for more details and bulk orders!
 
             <View style={styles.detailDivider} />
 
-            <View style={styles.detailRow}>
+            {product.type && <View style={styles.detailRow}>
               <View style={styles.detailIcon}>
                 <Ionicons name="leaf" size={20} color="#4CAF50" />
               </View>
               <View style={styles.detailContent}>
-                <Text style={styles.detailLabel}>Fruit Type</Text>
+                <Text style={styles.detailLabel}>{t('product.farmerDetail.labels.fruitType')}</Text>
                 <Text style={styles.detailValue}>
-                  {product.type ? product.type.charAt(0).toUpperCase() + product.type.slice(1) : (product.category || 'Not specified')}
+                  {t(categories.find(c => c.type === product.type)?.labelKey)}
                 </Text>
               </View>
-            </View>
+            </View>}
 
             <View style={styles.detailDivider} />
 
@@ -1094,9 +1169,9 @@ Contact for more details and bulk orders!
                 <Ionicons name="calendar" size={20} color="#2196F3" />
               </View>
               <View style={styles.detailContent}>
-                <Text style={styles.detailLabel}>Availability Date</Text>
+                <Text style={styles.detailLabel}>{t('product.farmerDetail.labels.availabilityDate')}</Text>
                 <Text style={styles.detailValue}>
-                  {product.availability_date ? new Date(product.availability_date).toLocaleDateString() : 'Available now'}
+                  {product.availability_date ? new Date(product.availability_date).toLocaleDateString() : t('product.detail.placeholders.availableNow')}
                 </Text>
               </View>
             </View>
@@ -1108,11 +1183,11 @@ Contact for more details and bulk orders!
                 <Ionicons name="time" size={20} color="#607D8B" />
               </View>
               <View style={styles.detailContent}>
-                <Text style={styles.detailLabel}>Listed Date</Text>
+                <Text style={styles.detailLabel}>{t('product.farmerDetail.labels.listedDate')}</Text>
                 <Text style={styles.detailValue}>
                   {product.created_at ?
-                    `${Math.ceil((new Date() - new Date(product.created_at)) / (1000 * 60 * 60 * 24))} days ago` :
-                    'Unknown'
+                    t('time.daysAgo', { count: Math.ceil((new Date() - new Date(product.created_at)) / (1000 * 60 * 60 * 24)) }) :
+                    t('product.detail.placeholders.unknown')
                   }
                 </Text>
               </View>
@@ -1128,12 +1203,18 @@ Contact for more details and bulk orders!
                 } />
               </View>
               <View style={styles.detailContent}>
-                <Text style={styles.detailLabel}>Status</Text>
+                <Text style={styles.detailLabel}>{t('product.farmerDetail.labels.status')}</Text>
                 <Text style={[styles.detailValue, {
                   color: product.status === 'active' ? '#4CAF50' :
                     product.status === 'sold' ? '#2196F3' : '#FF9800'
                 }]}>
-                  {product.status ? product.status.charAt(0).toUpperCase() + product.status.slice(1) : 'Unknown'}
+                  {product.status === 'active'
+                    ? t('farmerHome.statusLive')
+                    : product.status === 'sold'
+                      ? t('farmerHome.soldOut')
+                      : product.status === 'expired' || product.status === 'inactive'
+                        ? t('farmerHome.expired')
+                        : t('product.detail.placeholders.unknown')}
                 </Text>
               </View>
             </View>
@@ -1144,7 +1225,7 @@ Contact for more details and bulk orders!
         {
           product.description && (
             <View style={styles.descriptionSection}>
-              <Text style={styles.sectionTitle}>Description</Text>
+              <Text style={styles.sectionTitle}>{t('product.farmerDetail.section.description')}</Text>
               <View>
                 <Text style={styles.descriptionText}>{product.description}</Text>
               </View>
@@ -1183,14 +1264,14 @@ Contact for more details and bulk orders!
                   <View style={styles.inquiriesTextContainer}>
                     <Text style={styles.inquiriesButtonTitle}>
                       {isLoadingRequests
-                        ? 'Loading...'
-                        : "View Requests"
+                        ? t('common.loading')
+                        : t('product.farmerDetail.actions.viewRequests')
                       }
                     </Text>
                     <Text style={styles.inquiriesButtonSubtitle}>
                       {isLoadingRequests
-                        ? 'Checking requests...'
-                        : `${requestCount} request${requestCount > 1 ? 's' : ''} received`
+                        ? t('requests.checkingStatus')
+                        : `${requestCount} ${t('buyerProfile.stats.requests')}`
                       }
                     </Text>
                   </View>
@@ -1213,7 +1294,7 @@ Contact for more details and bulk orders!
                 activeOpacity={0.8}
               >
                 <Ionicons name="checkmark-circle-outline" size={20} color="#FFF" />
-                <Text style={styles.secondaryButtonText}>Sold</Text>
+                <Text style={styles.secondaryButtonText}>{t('product.farmerDetail.actions.sold')}</Text>
               </TouchableOpacity>
             </View>
           ) : (
@@ -1223,7 +1304,7 @@ Contact for more details and bulk orders!
               activeOpacity={0.8}
             >
               <Ionicons name="refresh-outline" size={22} color="#FFF" style={styles.buttonIcon} />
-              <Text style={styles.relistButtonText}>Relist Product</Text>
+              <Text style={styles.relistButtonText}>{t('product.farmerDetail.actions.relist')}</Text>
             </TouchableOpacity>
           )
         }

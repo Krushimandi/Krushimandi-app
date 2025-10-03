@@ -25,7 +25,6 @@ export const setAppIconBadge = async (count?: number): Promise<void> => {
             await notifee.setBadgeCount(badgeCount);
         }
         
-        console.log(`✅ App icon badge set to: ${badgeCount}`);
     } catch (error) {
         console.error('❌ Error setting app icon badge:', error);
     }

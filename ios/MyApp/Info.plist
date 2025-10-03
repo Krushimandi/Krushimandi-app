@@ -37,6 +37,12 @@
 	<string>This app needs location access to auto-fill your farm location details when listing fruits. This helps buyers find your products and improves the accuracy of your listings.</string>
 	<key>NSLocationUsageDescription</key>
 	<string>This app needs location access to auto-fill your farm location details when listing fruits.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>This app needs camera access to capture photos for your fruit listings and profile.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>This app needs photo library access to select photos for your fruit listings and profile.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>This app saves photos to your library when you choose to export or save images.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>BootSplash</string>
 	<key>UIRequiredDeviceCapabilities</key>

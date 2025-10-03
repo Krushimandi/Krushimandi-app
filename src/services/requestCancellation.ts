@@ -55,9 +55,7 @@ export class RequestCancellationManager {
       this.requestGroups.get(groupId)!.add(requestId);
     }
 
-    if (__DEV__) {
-      console.log(`📝 Created request: ${requestId} (${method} ${url})`);
-    }
+    
 
     return request;
   }
@@ -78,9 +76,7 @@ export class RequestCancellationManager {
     // Remove from groups
     this.removeFromGroups(requestId);
 
-    if (__DEV__) {
-      console.log(`❌ Cancelled request: ${requestId} - ${reason}`);
-    }
+    
 
     return true;
   }
@@ -105,9 +101,7 @@ export class RequestCancellationManager {
 
     this.requestGroups.delete(groupId);
 
-    if (__DEV__) {
-      console.log(`❌ Cancelled ${cancelledCount} requests in group: ${groupId}`);
-    }
+    
 
     return cancelledCount;
   }
@@ -125,9 +119,7 @@ export class RequestCancellationManager {
     this.activeRequests.clear();
     this.requestGroups.clear();
 
-    if (__DEV__) {
-      console.log(`❌ Cancelled all ${totalRequests} requests - ${reason}`);
-    }
+    
 
     return totalRequests;
   }
@@ -144,7 +136,6 @@ export class RequestCancellationManager {
 
       if (__DEV__) {
         const duration = Date.now() - request.timestamp;
-        console.log(`✅ Completed request: ${requestId} (${duration}ms)`);
       }
     }
   }
@@ -209,9 +200,7 @@ export class RequestCancellationManager {
       this.cancelRequest(requestId, 'Request expired');
     });
 
-    if (__DEV__ && expiredRequestIds.length > 0) {
-      console.log(`🧹 Cleaned up ${expiredRequestIds.length} expired requests`);
-    }
+    
   }
 }
 

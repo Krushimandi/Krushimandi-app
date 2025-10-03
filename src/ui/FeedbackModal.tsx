@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
     View,
     Text,
@@ -44,6 +45,7 @@ const CloseIcon: React.FC = () => (
 
 // Feedback Modal Component
 const FeedbackModal: React.FC<FeedbackModalProps> = ({ isVisible, onClose, onSubmit }) => {
+    const { t } = useTranslation();
     const [selectedRating, setSelectedRating] = useState<'good' | 'neutral' | 'bad' | null>(null);
     const [feedback, setFeedback] = useState<string>('');
     const [slideAnim] = useState<Animated.Value>(new Animated.Value(height));
@@ -58,7 +60,6 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ isVisible, onClose, onSub
 
     useEffect(() => {
         if (isVisible) {
-            console.log("Visible");
 
             // Animate modal in
             Animated.parallel([
@@ -169,7 +170,7 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ isVisible, onClose, onSub
                 >
                     {/* Header */}
                     <View style={styles.header}>
-                        <Text style={styles.headerTitle}>Share Review</Text>
+                        <HeaderTitle />
                         <TouchableOpacity
                             style={styles.closeButton}
                             onPress={handleClose}
@@ -183,10 +184,7 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ isVisible, onClose, onSub
                     <View style={styles.content}>
                         {/* Title and Description */}
                         <View style={styles.titleContainer}>
-                            <Text style={styles.title}>How was your experience?</Text>
-                            <Text style={styles.description}>
-                                Your review will help us improve our product and make it user friendly for more users.
-                            </Text>
+                            <TitleBlock />
                         </View>
 
                         {/* Rating Options */}
@@ -234,7 +232,7 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ isVisible, onClose, onSub
                                 style={styles.feedbackInput}
                                 value={feedback}
                                 onChangeText={handleFeedbackChange}
-                                placeholder="Share feedback..."
+                                placeholder={t('feedback.placeholder', 'Share feedback...')}
                                 placeholderTextColor="#9CA3AF"
                                 multiline
                                 maxLength={500}
@@ -259,7 +257,7 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ isVisible, onClose, onSub
                                 styles.submitButtonText,
                                 !selectedRating && styles.submitButtonTextDisabled
                             ]}>
-                                Submit Review
+                                {t('feedback.submit', 'Submit Review')}
                             </Text>
                         </TouchableOpacity>
                     </View>
@@ -545,3 +543,19 @@ const styles = StyleSheet.create({
 });
 
 export default FeedbackModal;
+
+// Localized header and title components
+const HeaderTitle: React.FC = () => {
+    const { t } = useTranslation();
+    return <Text style={styles.headerTitle}>{t('feedback.headerTitle')}</Text>;
+};
+
+const TitleBlock: React.FC = () => {
+    const { t } = useTranslation();
+    return (
+        <>
+            <Text style={styles.title}>{t('feedback.title')}</Text>
+            <Text style={styles.description}>{t('feedback.description')}</Text>
+        </>
+    );
+};

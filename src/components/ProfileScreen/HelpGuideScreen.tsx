@@ -9,9 +9,11 @@ import {
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
 
 const HelpGuideScreen = () => {
   const navigation = useNavigation();
+  const { t } = useTranslation();
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -23,31 +25,31 @@ const HelpGuideScreen = () => {
         >
           <Ionicons name="arrow-back" size={24} color="#333" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Help & Support</Text>
+        <Text style={styles.headerTitle}>{t('helpGuide.headerTitle')}</Text>
         <View style={styles.headerRight} />
       </View>
 
       <ScrollView style={styles.container}>
-        <Text style={styles.heading}>Help & Support</Text>
+        <Text style={styles.heading}>{t('helpGuide.headerTitle')}</Text>
         
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Frequently Asked Questions</Text>
+          <Text style={styles.sectionTitle}>{t('helpGuide.faqTitle')}</Text>
           <Text style={styles.content}>
-            Find answers to common questions about using KrushiMandi.
+            {t('helpGuide.faqContent')}
           </Text>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Contact Support</Text>
+          <Text style={styles.sectionTitle}>{t('helpGuide.contactTitle')}</Text>
           <Text style={styles.content}>
-            Need help? Contact our support team for assistance.
+            {t('helpGuide.contactContent')}
           </Text>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>User Guide</Text>
+          <Text style={styles.sectionTitle}>{t('helpGuide.userGuideTitle')}</Text>
           <Text style={styles.content}>
-            Learn how to use all features of the KrushiMandi app.
+            {t('helpGuide.userGuideContent')}
           </Text>
         </View>
       </ScrollView>

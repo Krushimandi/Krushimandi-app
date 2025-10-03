@@ -1,7 +1,8 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
-import { View, Animated, Platform, StyleSheet } from 'react-native';
+import { View, Animated, Platform, StyleSheet, Text } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Octicons from 'react-native-vector-icons/Octicons';
 import MaterialDesignIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -14,7 +15,6 @@ import { BuyerHomeScreen, RequestsScreen } from '../../components/home';
 import ChatListScreen from '../../components/chat/ChatListScreen';
 import { ProductDetailScreen } from '../../components/products';
 import { FruitsScreen } from '../../components/auth';
-import NotificationBadge from '../../components/common/NotificationBadge';
 import { useOrdersBadgeStore } from '../../store';
 
 // Hooks
@@ -102,13 +102,6 @@ const CustomTabBarIcon = ({ focused, color, size, route }: any) => {
         <Octicons name="home" size={size} color={color} />
       );
       break;
-    case 'Chats':
-      iconComponent = focused ? (
-        <Ionicons name="chatbox-ellipses" size={size - 2} color={color} />
-      ) : (
-        <Ionicons name="chatbox-ellipses-outline" size={size} color={color} />
-      );
-      break;
     case 'Requests':
       iconComponent = (
         <View style={{ position: 'relative' }}>
@@ -117,7 +110,39 @@ const CustomTabBarIcon = ({ focused, color, size, route }: any) => {
           ) : (
             <MaterialDesignIcons name="comment-account-outline" size={size + 2} color={color} />
           )}
+          {/* Notification Badge */}
+          {unseenOrders > 0 && (
+            <View style={{
+              position: 'absolute',
+              right: -8,
+              top: -6,
+              backgroundColor: '#FF3B30',
+              borderRadius: 10,
+              minWidth: 18,
+              height: 18,
+              justifyContent: 'center',
+              alignItems: 'center',
+              borderWidth: 2,
+              borderColor: '#fff',
+            }}>
+              <Text style={{
+                color: '#fff',
+                fontSize: 10,
+                fontWeight: 'bold',
+                paddingHorizontal: 4,
+              }}>
+                {unseenOrders > 99 ? '99+' : unseenOrders}
+              </Text>
+            </View>
+          )}
         </View>
+      );
+      break;
+    case 'Chats':
+      iconComponent = focused ? (
+        <Ionicons name="chatbox-ellipses" size={size - 2} color={color} />
+      ) : (
+        <Ionicons name="chatbox-ellipses-outline" size={size} color={color} />
       );
       break;
     default:
@@ -168,6 +193,7 @@ const CustomTabBarIcon = ({ focused, color, size, route }: any) => {
 
 // Buyer Tab Navigator Component
 const BuyerTabNavigator = () => {
+  const { t } = useTranslation();
   const { theme } = useAppStore();
   const isDark = theme === 'dark';
   const { tabBarVisible, tabBarAnimation } = useNavigationControl();
@@ -244,24 +270,24 @@ const BuyerTabNavigator = () => {
         name="Home"
         component={BuyerHomeScreen}
         options={{
-          tabBarLabel: 'Home',
-          tabBarAccessibilityLabel: 'Home Tab'
+          tabBarLabel: t('labels.home'),
+          tabBarAccessibilityLabel: t('labels.home') + ' Tab'
         }}
       />
       <BuyerTab.Screen
         name="Requests"
         component={RequestsScreen}
         options={{
-          tabBarLabel: 'Requests',
-          tabBarAccessibilityLabel: 'Requests Tab'
+          tabBarLabel: t('labels.requests'),
+          tabBarAccessibilityLabel: t('labels.requests') + ' Tab'
         }}
       />
       <BuyerTab.Screen
         name="Chats"
         component={ChatListScreen}
         options={{
-          tabBarLabel: 'Chats',
-          tabBarAccessibilityLabel: 'Chats Tab'
+          tabBarLabel: t('labels.chats'),
+          tabBarAccessibilityLabel: t('labels.chats') + ' Tab'
         }}
       />
     </BuyerTab.Navigator>

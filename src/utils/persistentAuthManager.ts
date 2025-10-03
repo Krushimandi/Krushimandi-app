@@ -13,8 +13,6 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import auth from '@react-native-firebase/auth';
-import { secureStorage } from './secureStorage';
-import { StorageKeys, SecureStorageKeys } from '../constants';
 
 interface PersistentAuthState {
   isPersistentLoginEnabled: boolean;
@@ -328,9 +326,7 @@ class PersistentAuthManager {
   }
 
   private logSecure(message: string, ...args: unknown[]): void {
-    if (__DEV__) {
-      console.log(`[PersistentAuth] ${message}`, ...args);
-    }
+    // logs removed per request
   }
 }
 

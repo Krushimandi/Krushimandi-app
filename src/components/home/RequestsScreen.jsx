@@ -7,7 +7,6 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
-  Image,
   StatusBar,
   Alert,
   ActivityIndicator,
@@ -27,21 +26,20 @@ import { Colors } from '../../constants/Colors';
 import { firestore, doc, getDoc } from '../../config/firebaseModular';
 import { buildChatId, ensureChatExists, fetchUserProfile } from '../../services/chatService';
 import Clipboard from '@react-native-clipboard/clipboard';
-import { getHeaderConstants } from '../../constants/Layout';
 import { useTabBarControl } from '../../utils/navigationControls.ts';
 import { useRequests } from '../../hooks/useRequests';
 import { useAuthState } from '../providers/AuthStateProvider';
-import { Request, RequestStatus } from '../../types/Request';
+import { RequestStatus } from '../../types/Request';
 import Toast from 'react-native-toast-message';
-// Add import for testing notifications
-import { sendTestNotification } from '../../utils/testNotifications';
+import { useTranslation } from 'react-i18next';
+import { useOrdersBadgeStore } from '../../store/ordersBadgeStore';
 
 const RequestsScreen = () => {
   const navigation = useNavigation();
   const { showTabBar } = useTabBarControl();
   const { user } = useAuthState();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  const headerConstants = getHeaderConstants(insets.top);
   const {
     requests,
     loading,
@@ -50,20 +48,8 @@ const RequestsScreen = () => {
     resendRequest: resendRequestService
   } = useRequests();
 
-  // Debug: Log requests state changes
-  useEffect(() => {
-    console.log('📊 Requests state updated:', {
-      totalCount: requests.length,
-      acceptedCount: requests.filter(r => r.status === 'accepted').length,
-      loading,
-      userRole: user?.role,
-      preview: requests.slice(0, 2).map(r => ({
-        id: r.id,
-        productName: r.productSnapshot?.name,
-        status: r.status
-      }))
-    });
-  }, [requests, loading, user?.role]);
+  const markSeen = useOrdersBadgeStore(state => state.markSeen);
+  const reconcileFromRequests = useOrdersBadgeStore(state => state.reconcileFromRequests);
 
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -76,7 +62,8 @@ const RequestsScreen = () => {
   const fadeAnim = useState(new Animated.Value(0))[0];
   // Collapsing header pattern: absolute header that hides on scroll up and returns on scroll down
   const scrollY = React.useRef(new Animated.Value(0)).current;
-  const [collapsibleHeaderHeight, setCollapsibleHeaderHeight] = useState(120);
+  const flatListRef = React.useRef(null); // Ref for FlatList to control scroll position
+  const [collapsibleHeaderHeight, setCollapsibleHeaderHeight] = useState(100);
   const [headerHeight, setHeaderHeight] = useState(0);
   const clampMax = Math.max(collapsibleHeaderHeight, 1);
   const clampedScroll = React.useMemo(() => Animated.diffClamp(scrollY, 0, clampMax), [scrollY, clampMax]);
@@ -85,15 +72,10 @@ const RequestsScreen = () => {
     outputRange: [0, -clampMax],
     extrapolate: 'clamp',
   });
-  const headerOpacity = clampedScroll.interpolate({
-    inputRange: [0, clampMax * 0.7],
-    outputRange: [1, 0],
-    extrapolate: 'clamp',
-  });
 
   // Safely format any farmerLocation object into a displayable string
   const formatLocationValue = useCallback((loc) => {
-    if (!loc) return 'Unknown Location';
+    if (!loc) return t('requests.location.unknown');
     if (typeof loc === 'string') return loc;
     if (typeof loc === 'object') {
       const { city, district, state, formattedAddress } = loc;
@@ -103,66 +85,41 @@ const RequestsScreen = () => {
       try {
         return JSON.stringify(loc);
       } catch {
-        return 'Unknown Location';
+        return t('requests.location.unknown');
       }
     }
     return String(loc);
-  }, []);
+  }, [t]);
 
   // Filters now include Accepted and Sold (derived: delivered/completed) so buyer sees all lifecycle states here
-  const filters = ['All', 'Pending', 'Accepted', 'Sold', 'Rejected', 'Cancelled', 'Expired'];
+  // Use objects with both key (for filtering logic) and label (for display)
+  const filters = [
+    { key: 'All', label: t('requests.filters.all') },
+    { key: 'pending', label: t('requests.filters.pending') },
+    { key: 'accepted', label: t('requests.filters.accepted') },
+    { key: 'sold', label: t('requests.filters.sold') },
+    { key: 'rejected', label: t('requests.filters.rejected') },
+    { key: 'cancelled', label: t('requests.filters.cancelled') },
+    { key: 'expired', label: t('requests.filters.expired') }
+  ];
   const sortOptions = [
-    { key: 'date', label: 'Date', icon: 'calendar-outline' },
-    { key: 'alphabetical', label: 'A-Z', icon: 'list-outline' },
-    { key: 'quantity', label: 'Quantity', icon: 'stats-chart-outline' },
-    { key: 'price', label: 'Price', icon: 'pricetag-outline' },
+    { key: 'date', label: t('requests.sort.date'), icon: 'calendar-outline' },
+    { key: 'alphabetical', label: t('requests.sort.alphabetical'), icon: 'list-outline' },
+    { key: 'quantity', label: t('requests.sort.quantity'), icon: 'stats-chart-outline' },
+    { key: 'price', label: t('requests.sort.price'), icon: 'pricetag-outline' },
   ];
 
-  useEffect(() => {
-    console.log('🔄 RequestsScreen useEffect triggered, user:', {
-      uid: user?.uid,
-      role: user?.role,
-      userExists: !!user
-    });
-
-    showTabBar();
-    loadRequests();
-
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
-  }, [user]);
-
-  // Refresh data when screen comes into focus (to see updates from farmers)
-  useFocusEffect(
-    useCallback(() => {
-      console.log('🔍 Screen focused, refreshing requests...');
-      loadRequests();
-    }, [user])
-  );
-
-  const loadRequests = async () => {
+  // Memoize loadRequests to prevent infinite loops
+  const loadRequests = useCallback(async () => {
     try {
-      console.log('🔍 Loading requests for user:', {
-        uid: user?.uid,
-        role: user?.role,
-        userExists: !!user
-      });
-
       if (!user?.uid) {
-        console.log('❌ No user UID found, returning');
         return;
       }
 
       if (user.role === 'buyer') {
-        console.log('👤 Loading buyer requests...');
         await loadBuyerRequests();
-        const nonActiveCount = requests.filter(r => r.status !== 'accepted').length;
-        console.log('✅ Buyer requests loaded, total:', requests.length, 'displayed:', nonActiveCount);
       } else {
-        console.log('⚠️ This is a buyer-only screen. User role:', user.role);
+        // buyer-only screen
       }
     } catch (error) {
       console.error('❌ Error loading requests:', error);
@@ -173,7 +130,60 @@ const RequestsScreen = () => {
         position: 'bottom',
       });
     }
-  };
+  }, [user?.uid, user?.role, loadBuyerRequests]);
+
+  useEffect(() => {
+    showTabBar();
+    loadRequests();
+
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  }, [loadRequests]);
+
+  // Refresh data when screen comes into focus (to see updates from farmers)
+  // FIXED: Removed 'requests' from dependency array to prevent infinite loop
+  useFocusEffect(
+    useCallback(() => {
+      // Reset scroll position to show search/filter header when returning to screen
+      scrollY.setValue(0);
+      
+      // Scroll FlatList to top smoothly
+      if (flatListRef.current) {
+        flatListRef.current.scrollToOffset({ offset: 0, animated: false });
+      }
+      
+      loadRequests();
+    }, [loadRequests, scrollY])
+  );
+
+  // Reconcile badge store whenever requests change (tracks new accepted orders offline)
+  useEffect(() => {
+    if (requests && requests.length >= 0) {
+      reconcileFromRequests(requests);
+    }
+  }, [requests, reconcileFromRequests]);
+
+  // Mark accepted requests as seen when user views this screen
+  useFocusEffect(
+    useCallback(() => {
+      const acceptedIds = requests
+        .filter(r => r.status === RequestStatus.ACCEPTED)
+        .map(r => r.id)
+        .filter(Boolean);
+      
+      if (acceptedIds.length > 0) {
+        // Use a timeout to ensure the badge is visible briefly before clearing
+        const timeoutId = setTimeout(() => {
+          markSeen(acceptedIds);
+        }, 500);
+        
+        return () => clearTimeout(timeoutId);
+      }
+    }, [requests, markSeen])
+  );
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -199,6 +209,7 @@ const RequestsScreen = () => {
         farmerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
         locationStr.toLowerCase().includes(searchQuery.toLowerCase());
 
+      // Use the key for filtering logic (not translated label)
       const matchesFilter = selectedFilter === 'All' ||
         derivedStatus === selectedFilter.toLowerCase();
 
@@ -308,7 +319,7 @@ const RequestsScreen = () => {
   const getStatusInfo = (item) => {
     switch (item.status) {
       case RequestStatus.PENDING:
-        return '\nExpected response: 24-48 hours';
+        return '\n' + t('requests.statusInfo.pending');
       case RequestStatus.ACCEPTED:
         const getDateFromTimestamp = (timestamp) => {
           if (!timestamp) return new Date(0);
@@ -319,13 +330,13 @@ const RequestsScreen = () => {
         };
 
         const responseTime = item.respondedAt ?
-          Math.round((getDateFromTimestamp(item.respondedAt) - getDateFromTimestamp(item.createdAt)) / (1000 * 60 * 60)) + ' hours' :
-          'Recently';
-        return `\nResponse time: ${responseTime}`;
+          Math.round((getDateFromTimestamp(item.respondedAt) - getDateFromTimestamp(item.createdAt)) / (1000 * 60 * 60)) + ' ' + t('requests.statusInfo.hours') :
+          t('requests.statusInfo.recently');
+        return `\n${t('requests.statusInfo.responseTime')}: ${responseTime}`;
       case RequestStatus.CANCELLED:
-        return '\nRequest was cancelled by buyer';
+        return '\n' + t('requests.statusInfo.cancelled');
       case RequestStatus.REJECTED:
-        return item.rejectionReason ? `\nReason: ${item.rejectionReason}` : '';
+        return item.rejectionReason ? `\n${t('requests.statusInfo.reason')}: ${item.rejectionReason}` : '';
       default:
         return '';
     }
@@ -334,27 +345,27 @@ const RequestsScreen = () => {
   // Cancel request (buyer action)
   const handleCancelRequest = (requestId) => {
     Alert.alert(
-      'Delete Request',
-      'Are you sure you want to delete this request?',
+      t('requests.actions.deleteRequest'),
+      t('requests.actions.deleteConfirm'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Delete',
+          text: t('requests.actions.delete'),
           style: 'destructive',
           onPress: async () => {
             try {
               await cancelRequestService(requestId);
               Toast.show({
                 type: 'error',
-                text1: 'Request Deleted',
-                text2: 'Your request has been deleted successfully.',
+                text1: t('requests.toast.deleted'),
+                text2: t('requests.toast.deletedMessage'),
                 position: 'bottom',
               });
             } catch (error) {
               Toast.show({
                 type: 'error',
-                text1: 'Error',
-                text2: 'Failed to delete request. Please try again.',
+                text1: t('common.error'),
+                text2: t('requests.toast.deleteFailed'),
                 position: 'bottom',
               });
             }
@@ -370,32 +381,49 @@ const RequestsScreen = () => {
       await resendRequestService(requestId);
       Toast.show({
         type: 'success',
-        text1: 'Request Resent',
-        text2: 'Your request has been resent successfully.',
+        text1: t('requests.toast.resent'),
+        text2: t('requests.toast.resentMessage'),
         position: 'bottom',
       });
     } catch (error) {
       Toast.show({
         type: 'error',
-        text1: 'Error',
-        text2: 'Failed to resend request. Please try again.',
+        text1: t('common.error'),
+        text2: t('requests.toast.resendFailed'),
         position: 'bottom',
       });
     }
   };
 
-  // Enhanced request item rendering
-  // Cache farmer phone numbers to avoid repeated Firestore hits
-  const [farmerPhones, setFarmerPhones] = useState({});
+  // Enhanced request item rendering - COMPLETELY REWRITTEN to prevent infinite loops
+  const phoneCache = React.useRef({}); // Only use ref for caching
+  const fetchingPhones = React.useRef(new Set()); // Track ongoing fetches
+  const [phoneCacheVersion, setPhoneCacheVersion] = React.useState(0); // Trigger re-renders when cache updates
 
-  const getFarmerPhoneNumber = useCallback(async (farmerId) => {
+  const getFarmerPhoneNumber = React.useCallback(async (farmerId) => {
     try {
       if (!farmerId) return null;
-      if (farmerPhones[farmerId]) return farmerPhones[farmerId];
+      
+      // Check cache first using ref (always has latest value)
+      if (phoneCache.current[farmerId]) {
+        return phoneCache.current[farmerId];
+      }
+      
+      // Check if already fetching to prevent duplicate requests
+      if (fetchingPhones.current.has(farmerId)) {
+        console.log('⏳ Already fetching phone for', farmerId);
+        return null;
+      }
+      
+      // Mark as fetching
+      fetchingPhones.current.add(farmerId);
+      
       console.log('🔍 (RequestsScreen) Fetching farmer phone for', farmerId);
       const ref = doc(firestore, 'profiles', farmerId);
       const snap = await getDoc(ref);
-      console.log('🔍 (RequestsScreen) Farmer phone snapshot:', snap);
+      
+      // Remove from fetching set
+      fetchingPhones.current.delete(farmerId);
 
       if (snap.exists()) {
         const data = snap.data() || {};
@@ -403,7 +431,11 @@ const RequestsScreen = () => {
         if (phone) {
           const masked = phone.replace(/(\+?\d{3})\d{4}(\d{2,})/, '$1****$2');
           console.log('📱 Farmer phone (masked):', masked);
-          setFarmerPhones(prev => ({ ...prev, [farmerId]: phone }));
+          
+          // Update cache and trigger re-render
+          phoneCache.current[farmerId] = phone;
+          setPhoneCacheVersion(prev => prev + 1); // Force re-render for UI updates
+          
           return phone;
         }
       } else {
@@ -411,24 +443,49 @@ const RequestsScreen = () => {
       }
     } catch (e) {
       console.warn('Failed to fetch farmer phone', e);
+      // Remove from fetching set on error
+      fetchingPhones.current.delete(farmerId);
     }
     return null;
-  }, [farmerPhones]);
+  }, []); // ✅ Empty dependencies - completely stable
 
-  // Prefetch phone numbers for accepted requests so Call button is instant
-  useEffect(() => {
+  // Track requests to prevent infinite prefetching
+  const lastRequestsRef = React.useRef([]);
+  const requestsChanged = React.useMemo(() => {
+    const currentIds = requests.map(r => r.id).sort().join(',');
+    const lastIds = lastRequestsRef.current.map(r => r.id).sort().join(',');
+    const changed = currentIds !== lastIds;
+    if (changed) {
+      lastRequestsRef.current = requests;
+    }
+    return changed;
+  }, [requests]);
+
+  // Prefetch phone numbers ONLY when requests actually change
+  React.useEffect(() => {
+    if (!requestsChanged) return; // Don't run if requests haven't changed
+    
     const acceptedFarmerIds = requests
       .filter(r => r.status === RequestStatus.ACCEPTED && r.farmerId)
       .map(r => r.farmerId);
-    const unique = [...new Set(acceptedFarmerIds)].filter(id => !farmerPhones[id]);
-    if (unique.length) {
+    
+    // Get unique IDs that aren't cached and aren't being fetched
+    const unique = [...new Set(acceptedFarmerIds)].filter(id => 
+      !phoneCache.current[id] && !fetchingPhones.current.has(id)
+    );
+    
+    if (unique.length > 0) {
+      console.log('📞 Prefetching phone numbers for', unique.length, 'farmers');
+      // Prefetch in background without blocking
       (async () => {
         for (const id of unique) {
           await getFarmerPhoneNumber(id);
+          // Small delay to avoid overwhelming Firestore
+          await new Promise(resolve => setTimeout(resolve, 100));
         }
       })();
     }
-  }, [requests, getFarmerPhoneNumber, farmerPhones]);
+  }, [requestsChanged]); // ⚡ ONLY depend on whether requests changed, not requests themselves
 
   const sanitizePhone = (phone) => (phone || '').replace(/[^\d+]/g, '');
 
@@ -436,12 +493,12 @@ const RequestsScreen = () => {
     try {
       const phoneRaw = await getFarmerPhoneNumber(farmerId);
       if (!phoneRaw) {
-        Alert.alert('Contact unavailable', 'Farmer phone not found');
+        Alert.alert(t('requests.contact.unavailable'), t('requests.contact.phoneNotFound'));
         return;
       }
       const phone = sanitizePhone(phoneRaw);
       if (!phone || phone.length < 7) {
-        Alert.alert('Invalid number', 'Phone number appears invalid.');
+        Alert.alert(t('requests.contact.invalid'), t('requests.contact.invalidMessage'));
         return;
       }
       const telUrl = `tel:${phone}`;
@@ -452,17 +509,17 @@ const RequestsScreen = () => {
         const alt = `telprompt:${phone}`;
         Linking.openURL(alt).catch(() => {
           Alert.alert(
-            'Unable to open dialer',
-            `Please dial manually: ${phoneRaw}`,
+            t('requests.contact.unableToOpen'),
+            `${t('requests.contact.dialManually')}: ${phoneRaw}`,
             [
-              { text: 'Copy', onPress: () => { Clipboard.setString(phoneRaw); Toast.show({ type: 'success', text1: 'Number Copied', position: 'bottom' }); } },
-              { text: 'OK', style: 'cancel' }
+              { text: t('requests.contact.copy'), onPress: () => { Clipboard.setString(phoneRaw); Toast.show({ type: 'success', text1: t('requests.toast.numberCopied'), position: 'bottom' }); } },
+              { text: t('common.ok'), style: 'cancel' }
             ]
           );
         });
       });
     } catch (e) {
-      Alert.alert('Error', 'Could not initiate call');
+      Alert.alert(t('common.error'), t('requests.contact.callFailed'));
     }
   };
 
@@ -470,25 +527,25 @@ const RequestsScreen = () => {
   const handleContactFarmer = async (farmerId, farmerDisplayName, productName) => {
     try {
       if (!farmerId) {
-        Alert.alert('Farmer Unknown', 'Cannot find farmer ID for this request.');
+        Alert.alert(t('requests.contact.farmerUnknown'), t('requests.contact.noFarmerId'));
         return;
       }
 
       // Delay-based loading alert (only shows if fetch is slow)
       const loadingTimeout = setTimeout(() => {
-        Alert.alert('Getting Contact Info', 'Fetching farmer contact details...', [], { cancelable: false });
+        Alert.alert(t('requests.contact.gettingInfo'), t('requests.contact.fetching'), [], { cancelable: false });
       }, 600);
 
       const phoneRaw = await getFarmerPhoneNumber(farmerId);
       clearTimeout(loadingTimeout);
 
       if (!phoneRaw) {
-        Alert.alert('Contact Information Unavailable', `Could not find a phone number for ${farmerDisplayName || 'farmer'}.`);
+        Alert.alert(t('requests.contact.unavailableTitle'), t('requests.contact.unavailableMessage', { name: farmerDisplayName || t('requests.contact.farmer') }));
         return;
       }
 
       const cleanPhone = sanitizePhone(phoneRaw);
-      const demoMessage = `Hello ${farmerDisplayName || ''}! I have a question about ${productName || 'your product'}.`;
+      const demoMessage = t('requests.contact.defaultMessage', { name: farmerDisplayName || '', product: productName || t('requests.contact.yourProduct') });
       const encodedMessage = encodeURIComponent(demoMessage);
       const smsUrl = `sms:${cleanPhone}?body=${encodedMessage}`;
 
@@ -499,25 +556,25 @@ const RequestsScreen = () => {
           const simpleUrl = `sms:${cleanPhone}`;
           Linking.openURL(simpleUrl)
             .then(() => {
-              Alert.alert('Compose Message', 'Paste the prepared message you copied.', [
-                { text: 'OK' }
+              Alert.alert(t('requests.contact.composeMessage'), t('requests.contact.pasteMessage'), [
+                { text: t('common.ok') }
               ]);
             })
             .catch(() => {
               Alert.alert(
-                'Unable to Open Messages',
-                `Phone: ${phoneRaw}`,
+                t('requests.contact.unableToOpenMessages'),
+                `${t('requests.contact.phone')}: ${phoneRaw}`,
                 [
-                  { text: 'Copy Number', onPress: () => Clipboard.setString(phoneRaw) },
-                  { text: 'Copy Message', onPress: () => Clipboard.setString(demoMessage) },
-                  { text: 'Cancel', style: 'cancel' }
+                  { text: t('requests.contact.copyNumber'), onPress: () => Clipboard.setString(phoneRaw) },
+                  { text: t('requests.contact.copyMessage'), onPress: () => Clipboard.setString(demoMessage) },
+                  { text: t('common.cancel'), style: 'cancel' }
                 ]
               );
             });
         });
     } catch (e) {
       console.error('handleContactFarmer error', e);
-      Alert.alert('Error', 'Could not open messaging app');
+      Alert.alert(t('common.error'), t('requests.contact.messageFailed'));
     }
   };
 
@@ -544,22 +601,22 @@ const RequestsScreen = () => {
       });
     } catch (e) {
       console.warn('Failed to start chat:', e?.message || e);
-      Toast.show({ type: 'error', text1: 'Chat unavailable', text2: 'Please try again in a moment.', position: 'bottom' });
+      Toast.show({ type: 'error', text1: t('requests.chat.unavailable'), text2: t('requests.chat.tryAgain'), position: 'bottom' });
     }
-  }, [user?.uid, navigation]);
+  }, [user?.uid, navigation, t]);
 
   const renderRequestItem = ({ item, index }) => {
     const isBuyer = user?.role === 'buyer';
-    const productName = item.productSnapshot?.name || 'Unknown Product';
-    const farmerName = item.productSnapshot?.farmerName || 'Unknown Farmer';
-    const buyerName = item.buyerDetails?.name || 'Unknown Buyer';
+    const productName = item.productSnapshot?.name || t('requests.item.unknownProduct');
+    const farmerName = item.productSnapshot?.farmerName || t('requests.item.unknownFarmer');
+    const buyerName = item.buyerDetails?.name || t('requests.item.unknownBuyer');
     const displayName = isBuyer ? farmerName : buyerName;
     const rawLocation = item.productSnapshot?.farmerLocation;
     const locationStr = formatLocationValue(rawLocation);
-    const price = item.productSnapshot?.price ? `₹${item.productSnapshot.price}/${item.productSnapshot.priceUnit || 'TON'}` : 'Price not available';
+    const price = item.productSnapshot?.price ? `₹${item.productSnapshot.price}/${item.productSnapshot.priceUnit || 'TON'}` : t('requests.item.priceNotAvailable');
     const quantity = Array.isArray(item.quantity) ?
-      `${item.quantity[0]}-${item.quantity[1]} ${item.quantityUnit || 'ton'}` :
-      `${item.quantity} ${item.quantityUnit || 'ton'}`;
+      `${item.quantity[0]}-${item.quantity[1]} ${item.quantityUnit || t('requests.item.ton')}` :
+      `${item.quantity} ${item.quantityUnit || t('requests.item.ton')}`;
     const rating = 0; // Rating not available in current structure
 
     // Helper function to safely convert timestamp to Date
@@ -649,7 +706,7 @@ const RequestsScreen = () => {
                 activeOpacity={0.85}
               >
                 <Icon name="call" size={16} color="#FFFFFF" />
-                <Text style={styles.pillText}>Call</Text>
+                <Text style={styles.pillText}>{t('requests.actions.call')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.pillButton, styles.pillMessage]}
@@ -657,7 +714,7 @@ const RequestsScreen = () => {
                 activeOpacity={0.85}
               >
                 <Icon name="chatbubble-ellipses-outline" size={16} color="#FFFFFF" />
-                <Text style={styles.pillText}>Message</Text>
+                <Text style={styles.pillText}>{t('requests.actions.message')}</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -713,7 +770,7 @@ const RequestsScreen = () => {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={Colors.light.primary} />
-        <Text style={styles.loadingText}>Loading...</Text>
+        <Text style={styles.loadingText}>{t('common.loading')}</Text>
       </View>
     );
   }
@@ -730,7 +787,7 @@ const RequestsScreen = () => {
       <View style={[styles.header, { paddingTop: insets.top + 12 }]} onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}>
         <View style={styles.headerTop}>
           <Text style={styles.headerTitle}>
-            {user?.role === 'buyer' ? 'My Requests' : 'Received Requests'}
+            {user?.role === 'buyer' ? t('requests.title.myRequests') : t('requests.title.receivedRequests')}
           </Text>
           <View style={styles.headerActions}>
             <TouchableOpacity
@@ -742,7 +799,10 @@ const RequestsScreen = () => {
           </View>
         </View>
         <Text style={styles.headerSubtitle}>
-          {filteredAndSortedRequests.length} of {stats.total} requests
+          {stats.total > 0 
+            ? t('requests.subtitle.count', { filtered: filteredAndSortedRequests.length, total: stats.total })
+            : t('requests.subtitle.noRequests', { count: 0 })
+          }
         </Text>
       </View>
 
@@ -756,7 +816,6 @@ const RequestsScreen = () => {
           right: 0,
           zIndex: 10,
           transform: [{ translateY: headerTranslateY }],
-          opacity: headerOpacity,
         }}
         onLayout={(e) => {
           const h = e.nativeEvent.layout.height;
@@ -768,7 +827,7 @@ const RequestsScreen = () => {
           <Icon name="search" size={20} color="#6B7280" />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search products, farmers, locations..."
+            placeholder={t('requests.search.placeholder')}
             value={searchQuery}
             onChangeText={setSearchQuery}
             placeholderTextColor="#9CA3AF"
@@ -789,25 +848,25 @@ const RequestsScreen = () => {
           >
             {filters.map((filter) => (
               <TouchableOpacity
-                key={filter}
+                key={filter.key}
                 style={[
                   styles.filterChip,
-                  selectedFilter === filter && styles.filterChipActive
+                  selectedFilter === filter.key && styles.filterChipActive
                 ]}
-                onPress={() => setSelectedFilter(filter)}
+                onPress={() => setSelectedFilter(filter.key)}
               >
                 <Text style={[
                   styles.filterChipText,
-                  selectedFilter === filter && styles.filterChipTextActive
+                  selectedFilter === filter.key && styles.filterChipTextActive
                 ]}>
-                  {filter}
+                  {filter.label}
                 </Text>
-                {filter !== 'All' && (
+                {filter.key !== 'All' && (
                   <Text style={[
                     styles.filterCount,
-                    selectedFilter === filter && styles.filterCountActive
+                    selectedFilter === filter.key && styles.filterCountActive
                   ]}>
-                    {stats[filter.toLowerCase()] || 0}
+                    {stats[filter.key.toLowerCase()] || 0}
                   </Text>
                 )}
               </TouchableOpacity>
@@ -818,6 +877,7 @@ const RequestsScreen = () => {
 
       {/* List */}
       <Animated.FlatList
+        ref={flatListRef}
         data={filteredAndSortedRequests}
         keyExtractor={(item) => item.id}
         renderItem={renderRequestItem}
@@ -859,14 +919,14 @@ const RequestsScreen = () => {
           <View style={[styles.emptyState, { minHeight: Dimensions.get('window').height * 0.4 }]}>
             <Icon name="document-text-outline" size={64} color="#D1D5DB" />
             <Text style={styles.emptyText}>
-              {searchQuery || selectedFilter !== 'All' ? 'No matching requests' : 'No requests found'}
+              {searchQuery || selectedFilter !== 'All' ? t('requests.empty.noMatching') : t('requests.empty.noRequests')}
             </Text>
             <Text style={styles.emptySubtext}>
               {searchQuery || selectedFilter !== 'All'
-                ? 'Try adjusting your search or filters'
+                ? t('requests.empty.tryAdjusting')
                 : user?.role === 'buyer'
-                  ? 'Start by sending requests to farmers'
-                  : 'Buyers will send requests for your products'}
+                  ? t('requests.empty.startSending')
+                  : t('requests.empty.buyersWillSend')}
             </Text>
           </View>
         }
@@ -912,7 +972,7 @@ const RequestsScreen = () => {
             paddingVertical: 6,
             textTransform: 'uppercase'
           }}>
-            Sort by
+            {t('requests.sort.sortBy')}
           </Text>
           {sortOptions.map((option) => {
             const isActive = sortBy === option.key;
@@ -1007,8 +1067,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
-    minHeight: 44, // Ensure touch target size
+    minHeight: 44,
   },
   headerActions: {
     flexDirection: 'row',
@@ -1101,7 +1160,8 @@ const styles = StyleSheet.create({
   },
   filterContainer: {
     paddingLeft: 16,
-    marginBottom: 12,
+    // paddingRight: 16,
+    marginBottom: 8,
   },
   filterContent: {
     paddingRight: 16,

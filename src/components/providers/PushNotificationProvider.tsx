@@ -50,9 +50,7 @@ export const PushNotificationProvider: React.FC<PushNotificationProviderProps> =
     // Log initialization status
     useEffect(() => {
         if (pushNotifications.isInitialized) {
-            console.log('🎉 Push notifications are ready!');
-            console.log('📱 FCM Token:', pushNotifications.fcmToken);
-            console.log('🔐 Permission Status:', pushNotifications.permissionStatus);
+            
         }
     }, [pushNotifications.isInitialized, pushNotifications.fcmToken, pushNotifications.permissionStatus]);
 

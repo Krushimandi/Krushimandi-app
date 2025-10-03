@@ -4,9 +4,11 @@
  */
 
 import { Fruit } from '../types/fruit';
+import i18n from '../i18n';
 
 // Format currency
 export const formatCurrency = (amount: number, currency: string = '₹'): string => {
+  // Keep Indian number formatting for currency; can be adjusted per locale if required
   return `${currency}${amount.toLocaleString('en-IN', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
@@ -25,7 +27,10 @@ export const formatPhoneNumber = (phone: string): string => {
 // Format date
 export const formatDate = (date: string | Date): string => {
   const dateObj = typeof date === 'string' ? new Date(date) : date;
-  return dateObj.toLocaleDateString('en-IN', {
+  // Use locale based on selected app language
+  const lang = i18n.language || 'en';
+  const locale = lang === 'hi' ? 'hi-IN' : lang === 'mr' ? 'mr-IN' : 'en-IN';
+  return dateObj.toLocaleDateString(locale, {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
@@ -41,10 +46,10 @@ export const formatRelativeTime = (date: string | Date): string => {
   const diffInHours = Math.floor(diffInMinutes / 60);
   const diffInDays = Math.floor(diffInHours / 24);
 
-  if (diffInMinutes < 1) return 'Just now';
-  if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
-  if (diffInHours < 24) return `${diffInHours}h ago`;
-  if (diffInDays < 7) return `${diffInDays}d ago`;
+  if (diffInMinutes < 1) return i18n.t('time.justNow', { defaultValue: 'Just now' });
+  if (diffInMinutes < 60) return i18n.t('time.minutesAgo_short', { count: diffInMinutes, defaultValue: '{{count}}m ago' });
+  if (diffInHours < 24) return i18n.t('time.hoursAgo_short', { count: diffInHours, defaultValue: '{{count}}h ago' });
+  if (diffInDays < 7) return i18n.t('time.daysAgo_short', { count: diffInDays, defaultValue: '{{count}}d ago' });
   
   return formatDate(dateObj);
 };
@@ -69,24 +74,28 @@ export const formatFileSize = (bytes: number): string => {
 
 // Helper function to format price for display
 export const formatPrice = (pricePerKg: number): string => {
-  return `₹${pricePerKg}/KG`;
+  // Use per-kg unit from translations
+  const perKg = i18n.t('units.perKg', { defaultValue: '/kg' });
+  return `₹${pricePerKg}${perKg}`;
 };
 
 // Helper function to format fruit quantity for display (overloaded version)
 export const formatFruitQuantity = (quantity: [number, number]): string => {
-  if (quantity[0] === 0 && quantity[1] === 0) {
-    return "0 tons";
+  const [min, max] = quantity;
+  const ton = (n: number) => i18n.t(`units.ton_${n === 1 ? 'one' : 'other'}`, { count: n, defaultValue: n === 1 ? 'ton' : 'tons' });
+  if (min === 0 && max === 0) {
+    return `0 ${ton(0 as unknown as number)}`; // falls back to plural in defaultValue
   }
-  if (quantity[0] === quantity[1]) {
-    return `${quantity[0]} tons`;
+  if (min === max) {
+    return `${min} ${ton(min)}`;
   }
-  return `${quantity[0]}-${quantity[1]} tons`;
+  return `${min}-${max} ${ton(max)}`;
 };
 
 // Helper function to format location for display
 export const formatLocation = (location: Fruit['location']): string => {
   if (!location) {
-    return "Location not available";
+    return i18n.t('common.locationNotAvailable', { defaultValue: 'Location not available' });
   }
   return `${location.city}, ${location.district}, ${location.state}`;
 };
@@ -103,42 +112,34 @@ export const getDaysSince = (dateString: string): number => {
 export const getRelativeTime = (dateString: string): string => {
   const days = getDaysSince(dateString);
   
-  if (days === 0) return 'Today';
-  if (days === 1) return '1 day ago';
-  if (days < 7) return `${days} days ago`;
-  if (days === 7) return '1 week ago';
-  if (days < 14) return `${Math.floor(days / 7)} week ago`;
-  if (days < 30) return `${Math.floor(days / 7)} weeks ago`;
-  if (days === 30) return '1 month ago';
-  if (days < 60) return '1 month ago';
-  if (days < 365) return `${Math.floor(days / 30)} months ago`;
-  return `${Math.floor(days / 365)} year${Math.floor(days / 365) > 1 ? 's' : ''} ago`;
+  if (days === 0) return i18n.t('time.today', { defaultValue: 'Today' });
+  if (days === 1) return i18n.t('time.dayAgo', { defaultValue: '1 day ago' });
+  if (days < 7) return i18n.t('time.daysAgo', { count: days, defaultValue: '{{count}} days ago' });
+  if (days === 7) return i18n.t('time.weekAgo', { defaultValue: '1 week ago' });
+  if (days < 14) return i18n.t('time.weekAgo', { defaultValue: '1 week ago' });
+  if (days < 30) return i18n.t('time.weeksAgo', { count: Math.floor(days / 7), defaultValue: '{{count}} weeks ago' });
+  if (days < 60) return i18n.t('time.monthAgo', { defaultValue: '1 month ago' });
+  if (days < 365) return i18n.t('time.monthsAgo', { count: Math.floor(days / 30), defaultValue: '{{count}} months ago' });
+  const years = Math.floor(days / 365);
+  if (years <= 1) return i18n.t('time.yearAgo', { defaultValue: '1 year ago' });
+  return i18n.t('time.yearsAgo', { count: years, defaultValue: '{{count}} years ago' });
 };
 
 // Utility to split relative time into number and label
 export const getDisplayParts = (text: string): [string, string] => {
-  if (text === 'Today') return ['-', 'TODAY'];
-  const match = text.match(/^(\d+)\s+(\w+)/); // e.g. "2 days ago"
+  // Language-aware split: try to extract a leading number and the rest, else show full text below
+  const todayKey = i18n.t('time.today', { defaultValue: 'Today' });
+  if (text === todayKey) return ['-', todayKey.toUpperCase()];
+
+  // Use Unicode regex to capture number-first patterns (e.g., "2 days ago", "2 दिन पहले", "2 दिवसांपूर्वी")
+  const match = text.match(/^(\d+)\s+(.+)$/u);
   if (match) {
     const number = match[1];
-    let unit = match[2].toUpperCase();
-
-    // Singular/plural fix
-    if (unit === 'DAY') unit = 'DAY AGO';
-    else if (unit === 'WEEK') unit = 'WEEK AGO';
-    else if (unit === 'MONTH') unit = 'MONTH AGO';
-    else if (unit === 'YEAR') unit = 'YEAR AGO';
-    else unit = `${unit} AGO`;
-
-    // plural
-    if (parseInt(number) > 1 && !unit.endsWith('S AGO')) {
-      unit = unit.replace(' AGO', 'S AGO');
-    }
-
-    return [number, unit];
+    const rest = match[2].toUpperCase();
+    return [number, rest];
   }
 
-  // fallback
+  // Fallback: show full text on second line
   return ['-', text.toUpperCase()];
 };
 

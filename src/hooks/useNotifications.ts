@@ -34,7 +34,7 @@ export const useNotifications = () => {
     const refreshNotifications = () => {
     const currentUser = auth.currentUser;
         if (!currentUser) {
-            console.log('⚠️ No authenticated user during refresh - clearing notifications');
+            
             setNotifications([]);
             setUnreadCount(0);
             setBadgeText('0');
@@ -45,21 +45,11 @@ export const useNotifications = () => {
         const count = getUnreadNotificationCount();
         const badge = getBadgeCount();
         
-        console.log(`🔔 Refreshing notifications for user ${currentUser.uid}:`);
-        console.log(`📱 Total notifications: ${allNotifications.length}`);
-        console.log(`🔢 Unread count: ${count}`);
-        console.log(`🏷️ Badge text: ${badge}`);
+        
         
         // Debug: Log first few notifications to verify user filtering
         if (allNotifications.length > 0) {
-            console.log('🔍 First notification sample:', {
-                id: allNotifications[0].id,
-                title: allNotifications[0].title,
-                // Check if there's any user-specific field
-                userId: (allNotifications[0] as any).userId,
-                recipientId: (allNotifications[0] as any).recipientId,
-                to: (allNotifications[0] as any).to
-            });
+            
         }
         
         setNotifications(allNotifications);
@@ -82,7 +72,7 @@ export const useNotifications = () => {
                 // Check if user is authenticated before loading notifications
                 const currentUser = auth.currentUser;
                 if (!currentUser) {
-                    console.log('⚠️ No authenticated user - skipping notification initialization');
+                    
                     setNotifications([]);
                     setUnreadCount(0);
                     setBadgeText('0');
@@ -90,7 +80,7 @@ export const useNotifications = () => {
                     return;
                 }
 
-                console.log(`🔔 Initializing notifications for user: ${currentUser.uid}`);
+                
                 
                 // Load initial notifications from Firestore (already user-filtered)
                 await loadNotificationsFromFirestore();
@@ -147,12 +137,12 @@ export const useNotifications = () => {
     const getFilteredNotifications = (filter: string) => {
     const currentUser = auth.currentUser;
         if (!currentUser) {
-            console.log('⚠️ No authenticated user - returning empty filtered notifications');
+            
             return [];
         }
         
         const filtered = getNotificationsByType(filter);
-        console.log(`🔍 Filtered notifications (${filter}): ${filtered.length} for user ${currentUser.uid}`);
+        
         return filtered;
     };
 
@@ -160,11 +150,11 @@ export const useNotifications = () => {
     const forceRefreshNotifications = useCallback(async () => {
     const currentUser = auth.currentUser;
         if (!currentUser) {
-            console.log('⚠️ No authenticated user - cannot force refresh');
+            
             return;
         }
         
-        console.log(`🔄 Force refreshing notifications for user: ${currentUser.uid}`);
+        
         
         try {
             // Don't set loading true here to prevent infinite loops

@@ -32,6 +32,3 @@ if (!__DEV__) {
   authConfig.maxRetries = 2;
   authConfig.authTimeout = 8000;
 }
-
-// You can override these settings by importing and modifying this object
-// or by using authService.updateConfig() at runtime

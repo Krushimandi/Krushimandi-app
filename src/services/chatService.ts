@@ -201,16 +201,20 @@ export const sendMessage = async (
   try {
     await msgRef.set({ senderId: fromUid, text: trimmed, createdAt: now });
   } catch (e: any) {
-    console.log('RTDB sendMessage: write message failed', e?.message || e);
+    
     throw e;
   }
 
   // Update chat summary fields
   const chatRef = database().ref(`chats/${chatId}`);
   try {
-    await chatRef.update({ lastMessage: trimmed, lastMessageBy: fromUid, updatedAt: now });
+    await chatRef.update({ 
+      lastMessage: trimmed, 
+      lastMessageBy: fromUid, 
+      updatedAt: now,
+    });
   } catch (e: any) {
-    console.log('RTDB sendMessage: update chat summary failed', e?.message || e);
+    
     // do not throw yet; try to continue
   }
 
@@ -219,14 +223,30 @@ export const sendMessage = async (
     const unreadRef = chatRef.child(`unreadCount/${toUid}`);
     await unreadRef.transaction((current) => (typeof current === 'number' ? current + 1 : 1));
   } catch (e: any) {
-    console.log('RTDB sendMessage: increment unread failed', e?.message || e);
+    
   }
 
   // Reset my own unread count to 0 when I send a message (I must have read the thread)
   try {
     await chatRef.child(`unreadCount/${fromUid}`).set(0);
   } catch (e: any) {
-    console.log('RTDB sendMessage: reset sender unread failed', e?.message || e);
+    
+  }
+
+  // Create a pending chat notification in Firestore for smart batching
+  // This will trigger the Firebase Function which handles batching and online status checking
+  try {
+    const RNFS: any = (await import('@react-native-firebase/firestore')).default;
+    await RNFS().collection('chatNotifications').add({
+      chatId,
+      recipientUid: toUid,
+      senderUid: fromUid,
+      messageText: trimmed,
+      timestamp: new Date().toISOString(),
+      createdAt: new Date(),
+    });
+  } catch (e: any) {
+    console.warn('Failed to create chat notification document:', e);
   }
 
   // Best-effort: upsert my public meta so the other participant can display my name/photo
@@ -383,4 +403,89 @@ export const subscribeTyping = (
   };
   ref.on('value', handler, () => {});
   return () => { if (staleTimer) { try { clearTimeout(staleTimer); } catch (_) {} } ref.off('value', handler); };
+};
+
+// Online/Offline Status Management
+export const setUserOnlineStatus = async (uid: string, isOnline: boolean) => {
+  try {
+    const RNFS: any = (await import('@react-native-firebase/firestore')).default;
+    const profileRef = RNFS().collection('profiles').doc(uid);
+    
+    const updateData: any = {
+      isOnline,
+      lastSeen: new Date().toISOString(),
+    };
+    
+    await profileRef.update(updateData);
+    
+    // Setup disconnect handler - set offline when app closes
+    if (isOnline) {
+      const rtdbRef = database().ref(`status/${uid}`);
+      await rtdbRef.set({
+        state: 'online',
+        lastChanged: database.ServerValue.TIMESTAMP,
+      });
+      
+      // When user disconnects, update their status
+      await rtdbRef.onDisconnect().set({
+        state: 'offline',
+        lastChanged: database.ServerValue.TIMESTAMP,
+      });
+      
+      // Also update Firestore on disconnect
+      const firestoreOnDisconnect = async () => {
+        try {
+          await profileRef.update({
+            isOnline: false,
+            lastSeen: new Date().toISOString(),
+          });
+        } catch (_) {}
+      };
+      
+      // Store the cleanup function
+      (rtdbRef as any)._disconnectCleanup = firestoreOnDisconnect;
+    } else {
+      // Remove presence
+      const rtdbRef = database().ref(`status/${uid}`);
+      await rtdbRef.remove();
+      await rtdbRef.onDisconnect().cancel();
+    }
+  } catch (e) {
+    console.error('Error setting online status:', e);
+  }
+};
+
+// Subscribe to user's online status
+export const subscribeUserOnlineStatus = (
+  uid: string,
+  onChange: (isOnline: boolean, lastSeen?: string) => void
+) => {
+  const ref = database().ref(`status/${uid}`);
+  const handler = (snap: FirebaseDatabaseTypes.DataSnapshot) => {
+    const val = snap.val();
+    if (val && val.state === 'online') {
+      onChange(true);
+    } else {
+      onChange(false, val?.lastChanged ? new Date(val.lastChanged).toISOString() : undefined);
+    }
+  };
+  ref.on('value', handler, () => {});
+  return () => ref.off('value', handler);
+};
+
+// Get user's current online status (one-time check)
+export const getUserOnlineStatus = async (uid: string): Promise<{ isOnline: boolean; lastSeen?: string }> => {
+  try {
+    const snap = await database().ref(`status/${uid}`).once('value');
+    const val = snap.val();
+    if (val && val.state === 'online') {
+      return { isOnline: true };
+    }
+    return { 
+      isOnline: false, 
+      lastSeen: val?.lastChanged ? new Date(val.lastChanged).toISOString() : undefined 
+    };
+  } catch (e) {
+    return { isOnline: false };
+  }
 };

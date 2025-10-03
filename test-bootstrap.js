@@ -6,7 +6,7 @@
 import { authBootstrap } from '../src/utils/authBootstrap';
 
 const testBootstrap = async () => {
-  console.log('🧪 Testing Auth Bootstrap System...');
+  
   
   try {
     // Test bootstrap initialization
@@ -16,25 +16,23 @@ const testBootstrap = async () => {
       enableDebugLogs: true,
     });
     const duration = Date.now() - startTime;
-    
-    console.log('✅ Bootstrap completed in', duration, 'ms');
-    console.log('📊 Final state:', {
+    const resultSummary = {
       isReady: bootstrapState.isReady,
       isAuthenticated: bootstrapState.isAuthenticated,
       userRole: bootstrapState.userRole,
       hasUser: !!bootstrapState.user,
       hasToken: !!bootstrapState.token,
-      error: bootstrapState.error
-    });
+      error: bootstrapState.error,
+      duration,
+    };
+    void resultSummary;
     
     // Test reset functionality
-    console.log('🔄 Testing reset...');
+    
     authBootstrap.reset();
     
-    const isReadyAfterReset = authBootstrap.isReady();
-    console.log('✅ Reset successful, isReady:', isReadyAfterReset);
-    
-    console.log('🎉 Bootstrap system test completed successfully!');
+  const isReadyAfterReset = authBootstrap.isReady();
+  void isReadyAfterReset;
     
   } catch (error) {
     console.error('❌ Bootstrap test failed:', error);

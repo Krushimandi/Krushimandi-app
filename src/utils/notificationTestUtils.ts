@@ -22,7 +22,6 @@ export const sampleFirebaseNotificationData = {
 
 // Test function to verify notification mapping
 export const testNotificationMapping = () => {
-  console.log('🧪 Testing Firebase notification data mapping...');
   
   // Simulate the mapNotification function logic
   const mockDoc = {
@@ -46,8 +45,7 @@ export const testNotificationMapping = () => {
     createdAt: sampleFirebaseNotificationData.payload.createdAt,
   };
   
-  console.log('📱 Original Firebase data:', sampleFirebaseNotificationData);
-  console.log('🔄 Mapped notification:', mappedNotification);
+  
   
   return mappedNotification;
 };
@@ -79,18 +77,5 @@ const formatTestTime = (date: string): string => {
 
 // Log Firebase data structure for debugging
 export const logFirebaseStructure = () => {
-  console.log('🔍 Expected Firebase notification structure:');
-  console.log('- Document ID: string');
-  console.log('- category: string ("update" | "promotion" | "alert" | "transaction" | "request")');
-  console.log('- createdAt: string (Firebase timestamp format)');
-  console.log('- payload:');
-  console.log('  - actionUrl: string');
-  console.log('  - createdAt: string (ISO format)');
-  console.log('  - description: string (notification body/message)');
-  console.log('  - offer: any (can be null or object)');
-  console.log('  - title: string');
-  console.log('  - type: string');
-  console.log('- seen: boolean');
-  console.log('- to: string (user token)');
-  console.log('- type: string ("action")');
+  // logs removed per request
 };

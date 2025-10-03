@@ -24,6 +24,7 @@ import { useAuthState } from '../providers/AuthStateProvider';
 import { useTabBarControl } from '../../utils/navigationControls';
 import { auth } from '../../config/firebaseModular';
 import { subscribeUserChats, fetchUserProfile, buildChatId, markChatRead } from '../../services/chatService';
+import { useTranslation } from 'react-i18next';
 
 // Simple debounce helper (short + inline to avoid extra deps)
 const debounce = (fn, delay = 300) => {
@@ -47,7 +48,7 @@ const ChatItem = React.memo(({ item, onPress }) => {
           <View style={styles.nameRow}>
             <Text style={styles.chatName} numberOfLines={1}>{item.name}</Text>
             {item.status === 'typing' && (
-              <View style={styles.typingBadge}><Text style={styles.typingBadgeText}>Typing…</Text></View>
+              <View style={styles.typingBadge}><Text style={styles.typingBadgeText}>{t('chat.list.typing', { defaultValue: 'Typing…' })}</Text></View>
             )}
           </View>
           <Text style={styles.chatTime}>{item.time}</Text>
@@ -71,6 +72,7 @@ const ChatItem = React.memo(({ item, onPress }) => {
 });
 
 const ChatListScreen = ({ navigation }) => {
+  const { t } = useTranslation();
   const { showTabBar } = useTabBarControl();
   const { user } = useAuthState();
   const [search, setSearch] = useState('');
@@ -119,7 +121,7 @@ const ChatListScreen = ({ navigation }) => {
     setLoading(true);
     const unsub = subscribeUserChats(uid, async (list) => {
       // Resolve participant profiles lazily with cache
-  const updates = {};
+      const updates = {};
       const items = await Promise.all(list.map(async (c) => {
         const otherUid = (c.participants || []).find(p => p !== uid) || '';
         let displayName = 'User';
@@ -159,7 +161,7 @@ const ChatListScreen = ({ navigation }) => {
         };
       }));
       if (Object.keys(updates).length) setProfiles(prev => ({ ...prev, ...updates }));
-  console.log('Fetched chats:', items);
+      console.log('Fetched chats:', items);
       setChats(items);
       setLoading(false);
     }, (err) => {
@@ -254,14 +256,20 @@ const ChatListScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <StatusBar
+        barStyle="dark-content"
+        backgroundColor="#FFFFFF" />
 
       {/* Fixed Header */}
       <Animated.View style={[styles.headerWrapper, { height: headerHeight }]}>
         <View style={styles.headerTopRow}>
           <View style={styles.headerTitleContainer}>
-            <Animated.Text style={[styles.screenTitle, { fontSize: titleSize }]}>Chats</Animated.Text>
-            <Text style={styles.screenSubtitle}>Stay connected with your buyers</Text>
+            <Animated.Text style={[styles.screenTitle, { fontSize: titleSize }]}>
+              {t('chat.list.title', { defaultValue: 'Chats' })}
+            </Animated.Text>
+            <Text style={styles.screenSubtitle}>
+              {t('chat.list.subtitle', { defaultValue: 'Stay connected with your buyers' })}
+            </Text>
           </View>
           {/* <TouchableOpacity style={styles.iconButton} activeOpacity={0.8} onPress={() => setMenuVisible(true)}>
             <Icon name="ellipsis-vertical" size={22} color={Colors.light.textSecondary} />
@@ -280,7 +288,7 @@ const ChatListScreen = ({ navigation }) => {
             <Icon name="search" size={18} color={Colors.light.textSecondary} />
             <TextInput
               style={styles.searchInput}
-              placeholder="Search chats"
+              placeholder={t('chat.list.searchPlaceholder', { defaultValue: 'Search chats' })}
               placeholderTextColor={Colors.light.textSecondary + '80'}
               value={search}
               onChangeText={(v) => { setSearch(v); handleSearchChange(v); }}
@@ -317,8 +325,8 @@ const ChatListScreen = ({ navigation }) => {
         ListEmptyComponent={!loading && (
           <View style={styles.emptyState}>
             <Feather name="message-circle" size={72} color={Colors.light.primary + '60'} />
-            <Text style={styles.emptyTitle}>No Chats</Text>
-            <Text style={styles.emptySubtitle}>Start a conversation with your buyers to see chats here.</Text>
+            <Text style={styles.emptyTitle}>{t('chat.list.emptyTitle', { defaultValue: 'No Chats' })}</Text>
+            <Text style={styles.emptySubtitle}>{t('chat.list.emptySubtitle', { defaultValue: 'Start a conversation with your buyers to see chats here.' })}</Text>
             {user?.role === 'buyer' && (
               <TouchableOpacity
                 style={styles.startChatButton}
@@ -326,18 +334,18 @@ const ChatListScreen = ({ navigation }) => {
                   Toast.show({
                     type: 'info',
                     position: 'bottom',
-                    text1: 'Start with a Request',
-                    text2: 'First send a request to the farmer, then chat.',
+                    text1: t('chat.list.toast.startWithRequestTitle', { defaultValue: 'Start with a Request' }),
+                    text2: t('chat.list.toast.startWithRequestMessage', { defaultValue: 'First send a request to the farmer, then chat.' }),
                   });
                   try {
                     navigation.navigate('Main', { screen: 'BuyerTabs', params: { screen: 'Home' } });
                   } catch (_) {
-                    try { navigation.navigate('Home'); } catch (_) {}
+                    try { navigation.navigate('Home'); } catch (_) { }
                   }
                 }}
               >
                 <Feather name="plus" size={18} color="#FFFFFF" />
-                <Text style={styles.startChatButtonText}>Start Chat</Text>
+                <Text style={styles.startChatButtonText}>{t('chat.list.startChat', { defaultValue: 'Start Chat' })}</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -367,29 +375,29 @@ const ChatListScreen = ({ navigation }) => {
             {user?.role === 'buyer' && (
               <TouchableOpacity style={styles.menuItem} onPress={() => {
                 setMenuVisible(false);
-                Toast.show({ type: 'info', position: 'bottom', text1: 'Start with a Request', text2: 'First send a request to the farmer, then chat.' });
+                Toast.show({ type: 'info', position: 'bottom', text1: t('chat.list.toast.startWithRequestTitle', { defaultValue: 'Start with a Request' }), text2: t('chat.list.toast.startWithRequestMessage', { defaultValue: 'First send a request to the farmer, then chat.' }) });
                 try {
                   navigation.navigate('Main', { screen: 'BuyerTabs', params: { screen: 'Home' } });
-                } catch (_) { try { navigation.navigate('Home'); } catch (_) {} }
+                } catch (_) { try { navigation.navigate('Home'); } catch (_) { } }
               }}>
                 <Icon name="chatbubbles-outline" size={18} color="#111827" style={styles.menuIcon} />
-                <Text style={styles.menuText}>Start New Chat</Text>
+                <Text style={styles.menuText}>{t('chat.list.menu.startNew', { defaultValue: 'Start New Chat' })}</Text>
               </TouchableOpacity>
             )}
 
             <TouchableOpacity style={styles.menuItem} onPress={() => { setMenuVisible(false); onRefresh(); }}>
               <Icon name="refresh-outline" size={18} color="#111827" style={styles.menuIcon} />
-              <Text style={styles.menuText}>Refresh</Text>
+              <Text style={styles.menuText}>{t('chat.list.menu.refresh', { defaultValue: 'Refresh' })}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.menuItem} onPress={() => { setShowUnreadOnly(v => !v); }}>
               <Icon name={showUnreadOnly ? 'checkbox-outline' : 'square-outline'} size={18} color="#111827" style={styles.menuIcon} />
-              <Text style={styles.menuText}>{showUnreadOnly ? 'Show All Chats' : 'Show Unread Only'}</Text>
+              <Text style={styles.menuText}>{showUnreadOnly ? t('chat.list.menu.showAll', { defaultValue: 'Show All Chats' }) : t('chat.list.menu.showUnread', { defaultValue: 'Show Unread Only' })}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.menuItem} onPress={() => { setSortBy(s => (s === 'recent' ? 'name' : 'recent')); }}>
               <Icon name="swap-vertical-outline" size={18} color="#111827" style={styles.menuIcon} />
-              <Text style={styles.menuText}>{sortBy === 'recent' ? 'Sort by Name' : 'Sort by Recent'}</Text>
+              <Text style={styles.menuText}>{sortBy === 'recent' ? t('chat.list.menu.sortByName', { defaultValue: 'Sort by Name' }) : t('chat.list.menu.sortByRecent', { defaultValue: 'Sort by Recent' })}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.menuItem} onPress={async () => {
@@ -398,20 +406,20 @@ const ChatListScreen = ({ navigation }) => {
                 if (!uid) { setMenuVisible(false); return; }
                 const toMark = chats.filter(c => (c.unread || 0) > 0);
                 await Promise.allSettled(toMark.map(c => markChatRead(uid, c.chatId)));
-                Toast.show({ type: 'success', position: 'bottom', text1: 'All chats marked as read' });
+                Toast.show({ type: 'success', position: 'bottom', text1: t('chat.list.toast.allMarkedRead', { defaultValue: 'All chats marked as read' }) });
               } catch (e) {
-                Toast.show({ type: 'error', position: 'bottom', text1: 'Failed to mark all as read' });
+                Toast.show({ type: 'error', position: 'bottom', text1: t('chat.list.toast.markAllReadFailed', { defaultValue: 'Failed to mark all as read' }) });
               } finally {
                 setMenuVisible(false);
               }
             }}>
               <Icon name="checkmark-done-outline" size={18} color="#111827" style={styles.menuIcon} />
-              <Text style={styles.menuText}>Mark All as Read</Text>
+              <Text style={styles.menuText}>{t('chat.list.menu.markAllRead', { defaultValue: 'Mark All as Read' })}</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.menuItem} onPress={() => { setMenuVisible(false); try { navigation.navigate('HelpScreen'); } catch (_) {} }}>
+            <TouchableOpacity style={styles.menuItem} onPress={() => { setMenuVisible(false); try { navigation.navigate('HelpScreen'); } catch (_) { } }}>
               <Icon name="help-circle-outline" size={18} color="#111827" style={styles.menuIcon} />
-              <Text style={styles.menuText}>Help Center</Text>
+              <Text style={styles.menuText}>{t('chat.list.menu.help', { defaultValue: 'Help Center' })}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -421,7 +429,10 @@ const ChatListScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#F8FAFC' },
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#FFFFFF'
+  },
   headerWrapper: {
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
@@ -464,7 +475,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F1F5F9',
     position: 'relative'
   },
-  
+
   searchFiltersRow: {
     marginTop: 12,
     marginBottom: 10
@@ -503,17 +514,6 @@ const styles = StyleSheet.create({
   chatItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 14,
-    marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 2,
-    borderWidth: 1,
-    borderColor: '#F1F5F9',
     minHeight: 74, // Ensure consistent height for getItemLayout
   },
   avatarWrapper: {
@@ -540,7 +540,7 @@ const styles = StyleSheet.create({
     borderColor: '#FFFFFF'
   },
   chatInfoWrapper: { flex: 1 },
-  nameTimeRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  nameTimeRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 },
   nameRow: {
     flexDirection: 'row',
     alignItems: 'center',

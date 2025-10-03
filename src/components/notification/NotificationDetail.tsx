@@ -21,6 +21,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { Colors, Typography, Layout } from '../../constants';
 import { NavigationProp, ParamListBase, RouteProp } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
 
 // Define types for notification detail props
 interface NotificationDetailProps {
@@ -80,6 +81,7 @@ const getNotificationColor = (type?: string, theme: 'light' | 'dark' = 'light'):
 
 const NotificationDetail: React.FC<NotificationDetailProps> = ({ navigation, route }) => {
   const { id, title, body, date, time, type, offer, actionUrl, category, createdAt } = route.params;
+  const { t } = useTranslation();
   const iconName = getNotificationIcon(type);
   const iconColor = getNotificationColor(type);
 
@@ -89,15 +91,15 @@ const NotificationDetail: React.FC<NotificationDetailProps> = ({ navigation, rou
   const getTypeTag = () => {
     switch (type) {
       case 'transaction':
-        return 'Transaction';
+        return t('notifications.filters.transaction');
       case 'promotion':
-        return 'Promotion';
+        return t('notifications.filters.promotion');
       case 'update':
-        return 'Update';
+        return t('notifications.filters.update');
       case 'alert':
-        return 'Alert';
+        return t('notifications.filters.alert');
       default:
-        return 'Notification';
+        return t('notifications.title');
     }
   };
 
@@ -186,14 +188,14 @@ const NotificationDetail: React.FC<NotificationDetailProps> = ({ navigation, rou
             {/* Dynamic offer rendering for all notification types */}
             {type === 'promotion' && offer && (
               <View style={{ marginTop: 8 }}>
-                <Text style={{ fontWeight: 'bold', color: Colors.light.secondary }}>Coupon: {offer[0]?.text}</Text>
-                <Text>Description: {offer[0]?.description}</Text>
-                <Text>Validity: {offer[0]?.validity}</Text>
+                <Text style={{ fontWeight: 'bold', color: Colors.light.secondary }}>{t('notificationsDetail.labels.coupon')}: {offer[0]?.text}</Text>
+                <Text>{t('notificationsDetail.labels.description')}: {offer[0]?.description}</Text>
+                <Text>{t('notificationsDetail.labels.validity')}: {offer[0]?.validity}</Text>
               </View>
             )}
             {type === 'update' && offer && (
               <View style={{ marginTop: 8 }}>
-                <Text style={{ fontWeight: 'bold', color: Colors.light.primary }}>Version: {offer[0]?.text}</Text>
+                <Text style={{ fontWeight: 'bold', color: Colors.light.primary }}>{t('notificationsDetail.labels.version')}: {offer[0]?.text}</Text>
                 {offer[0]?.description?.map((desc: string, idx: number) => (
                   <Text key={idx}>• {desc}</Text>
                 ))}
@@ -206,15 +208,15 @@ const NotificationDetail: React.FC<NotificationDetailProps> = ({ navigation, rou
                   <Text key={idx}>• {desc}</Text>
                 ))}
                 {offer[0]?.sub_description?.map((sub: string, idx: number) => (
-                  <Text key={idx} style={{ fontStyle: 'italic' }}>Tip: {sub}</Text>
+                  <Text key={idx} style={{ fontStyle: 'italic' }}>{t('notificationsDetail.labels.tip')}: {sub}</Text>
                 ))}
               </View>
             )}
             {type === 'request' && offer && (
               <View style={{ marginTop: 8 }}>
-                <Text style={{ fontWeight: 'bold', color: Colors.light.info }}>Request ID: {offer[0]?.requestId}</Text>
-                <Text>Date: {offer[0]?.date}</Text>
-                <Text>Status: {offer[0]?.status}</Text>
+                <Text style={{ fontWeight: 'bold', color: Colors.light.info }}>{t('notificationsDetail.labels.requestId')}: {offer[0]?.requestId}</Text>
+                <Text>{t('notificationsDetail.labels.date')}: {offer[0]?.date}</Text>
+                <Text>{t('notificationsDetail.labels.status')}: {offer[0]?.status}</Text>
               </View>
             )}
             {/* Date stamp */}
@@ -272,10 +274,10 @@ const NotificationDetail: React.FC<NotificationDetailProps> = ({ navigation, rou
                 style={{ marginRight: Layout.spacing.sm }}
               />
               <Text style={styles.actionButtonText}>
-                {type === 'transaction' ? 'View Order' :
-                  type === 'promotion' ? 'Claim Offer' :
-                    type === 'update' ? 'Update Now' :
-                      type === 'request' ? 'View Request' : 'View Details'}
+                {type === 'transaction' ? t('notificationsDetail.actions.viewOrder') :
+                  type === 'promotion' ? t('notificationsDetail.actions.claimOffer') :
+                    type === 'update' ? t('notificationsDetail.actions.updateNow') :
+                      type === 'request' ? t('notificationsDetail.actions.viewRequest') : t('notificationsDetail.actions.viewDetails')}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -283,7 +285,7 @@ const NotificationDetail: React.FC<NotificationDetailProps> = ({ navigation, rou
               activeOpacity={0.8}
               onPress={() => navigation.goBack()}
             >
-              <Text style={styles.dismissButtonText}>Dismiss</Text>
+              <Text style={styles.dismissButtonText}>{t('notificationsDetail.actions.dismiss')}</Text>
             </TouchableOpacity>
           </View>
           {/* Related Content based on type */}
@@ -291,27 +293,27 @@ const NotificationDetail: React.FC<NotificationDetailProps> = ({ navigation, rou
             <View style={styles.additionalInfo}>
               <View style={styles.additionalInfoHeader}>
                 <Icon name="document-text-outline" size={18} color={Colors.light.text} style={{ marginRight: 8 }} />
-                <Text style={styles.additionalInfoTitle}>Order Details</Text>
+                <Text style={styles.additionalInfoTitle}>{t('notificationsDetail.order.title')}</Text>
               </View>
 
               <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Order ID</Text>
+                <Text style={styles.infoLabel}>{t('notificationsDetail.order.orderId')}</Text>
                 <Text style={styles.infoValue}>KM2045</Text>
               </View>
               <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Date</Text>
+                <Text style={styles.infoLabel}>{t('notificationsDetail.order.date')}</Text>
                 <Text style={styles.infoValue}>{date}</Text>
               </View>
               <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Status</Text>
+                <Text style={styles.infoLabel}>{t('notificationsDetail.order.status')}</Text>
                 <View style={styles.statusContainer}>
                   <View style={[styles.statusDot, { backgroundColor: Colors.light.success }]} />
-                  <Text style={[styles.statusText, { color: Colors.light.success }]}>Confirmed</Text>
+                  <Text style={[styles.statusText, { color: Colors.light.success }]}>{t('notificationsDetail.order.confirmed')}</Text>
                 </View>
               </View>
 
               <TouchableOpacity style={styles.viewMoreButton}>
-                <Text style={styles.viewMoreText}>View Complete Order</Text>
+                <Text style={styles.viewMoreText}>{t('notificationsDetail.actions.viewCompleteOrder')}</Text>
                 <Icon name="chevron-forward-outline" size={16} color={Colors.light.primary} />
               </TouchableOpacity>
             </View>

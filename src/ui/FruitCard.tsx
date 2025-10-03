@@ -1,14 +1,10 @@
 import React, { memo, useCallback } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  Image,
-  StyleSheet,
-  Platform,
-} from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import FastImage from 'react-native-fast-image';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { Colors } from '../constants';
+import { useTranslation } from 'react-i18next';
+import { categories } from 'utils/fruitCategories';
 
 interface FruitCardProps {
   item: {
@@ -31,13 +27,14 @@ interface FruitCardProps {
 }
 
 // Optimized FruitCard component to prevent unnecessary re-renders
-const FruitCard = memo<FruitCardProps>(({ 
-  item, 
-  onPress, 
-  formatPrice, 
-  formatFruitQuantity, 
-  formatLocation 
+const FruitCard = memo<FruitCardProps>(({
+  item,
+  onPress,
+  formatPrice,
+  formatFruitQuantity,
+  formatLocation
 }) => {
+  const { t } = useTranslation();
   const handlePress = useCallback(() => {
     onPress(item);
   }, [item, onPress]);
@@ -48,18 +45,18 @@ const FruitCard = memo<FruitCardProps>(({
       activeOpacity={0.9}
       onPress={handlePress}
     >
-      <Image
-        source={{ uri: item.image_urls?.[0] || 'https://via.placeholder.com/150' }}
+      <FastImage
+        source={{ uri: item.image_urls?.[0] || 'https://via.placeholder.com/150', priority: FastImage.priority.normal }}
         style={styles.fruitImage}
         defaultSource={require('../assets/fruits.png')}
-        resizeMode="cover"
+        resizeMode={FastImage.resizeMode.cover}
       />
       <View style={styles.fruitDetailsSection}>
         <Text style={styles.fruitName} numberOfLines={1} ellipsizeMode="tail">
           {item.name}
         </Text>
         <Text style={styles.fruitCategory} numberOfLines={1} ellipsizeMode="tail">
-          Category: {item.type}
+          {t('product.card.categoryLabel', { defaultValue: 'Category' })}: {t(categories.find(c => c.type === item.type)?.labelKey)}
         </Text>
         <View style={styles.locationRow}>
           <Icon name="location-outline" size={12} color="#505050" />
@@ -89,7 +86,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 14,
     padding: 10,
-    marginBottom: 2,
+    marginBottom: 10,
+    marginHorizontal: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,

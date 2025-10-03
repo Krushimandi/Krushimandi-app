@@ -22,10 +22,10 @@ export const pendingNotificationData = { current: null as any };
  * Handles notification navigation, including cold start queuing
  */
 export function handleNotificationNavigation(data: any, notificationTabEmitter?: any) {
-  console.log('🔔 Handling notification navigation:', data);
+  
   
   if (!data?.screen || data?.type !== 'navigate') {
-    console.log('🔔 No navigation data or not navigate type, data:', data);
+    
     return;
   }
 
@@ -36,13 +36,13 @@ export function handleNotificationNavigation(data: any, notificationTabEmitter?:
       return;
     }
 
-    console.log('🔔 Processing navigation for screen:', data.screen);
+    
 
     try {
       switch (data.screen) {
         case 'MyOrdersScreen':
         case 'Orders':
-          console.log('🔔 Orders screen deprecated; redirecting to Chats tab');
+          
           navigationRef.navigate('Main', {
             screen: 'BuyerTabs',
             params: { screen: 'Chats' },
@@ -51,7 +51,7 @@ export function handleNotificationNavigation(data: any, notificationTabEmitter?:
           
         case 'RequestsScreen':
         case 'Requests':
-          console.log('🔔 Navigating to Requests screen from notification');
+          
           navigationRef.navigate('Main', {
             screen: 'BuyerTabs',
             params: { screen: 'Requests' },
@@ -59,7 +59,7 @@ export function handleNotificationNavigation(data: any, notificationTabEmitter?:
           break;
           
         case 'HomeScreen':
-          console.log('🔔 Navigating to Home screen from notification');
+          
           navigationRef.navigate('Main', {
             screen: 'BuyerTabs',
             params: { screen: 'Home' },
@@ -68,23 +68,23 @@ export function handleNotificationNavigation(data: any, notificationTabEmitter?:
           
         case 'NotificationScreen':
         case 'Notification':
-          console.log('🔔 Navigating to Notification screen from notification');
+          
           navigationRef.navigate('Notification');
           break;
 
         case 'ProfileScreen':
         case 'Profile':
-          console.log('🔔 Navigating to Profile screen from notification');
+          
           navigationRef.navigate('ProfileScreen');
           break;
 
         default:
-          console.log('🔔 Unknown screen in notification:', data.screen);
+          
           // Default to home if unknown screen
           navigationRef.navigate('Main');
           break;
       }
-      console.log('✅ Navigation completed successfully');
+      
     } catch (error) {
       console.error('❌ Navigation error:', error);
     }
@@ -98,7 +98,7 @@ export function handleNotificationNavigation(data: any, notificationTabEmitter?:
   } else {
     // Queue for later when navigation is ready
     pendingNotificationData.current = data;
-    console.log('🔔 Navigation not ready, queued data:', data);
+    
   }
 }
 
@@ -136,7 +136,7 @@ export function reset(routeName: keyof RootStackParamList, params?: object) {
   // @ts-ignore
   const lastTime = navigationRef._lastResets[routeName];
   if (lastTime && now - lastTime < 750) {
-    console.log(`⏳ Suppressing duplicate navigation reset to ${routeName}`);
+    
     return;
   }
   // @ts-ignore
@@ -163,7 +163,7 @@ export function resetToMain() {
     // Avoid unnecessary double mount if we're already at Main root
     const state: any = (navigationRef as any).getRootState?.();
     if (state?.routes && state.routes.length === 1 && state.routes[0]?.name === 'Main') {
-      console.log('🔁 Already at Main root – skipping resetToMain');
+      
       return;
     }
   } catch (e) {
@@ -179,7 +179,7 @@ export function resetToAuth() {
   try {
     const state: any = (navigationRef as any).getRootState?.();
     if (state?.routes && state.routes.length === 1 && state.routes[0]?.name === 'Auth') {
-      console.log('🔁 Already at Auth root – skipping resetToAuth');
+      
       return;
     }
   } catch (e) {}

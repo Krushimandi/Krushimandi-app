@@ -21,9 +21,11 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import auth from '@react-native-firebase/auth';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 
 const MobileScreen = ({ navigation }) => {
   const { setPhoneNumber, setConfirmation } = useAuth();
+  const { t } = useTranslation();
   const [mobile, setMobile] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -35,6 +37,7 @@ const MobileScreen = ({ navigation }) => {
   const modalAnimation = useRef(new Animated.Value(0)).current;
   const inputRef = useRef(null);
   const scrollViewRef = useRef(null);
+  const isMountedRef = useRef(true);
   useEffect(() => {
     // Entrance animation
     Animated.parallel([
@@ -52,7 +55,7 @@ const MobileScreen = ({ navigation }) => {
 
     // Keyboard event listeners for better scroll handling
     const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', (event) => {
-      console.log('Keyboard shown');
+      if (__DEV__) console.log('Keyboard shown');
       // Scroll to the input field when keyboard appears
       setTimeout(() => {
         scrollViewRef.current?.scrollTo({
@@ -63,7 +66,7 @@ const MobileScreen = ({ navigation }) => {
     });
 
     const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
-      console.log('Keyboard hidden');
+      if (__DEV__) console.log('Keyboard hidden');
     });
 
     return () => {
@@ -75,6 +78,11 @@ const MobileScreen = ({ navigation }) => {
   useEffect(() => {
     Keyboard.dismiss();
   }, [showHelpModal]);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => { isMountedRef.current = false; };
+  }, []);
 
   const validatePhoneNumber = (number) => {
     const phoneRegex = /^[6-9]\d{9}$/;
@@ -93,7 +101,7 @@ const MobileScreen = ({ navigation }) => {
   }, [error]);
 
   const handleInputFocus = useCallback(() => {
-    console.log('Input focused');
+    if (__DEV__) console.log('Input focused');
     // setIsFocused(true);
 
     // Scroll to input field when keyboard opens
@@ -106,7 +114,7 @@ const MobileScreen = ({ navigation }) => {
   }, []);
 
   const handleInputBlur = useCallback(() => {
-    console.log('Input blurred');
+    if (__DEV__) console.log('Input blurred');
     setIsFocused(false);
   }, []);
 
@@ -120,14 +128,43 @@ const MobileScreen = ({ navigation }) => {
     error && styles.inputWrapperError
   ], [isFocused, error]);
 
+  // Map Firebase Auth errors to simple, user-friendly messages
+  const getFriendlyErrorMessage = useCallback((err) => {
+    const code = err?.code || '';
+    switch (code) {
+      case 'auth/network-request-failed':
+        return t('auth.mobile.errors.network');
+      case 'auth/too-many-requests':
+        return t('auth.mobile.errors.tooMany');
+      case 'auth/invalid-phone-number':
+        return t('auth.mobile.errors.invalidPhone');
+      case 'auth/quota-exceeded':
+        return t('auth.mobile.errors.quota');
+      case 'auth/missing-phone-number':
+        return t('auth.mobile.errors.missingPhone');
+      case 'auth/operation-not-allowed':
+      case 'auth/app-not-authorized':
+        return t('auth.mobile.errors.notAllowed');
+      case 'auth/invalid-verification-code':
+        return t('auth.mobile.errors.invalidCode');
+      case 'auth/invalid-verification-id':
+        return t('auth.mobile.errors.invalidId');
+      default: {
+        // Fallback: keep it simple, avoid exposing raw error details to users
+        return t('auth.mobile.errors.generic');
+      }
+    }
+  }, []);
+
   const handleNext = async () => {
+    if (isLoading) return; // prevent duplicate submissions
     if (!mobile.trim()) {
-      setError('Please enter your mobile number');
+      setError(t('auth.mobile.errors.empty'));
       return;
     }
 
     if (!validatePhoneNumber(mobile)) {
-      setError('Please enter a valid 10-digit mobile number');
+      setError(t('auth.mobile.errors.invalid'));
       return;
     }
 
@@ -149,9 +186,10 @@ const MobileScreen = ({ navigation }) => {
       // Navigate without passing confirmation
       navigation.navigate('OTPVerification', { phoneNumber: phoneNumberWithCode });
     } catch (err) {
-      setError('Failed to send OTP. Please try again.' + err);
+      if (__DEV__) console.log('send OTP error:', err);
+      if (isMountedRef.current) setError(getFriendlyErrorMessage(err));
     } finally {
-      setIsLoading(false);
+      if (isMountedRef.current) setIsLoading(false);
     }
   };
 
@@ -240,17 +278,17 @@ const MobileScreen = ({ navigation }) => {
                 }
               ]}
             >
-              <Text style={styles.heading}>Verify your phone number</Text>
-              <Text style={styles.subtext}>We'll send you a 6-digit verification code to confirm your identity</Text>
+              <Text style={styles.heading}>{t('auth.mobile.title')}</Text>
+              <Text style={styles.subtext}>{t('auth.mobile.subtitle')}</Text>
 
               {/* Enhanced Input Section */}
               <View style={styles.inputSection}>
-                <Text style={styles.inputLabel}>Mobile Number</Text>
+                <Text style={styles.inputLabel}>{t('auth.mobile.label')}</Text>
                 <View style={inputWrapperStyle}>
                   <View style={styles.phoneInputRow}>
                     <View style={styles.countryCodeContainer}>
                       <Image
-                        source={{ uri: 'https://flagcdn.com/w40/in.png' }}
+                        source={require('../../assets/icons/in.png')}
                         style={styles.flagIcon}
                       />
                       <Text style={styles.countryCode}>+91</Text>
@@ -262,7 +300,7 @@ const MobileScreen = ({ navigation }) => {
                       onPress={() => inputRef.current?.focus()}>
                       <TextInput
                         ref={inputRef}
-                        placeholder="Enter mobile number"
+                        placeholder={t('auth.mobile.placeholder')}
                         keyboardType="phone-pad"
                         maxLength={10}
                         style={styles.input}
@@ -294,7 +332,7 @@ const MobileScreen = ({ navigation }) => {
 
                 {/* Character count */}
                 <Text style={styles.characterCount}>
-                  {mobile.length}/10 digits
+                  {mobile.length}/10 {t('auth.mobile.digits')}
                 </Text>
               </View>
             </Animated.View>
@@ -315,7 +353,7 @@ const MobileScreen = ({ navigation }) => {
                 <ActivityIndicator size="small" color="#FFFFFF" />
               ) : (
                 <View style={{ flexDirection: "row", alignItems: "center" }}>
-                  <Text style={styles.nextText}>Continue</Text>
+                  <Text style={styles.nextText}>{t('auth.mobile.continue')}</Text>
                   <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
                 </View>
               )}
@@ -357,7 +395,7 @@ const MobileScreen = ({ navigation }) => {
               <View style={styles.helpIconContainer}>
                 <Ionicons name="help-circle" size={28} color="#007E2F" />
               </View>
-              <Text style={styles.modalTitle}>Need Help?</Text>
+              <Text style={styles.modalTitle}>{t('auth.mobile.help.title')}</Text>
               <TouchableOpacity onPress={closeHelpModal} style={styles.closeButton}>
                 <Ionicons name="close" size={24} color="#666" />
               </TouchableOpacity>
@@ -365,21 +403,21 @@ const MobileScreen = ({ navigation }) => {
 
             {/* Modal Content */}
             <View style={styles.modalContent}>
-              <Text style={styles.modalSubtitle}>Tips for entering your mobile number:</Text>
+              <Text style={styles.modalSubtitle}>{t('auth.mobile.help.tipsTitle')}</Text>
 
               <View style={styles.helpOption}>
                 <Ionicons name="call-outline" size={20} color="#007E2F" />
-                <Text style={styles.helpOptionText}>Enter 10-digit Indian mobile number</Text>
+                <Text style={styles.helpOptionText}>{t('auth.mobile.help.tip1')}</Text>
               </View>
 
               <View style={styles.helpOption}>
                 <Ionicons name="shield-checkmark-outline" size={20} color="#007E2F" />
-                <Text style={styles.helpOptionText}>Your number is secure and verified</Text>
+                <Text style={styles.helpOptionText}>{t('auth.mobile.help.tip2')}</Text>
               </View>
 
               <View style={styles.helpOption}>
                 <Ionicons name="chatbubble-outline" size={20} color="#007E2F" />
-                <Text style={styles.helpOptionText}>You'll receive an SMS verification code</Text>
+                <Text style={styles.helpOptionText}>{t('auth.mobile.help.tip3')}</Text>
               </View>
             </View>
           </Animated.View>

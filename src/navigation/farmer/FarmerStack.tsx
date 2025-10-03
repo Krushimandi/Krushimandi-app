@@ -4,6 +4,7 @@
  */
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, Animated, Platform, Dimensions, StyleSheet, Text } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
@@ -17,10 +18,10 @@ import { BlurView } from '@react-native-community/blur';
 // Components  
 import { FarmerHomeScreen } from '../../components/home';
 import { FarmerRequestsScreen } from '../../components/requests';
-import { AddFruitScreen, PhotoUploadScreen, PriceSelectionScreen, ProductDetailScreen, ProductDetailsFarmer } from '../../components/products';
+import { AddFruitScreen, PhotoUploadScreen, PriceSelectionScreen, ProductDetailsFarmer } from '../../components/products';
 import ChatListScreen from '../../components/chat/ChatListScreen';
 import { ProfileScreen } from "../../components/ProfileScreen";
-import NotificationBadge from '../../components/common/NotificationBadge';
+import PendingRequestsBadge from '../../components/common/PendingRequestsBadge';
 
 // Hooks
 import { useAppStore } from '../../store';
@@ -120,7 +121,7 @@ const CustomFarmerTabIcon = ({ focused, color, size, route }: any) => {
   switch (route.name) {
     case 'Home':
       iconComponent = focused ? (
-        <MaterialIcons name="home-filled" size={size+2} color={color} />
+        <MaterialIcons name="home-filled" size={size + 2} color={color} />
       ) : (
         <Octicons name="home" size={size} color={color} />
       );
@@ -131,18 +132,19 @@ const CustomFarmerTabIcon = ({ focused, color, size, route }: any) => {
           {focused ? (
             <Feather name="users" size={size - 2} color={color} />
           ) : (
-            <Feather name="users" size={size } color={color} />
+            <Feather name="users" size={size} color={color} />
           )}
-          <NotificationBadge size="small" />
+          <PendingRequestsBadge size="small" />
         </View>
       );
       break;
     case 'Chats':
-      iconComponent = focused ? (
-        <Icon name="chatbox-ellipses" size={size} color={color} />
-      ) : (
-        <Icon name="chatbox-ellipses-outline" size={size} color={color} />
-      );
+      iconComponent =
+        focused ? (
+          <Icon name="chatbox-ellipses" size={size} color={color} />
+        ) : (
+          <Icon name="chatbox-ellipses-outline" size={size} color={color} />
+        );
       break;
     case 'Profiles':
       iconComponent = focused ? (
@@ -195,6 +197,7 @@ const NewFruitNavigator = () => (
 
 // Farmer Tab Navigator Component
 const FarmerTabNavigator = () => {
+  const { t } = useTranslation();
   const { theme } = useAppStore();
   const isDark = theme === 'dark';
   const { tabBarVisible, tabBarAnimation } = useNavigationControl();
@@ -274,16 +277,16 @@ const FarmerTabNavigator = () => {
         name="Home"
         component={FarmerHomeScreen}
         options={{
-          tabBarLabel: 'Home',
-          tabBarAccessibilityLabel: 'Home Tab'
+          tabBarLabel: t('labels.home'),
+          tabBarAccessibilityLabel: t('labels.home') + ' Tab'
         }}
       />
       <MainTab.Screen
         name="Requests"
         component={FarmerRequestsScreen}
         options={{
-          tabBarLabel: 'Requests',
-          tabBarAccessibilityLabel: 'Requests Tab'
+          tabBarLabel: t('labels.requests'),
+          tabBarAccessibilityLabel: t('labels.requests') + ' Tab'
         }}
       />
       <MainTab.Screen
@@ -298,17 +301,17 @@ const FarmerTabNavigator = () => {
         name="Chats"
         component={ChatListScreen}
         options={{
-          tabBarLabel: 'Chats',
-          tabBarAccessibilityLabel: 'Chats Tab'
+          tabBarLabel: t('labels.chats'),
+          tabBarAccessibilityLabel: t('labels.chats') + ' Tab'
         }}
       />
-      
+
       <MainTab.Screen
         name="Profiles"
         component={ProfileScreen}
         options={{
-          tabBarLabel: 'Profile',
-          tabBarAccessibilityLabel: 'Profile Tab'
+          tabBarLabel: t('labels.profile'),
+          tabBarAccessibilityLabel: t('labels.profile') + ' Tab'
         }}
       />
     </MainTab.Navigator>

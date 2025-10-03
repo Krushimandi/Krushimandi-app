@@ -44,7 +44,7 @@ export const usePushNotifications = (): UsePushNotificationsReturn => {
 
     const initializePushNotifications = async () => {
         try {
-            console.log('🚀 Initializing push notifications...');
+            
             
             // Initialize the push notification service
             await pushNotificationService.initialize();
@@ -57,7 +57,7 @@ export const usePushNotifications = (): UsePushNotificationsReturn => {
             await checkPermissionStatus();
             
             setIsInitialized(true);
-            console.log('✅ Push notifications initialized successfully');
+            
         } catch (error) {
             console.error('❌ Failed to initialize push notifications:', error);
             setIsInitialized(false);
@@ -137,7 +137,7 @@ export const usePushNotifications = (): UsePushNotificationsReturn => {
 
         try {
             await pushNotificationService.sendLocalNotification(testData);
-            console.log('✅ Test notification sent successfully');
+            
         } catch (error) {
             console.error('❌ Failed to send test notification:', error);
             throw error;
@@ -147,7 +147,7 @@ export const usePushNotifications = (): UsePushNotificationsReturn => {
     const cancelAllNotifications = useCallback(async (): Promise<void> => {
         try {
             await pushNotificationService.cancelAllNotifications();
-            console.log('✅ All notifications cancelled');
+            
         } catch (error) {
             console.error('❌ Failed to cancel notifications:', error);
             throw error;

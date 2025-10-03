@@ -30,10 +30,8 @@ export const saveUserRole = async (role: UserRole): Promise<void> => {
     if (uid) {
       await AsyncStorage.setItem(`${StorageKeys.USER_ROLE}:${uid}`, role);
       await AsyncStorage.setItem(StorageKeys.USER_ROLE, role); // legacy
-      console.log('✅ User role saved (scoped & legacy):', { role, uid });
     } else {
       await AsyncStorage.setItem(StorageKeys.USER_ROLE, role);
-      console.log('⚠️ Saved role without UID (no authenticated user yet):', role);
     }
   } catch (error) {
     console.error('❌ Failed to save user role:', error);
@@ -68,7 +66,6 @@ export const clearUserRole = async (): Promise<void> => {
     const uid = getUid();
     if (uid) await AsyncStorage.removeItem(`${StorageKeys.USER_ROLE}:${uid}`);
     await AsyncStorage.removeItem(StorageKeys.USER_ROLE);
-    console.log('✅ User role cleared from storage');
   } catch (error) {
     console.error('❌ Failed to clear user role:', error);
   }
@@ -83,7 +80,6 @@ export const syncUserRole = async (): Promise<UserRole | null> => {
   try {
     const uid = getUid();
     if (!uid) {
-      console.log('❌ No authenticated user for role sync');
       return null;
     }
 
@@ -91,11 +87,9 @@ export const syncUserRole = async (): Promise<UserRole | null> => {
     const userProfile = await getCompleteUserProfile();
     const firestoreRole = (userProfile as any)?.userRole as UserRole | undefined;
 
-    console.log('🔄 Role sync check:', { localRole, firestoreRole, userId: uid });
 
     if (!localRole && firestoreRole) {
       await saveUserRole(firestoreRole);
-      console.log('✅ Adopted Firestore role to storage:', firestoreRole);
       return firestoreRole;
     }
 
@@ -105,21 +99,18 @@ export const syncUserRole = async (): Promise<UserRole | null> => {
 
     if (localRole && firestoreRole && localRole !== firestoreRole) {
       await saveUserRole(firestoreRole);
-      console.log('⚠️ Mismatch -> using Firestore:', { localRole, firestoreRole });
       return firestoreRole;
     }
 
     if (localRole && !firestoreRole) {
       try {
         await updateUserInFirestore(uid, localRole, { userRole: localRole });
-        console.log('✅ Pushed local role up to Firestore:', localRole);
       } catch (err) {
         console.error('❌ Failed pushing local role to Firestore:', err);
       }
       return localRole;
     }
 
-    console.log('❌ No role anywhere');
     return null;
   } catch (error) {
     console.error('❌ Error syncing user role:', error);
@@ -145,7 +136,6 @@ export const initializeUserRoleFromUserData = async (): Promise<UserRole | null>
       const parsedData = JSON.parse(userData);
       if (parsedData.userRole && ['farmer', 'buyer'].includes(parsedData.userRole)) {
         await saveUserRole(parsedData.userRole);
-        console.log('✅ Migrated user role from userData to dedicated storage:', parsedData.userRole);
         return parsedData.userRole;
       }
     }

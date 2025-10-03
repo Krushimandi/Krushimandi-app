@@ -5,6 +5,17 @@
 
 import { SUPPORTED_FRUIT_TYPES, Fruits, getFruitByType, isValidFruitType } from '../constants/Fruits';
 
+// Named export: Common fruit categories with i18n label keys
+export const categories = [
+  { type: 'banana', labelKey: 'fruits.banana' },
+  { type: 'orange', labelKey: 'fruits.orange' },
+  { type: 'grape', labelKey: 'fruits.grape' },
+  { type: 'pomegranate', labelKey: 'fruits.pomegranate' },
+  { type: 'sweet lemon', labelKey: 'fruits.sweetLemon' },
+  { type: 'apple', labelKey: 'fruits.apple' },
+  { type: 'mango', labelKey: 'fruits.mango' },
+];
+
 /**
  * Get all supported fruit categories with their display information
  * @returns {Array} Array of fruit category objects
@@ -116,5 +127,6 @@ export default {
   standardizeFruitType,
   getFruitCategoryOptions,
   filterFruitsByCategory,
-  SUPPORTED_FRUIT_TYPES
+  SUPPORTED_FRUIT_TYPES,
+  categories
 };

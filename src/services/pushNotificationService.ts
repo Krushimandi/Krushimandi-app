@@ -61,7 +61,6 @@ class PushNotificationService {
             this.setupNotifeeEventHandlers();
 
             this.isInitialized = true;
-            console.log('✅ Push notification service initialized successfully');
         } catch (error) {
             console.error('❌ Failed to initialize push notification service:', error);
         }
@@ -72,15 +71,12 @@ class PushNotificationService {
      */
     private async cleanupUniversalTopicSubscriptions(): Promise<void> {
         try {
-            console.log('🧹 Cleaning up universal topic subscriptions...');
             
-            // Unsubscribe from universal topics that might be causing shared notifications
             await messaging.unsubscribeFromTopic('all_users');
             await messaging.unsubscribeFromTopic('general');
             await messaging.unsubscribeFromTopic('universal');
             await messaging.unsubscribeFromTopic('public');
             
-            console.log('✅ Unsubscribed from universal notification topics');
             
             // Note: The Firestore queries already filter by user ID, so no cleanup needed there
             // The client-side filtering ensures only user-specific notifications are displayed
@@ -99,7 +95,6 @@ class PushNotificationService {
             const settings = await notifee.requestPermission();
             
             if (settings.authorizationStatus >= 1) {
-                console.log('✅ Notification permission granted');
                 
                 // For iOS, also request Firebase messaging permission
                 if (Platform.OS === 'ios') {
@@ -109,13 +104,11 @@ class PushNotificationService {
                         authStatus === AuthorizationStatus.PROVISIONAL;
 
                     if (enabled) {
-                        console.log('✅ Firebase messaging permission granted');
                         return true;
                     }
                 }
                 return true;
             } else {
-                console.log('❌ Notification permission denied');
                 return false;
             }
         } catch (error) {
@@ -182,7 +175,6 @@ class PushNotificationService {
                 sound: 'default',
             });
 
-            console.log('✅ Android notification channels created');
         } catch (error) {
             console.error('❌ Error creating notification channels:', error);
         }
@@ -195,12 +187,10 @@ class PushNotificationService {
         try {
             const token = await messaging.getToken();
             this.fcmToken = token;
-            console.log('✅ FCM Token obtained:', token);
 
             // Listen for token refresh
             messaging.onTokenRefresh((token: string) => {
                 this.fcmToken = token;
-                console.log('🔄 FCM Token refreshed:', token);
                 // You can send the new token to your server here
             });
 
@@ -217,27 +207,23 @@ class PushNotificationService {
     private setupMessageHandlers(): void {
         // Handle messages when app is in foreground
         onMessage(messaging, async (remoteMessage: any) => {
-            console.log('📱 Foreground message received:', remoteMessage);
             await this.handleForegroundMessage(remoteMessage);
         });
 
         // Handle messages when app is in background/quit
         onNotificationOpenedApp(messaging, (remoteMessage: any) => {
-            console.log('📱 Background message opened app:', remoteMessage);
             this.handleNotificationPress(remoteMessage);
         });
 
         // Handle messages when app is opened from quit state
         getInitialNotification(messaging).then((remoteMessage: any) => {
             if (remoteMessage) {
-                console.log('📱 App opened from quit state by notification:', remoteMessage);
                 this.handleNotificationPress(remoteMessage);
             }
         });
 
         // Handle background messages
         setBackgroundMessageHandler(messaging, async (remoteMessage: any) => {
-            console.log('📱 Background message received:', remoteMessage);
             await this.handleBackgroundMessage(remoteMessage);
         });
     }
@@ -247,25 +233,20 @@ class PushNotificationService {
      */
     private setupNotifeeEventHandlers(): void {
         notifee.onForegroundEvent(({ type, detail }) => {
-            console.log('🔔 Notifee foreground event:', type, detail);
             
             switch (type) {
                 case EventType.DISMISSED:
-                    console.log('User dismissed notification', detail.notification);
                     break;
                 case EventType.PRESS:
-                    console.log('User pressed notification', detail.notification);
                     this.handleNotifeePress(detail.notification);
                     break;
                 case EventType.ACTION_PRESS:
-                    console.log('User pressed action', detail.pressAction);
                     this.handleNotifeeActionPress(detail.pressAction, detail.notification);
                     break;
             }
         });
 
         notifee.onBackgroundEvent(async ({ type, detail }) => {
-            console.log('🔔 Notifee background event:', type, detail);
             
             if (type === EventType.PRESS) {
                 this.handleNotifeePress(detail.notification);
@@ -281,7 +262,6 @@ class PushNotificationService {
     private async handleForegroundMessage(remoteMessage: any): Promise<void> {
         const notificationData = this.parseRemoteMessage(remoteMessage);
         
-        console.log('📱 Handling foreground FCM message:', notificationData);
 
         // Add to local notification store (this will save to Firestore automatically)
         await addNotification({
@@ -309,7 +289,6 @@ class PushNotificationService {
     private async handleBackgroundMessage(remoteMessage: any): Promise<void> {
         const notificationData = this.parseRemoteMessage(remoteMessage);
         
-        console.log('📱 Handling background FCM message:', notificationData);
 
         // Add to local notification store (this will save to Firestore automatically)
         await addNotification({
@@ -334,7 +313,6 @@ class PushNotificationService {
     private handleNotificationPress(remoteMessage: any): void {
         const data = remoteMessage.data;
         
-        console.log('📱 FCM notification pressed (background/quit state):', data);
         
         // Navigate to appropriate screen based on notification type
         if (data?.notificationId) {
@@ -352,7 +330,6 @@ class PushNotificationService {
     private handleNotifeePress(notification: any): void {
         const data = notification?.data;
         
-        console.log('🔔 Notifee notification pressed (foreground):', data);
         
         if (data?.notificationId) {
             markNotificationAsRead(data.notificationId);
@@ -370,7 +347,6 @@ class PushNotificationService {
         const actionId = pressAction?.id;
         const data = notification?.data;
 
-        console.log('🔔 Notifee action pressed:', actionId, data);
 
         switch (actionId) {
             case 'mark_read':
@@ -384,7 +360,6 @@ class PushNotificationService {
                 handleNotificationNavigation(data);
                 break;
             default:
-                console.log('Unknown action:', actionId);
         }
     }
 
@@ -399,13 +374,6 @@ class PushNotificationService {
         const body = notification?.body || '';
         const type = data?.type || 'update';
         
-        console.log('📋 Parsing FCM message:', {
-            title,
-            body,
-            type,
-            screen: data?.screen,
-            description: data?.description
-        });
         
         return {
             id: data?.id || Date.now().toString(),
@@ -493,7 +461,6 @@ class PushNotificationService {
             }
 
             await notifee.displayNotification(notification);
-            console.log('✅ Notification displayed successfully');
         } catch (error) {
             console.error('❌ Error displaying notification:', error);
         }
@@ -503,7 +470,7 @@ class PushNotificationService {
      * Get channel ID based on notification type
      */
     private getChannelId(type: string): string {
-        switch (type) {
+    switch (type) {
             case 'transaction':
                 return 'transactions';
             case 'promotion':

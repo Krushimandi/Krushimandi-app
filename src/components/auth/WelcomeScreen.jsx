@@ -1,5 +1,5 @@
 // File: src/components/WelcomeScreen.jsx
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -11,13 +11,43 @@ import {
 } from 'react-native';
 import { authFlowManager } from '../../services/authFlowManager';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as RNLocalize from 'react-native-localize';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import i18n, { ENABLED_LANGUAGE_CODES, LANGUAGE_STORAGE_KEY } from '../../i18n';
+import { useTranslation } from 'react-i18next';
 
 
 const { width, height } = Dimensions.get('window');
 
 const WelcomeScreen = ({ navigation }) => {
+  const [langReady, setLangReady] = useState(false);
+  const { t } = useTranslation();
 
+  // 1) Detect and apply language BEFORE anything renders
   useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const saved = await AsyncStorage.getItem(LANGUAGE_STORAGE_KEY);
+        const locales = RNLocalize.getLocales();
+        const device = (locales?.[0]?.languageCode || 'en').toLowerCase();
+        const supported = (ENABLED_LANGUAGE_CODES.includes(saved) ? saved
+          : (ENABLED_LANGUAGE_CODES.includes(device) ? device : 'en'));
+        if (supported && i18n.language !== supported) {
+          await i18n.changeLanguage(supported);
+        }
+      } catch (e) {
+        // fall back to default 'en' via i18n config
+      } finally {
+        if (mounted) setLangReady(true);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
+
+  // 2) After language is ready, proceed with auth flow check and navigation
+  useEffect(() => {
+    if (!langReady) return;
     console.log('🔍 WelcomeScreen - useEffect triggered');
     
     const checkAuthAndNavigate = async () => {
@@ -48,7 +78,7 @@ const WelcomeScreen = ({ navigation }) => {
     };
 
     checkAuthAndNavigate();
-  }, [navigation]);
+  }, [navigation, langReady]);
 
   const handleGetStarted = async () => {
     console.log('Get Started pressed');
@@ -62,6 +92,11 @@ const WelcomeScreen = ({ navigation }) => {
   };
 
   const insets = useSafeAreaInsets();
+
+  if (!langReady) {
+    // Prevent the screen from flashing in the wrong language
+    return null;
+  }
 
   return (
     <View style={styles.container}>
@@ -80,11 +115,11 @@ const WelcomeScreen = ({ navigation }) => {
           {/* Main Content */}
           <View style={styles.mainContent}>
             <View style={styles.textContainer}>
-              <Text style={styles.welcomeText}>Welcome to</Text>
+              <Text style={styles.welcomeText}>{t('auth.welcome.welcomeTo')}</Text>
               <Text style={styles.titleText}>KrushiMandi</Text>
 
               <Text style={styles.descriptionText}>
-                Connect farmers directly with buyers — create transparent pricing, reduce middleman costs, and build sustainable agricultural partnerships for better profits.
+                {t('auth.welcome.description')}
               </Text>
             </View>
           </View>
@@ -92,7 +127,7 @@ const WelcomeScreen = ({ navigation }) => {
           {/* Bottom Section */}
           <View style={[styles.bottomSection, { paddingBottom: insets.bottom * 0.8 }]}>
             <TouchableOpacity style={styles.getStartedButton} onPress={handleGetStarted}>
-              <Text style={styles.getStartedText}>Get Started</Text>
+              <Text style={styles.getStartedText}>{t('auth.welcome.getStarted')}</Text>
             </TouchableOpacity>
           </View>
         </View>

@@ -42,7 +42,8 @@ export type RootStackParamList = {
   AppPlatform: undefined;
   BestPractices: undefined;
   Languages: undefined;
-  PrivacyPolicy: undefined;
+  TermsCondition: undefined;
+  PrivacyOnly: undefined;
   BuyerProfile: {
     buyerId: string;
     buyerName?: string;

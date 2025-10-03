@@ -12,17 +12,18 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
 
 const { width } = Dimensions.get('window');
 
 // Feature list: seasonal and rating-based options are disabled for now (kept as comments for later)
-const additionalFeatures = [
+const getAdditionalFeatures = (t) => [
   // { name: 'Top Rated', icon: 'star', color: '#F39C12' }, // disabled for now
-  { name: 'Fresh Stock', icon: 'time-outline', color: '#3498DB' },
+  { name: t('filterModal.features.freshStock'), icon: 'time-outline', color: '#3498DB' },
   // { name: 'In Season', icon: 'sunny-outline', color: '#F39C12' }, // disabled for now
   // { name: 'Off Season', icon: 'snow-outline', color: '#95A5A6' }, // disabled for now
-  { name: 'With Images', icon: 'images-outline', color: '#8B5CF6' },
-  { name: 'Available Now', icon: 'checkmark-circle-outline', color: '#10B981' },
+  { name: t('filterModal.features.withImages'), icon: 'images-outline', color: '#8B5CF6' },
+  { name: t('filterModal.features.availableNow'), icon: 'checkmark-circle-outline', color: '#10B981' },
 ];
 
 const priceRanges = [
@@ -34,6 +35,8 @@ const priceRanges = [
 
 const FilterScreen = ({ onApplyFilters, onClose, isModal = false, currentFilters = {}, onClearFilters }) => {
   const navigation = useNavigation();
+  const { t } = useTranslation();
+  const additionalFeatures = getAdditionalFeatures(t);
 
   // Debug props on component mount
   console.log('🎯 FilterScreen mounted with props:', {
@@ -166,7 +169,7 @@ const FilterScreen = ({ onApplyFilters, onClose, isModal = false, currentFilters
             </TouchableOpacity>
 
             <View style={styles.headerCenter}>
-              <Text style={styles.headerText}>Filters 00</Text>
+              <Text style={styles.headerText}>{t('filterModal.title')}</Text>
               {getActiveFiltersCount() > 0 && (
                 <View style={styles.filterBadge}>
                   <Text style={styles.filterBadgeText}>{getActiveFiltersCount()}</Text>
@@ -193,7 +196,7 @@ const FilterScreen = ({ onApplyFilters, onClose, isModal = false, currentFilters
                 styles.clearButtonText,
                 getActiveFiltersCount() === 0 && styles.clearButtonTextDisabled
               ]}>
-                Clear
+                {t('filterModal.clear')}
               </Text>
             </TouchableOpacity>
           </View>
@@ -218,7 +221,10 @@ const FilterScreen = ({ onApplyFilters, onClose, isModal = false, currentFilters
             {freshProduceWindow && (
               <View style={styles.tag}>
                 <Text style={styles.tagText}>
-                  {freshProduceWindow === 'today' ? 'Today' : freshProduceWindow === '2days' ? 'Last 2 days' : freshProduceWindow === 'week' ? 'Last week' : 'Last month'}
+                  {freshProduceWindow === 'today' ? t('filterModal.freshProduceOptions.today') : 
+                   freshProduceWindow === '2days' ? t('filterModal.freshProduceOptions.last2Days') : 
+                   freshProduceWindow === 'week' ? t('filterModal.freshProduceOptions.lastWeek') : 
+                   t('filterModal.freshProduceOptions.lastMonth')}
                 </Text>
                 <TouchableOpacity onPress={() => setFreshProduceWindow(null)}>
                   <Icon name="close" size={16} color="#6B7280" />
@@ -227,7 +233,7 @@ const FilterScreen = ({ onApplyFilters, onClose, isModal = false, currentFilters
             )}
             {sortNewestFirst && (
               <View style={styles.tag}>
-                <Text style={styles.tagText}>Newest First</Text>
+                <Text style={styles.tagText}>{t('filterModal.sortOptions.newestFirst')}</Text>
                 <TouchableOpacity onPress={() => setSortNewestFirst(false)}>
                   <Icon name="close" size={16} color="#6B7280" />
                 </TouchableOpacity>
@@ -236,7 +242,9 @@ const FilterScreen = ({ onApplyFilters, onClose, isModal = false, currentFilters
             {locationLevel && (
               <View style={styles.tag}>
                 <Text style={styles.tagText}>
-                  {locationLevel === 'city' ? 'Same City' : locationLevel === 'district' ? 'Same District' : 'Same State'}
+                  {locationLevel === 'city' ? t('filterModal.locationOptions.sameCity') : 
+                   locationLevel === 'district' ? t('filterModal.locationOptions.sameDistrict') : 
+                   t('filterModal.locationOptions.sameState')}
                 </Text>
                 <TouchableOpacity onPress={() => setLocationLevel(null)}>
                   <Icon name="close" size={16} color="#6B7280" />
@@ -265,7 +273,7 @@ const FilterScreen = ({ onApplyFilters, onClose, isModal = false, currentFilters
 
         {/* Price Range Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Price Range</Text>
+          <Text style={styles.sectionTitle}>{t('filterModal.priceRange')}</Text>
           <View style={styles.priceGrid}>
             {priceRanges.map((range) => (
               <TouchableOpacity
@@ -295,9 +303,14 @@ const FilterScreen = ({ onApplyFilters, onClose, isModal = false, currentFilters
 
         {/* Fresh Produce (by availability date) */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Fresh Produce</Text>
+          <Text style={styles.sectionTitle}>{t('filterModal.freshProduce')}</Text>
           <View style={styles.featuresGrid}>
-            {[{ key: 'today', label: 'Today' }, { key: '2days', label: 'Last 2 days' }, { key: 'week', label: 'Last week' }, { key: 'month', label: 'Last month' }].map(opt => (
+            {[
+              { key: 'today', label: t('filterModal.freshProduceOptions.today') }, 
+              { key: '2days', label: t('filterModal.freshProduceOptions.last2Days') }, 
+              { key: 'week', label: t('filterModal.freshProduceOptions.lastWeek') }, 
+              { key: 'month', label: t('filterModal.freshProduceOptions.lastMonth') }
+            ].map(opt => (
               <TouchableOpacity
                 key={opt.key}
                 style={[styles.featureCard, freshProduceWindow === opt.key && styles.featureCardSelected]}
@@ -315,7 +328,7 @@ const FilterScreen = ({ onApplyFilters, onClose, isModal = false, currentFilters
 
         {/* Sort */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Sort</Text>
+          <Text style={styles.sectionTitle}>{t('filterModal.sort')}</Text>
           <View style={styles.featuresGrid}>
             <TouchableOpacity
               style={[styles.featureCard, sortNewestFirst && styles.featureCardSelected]}
@@ -323,16 +336,22 @@ const FilterScreen = ({ onApplyFilters, onClose, isModal = false, currentFilters
               activeOpacity={0.7}
             >
               <Icon name="swap-vertical" size={18} color={sortNewestFirst ? '#FFFFFF' : '#10B981'} />
-              <Text style={[styles.featureCardText, sortNewestFirst && styles.featureCardTextSelected]}>Newest First</Text>
+              <Text style={[styles.featureCardText, sortNewestFirst && styles.featureCardTextSelected]}>
+                {t('filterModal.sortOptions.newestFirst')}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
 
         {/* Location */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>By Location</Text>
+          <Text style={styles.sectionTitle}>{t('filterModal.byLocation')}</Text>
           <View style={styles.featuresGrid}>
-            {[{ key: 'city', label: 'Same City', icon: 'business' }, { key: 'district', label: 'Same District', icon: 'map-outline' }, { key: 'state', label: 'Same State', icon: 'map' }].map(opt => (
+            {[
+              { key: 'city', label: t('filterModal.locationOptions.sameCity'), icon: 'business' }, 
+              { key: 'district', label: t('filterModal.locationOptions.sameDistrict'), icon: 'map-outline' }, 
+              { key: 'state', label: t('filterModal.locationOptions.sameState'), icon: 'map' }
+            ].map(opt => (
               <TouchableOpacity
                 key={opt.key}
                 style={[styles.featureCard, locationLevel === opt.key && styles.featureCardSelected]}
@@ -351,7 +370,7 @@ const FilterScreen = ({ onApplyFilters, onClose, isModal = false, currentFilters
         {/* Customer Rating Section - disabled for now; keep markup for future re-enable */}
         {false && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Customer Rating</Text>
+            <Text style={styles.sectionTitle}>{t('filterModal.customerRating')}</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
               <View style={styles.ratingHorizontalGrid}>
                 {[4, 3, 2, 1, 0].map((rating) => (
@@ -368,7 +387,7 @@ const FilterScreen = ({ onApplyFilters, onClose, isModal = false, currentFilters
                       styles.ratingHorizontalCardText,
                       minRating === rating && styles.ratingHorizontalCardTextSelected,
                     ]}>
-                      {rating === 0 ? '🌟 All' : `⭐ ${rating}+`}
+                      {rating === 0 ? `🌟 ${t('filterModal.ratingOptions.all')}` : `⭐ ${rating}+`}
                     </Text>
                   </TouchableOpacity>
                 ))}
@@ -385,8 +404,8 @@ const FilterScreen = ({ onApplyFilters, onClose, isModal = false, currentFilters
         <View style={styles.filtersInfo}>
           <Text style={styles.filtersInfoText}>
             {getActiveFiltersCount() > 0
-              ? `${getActiveFiltersCount()} filter${getActiveFiltersCount() > 1 ? 's' : ''} applied`
-              : 'No filters applied'
+              ? t(getActiveFiltersCount() === 1 ? 'filterModal.filtersInfo.applied' : 'filterModal.filtersInfo.appliedPlural', { count: getActiveFiltersCount() })
+              : t('filterModal.filtersInfo.noFilters')
             }
           </Text>
         </View>
@@ -396,7 +415,7 @@ const FilterScreen = ({ onApplyFilters, onClose, isModal = false, currentFilters
           activeOpacity={0.8}
         >
           <Icon name="checkmark-circle" size={20} color="#FFFFFF" style={styles.applyButtonIcon} />
-          <Text style={styles.applyButtonText}>Apply Filters</Text>
+          <Text style={styles.applyButtonText}>{t('filterModal.applyButton')}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

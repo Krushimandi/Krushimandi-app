@@ -16,7 +16,8 @@ import EditProfileScreen from '../components/ProfileScreen/EditProfileScreen';
 import AboutScreen from '../components/ProfileScreen/AboutScreen';
 import { HelpScreen, HelpGuide, FaqDetail, PaymentSecurity, AppPlatform, BestPractices } from '../components/Help';
 import LanguagesScreen from '../components/ProfileScreen/LanguagesScreen';
-import PrivacyPolicyScreen from '../components/ProfileScreen/PrivacyPolicyScreen';
+import { TermsConditionScreen } from '../components/ProfileScreen';
+import PrivacyOnlyScreen from '../components/ProfileScreen/PrivacyOnlyScreen';
 import ChatListScreen from '../components/chat/ChatListScreen';
 import ChatDetailScreen from '../components/chat/ChatDetailScreen';
 // Navigation provider
@@ -70,7 +71,7 @@ const AppNavigator: React.FC<AppNavigatorProps> = () => {
             setRole(null);
           }
         } catch (error) {
-          console.log('Error loading user profile:', error);
+          console.error('Error loading user profile:', error);
           setRole(null);
         }
       } else {
@@ -119,7 +120,7 @@ const AppNavigator: React.FC<AppNavigatorProps> = () => {
           return nextRole;
         });
       }
-    }, (err) => console.log('Firestore profile listener error:', err));
+    }, (err) => console.error('Firestore profile listener error:', err));
     return unsubscribe;
   }, [uid]);
 
@@ -198,7 +199,8 @@ const AppNavigator: React.FC<AppNavigatorProps> = () => {
           <RootStack.Screen name="AppPlatform" component={AppPlatform} />
           <RootStack.Screen name="BestPractices" component={BestPractices} />
           <RootStack.Screen name="Languages" component={LanguagesScreen} />
-          <RootStack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
+          <RootStack.Screen name="TermsCondition" component={TermsConditionScreen} />
+          <RootStack.Screen name="PrivacyOnly" component={PrivacyOnlyScreen} />
           <RootStack.Screen name="ProfileScreen" component={ProfileScreen} />
           <RootStack.Screen name="BuyerProfile" component={BuyerProfileScreen} />
           <RootStack.Screen name="ChatList" component={ChatListScreen} />

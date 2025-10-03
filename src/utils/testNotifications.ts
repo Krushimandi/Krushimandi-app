@@ -7,11 +7,9 @@ import { firestoreNotificationService } from '../services/firestoreNotificationS
 import { addNotification, loadNotificationsFromFirestore } from '../services/notificationService';
 
 export const testNotificationIntegration = async () => {
-    console.log('🧪 Testing notification integration...');
 
     try {
         // Test 1: Simulate FCM notification received
-        console.log('📱 Test 1: Simulating FCM notification...');
         await addNotification({
             title: '🚀 Test Notification',
             message: 'This is a test notification to verify Firestore integration',
@@ -22,11 +20,9 @@ export const testNotificationIntegration = async () => {
         });
 
         // Test 2: Load notifications from Firestore
-        console.log('📬 Test 2: Loading notifications from Firestore...');
         await loadNotificationsFromFirestore();
 
         // Test 3: Direct Firestore save (simulate your FCM message)
-        console.log('💾 Test 3: Saving FCM notification directly to Firestore...');
         await firestoreNotificationService.saveFCMNotificationToFirestore(
             {
                 title: '🚀 New Offer',
@@ -40,7 +36,6 @@ export const testNotificationIntegration = async () => {
             'test-user-id' // Replace with actual user ID
         );
 
-        console.log('✅ All notification tests completed successfully!');
         
         return {
             success: true,
@@ -69,7 +64,6 @@ export const sendTestNotification = async () => {
             type: 'promotion'
         });
 
-        console.log('✅ Test notification sent successfully!');
         return true;
     } catch (error) {
         console.error('❌ Failed to send test notification:', error);

@@ -15,7 +15,6 @@ import {
   ActivityIndicator,
   Animated,
   Vibration,
-  InteractionManager,
   Keyboard,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -24,9 +23,11 @@ import { authFlowManager } from '../../services/authFlowManager';
 import Toast from 'react-native-toast-message';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 
 const OTPVerificationScreen = ({ navigation, route }) => {
   const { phoneNumber, confirmation, setConfirmation, clearConfirmation } = useAuth();
+  const { t } = useTranslation();
   const [otp, setOtp] = useState(''); // Single string for OTP
   const [timer, setTimer] = useState(60);
   const [canResend, setCanResend] = useState(false);
@@ -42,6 +43,7 @@ const OTPVerificationScreen = ({ navigation, route }) => {
   const modalAnimation = useRef(new Animated.Value(0)).current;
   const autoSubmitAnimation = useRef(new Animated.Value(1)).current;
   const lastTapTime = useRef(0);
+  const isMountedRef = useRef(true);
 
   const scrollViewRef = useRef(null);
 
@@ -53,10 +55,45 @@ const OTPVerificationScreen = ({ navigation, route }) => {
   // Normalize phone helper for safe comparisons (keeps +, strips spaces)
   const normalizePhone = useCallback((v) => String(v || '').replace(/\s+/g, ''), []);
 
+  // Map verification/resend errors to simple, user-friendly messages
+  const getFriendlyErrorMessage = useCallback((err, action = 'verify') => {
+    // action: 'verify' | 'resend'
+    const code = err?.code || '';
+    switch (code) {
+      case 'auth/network-request-failed':
+        return action === 'resend'
+          ? 'Failed to resend OTP. Check network and try again'
+          : 'Failed to verify code. Check network and try again';
+      case 'auth/invalid-verification-code':
+        return 'Invalid verification code. Please check and try again.';
+      case 'auth/session-expired':
+      case 'auth/code-expired':
+        return 'OTP has expired. Please request a new one.';
+      case 'auth/too-many-requests':
+        return 'Too many attempts. Please try again later.';
+      case 'auth/invalid-verification-id':
+        return 'Session expired. Please request a new OTP.';
+      case 'auth/quota-exceeded':
+        return 'OTP quota exceeded. Try again later.';
+      case 'auth/operation-not-allowed':
+      case 'auth/app-not-authorized':
+        return 'Phone authentication is not enabled. Please contact support';
+      default: {
+        const msg = String(err?.message || '').toLowerCase();
+        if (msg.includes('confirmation') || msg.includes('session')) {
+          return 'Session expired. Please request a new OTP.';
+        }
+        return action === 'resend'
+          ? 'Failed to resend OTP. Please try again'
+          : 'Invalid OTP. Please try again.';
+      }
+    }
+  }, []);
+
   // Keyboard listeners
   useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', (event) => {
-      console.log('Keyboard shown');
+      if (__DEV__) console.log('Keyboard shown');
       setIsKeyboardVisible(true);
       // Scroll to the input field when keyboard appears
       setTimeout(() => {
@@ -68,7 +105,7 @@ const OTPVerificationScreen = ({ navigation, route }) => {
     });
 
     const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
-      console.log('Keyboard hidden');
+      if (__DEV__) console.log('Keyboard hidden');
       setIsKeyboardVisible(false);
     });
 
@@ -80,7 +117,9 @@ const OTPVerificationScreen = ({ navigation, route }) => {
 
   // Cursor blinking animation
   useEffect(() => {
+    let isCancelled = false;
     const blinkCursor = () => {
+      if (isCancelled || !isFocused) return;
       Animated.sequence([
         Animated.timing(cursorAnimation, {
           toValue: 0,
@@ -92,12 +131,16 @@ const OTPVerificationScreen = ({ navigation, route }) => {
           duration: 500,
           useNativeDriver: true,
         }),
-      ]).start(() => blinkCursor());
+      ]).start(({ finished }) => {
+        if (!isCancelled && isFocused && finished) blinkCursor();
+      });
     };
 
-    if (isFocused) {
-      blinkCursor();
-    }
+    if (isFocused) blinkCursor();
+    return () => {
+      isCancelled = true;
+      try { cursorAnimation.stopAnimation(); } catch { }
+    };
   }, [isFocused]);
 
 
@@ -135,6 +178,12 @@ const OTPVerificationScreen = ({ navigation, route }) => {
     return () => clearTimeout(focusTimer);
   }, []);
 
+  // Track mounted state to avoid setting state on unmounted component (async safety)
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => { isMountedRef.current = false; };
+  }, []);
+
   // Cleanup confirmation on unmount
   useEffect(() => {
     return () => {
@@ -154,7 +203,7 @@ const OTPVerificationScreen = ({ navigation, route }) => {
 
     // Auto-submit when 6 digits are entered (from paste or typing)
     if (cleanedValue.length === 6) {
-      console.log('Full OTP entered, auto-submitting:', cleanedValue);
+      if (__DEV__) console.log('Full OTP entered, auto-submitting');
       setIsAutoSubmitting(true);
 
       // Subtle pulse animation to indicate auto-submit
@@ -184,7 +233,7 @@ const OTPVerificationScreen = ({ navigation, route }) => {
 
 
   const handleInputFocus = useCallback(() => {
-    console.log('Input focused');
+    if (__DEV__) console.log('Input focused');
     setIsFocused(true);
     setError(''); // Clear any existing errors when focusing
 
@@ -198,7 +247,7 @@ const OTPVerificationScreen = ({ navigation, route }) => {
   }, []);
 
   const handleInputBlur = () => {
-    console.log('Input blurred');
+    if (__DEV__) console.log('Input blurred');
     setIsFocused(false);
   };
 
@@ -212,7 +261,7 @@ const OTPVerificationScreen = ({ navigation, route }) => {
     }
     lastTapTime.current = currentTime;
 
-    console.log('Container pressed, current focus state:', isFocused, 'keyboard visible:', isKeyboardVisible);
+    if (__DEV__) console.log('Container pressed, focused:', isFocused, 'keyboard visible:', isKeyboardVisible);
 
     // Visual feedback
     setIsPressed(true);
@@ -228,7 +277,7 @@ const OTPVerificationScreen = ({ navigation, route }) => {
       // If the input doesn't seem to be responding, use fallback methods
       setTimeout(() => {
         if (inputRef.current && !isKeyboardVisible && !isFocused) {
-          console.log('Using fallback focus method');
+          if (__DEV__) console.log('Using fallback focus method');
           inputRef.current.blur();
 
           // Small delay before refocusing
@@ -242,23 +291,13 @@ const OTPVerificationScreen = ({ navigation, route }) => {
     }
   };
 
-  // Add method to force focus
-  const forceKeyboardOpen = () => {
-    if (inputRef.current) {
-      inputRef.current.blur();
-      InteractionManager.runAfterInteractions(() => {
-        setTimeout(() => {
-          if (inputRef.current) {
-            inputRef.current.focus();
-          }
-        }, 50);
-      });
-    }
-  };
+  // Removed unused forceKeyboardOpen to reduce bundle size and avoid unnecessary side effects
 
   // Separate function for verification that accepts OTP parameter (used for auto-submit)
   const handleVerifyWithOtp = async (otpCode) => {
     if (otpCode && otpCode.length === 6) {
+      // prevent duplicate verification calls
+      if (isLoading) return;
       setIsLoading(true);
       setError('');
       try {
@@ -268,25 +307,25 @@ const OTPVerificationScreen = ({ navigation, route }) => {
 
         // Use auth flow manager for consistent handling
         const route = await authFlowManager.handleOTPVerification(confirmation, otpCode);
-        
+
         // Navigate based on the determined route
         if (route.screen === 'Main') {
-          Toast.show({ 
-            type: 'success', 
-            text1: 'Welcome Back!', 
-            position: 'bottom', 
-            visibilityTime: 1200 
+          Toast.show({
+            type: 'success',
+            text1: t('auth.otp.toast.welcomeBack'),
+            position: 'bottom',
+            visibilityTime: 1200
           });
           navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
         } else {
-          Toast.show({ 
-            type: 'success', 
-            text1: 'Signed in', 
-            text2: 'Continue setting up your profile', 
-            position: 'bottom', 
-            visibilityTime: 1200 
+          Toast.show({
+            type: 'success',
+            text1: t('auth.otp.toast.signedIn'),
+            text2: t('auth.otp.toast.continueSetup'),
+            position: 'bottom',
+            visibilityTime: 1200
           });
-          
+
           if (route.params) {
             navigation.replace(route.screen, route.params);
           } else {
@@ -295,7 +334,7 @@ const OTPVerificationScreen = ({ navigation, route }) => {
         }
 
       } catch (err) {
-        console.error('OTP Verification Error:', err);
+        if (__DEV__) console.error('OTP Verification Error:', err);
 
         // Allow bypass ONLY if instant verification already signed the user in
         // AND the signed-in user's phone matches the target phone being verified.
@@ -304,47 +343,37 @@ const OTPVerificationScreen = ({ navigation, route }) => {
           const currentUser = auth().currentUser;
           const targetPhone = normalizePhone(displayPhoneNumber);
           const currentPhone = normalizePhone(currentUser?.phoneNumber);
-          console.log('Current user after OTP error:', currentUser, 'targetPhone:', targetPhone, 'currentPhone:', currentPhone);
+          if (__DEV__) console.log('Current user after OTP error:', Boolean(currentUser?.uid));
           if (currentUser?.uid && currentPhone && currentPhone === targetPhone) {
             const route = await authFlowManager.resumeAuthFlow();
             if (route.screen === 'Main') {
-              Toast.show({ type: 'success', text1: 'Welcome Back!', position: 'bottom', visibilityTime: 1200 });
+              Toast.show({ type: 'success', text1: t('auth.otp.toast.welcomeBack'), position: 'bottom', visibilityTime: 1200 });
               navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
             } else {
               navigation.replace(route.screen, route.params || {});
             }
             return;
           }
-        } catch {}
+        } catch { }
 
         // If we reach here, OTP likely failed; clear input only for real OTP errors
         if (err?.code === 'firestore/permission-denied' || (err?.message || '').includes('permission-denied')) {
           // Don't send to RoleSelection on permission issues; let auth flow manager decide
-          Toast.show({ type: 'success', text1: 'Signed in', position: 'bottom', visibilityTime: 1000 });
+          Toast.show({ type: 'success', text1: t('auth.otp.toast.signedIn'), position: 'bottom', visibilityTime: 1000 });
           const route = await authFlowManager.resumeAuthFlow();
           navigation.replace(route.screen, route.params || {});
           return;
         }
 
-        setOtp('');
+        if (isMountedRef.current) setOtp('');
 
-        // Handle different error types
-        let errorMessage = 'Invalid OTP. Please try again.';
-        if (err.code === 'auth/invalid-verification-code') {
-          errorMessage = 'Invalid verification code. Please check and try again.';
-        } else if (err.code === 'auth/session-expired') {
-          errorMessage = 'OTP has expired. Please request a new one.';
-          setCanResend(true);
-          setTimer(0);
-        } else if (err.code === 'auth/too-many-requests') {
-          errorMessage = 'Too many attempts. Please try again later.';
-        } else if (err.message && err.message.includes('confirmation')) {
-          errorMessage = 'Session expired. Please request a new OTP.';
-          setCanResend(true);
-          setTimer(0);
+        // Set resend ability on session/code expiry
+        const code = err?.code || '';
+        const msg = String(err?.message || '').toLowerCase();
+        if (code === 'auth/session-expired' || code === 'auth/code-expired' || msg.includes('confirmation') || msg.includes('session')) {
+          if (isMountedRef.current) { setCanResend(true); setTimer(0); }
         }
-
-        setError(errorMessage);
+        if (isMountedRef.current) setError(getFriendlyErrorMessage(err, 'verify'));
 
         // Shake animation for visual feedback
         Animated.sequence([
@@ -367,13 +396,15 @@ const OTPVerificationScreen = ({ navigation, route }) => {
 
         // Auto-focus input for retry
         setTimeout(() => {
-          if (inputRef.current) {
+          if (isMountedRef.current && inputRef.current) {
             inputRef.current.focus();
           }
         }, 500);
       } finally {
-        setIsLoading(false);
-        setIsAutoSubmitting(false);
+        if (isMountedRef.current) {
+          setIsLoading(false);
+          setIsAutoSubmitting(false);
+        }
       }
     } else {
       setError('Please enter complete 6-digit OTP code');
@@ -402,16 +433,16 @@ const OTPVerificationScreen = ({ navigation, route }) => {
         setConfirmation(newConfirmation);
         Toast.show({
           type: 'success',
-          text1: 'OTP Sent',
-          text2: 'A new OTP has been sent to your phone.',
+          text1: t('auth.otp.toast.otpSentTitle'),
+          text2: t('auth.otp.toast.otpSentSub'),
           position: 'bottom',
           visibilityTime: 1000,
         });
       } catch (err) {
-        setError('Failed to resend OTP. Try again.');
+        if (isMountedRef.current) setError(getFriendlyErrorMessage(err, 'resend'));
       }
       setTimeout(() => {
-        if (inputRef.current) inputRef.current.focus();
+        if (isMountedRef.current && inputRef.current) inputRef.current.focus();
       }, 100);
     }
   };
@@ -507,18 +538,27 @@ const OTPVerificationScreen = ({ navigation, route }) => {
                 ]}
               >
                 {/* Title */}
-                <Text style={styles.title}>We just sent an SMS</Text>              {/* Subtitle with phone number */}
-                <Text style={styles.subtitle}>Enter the 6-digit code we sent to</Text>
+                <Text style={styles.title}>{t('auth.otp.title')}</Text>              {/* Subtitle with phone number */}
+                <Text style={styles.subtitle}>{t('auth.otp.subtitle')}</Text>
 
                 <View style={styles.phoneContainer}>
                   <Text style={styles.phoneNumber}>{displayPhoneNumber}</Text>
                   <TouchableOpacity onPress={handleEditPhone} style={styles.editButton}>
                     <Ionicons name="pencil" size={18} color="#007E2F" />
                   </TouchableOpacity>
-                </View>              {/* Instruction text */}
-                <Text style={styles.instructionText}>
-                  Tap the field below and enter your verification code or paste it directly
-                </Text>
+                </View>
+
+                {/* Consent Text - tap to open Privacy Policy screen */}
+                <TouchableOpacity
+                  onPress={() => navigation.navigate('PrivacyOnly')}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('auth.otp.consentA11y')}
+                >
+                  <Text style={styles.instructionText}>
+                    {t('auth.otp.consent')}
+                  </Text>
+                </TouchableOpacity>
 
                 {/* OTP Input Field */}
                 <Animated.View
@@ -616,21 +656,23 @@ const OTPVerificationScreen = ({ navigation, route }) => {
 
                 {/* Resend Section */}
                 <View style={styles.resendContainer}>
-                  <Text style={styles.resendText}>Didn't receive the code?</Text>
+                  <Text style={styles.resendText}>{t('auth.otp.resendPrompt')}</Text>
                   <TouchableOpacity onPress={handleResend} disabled={!canResend}>
                     <Text style={[
                       styles.resendLink,
                       !canResend && styles.resendLinkDisabled
-                    ]}>{canResend ? 'Resend code' : `Resend in ${formatTime(timer)}`}
+                    ]}>{canResend ? t('auth.otp.resendNow') : t('auth.otp.resendIn', { time: formatTime(timer) })}
                     </Text>
                   </TouchableOpacity>
                 </View>
+
               </Animated.View>
+
             </TouchableWithoutFeedback>
           </ScrollView>
 
           {/* Verify Button */}
-          <View style={[styles.buttonContainer, { paddingBottom: insets.bottom + 42 }]}>
+          <View style={[styles.buttonContainer, { paddingBottom: insets.bottom + 32 }]}>
             <TouchableOpacity
               style={[
                 styles.verifyButton,
@@ -645,7 +687,7 @@ const OTPVerificationScreen = ({ navigation, route }) => {
               ) : (
                 <>
                   <Text style={styles.verifyButtonText}>
-                    {isAutoSubmitting ? 'Auto-Verifying...' : 'Verify Code'}
+                    {isAutoSubmitting ? t('auth.otp.autoVerifying') : t('auth.otp.verifyButton')}
                   </Text>
                   <Ionicons name="checkmark" size={16} color="#FFFFFF" />
                 </>
@@ -688,7 +730,7 @@ const OTPVerificationScreen = ({ navigation, route }) => {
               <View style={styles.helpIconContainer}>
                 <Ionicons name="help-circle" size={28} color="#007E2F" />
               </View>
-              <Text style={styles.modalTitle}>Need Help?</Text>
+              <Text style={styles.modalTitle}>{t('auth.otp.help.title')}</Text>
               <TouchableOpacity onPress={closeHelpModal} style={styles.closeButton}>
                 <Ionicons name="close" size={24} color="#666" />
               </TouchableOpacity>
@@ -696,7 +738,7 @@ const OTPVerificationScreen = ({ navigation, route }) => {
 
             {/* Modal Content */}
             <View style={styles.modalContent}>
-              <Text style={styles.modalSubtitle}>Having trouble with your code?</Text>
+              <Text style={styles.modalSubtitle}>{t('auth.otp.help.subtitle')}</Text>
 
               <View style={styles.helpOption}>
                 <Ionicons name="chatbubble-outline" size={20} color="#007E2F" />
@@ -728,7 +770,7 @@ const OTPVerificationScreen = ({ navigation, route }) => {
               >
                 <Ionicons name="refresh" size={18} color={canResend ? "#007E2F" : "#999"} />
                 <Text style={[styles.actionButtonText, !canResend && styles.actionButtonTextDisabled]}>
-                  {canResend ? 'Resend Code' : `Wait ${formatTime(timer)}`}
+                  {canResend ? t('auth.otp.resendNow') : t('auth.otp.wait', { time: formatTime(timer) })}
                 </Text>
               </TouchableOpacity>
 
@@ -740,7 +782,7 @@ const OTPVerificationScreen = ({ navigation, route }) => {
                 }}
               >
                 <Ionicons name="pencil" size={18} color="#007E2F" />
-                <Text style={styles.actionButtonText}>Edit Phone</Text>
+                <Text style={styles.actionButtonText}>{t('auth.otp.editPhone')}</Text>
               </TouchableOpacity>
             </View>
           </Animated.View>
@@ -829,11 +871,13 @@ const styles = StyleSheet.create({
     color: '#1A1A1A',
     fontWeight: '600',
     marginRight: 8,
-  }, editButton: {
+  },
+  editButton: {
     padding: 4,
     borderRadius: 8,
     backgroundColor: '#E8F5E8',
-  }, instructionText: {
+  },
+  instructionText: {
     fontSize: 14,
     color: '#999',
     textAlign: 'center',

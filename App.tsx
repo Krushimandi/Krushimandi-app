@@ -34,9 +34,28 @@ import ErrorBoundary from './src/components/common/ErrorBoundary';
 import { initRemoteConfig } from './src/services/remoteConfigService';
 import { useRemoteConfig } from './src/hooks/useRemoteConfig';
 import { LogBox, Appearance } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import i18n, { initI18n, LANGUAGE_STORAGE_KEY } from './src/i18n';
 
 const App: React.FC = () => {
     LogBox.ignoreAllLogs(true); // Hide all warnings
+
+    // Initialize i18n once on app start
+    initI18n();
+
+    // Apply saved language preference globally on boot
+    useEffect(() => {
+        (async () => {
+            try {
+                const savedLang = await AsyncStorage.getItem(LANGUAGE_STORAGE_KEY);
+                if (savedLang && typeof savedLang === 'string') {
+                    await i18n.changeLanguage(savedLang);
+                }
+            } catch (e) {
+                console.warn?.('Failed to apply saved language at startup');
+            }
+        })();
+    }, []);
 
     // const isDark = Appearance.getColorScheme() === 'dark';
     const isDark = false; // Force light mode for now

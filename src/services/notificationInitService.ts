@@ -14,15 +14,15 @@ class NotificationInitializationService {
    * Initialize notification system on app start
    */
   initialize(): () => void {
-    console.log('🔔 Initializing notification system...');
+    
 
     // Listen for authentication state changes
     this.unsubscribeAuth = auth().onAuthStateChanged(async (user) => {
       if (user) {
-        console.log('👤 User authenticated, setting up notifications for:', user.uid);
+        
         await this.setupNotificationsForUser(user.uid);
       } else {
-        console.log('👤 User logged out, cleaning up notifications');
+        
         this.cleanup();
       }
     });
@@ -48,14 +48,14 @@ class NotificationInitializationService {
       }
 
       // Load initial notifications from Firestore
-      console.log('📬 Loading initial notifications...');
+      
       await loadNotificationsFromFirestore();
 
       // Set up real-time subscription
-      console.log('🔄 Setting up real-time notification updates...');
+      
       this.unsubscribeNotifications = subscribeToNotificationUpdates();
 
-      console.log('✅ Notifications initialized successfully');
+      
     } catch (error) {
       console.error('❌ Error setting up notifications:', error);
     }
@@ -77,7 +77,7 @@ class NotificationInitializationService {
   async refreshNotifications(): Promise<void> {
     const currentUser = auth().currentUser;
     if (currentUser) {
-      console.log('🔄 Manually refreshing notifications...');
+      
       await loadNotificationsFromFirestore();
     }
   }

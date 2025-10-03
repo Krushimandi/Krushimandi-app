@@ -19,6 +19,7 @@ import {
 import Icon from 'react-native-vector-icons/Ionicons';
 import { Colors } from '../../constants';
 import { CreateRequestInput } from '../../types/Request';
+import { useTranslation } from 'react-i18next';
 
 
 
@@ -45,6 +46,7 @@ const SendRequestModal: React.FC<SendRequestModalProps> = ({
   onSend,
   product,
 }) => {
+  const { t, i18n } = useTranslation();
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -63,13 +65,14 @@ const SendRequestModal: React.FC<SendRequestModalProps> = ({
 
   // Format quantity range display
   const formatQuantityRange = (quantity: [number, number]) => {
+    const formatQty = (n: number) => `${n} ${t('units.ton', { count: n })}`;
     if (quantity[0] === 0 && quantity[1] === 0) {
-      return "0 tons";
+      return formatQty(0);
     }
     if (quantity[0] === quantity[1]) {
-      return `${quantity[0]} tons`;
+      return formatQty(quantity[0]);
     }
-    return `${quantity[0]}-${quantity[1]} tons`;
+    return `${formatQty(quantity[0])} - ${formatQty(quantity[1])}`;
   };
 
 
@@ -77,7 +80,10 @@ const SendRequestModal: React.FC<SendRequestModalProps> = ({
     const quantityRange = product.quantity;
 
     if (quantityRange[0] <= 0 && quantityRange[1] <= 0) {
-      Alert.alert('Invalid Product', 'This product has no available quantity');
+      Alert.alert(
+        t('requests.noQuantityTitle', 'Invalid Product'),
+        t('requests.noQuantityMessage', 'This product has no available quantity')
+      );
       return;
     }
 
@@ -99,7 +105,7 @@ const SendRequestModal: React.FC<SendRequestModalProps> = ({
       setMessage('');
       onClose();
     } catch (error) {
-      Alert.alert('Error', 'Failed to send request. Please try again.');
+      Alert.alert(t('alerts.errorTitle', 'Error'), t('requests.sendError', 'Failed to send request. Please try again.'));
     } finally {
       setLoading(false);
     }
@@ -132,8 +138,8 @@ const SendRequestModal: React.FC<SendRequestModalProps> = ({
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.headerLeft}>
-              <Text style={styles.title}>Send Request</Text>
-              <Text style={styles.subtitle}>to {product.farmerName}</Text>
+              <Text style={styles.title}>{t('requests.sendRequestTitle', 'Send Request')}</Text>
+              <Text style={styles.subtitle}>{t('requests.toFarmer', { name: product.farmerName, defaultValue: `to ${product.farmerName}` })}</Text>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
               <Icon name="close" size={24} color="#6B7280" />
@@ -148,7 +154,7 @@ const SendRequestModal: React.FC<SendRequestModalProps> = ({
                 ₹{product.price}/{product.priceUnit}
               </Text>
               <Text style={styles.productQuantity}>
-                Available from: {new Date(product.availability_date).toLocaleDateString('en-IN', {
+                {t('requests.availableFrom', 'Available from:')} {new Date(product.availability_date).toLocaleDateString(i18n.language === 'hi' ? 'hi-IN' : i18n.language === 'mr' ? 'mr-IN' : 'en-IN', {
                   weekday: 'long',
                   year: 'numeric',
                   month: 'long',
@@ -156,18 +162,18 @@ const SendRequestModal: React.FC<SendRequestModalProps> = ({
                 })}
               </Text>
               <Text style={styles.farmerName}>
-                Farmer: {product.farmerName}
+                {t('requests.farmerLabel', 'Farmer:')} {product.farmerName}
               </Text>
             </View>
 
             {/* Request Info  */}
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Request Details</Text>
+              <Text style={styles.sectionTitle}>{t('requests.requestDetailsTitle', 'Request Details')}</Text>
               <View style={styles.requestInfo}>
-                <Text style={styles.requestLabel}>Quantity to Request:</Text>
+                <Text style={styles.requestLabel}>{t('requests.quantityToRequest', 'Quantity to Request:')}</Text>
                 <Text style={styles.requestValue}>{formatQuantityRange(product.quantity)}</Text>
                 <Text style={styles.requestNote}>
-                  You are requesting the full available quantity
+                  {t('requests.requestingFull', 'You are requesting the full available quantity')}
                 </Text>
               </View>
             </View>
@@ -216,14 +222,14 @@ const SendRequestModal: React.FC<SendRequestModalProps> = ({
 
             {/* Message */}
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Message (Optional)</Text>
+              <Text style={styles.sectionTitle}>{t('requests.messageOptional', 'Message (Optional)')}</Text>
               <TextInput
                 style={styles.messageInput}
                 value={message}
                 onChangeText={(t) => {
                   if (t.length <= 60) setMessage(t);
                 }}
-                placeholder="Add any specific requirements or notes... (max 60 chars)"
+                placeholder={t('requests.messagePlaceholder', 'Add any specific requirements or notes... (max 60 chars)')}
                 multiline
                 numberOfLines={4}
                 textAlignVertical="top"
@@ -246,7 +252,7 @@ const SendRequestModal: React.FC<SendRequestModalProps> = ({
               ) : (
                 <>
                   <Icon name="paper-plane" size={20} color="#FFFFFF" />
-                  <Text style={styles.sendButtonText}>Send Request</Text>
+                  <Text style={styles.sendButtonText}>{t('requests.sendRequestButton', 'Send Request')}</Text>
                 </>
               )}
             </TouchableOpacity>

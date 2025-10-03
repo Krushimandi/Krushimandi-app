@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState, forwardRef, useImperat
 import { View, TextInput, Text, TouchableOpacity, StyleSheet, Platform, Keyboard, Dimensions } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 
 const COLORS = {
     primary: '#10B981',
@@ -18,11 +19,12 @@ export const ChatInputBar = forwardRef(({
     onSend,
     onHeightChange,
     maxLength = 1000,
-    placeholder = 'Type your message...',
+    placeholder,
     onFocus,
 }, ref) => {
     const insets = useSafeAreaInsets();
-    const [inputHeight, setInputHeight] = useState(48);
+    const { t } = useTranslation();
+
     const textInputRef = useRef(null);
 
     useImperativeHandle(ref, () => ({
@@ -30,12 +32,6 @@ export const ChatInputBar = forwardRef(({
         blur: () => textInputRef.current?.blur(),
         clear: () => textInputRef.current?.clear(),
     }));
-
-    const handleContentSizeChange = useCallback((e) => {
-        const h = e.nativeEvent.contentSize.height;
-        const next = Math.min(Math.max(h + 24, 48), 140); // allow a bit taller here
-        setInputHeight(prev => (Math.abs(prev - next) > 1 ? next : prev));
-    }, []);
 
     // Force blur if keyboard hides but RN still thinks the input is focused (Android back button case)
     useEffect(() => {
@@ -62,9 +58,9 @@ export const ChatInputBar = forwardRef(({
 
     // Report total bar height upward (input + paddings + safe area + actions panel if open)
     useEffect(() => {
-        const base = inputHeight + 32 + Math.max(insets.bottom, 12); // wrapper paddings
+        const base = 56 + 32 + Math.max(insets.bottom, 12); // wrapper paddings
         onHeightChange && onHeightChange(base);
-    }, [inputHeight, insets.bottom, onHeightChange]);
+    }, [insets.bottom, onHeightChange]);
 
     const handleSend = useCallback(() => {
         if (!value.trim()) return;
@@ -73,25 +69,23 @@ export const ChatInputBar = forwardRef(({
 
     return (
         <View style={styles.container}>
-            <View style={[styles.inputWrapper, { paddingBottom: Math.max(insets.bottom * 0.65, 12) }]}>
+            <View style={[styles.inputWrapper, { paddingBottom: Math.max(insets.bottom * 0.65, 16) }]}>
                 <View style={styles.row}>
-                    <View style={[styles.textInputContainer, { minHeight: inputHeight }]}>
+                    <View style={[styles.textInputContainer, { minHeight: 56 }]}>
                         <TextInput
                             ref={textInputRef}
-                            style={[styles.textInput, { minHeight: inputHeight }]}
+                            style={[styles.textInput, { minHeight: 56 }]}
                             value={value}
                             onChangeText={onChangeText}
-                            placeholder={placeholder}
+                            placeholder={placeholder || t('chat.input.placeholder', { defaultValue: 'Type your message...' })}
                             placeholderTextColor={COLORS.textSecondary}
                             multiline
                             maxLength={maxLength}
-                            onContentSizeChange={handleContentSizeChange}
                             selectionColor={COLORS.primary}
-                            blurOnSubmit={false}
                             onSubmitEditing={handleSend}
                             onFocus={onFocus}
-                            accessibilityLabel="Message input field"
-                            accessibilityHint="Double tap to start typing"
+                            accessibilityLabel={t('chat.input.accessibility.inputLabel', { defaultValue: 'Message input field' })}
+                            accessibilityHint={t('chat.input.accessibility.inputHint', { defaultValue: 'Double tap to start typing' })}
                         />
                         {value.length > maxLength - 200 && (
                             <View style={styles.counter}><Text style={styles.counterText}>{maxLength - value.length}</Text></View>
@@ -102,7 +96,9 @@ export const ChatInputBar = forwardRef(({
                         onPress={handleSend}
                         disabled={!value.trim()}
                         style={[styles.sendBtn, value.trim() && styles.sendBtnActive]}
-                        accessibilityLabel={value.trim() ? 'Send message' : 'Type a message to send'}
+                        accessibilityLabel={value.trim()
+                            ? t('chat.input.accessibility.send', { defaultValue: 'Send message' })
+                            : t('chat.input.accessibility.sendDisabled', { defaultValue: 'Type a message to send' })}
                         accessibilityRole="button"
                     >
                         <Feather name="send" size={20} color={value.trim() ? '#FFF' : COLORS.textSecondary} />
@@ -166,6 +162,7 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(229,231,235,0.8)',
         alignItems: 'center',
         justifyContent: 'center',
+        bottom: 7,
     },
     sendBtnActive: { backgroundColor: COLORS.primary },
     // attachment/actions styles removed

@@ -12,6 +12,8 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import { Colors } from '../../constants';
 import { useRemoteConfig } from '../../hooks/useRemoteConfig';
 
+import { useTranslation } from 'react-i18next';
+
 interface NavigationProp {
   goBack: () => void;
 }
@@ -31,6 +33,7 @@ interface MenuItemProps {
 }
 
 const AboutPage: React.FC<AboutPageProps> = ({ navigation }) => {
+  const { t } = useTranslation();
   const rc = useRemoteConfig();
   const currentYear = new Date().getFullYear();
 
@@ -65,9 +68,9 @@ const AboutPage: React.FC<AboutPageProps> = ({ navigation }) => {
           style={styles.backButton}
           onPress={handleBackPress}
         >
-           <Icon name="chevron-back" size={24} color="#000" />
+          <Icon name="chevron-back" size={24} color="#000" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>About</Text>
+  <Text style={styles.headerTitle}>{t('support.aboutTitle')}</Text>
         <View style={styles.headerRight} />
       </View>
 
@@ -76,11 +79,11 @@ const AboutPage: React.FC<AboutPageProps> = ({ navigation }) => {
         <View style={styles.appInfoSection}>
           <AppLogo />
           {/* <Text style={styles.appName}>Krushimandi Innovations</Text> */}
-          <Text style={styles.versionText}>Version : {rc.app_version}</Text>
-          <Text style={styles.buildText}>Build : {rc.buildNumber}</Text>
-          <Text style={styles.callingVersionText}>calling version : {rc.calling_version}</Text>
-          <Text style={styles.companyText}>Krushimandi Innovations PVT. LTD.</Text>
-          <Text style={styles.copyrightText}>Copyright @ {currentYear}</Text>
+          <Text style={styles.versionText}>{t('about.version', { version: rc.app_version, defaultValue: 'Version : {{version}}' })}</Text>
+          <Text style={styles.buildText}>{t('about.build', { build: rc.buildNumber, defaultValue: 'Build : {{build}}' })}</Text>
+          <Text style={styles.callingVersionText}>{t('about.callingVersion', { version: rc.calling_version, defaultValue: 'Calling version : {{version}}' })}</Text>
+          <Text style={styles.companyText}>{t('about.companyName', { defaultValue: 'Krushimandi Innovations PVT. LTD.' })}</Text>
+          <Text style={styles.copyrightText}>{t('about.rights', { year: currentYear, defaultValue: 'Copyright © {{year}}' })}</Text>
         </View>
 
       </View>
