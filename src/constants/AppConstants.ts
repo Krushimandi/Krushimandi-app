@@ -96,7 +96,7 @@ export const APP_CONFIG = {
   MAX_PRODUCT_IMAGES: 5,
   
   // Timeouts
-  SPLASH_TIMEOUT: 2000, // 2 seconds
+  SPLASH_TIMEOUT: 1000, // 2 seconds
   
   // Deep Linking
   DEEP_LINK_SCHEME: 'krushimandi',

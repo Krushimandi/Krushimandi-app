@@ -218,16 +218,26 @@ const processOfflineQueue = async () => {
  */
 const handleNetworkError = async (error, operation, fallbackData = null) => {
   const errorMessage = error.message?.toLowerCase() || '';
+  const errorCode = error.code?.toLowerCase() || '';
+  
   const isNetworkError =
     errorMessage.includes('network') ||
     errorMessage.includes('timeout') ||
     errorMessage.includes('connection') ||
     errorMessage.includes('offline') ||
-    error.code === 'unavailable' ||
-    error.code === 'deadline-exceeded';
+    errorMessage.includes('end of stream') ||
+    errorMessage.includes('socket') ||
+    errorMessage.includes('econnrefused') ||
+    errorMessage.includes('enotfound') ||
+    errorMessage.includes('failed to fetch') ||
+    errorMessage.includes('unable to resolve host') ||
+    errorCode === 'auth/network-request-failed' ||
+    errorCode === 'auth/unknown' ||
+    errorCode === 'unavailable' ||
+    errorCode === 'deadline-exceeded';
 
   if (isNetworkError) {
-    
+    console.log(`🌐 Network error detected in ${operation}`);
 
     return {
       isNetworkError: true,
@@ -1206,9 +1216,33 @@ export const validateCurrentUser = async () => {
       }
 
     } catch (reloadError) {
-      // If reload fails, the user has likely been deleted from Firebase Auth
+      // If reload fails, check if it's a network error first
       console.error('❌ User reload failed:', reloadError);
 
+      // Check for network-related errors more comprehensively
+      const errorMessage = reloadError.message?.toLowerCase() || '';
+      const errorCode = reloadError.code?.toLowerCase() || '';
+      
+      const isNetworkError =
+        errorMessage.includes('network') ||
+        errorMessage.includes('timeout') ||
+        errorMessage.includes('connection') ||
+        errorMessage.includes('offline') ||
+        errorMessage.includes('end of stream') ||
+        errorMessage.includes('socket') ||
+        errorMessage.includes('econnrefused') ||
+        errorMessage.includes('enotfound') ||
+        errorCode === 'auth/network-request-failed' ||
+        errorCode === 'auth/unknown' ||
+        errorCode === 'unavailable' ||
+        errorCode === 'deadline-exceeded';
+
+      if (isNetworkError) {
+        console.log('🌐 Network error during user reload, keeping user logged in');
+        return true; // Keep user logged in during network issues
+      }
+
+      // Only for actual auth errors (user deleted, token expired, etc.)
       const errorResult = await handleNetworkError(reloadError, 'auth_reload');
       if (errorResult.isNetworkError) {
         return true;
@@ -1216,12 +1250,12 @@ export const validateCurrentUser = async () => {
         // Check with persistent auth manager before clearing data
         const authResult = await persistentAuthManager.handleAuthError(reloadError, 'user_validation');
         if (authResult.shouldLogout) {
-          
+          console.log('🚪 Auth error requires logout');
           await clearUserData();
           await clearOfflineAuthState();
           return false;
         } else {
-          
+          console.log('✅ Auth error handled, keeping user logged in');
           return true;
         }
       }
@@ -1230,6 +1264,29 @@ export const validateCurrentUser = async () => {
   } catch (error) {
     console.error('❌ User validation failed:', error);
 
+    // Check for network errors more comprehensively
+    const errorMessage = error.message?.toLowerCase() || '';
+    const errorCode = error.code?.toLowerCase() || '';
+    
+    const isNetworkError =
+      errorMessage.includes('network') ||
+      errorMessage.includes('timeout') ||
+      errorMessage.includes('connection') ||
+      errorMessage.includes('offline') ||
+      errorMessage.includes('end of stream') ||
+      errorMessage.includes('socket') ||
+      errorMessage.includes('econnrefused') ||
+      errorMessage.includes('enotfound') ||
+      errorCode === 'auth/network-request-failed' ||
+      errorCode === 'auth/unknown' ||
+      errorCode === 'unavailable' ||
+      errorCode === 'deadline-exceeded';
+
+    if (isNetworkError) {
+      console.log('🌐 Network error during validation, keeping user logged in');
+      return true;
+    }
+
     const errorResult = await handleNetworkError(error, 'user_validation');
     if (errorResult.isNetworkError) {
       return true;
@@ -1237,12 +1294,12 @@ export const validateCurrentUser = async () => {
       // Check with persistent auth manager before clearing data
       const authResult = await persistentAuthManager.handleAuthError(error, 'general_validation');
       if (authResult.shouldLogout) {
-        
+        console.log('🚪 Validation error requires logout');
         await clearUserData();
         await clearOfflineAuthState();
         return false;
       } else {
-        
+        console.log('✅ Validation error handled, keeping user logged in');
         return true;
       }
     }

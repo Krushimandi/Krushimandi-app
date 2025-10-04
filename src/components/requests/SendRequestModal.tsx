@@ -49,6 +49,118 @@ const SendRequestModal: React.FC<SendRequestModalProps> = ({
   const { t, i18n } = useTranslation();
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [messageError, setMessageError] = useState<string>('');
+
+  // Comprehensive validation function for message content
+  const validateMessage = (text: string): { isValid: boolean; error: string } => {
+    if (!text.trim()) {
+      return { isValid: true, error: '' };
+    }
+
+    const trimmedText = text.trim().toLowerCase();
+
+    // Pattern 1: Check for phone numbers (various formats)
+    // Matches: 1234567890, +911234567890, 123-456-7890, (123) 456-7890, etc.
+    const phonePatterns = [
+      /\b\d{10,}\b/, // 10+ consecutive digits
+      /\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}\b/, // Phone format with separators
+      /\+?\d{1,3}[-.\s]?\d{10}\b/, // International format
+      /\(\d{3}\)\s*\d{3}[-.\s]?\d{4}/, // (123) 456-7890 format
+      /\b\d{5}[-.\s]?\d{5}\b/, // Indian mobile format
+      /\b[6-9]\d{9}\b/, // Indian mobile starting with 6-9
+    ];
+
+    for (const pattern of phonePatterns) {
+      if (pattern.test(text)) {
+        return { 
+          isValid: false, 
+          error: t('requests.errors.phoneNotAllowed', 'Phone numbers are not allowed in messages') 
+        };
+      }
+    }
+
+    // Pattern 2: Check for email addresses
+    const emailPattern = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/;
+    if (emailPattern.test(text)) {
+      return { 
+        isValid: false, 
+        error: t('requests.errors.emailNotAllowed', 'Email addresses are not allowed in messages') 
+      };
+    }
+
+    // Pattern 3: Check for URLs and links
+    const urlPatterns = [
+      /https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)/,
+      /www\.[a-zA-Z0-9-]+\.[a-zA-Z]{2,}/,
+      /\b[a-zA-Z0-9-]+\.com\b/i,
+      /\b[a-zA-Z0-9-]+\.in\b/i,
+      /\b[a-zA-Z0-9-]+\.(org|net|co|io)\b/i,
+    ];
+
+    for (const pattern of urlPatterns) {
+      if (pattern.test(text)) {
+        return { 
+          isValid: false, 
+          error: t('requests.errors.linksNotAllowed', 'Links and websites are not allowed in messages') 
+        };
+      }
+    }
+
+    // Pattern 4: Check for @ mentions or social media handles
+    if (/@\w+/.test(text)) {
+      return { 
+        isValid: false, 
+        error: t('requests.errors.socialMediaNotAllowed', 'Social media handles are not allowed') 
+      };
+    }
+
+    // Pattern 5: Check for contact-related keywords
+    const contactKeywords = [
+      'whatsapp', 'wa', 'telegram', 'call me', 'call', 'contact me', 
+      'my number', 'my phone', 'reach me', 'dm me', 'direct message',
+      'facebook', 'instagram', 'twitter', 'snapchat', 'messenger',
+      'gmail', 'yahoo', 'hotmail', 'outlook', 'email me',
+      'mob no', 'mobile no', 'phone no', 'contact no',
+      'व्हाट्सएप', 'कॉल', 'नंबर', 'संपर्क', // Hindi
+      'व्हाट्सअॅप', 'कॉल करा', 'नंबर', 'संपर्क', // Marathi
+    ];
+
+    for (const keyword of contactKeywords) {
+      if (trimmedText.includes(keyword)) {
+        return { 
+          isValid: false, 
+          error: t('requests.errors.contactInfoNotAllowed', 'Sharing contact information is not allowed') 
+        };
+      }
+    }
+
+    // Pattern 6: Check for excessive numbers (even if not a complete phone number)
+    const numberCount = (text.match(/\d/g) || []).length;
+    if (numberCount > 6) {
+      return { 
+        isValid: false, 
+        error: t('requests.errors.tooManyNumbers', 'Too many numbers detected in message') 
+      };
+    }
+
+    // Pattern 7: Check for identity disclosure attempts
+    const identityKeywords = [
+      'my name is', 'i am', 'call me', 'find me',
+      'मेरा नाम', 'मैं हूं', // Hindi
+      'माझे नाव', 'मी आहे', // Marathi
+    ];
+
+    for (const keyword of identityKeywords) {
+      if (trimmedText.includes(keyword)) {
+        return { 
+          isValid: false, 
+          error: t('requests.errors.identityDisclosureNotAllowed', 'Identity disclosure is not allowed') 
+        };
+      }
+    }
+
+    return { isValid: true, error: '' };
+  };
 
 
 
@@ -87,6 +199,18 @@ const SendRequestModal: React.FC<SendRequestModalProps> = ({
       return;
     }
 
+    // Validate message before sending
+    if (message.trim()) {
+      const validation = validateMessage(message);
+      if (!validation.isValid) {
+        Alert.alert(
+          t('alerts.errorTitle', 'Invalid Message'),
+          validation.error
+        );
+        return;
+      }
+    }
+
     try {
       setLoading(true);
 
@@ -103,6 +227,7 @@ const SendRequestModal: React.FC<SendRequestModalProps> = ({
 
       // Reset form
       setMessage('');
+      setMessageError('');
       onClose();
     } catch (error) {
       Alert.alert(t('alerts.errorTitle', 'Error'), t('requests.sendError', 'Failed to send request. Please try again.'));
@@ -224,10 +349,17 @@ const SendRequestModal: React.FC<SendRequestModalProps> = ({
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>{t('requests.messageOptional', 'Message (Optional)')}</Text>
               <TextInput
-                style={styles.messageInput}
+                style={[
+                  styles.messageInput,
+                  messageError && styles.messageInputError
+                ]}
                 value={message}
-                onChangeText={(t) => {
-                  if (t.length <= 60) setMessage(t);
+                onChangeText={(text) => {
+                  if (text.length <= 60) {
+                    setMessage(text);
+                    const validation = validateMessage(text);
+                    setMessageError(validation.error);
+                  }
                 }}
                 placeholder={t('requests.messagePlaceholder', 'Add any specific requirements or notes... (max 60 chars)')}
                 multiline
@@ -236,6 +368,12 @@ const SendRequestModal: React.FC<SendRequestModalProps> = ({
                 placeholderTextColor="#9CA3AF"
                 maxLength={60}
               />
+              {messageError ? (
+                <View style={styles.errorRow}>
+                  <Icon name="alert-circle" size={16} color="#EF4444" />
+                  <Text style={styles.errorText}>{messageError}</Text>
+                </View>
+              ) : null}
               <View style={styles.charCounterRow}>
                 <Text style={styles.charCounterText}>{message.length}/60</Text>
               </View>
@@ -427,6 +565,22 @@ const styles = StyleSheet.create({
     color: Colors.light.primary,
     minWidth: 60,
     textAlign: 'center',
+  },
+  messageInputError: {
+    borderColor: '#EF4444',
+    borderWidth: 1.5,
+  },
+  errorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+    gap: 6,
+  },
+  errorText: {
+    fontSize: 12,
+    color: '#EF4444',
+    fontWeight: '500',
+    flex: 1,
   },
 });
 

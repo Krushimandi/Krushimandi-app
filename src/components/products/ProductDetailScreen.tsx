@@ -36,6 +36,7 @@ import SendRequestModal from '../requests/SendRequestModal';
 import { CreateRequestInput } from '../../types/Request';
 import ErrorBoundary from '../common/ErrorBoundary';
 import { useTranslation } from 'react-i18next';
+import { HapticFeedback } from 'utils/haptics';
 
 const { width, height } = Dimensions.get('window');
 // Note: Avoid wrapping FastImage with Reanimated.createAnimatedComponent to prevent
@@ -125,7 +126,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
   const product: Product = {
     // Use actual data - these should come from navigation params
     id: rawProduct.id || route?.params?.productId || 'unknown-id',
-  name: rawProduct.name || t('farmerHome.unnamedFruit', 'Unnamed Fruit'),
+    name: rawProduct.name || t('farmerHome.unnamedFruit', 'Unnamed Fruit'),
     type: rawProduct.type || 'unknown',
     // grade: rawProduct.grade || 'N/A', // disabled: grade not present in DB
     description: rawProduct.description || t('product.detail.placeholders.notSpecified', 'No description available'),
@@ -151,9 +152,9 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
     rating: rawProduct.rating || 4.0,
     reviewCount: rawProduct.reviewCount || 0,
     sizes: rawProduct.sizes || ['1 kg', '500 gm', '2 kg'],
-  details: rawProduct.details || `${rawProduct.name || t('farmerHome.unnamedFruit', 'Unnamed Fruit')} ${t('buyerHome.fromLocation', 'from')} ${rawProduct.location ? formatLocation(rawProduct.location) : t('product.detail.placeholders.locationNA', 'Location not available')}`,
+    details: rawProduct.details || `${rawProduct.name || t('farmerHome.unnamedFruit', 'Unnamed Fruit')} ${t('buyerHome.fromLocation', 'from')} ${rawProduct.location ? formatLocation(rawProduct.location) : t('product.detail.placeholders.locationNA', 'Location not available')}`,
     postedDate: rawProduct.postedDate || (rawProduct.created_at ? getRelativeTime(rawProduct.created_at) : t('chats.detail.lastSeenRecently', 'Recently')),
-  farmer_name: `${t('chats.detail.unknownUser', 'Unknown')} ${t('roles.farmer', 'Farmer')}`,
+    farmer_name: `${t('chats.detail.unknownUser', 'Unknown')} ${t('roles.farmer', 'Farmer')}`,
     farmer_rating: rawProduct.farmer_rating || 4.0
   };
 
@@ -284,7 +285,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
         cache: FastImage.cacheControl.immutable,
       }));
       FastImage.preload(sources);
-    } catch {}
+    } catch { }
   }, [product.image_urls]);
 
   // Prefetch neighboring images for smoother swipes inside preview
@@ -295,7 +296,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
     const current = previewIndexState;
     const prevUri = product.image_urls[(current - 1 + total) % total];
     const nextUri = product.image_urls[(current + 1) % total];
-    try { FastImage.preload([{ uri: prevUri, cache: FastImage.cacheControl.immutable }, { uri: nextUri, cache: FastImage.cacheControl.immutable }]); } catch {}
+    try { FastImage.preload([{ uri: prevUri, cache: FastImage.cacheControl.immutable }, { uri: nextUri, cache: FastImage.cacheControl.immutable }]); } catch { }
   }, [previewIndexState, screenState.showImagePreview, product.image_urls]);
 
   // Mini component: Zoomable single image with pinch + pan + double-tap reset (Gesture API version)
@@ -764,6 +765,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
   };
 
   const handleWishlistToggle = async () => {
+    HapticFeedback.buttonPress();
     if (isWishlistLoading) return;
 
     console.log('🔄 Starting wishlist toggle for fruit:', product.id);
@@ -913,6 +915,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
 
   // Function to handle the product request
   const handleRequestProduct = async () => {
+    HapticFeedback.modal();
     // Check if user is authenticated and is a buyer
     if (!user) {
       Alert.alert(
@@ -996,7 +999,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
           const { buildChatId, ensureChatExists, sendMessage, fetchUserProfile, chatHasMessages } = await import('../../services/chatService');
 
           const buyerId = user?.uid;
-            // product.farmer_id already validated earlier when sending request
+          // product.farmer_id already validated earlier when sending request
           const farmerId = product.farmer_id;
           if (buyerId && farmerId && buyerId !== farmerId) {
             const chatId = buildChatId(buyerId, farmerId);
@@ -1004,8 +1007,8 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
             // Best-effort fetch of participant meta so names/avatars appear immediately
             let buyerMeta: any = undefined;
             let farmerMeta: any = undefined;
-            try { buyerMeta = await fetchUserProfile(buyerId); } catch (_) {}
-            try { farmerMeta = await fetchUserProfile(farmerId); } catch (_) {}
+            try { buyerMeta = await fetchUserProfile(buyerId); } catch (_) { }
+            try { farmerMeta = await fetchUserProfile(farmerId); } catch (_) { }
 
             await ensureChatExists(chatId, [buyerId, farmerId], {
               ...(buyerMeta ? { [buyerId]: buyerMeta } : {}),
@@ -1149,7 +1152,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                     style={styles.heroProductImage}
                     resizeMode={FastImage.resizeMode.cover}
                   />
-                  
+
                   {/* Image Counter with Modern Design */}
                   {product.image_urls.length > 1 && (
                     <View style={styles.enhancedImageCounter}>

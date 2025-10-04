@@ -37,14 +37,15 @@ import auth from '@react-native-firebase/auth';
 import Toast from 'react-native-toast-message';
 import ErrorBoundary from '../common/ErrorBoundary';
 import { useTranslation } from 'react-i18next';
-import { 
-    loadNotificationPreferences, 
-    saveNotificationPreferences, 
-    NotificationPreferences 
+import {
+    loadNotificationPreferences,
+    saveNotificationPreferences,
+    NotificationPreferences
 } from '../../services/notificationPreferencesService';
 
 // Import notification type from service to avoid conflicts
 import { Notification } from '../../services/notificationService';
+import { HapticFeedback } from 'utils/haptics';
 
 // Remove the local mapNotification function since the service handles this
 // Format date function to handle Firebase timestamp (utility function)
@@ -184,7 +185,7 @@ const SimpleSwitch: React.FC<{
                 useNativeDriver: false,
             })
         ]).start();
-    }, [value, translateX, backgroundInterpolation]);
+    }, [value]);
 
     const handlePressIn = () => {
         Animated.spring(scaleAnim, {
@@ -202,6 +203,12 @@ const SimpleSwitch: React.FC<{
             tension: 40,
             useNativeDriver: true,
         }).start();
+
+        // Trigger haptic feedback
+        HapticFeedback.toggleSwitch();
+        
+        // Trigger change after animation starts for better feel
+        onValueChange(!value);
     };
 
     const backgroundColor = backgroundInterpolation.interpolate({
@@ -220,7 +227,6 @@ const SimpleSwitch: React.FC<{
             >
                 <Pressable
                     style={StyleSheet.absoluteFill}
-                    onPress={() => onValueChange(!value)}
                     onPressIn={handlePressIn}
                     onPressOut={handlePressOut}
                     android_ripple={{ color: 'rgba(255,255,255,0.2)', borderless: true }}
@@ -316,6 +322,9 @@ const NotificationScreen: React.FC<NotificationScreenProps> = ({ navigation }) =
     const { t } = useTranslation();
     const [authError, setAuthError] = useState<string | null>(null);
     const currentUser = auth().currentUser;
+
+    // Debounce timer for saving preferences
+    const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     // Validate user authentication
     useEffect(() => {
@@ -420,31 +429,54 @@ const NotificationScreen: React.FC<NotificationScreenProps> = ({ navigation }) =
         loadPreferences();
     }, []);
 
-    // Save preferences when they change
-    const handlePreferenceChange = async (key: keyof NotificationPreferences, value: boolean) => {
+    // Cleanup timeout on unmount
+    useEffect(() => {
+        return () => {
+            if (saveTimeoutRef.current) {
+                clearTimeout(saveTimeoutRef.current);
+            }
+        };
+    }, []);
+
+    // Debounced save function - saves after 1 second of no changes
+    const debouncedSave = useCallback((newSettings: NotificationPreferences) => {
+        // Clear existing timeout
+        if (saveTimeoutRef.current) {
+            clearTimeout(saveTimeoutRef.current);
+        }
+
+        // Set new timeout
+        saveTimeoutRef.current = setTimeout(async () => {
+            try {
+                await saveNotificationPreferences(newSettings);
+                console.log('✅ Preferences saved to network');
+                Toast.show({
+                    type: 'success',
+                    text1: t('notifications.toast.preferencesSaved'),
+                    position: 'bottom',
+                    visibilityTime: 1500,
+                });
+            } catch (error) {
+                console.error('❌ Error saving preferences:', error);
+                Toast.show({
+                    type: 'error',
+                    text1: t('notifications.toast.preferencesError'),
+                    position: 'bottom',
+                    visibilityTime: 2000,
+                });
+            }
+        }, 1000); // Wait 1 second after last change
+    }, [t]);
+
+    // Save preferences when they change (optimistic UI update)
+    const handlePreferenceChange = useCallback((key: keyof NotificationPreferences, value: boolean) => {
+        // Immediate UI update (optimistic)
         const newSettings = { ...settings, [key]: value };
         setSettings(newSettings);
-        
-        try {
-            await saveNotificationPreferences(newSettings);
-            Toast.show({
-                type: 'success',
-                text1: t('notifications.toast.preferencesSaved'),
-                position: 'bottom',
-                visibilityTime: 1500,
-            });
-        } catch (error) {
-            console.error('Error saving preferences:', error);
-            Toast.show({
-                type: 'error',
-                text1: t('notifications.toast.preferencesError'),
-                position: 'bottom',
-                visibilityTime: 2000,
-            });
-            // Revert on error
-            setSettings(settings);
-        }
-    };
+
+        // Debounced network save
+        debouncedSave(newSettings);
+    }, [settings, debouncedSave]);
 
     // Animated values for card appearance
     const translateY = useRef(new Animated.Value(50)).current;
@@ -454,9 +486,10 @@ const NotificationScreen: React.FC<NotificationScreenProps> = ({ navigation }) =
     const filters = useMemo(() => ([
         { id: 'all', label: t('notifications.filters.all'), icon: 'notifications-outline' },
         { id: 'unread', label: t('notifications.filters.unread'), icon: 'ellipse' },
-        { id: 'transaction', label: t('notifications.filters.transaction'), icon: 'cash-outline' },
+        { id: 'request', label: t('notifications.filters.request'), icon: 'help-buoy-outline' },
         { id: 'promotion', label: t('notifications.filters.promotion'), icon: 'gift-outline' },
         { id: 'update', label: t('notifications.filters.update'), icon: 'refresh-outline' },
+        { id: 'message', label: t('notifications.filters.message'), icon: 'chatbubble-ellipses-outline' },
         { id: 'alert', label: t('notifications.filters.alert'), icon: 'alert-circle-outline' },
     ]), [t]);
     // Animate in when notifications change and user is ready
@@ -559,36 +592,7 @@ const NotificationScreen: React.FC<NotificationScreenProps> = ({ navigation }) =
     const renderNotificationCard = useCallback(({ item, index }: { item: Notification, index: number }) => {
         const iconName = getNotificationIcon(item.type);
         const iconColor = getNotificationColor(item.type);
-
-        // Create tag component based on type
-        const NotificationTag = () => {
-            let tagLabel = '';
-            switch (item.type) {
-                case 'transaction':
-                    tagLabel = t('notifications.filters.transaction');
-                    break;
-                case 'promotion':
-                    tagLabel = t('notifications.filters.promotion');
-                    break;
-                case 'update':
-                    tagLabel = t('notifications.filters.update');
-                    break;
-                case 'alert':
-                    tagLabel = t('notifications.filters.alert');
-                    break;
-                case 'request':
-                    tagLabel = t('notifications.filters.request');
-                    break;
-                default:
-                    tagLabel = t('notifications.title');
-            }
-
-            return (
-                <View style={[styles.cardChip, { backgroundColor: item.type === 'transaction' ? '#F0F8FF' : '#F5F5F5' }]}>
-                    <Text style={styles.cardChipText}>{tagLabel}</Text>
-                </View>
-            );
-        };
+        console.log(item);
 
         return (
             <View style={styles.notificationCardContainer}>
@@ -598,10 +602,25 @@ const NotificationScreen: React.FC<NotificationScreenProps> = ({ navigation }) =
                         !item.read && styles.unreadCardHighlight
                     ]}
                     onPress={() => markAsRead(item.id)}
-                    activeOpacity={0.7}
+                    activeOpacity={0.9}
                 >
-                    {/* Dynamic offer rendering for all notification types */}
+                    {/* Icon First - Bigger Size - Centered */}
+                    <View
+                        style={[
+                            styles.iconCircle,
+                            {
+                                width: 48,
+                                height: 48,
+                                backgroundColor: iconColor + '15',
+                            }
+                        ]}
+                    >
+                        <Icon name={iconName} size={24} color={iconColor} />
+                    </View>
+
+                    {/* Content beside icon */}
                     <View style={styles.contentContainer}>
+                        {/* Title and Time on same line */}
                         <View style={styles.cardHeader}>
                             <Text style={[
                                 styles.notifTitle,
@@ -612,47 +631,33 @@ const NotificationScreen: React.FC<NotificationScreenProps> = ({ navigation }) =
                             <Text style={styles.date}>{item.time || ''}</Text>
                         </View>
 
+                        {/* Subtitle/Body */}
                         <Text style={[
                             styles.body,
                             !item.read && { color: Colors.light.text }
                         ]} numberOfLines={2}>
                             {item.body || item.message}
                         </Text>
+
                         {/* Render offer/extra info for each type */}
                         {item.type === 'promotion' && item.offer && (
-                            <Text style={{ color: Colors.light.secondary, fontWeight: 'bold' }}>
+                            <Text style={{ color: Colors.light.secondary, fontWeight: 'bold', fontSize: 12, marginTop: 2 }}>
                                 {t('notifications.offer.coupon')}: {item.offer[0]?.text} | {t('notifications.offer.valid')}: {item.offer[0]?.validity}
                             </Text>
                         )}
                         {item.type === 'update' && item.offer && (
-                            <Text style={{ color: Colors.light.primary }}>
+                            <Text style={{ color: Colors.light.primary, fontSize: 12, marginTop: 2 }}>
                                 {t('notifications.offer.version')}: {item.offer[0]?.text}
                             </Text>
                         )}
                         {item.type === 'alert' && item.offer && (
-                            <Text style={{ color: Colors.light.error }}>{item.offer[0]?.text}</Text>
+                            <Text style={{ color: Colors.light.error, fontSize: 12, marginTop: 2 }}>{item.offer[0]?.text}</Text>
                         )}
                         {item.type === 'request' && item.offer && (
-                            <Text style={{ color: Colors.light.info }}>
+                            <Text style={{ color: Colors.light.info, fontSize: 12, marginTop: 2 }}>
                                 {t('notifications.offer.request')}: {item.offer[0]?.requestId} | {t('notifications.offer.status')}: {item.offer[0]?.status}
                             </Text>
                         )}
-
-                        <View style={styles.cardFooter}>
-                            <View
-                                style={[
-                                    styles.iconCircle,
-                                    {
-                                        width: 32,
-                                        height: 32,
-                                        backgroundColor: iconColor + '15',
-                                    }
-                                ]}
-                            >
-                                <Icon name={iconName} size={16} color={iconColor} />
-                            </View>
-                            <NotificationTag />
-                        </View>
                     </View>
                 </TouchableOpacity>
             </View>
@@ -1021,16 +1026,15 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontWeight: '500',
         textAlign: 'center',
-    }, sectionHeaderContainer: {
+    },
+    sectionHeaderContainer: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
         paddingHorizontal: 16,
-        paddingVertical: 12,
-        paddingTop: 16,
+        paddingBottom: 10,
+        paddingTop: 8,
         backgroundColor: '#F5F5F5',
-        borderBottomWidth: 1,
-        borderBottomColor: 'rgba(0,0,0,0.03)',
     },
     sectionTitle: {
         fontSize: 16,
@@ -1044,17 +1048,19 @@ const styles = StyleSheet.create({
         fontSize: 13,
         color: Colors.light.primary,
         fontWeight: '500',
-    }, notificationsList: {
-        paddingBottom: 20,
+    },
+    notificationsList: {
+        gap: 4,
     },
     notificationCardContainer: {
-        marginBottom: 8,
+        marginBottom: 6,
     }, notificationCard: {
         backgroundColor: 'white',
         marginHorizontal: 16,
-        padding: 16,
+        paddingVertical: 12,
+        paddingHorizontal: 14,
         borderRadius: 12,
-        flexDirection: 'column',
+        flexDirection: 'row',
         elevation: 1,
         shadowColor: '#000000',
         shadowOffset: { width: 0, height: 1 },
@@ -1062,6 +1068,7 @@ const styles = StyleSheet.create({
         shadowRadius: 2.5,
         borderWidth: 0,
         borderLeftWidth: 0,  // Will be overridden for unread
+        alignItems: 'center',
     }, unreadCard: {
         backgroundColor: 'white',
         borderLeftWidth: 3,
@@ -1073,36 +1080,39 @@ const styles = StyleSheet.create({
         borderLeftColor: Colors.light.primary,
     },
     iconCircle: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
+        width: 48,
+        height: 48,
+        borderRadius: 24,
         justifyContent: 'center',
         alignItems: 'center',
-        marginRight: 10,
+        marginRight: 12,
+        flexShrink: 0,
     }, contentContainer: {
         flex: 1,
     },
     cardHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 8,
+        alignItems: 'flex-start',
+        marginBottom: 4,
     },
     notifTitle: {
-        fontSize: 16,
+        fontSize: 15,
         fontWeight: '600',
         color: '#333333',
+        lineHeight: 20,
         flex: 1,
+        marginRight: 8,
     },
     date: {
-        fontSize: 12,
+        fontSize: 11,
         color: '#999999',
-        marginLeft: 8,
+        flexShrink: 0,
     }, body: {
-        fontSize: 14,
+        fontSize: 13,
         color: '#666666',
-        lineHeight: 20,
-        marginBottom: 10,
+        lineHeight: 18,
+        marginBottom: 4,
     },
     unreadDot: {
         width: 8,
@@ -1113,18 +1123,18 @@ const styles = StyleSheet.create({
     },
     cardFooter: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginTop: 8,
+        justifyContent: 'flex-start',
+        marginTop: 4,
         alignItems: 'center',
     }, cardChip: {
-        paddingVertical: 4,
-        paddingHorizontal: 12,
+        paddingVertical: 3,
+        paddingHorizontal: 10,
         backgroundColor: '#F5F5F5',
-        borderRadius: 20,
+        borderRadius: 12,
         borderWidth: 0,
     },
     cardChipText: {
-        fontSize: 12,
+        fontSize: 11,
         color: '#666666',
         fontWeight: '500',
     },

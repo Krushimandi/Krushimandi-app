@@ -23,7 +23,7 @@ import Toast from 'react-native-toast-message';
 import { useAuthState } from '../providers/AuthStateProvider';
 import { useTabBarControl } from '../../utils/navigationControls';
 import { auth } from '../../config/firebaseModular';
-import { subscribeUserChats, fetchUserProfile, buildChatId, markChatRead } from '../../services/chatService';
+import { subscribeUserChats, fetchUserProfile, buildChatId, markChatRead, setUserOnlineStatus } from '../../services/chatService';
 import { useTranslation } from 'react-i18next';
 
 // Simple debounce helper (short + inline to avoid extra deps)
@@ -197,6 +197,22 @@ const ChatListScreen = ({ navigation }) => {
   // Show tab bar on focus (keeps consistency across navigation)
   useFocusEffect(useCallback(() => { showTabBar(); }, [showTabBar]));
 
+  // Set user online when ChatListScreen is focused, offline when unfocused
+  useFocusEffect(
+    useCallback(() => {
+      const uid = auth.currentUser?.uid;
+      if (!uid) return;
+
+      // Set online when screen gains focus
+      setUserOnlineStatus(uid, true);
+
+      // Set offline when screen loses focus
+      return () => {
+        setUserOnlineStatus(uid, false);
+      };
+    }, [])
+  );
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     // Simulate refresh delay
@@ -258,7 +274,9 @@ const ChatListScreen = ({ navigation }) => {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar
         barStyle="dark-content"
-        backgroundColor="#FFFFFF" />
+        backgroundColor="#FFFFFF"
+        translucent={true}
+      />
 
       {/* Fixed Header */}
       <Animated.View style={[styles.headerWrapper, { height: headerHeight }]}>

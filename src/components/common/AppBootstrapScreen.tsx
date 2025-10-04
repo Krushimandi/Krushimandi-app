@@ -24,7 +24,7 @@ interface AppBootstrapScreenProps {
 
 export const AppBootstrapScreen: React.FC<AppBootstrapScreenProps> = ({
   onBootstrapComplete,
-  minimumSplashTime = 1000, // Default 1 second minimum splash
+  minimumSplashTime = 500, // Default 0.5 second minimum splash
 }) => {
   const [loadingText, setLoadingText] = useState('Initializing...');
   const [progress, setProgress] = useState(0);
@@ -117,7 +117,7 @@ export const AppBootstrapScreen: React.FC<AppBootstrapScreenProps> = ({
         isAuthenticated: false,
         user: null,
         userRole: null,
-        token: null,
+        // token: null,
         error: error instanceof Error ? error.message : 'Initialization failed',
       };
 

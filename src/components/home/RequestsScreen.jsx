@@ -300,7 +300,7 @@ const RequestsScreen = () => {
     });
 
     return filtered;
-  }, [requests, searchQuery, selectedFilter, sortBy]);
+  }, [requests, searchQuery, selectedFilter, sortBy, dateAsc, formatLocationValue]);
 
   // Get statistics
   const stats = useMemo(() => {
@@ -447,7 +447,7 @@ const RequestsScreen = () => {
       fetchingPhones.current.delete(farmerId);
     }
     return null;
-  }, []); // ✅ Empty dependencies - completely stable
+  }, []);
 
   // Track requests to prevent infinite prefetching
   const lastRequestsRef = React.useRef([]);
@@ -485,7 +485,7 @@ const RequestsScreen = () => {
         }
       })();
     }
-  }, [requestsChanged]); // ⚡ ONLY depend on whether requests changed, not requests themselves
+  }, [requestsChanged]);
 
   const sanitizePhone = (phone) => (phone || '').replace(/[^\d+]/g, '');
 
@@ -520,61 +520,6 @@ const RequestsScreen = () => {
       });
     } catch (e) {
       Alert.alert(t('common.error'), t('requests.contact.callFailed'));
-    }
-  };
-
-  // Legacy-style comprehensive messaging logic from MyOrdersScreen
-  const handleContactFarmer = async (farmerId, farmerDisplayName, productName) => {
-    try {
-      if (!farmerId) {
-        Alert.alert(t('requests.contact.farmerUnknown'), t('requests.contact.noFarmerId'));
-        return;
-      }
-
-      // Delay-based loading alert (only shows if fetch is slow)
-      const loadingTimeout = setTimeout(() => {
-        Alert.alert(t('requests.contact.gettingInfo'), t('requests.contact.fetching'), [], { cancelable: false });
-      }, 600);
-
-      const phoneRaw = await getFarmerPhoneNumber(farmerId);
-      clearTimeout(loadingTimeout);
-
-      if (!phoneRaw) {
-        Alert.alert(t('requests.contact.unavailableTitle'), t('requests.contact.unavailableMessage', { name: farmerDisplayName || t('requests.contact.farmer') }));
-        return;
-      }
-
-      const cleanPhone = sanitizePhone(phoneRaw);
-      const demoMessage = t('requests.contact.defaultMessage', { name: farmerDisplayName || '', product: productName || t('requests.contact.yourProduct') });
-      const encodedMessage = encodeURIComponent(demoMessage);
-      const smsUrl = `sms:${cleanPhone}?body=${encodedMessage}`;
-
-      Linking.openURL(smsUrl)
-        .then(() => console.log('✅ SMS intent opened'))
-        .catch(err => {
-          console.warn('Primary SMS failed, trying simple format', err);
-          const simpleUrl = `sms:${cleanPhone}`;
-          Linking.openURL(simpleUrl)
-            .then(() => {
-              Alert.alert(t('requests.contact.composeMessage'), t('requests.contact.pasteMessage'), [
-                { text: t('common.ok') }
-              ]);
-            })
-            .catch(() => {
-              Alert.alert(
-                t('requests.contact.unableToOpenMessages'),
-                `${t('requests.contact.phone')}: ${phoneRaw}`,
-                [
-                  { text: t('requests.contact.copyNumber'), onPress: () => Clipboard.setString(phoneRaw) },
-                  { text: t('requests.contact.copyMessage'), onPress: () => Clipboard.setString(demoMessage) },
-                  { text: t('common.cancel'), style: 'cancel' }
-                ]
-              );
-            });
-        });
-    } catch (e) {
-      console.error('handleContactFarmer error', e);
-      Alert.alert(t('common.error'), t('requests.contact.messageFailed'));
     }
   };
 

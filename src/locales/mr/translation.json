@@ -824,6 +824,14 @@
       "typing": "टायपिंग…",
       "activeNow": "आत्ता सक्रिय",
       "lastSeenRecently": "अलिकडे पाहिले",
+      "lastSeenJustNow": "आत्ताच पाहिले",
+      "lastSeenMinutesAgo": "{{minutes}}मि आधी पाहिले",
+      "lastSeenHoursAgo": "{{hours}}ता आधी पाहिले",
+      "lastSeenToday": "आज {{time}} वाजता पाहिले",
+      "lastSeenYesterday": "काल {{time}} वाजता पाहिले",
+      "lastSeenDay": "{{day}} रोजी {{time}} वाजता पाहिले",
+      "lastSeenDate": "{{month}} {{day}} रोजी {{time}} वाजता पाहिले",
+      "lastSeenDateYear": "{{month}} {{day}}, {{year}} रोजी {{time}} वाजता पाहिले",
       "sharingBlockedTitle": "परवानगी नाही",
       "sharingBlockedBody": "फोन नंबर, ईमेल पत्ते, सोशल हँडल (उदा. Instagram), WhatsApp लिंक किंवा कोणत्याही लिंकचे शेअरिंग चॅटमध्ये परवानगी नाही.",
       "noPhoneTitle": "फोन नंबर नाही",
@@ -1196,7 +1204,8 @@
       "promotion": "प्रमोशन्स",
       "update": "अपडेट्स",
       "alert": "अलर्ट्स",
-      "request": "विनंत्या"
+      "request": "विनंत्या",
+      "message": "संदेश"
     },
     "offer": {
       "coupon": "कूपन",
@@ -1260,6 +1269,7 @@
       "claimOffer": "ऑफर घ्या",
       "updateNow": "आत्ता अपडेट करा",
       "viewRequest": "विनंती पहा",
+      "openChat": "चॅट उघडा",
       "viewDetails": "तपशील पहा",
       "dismiss": "बंद करा",
       "viewCompleteOrder": "संपूर्ण ऑर्डर पहा"
@@ -1270,6 +1280,10 @@
       "date": "तारीख",
       "status": "स्थिती",
       "confirmed": "निश्चित"
+    },
+    "toast": {
+      "navigatingToRequest": "विनंती तपशील उघडत आहे...",
+      "couldNotOpenLink": "लिंक उघडू शकलो नाही"
     }
   }
 }

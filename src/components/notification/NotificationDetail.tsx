@@ -16,12 +16,15 @@ import {
   TextStyle,
   Animated,
   Easing,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { Colors, Typography, Layout } from '../../constants';
 import { NavigationProp, ParamListBase, RouteProp } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
+import { useAuthStore } from '../../store/authStore';
+import Toast from 'react-native-toast-message';
 
 // Define types for notification detail props
 interface NotificationDetailProps {
@@ -33,7 +36,7 @@ interface NotificationDetailProps {
       body: string; // Changed from message to body to match Firebase structure
       date: string;
       time?: string;
-      type?: 'promotion' | 'update' | 'alert' | 'request' | 'transaction';
+      type?: 'promotion' | 'update' | 'alert' | 'request' | 'transaction' | 'message';
       offer?: any;
       actionUrl?: string;
       category?: string;
@@ -57,6 +60,8 @@ const getNotificationIcon = (type?: string): string => {
       return 'refresh-outline';
     case 'alert':
       return 'alert-circle-outline';
+    case 'message':
+      return 'chatbubble-ellipses-outline';
     default:
       return 'notifications-outline';
   }
@@ -74,6 +79,8 @@ const getNotificationColor = (type?: string, theme: 'light' | 'dark' = 'light'):
       return colors.primary;
     case 'alert':
       return colors.error;
+    case 'message':
+      return colors.success;
     default:
       return colors.primary;
   }
@@ -82,6 +89,9 @@ const getNotificationColor = (type?: string, theme: 'light' | 'dark' = 'light'):
 const NotificationDetail: React.FC<NotificationDetailProps> = ({ navigation, route }) => {
   const { id, title, body, date, time, type, offer, actionUrl, category, createdAt } = route.params;
   const { t } = useTranslation();
+  const { user } = useAuthStore();
+  const currentUserRole = user?.userType; // 'farmer' or 'buyer'
+  
   const iconName = getNotificationIcon(type);
   const iconColor = getNotificationColor(type);
 
@@ -98,6 +108,8 @@ const NotificationDetail: React.FC<NotificationDetailProps> = ({ navigation, rou
         return t('notifications.filters.update');
       case 'alert':
         return t('notifications.filters.alert');
+      case 'message':
+        return t('notifications.filters.message');
       default:
         return t('notifications.title');
     }
@@ -125,7 +137,6 @@ const NotificationDetail: React.FC<NotificationDetailProps> = ({ navigation, rou
     <SafeAreaView style={styles.container} edges={['top']}>
       <StatusBar
         backgroundColor="#FFFFFF"
-
         barStyle="dark-content"
       />
 
@@ -230,33 +241,101 @@ const NotificationDetail: React.FC<NotificationDetailProps> = ({ navigation, rou
             <TouchableOpacity
               style={[styles.actionButton, styles.primaryAction]}
               onPress={() => {
-                // Handle primary action based on notification type
-                if (type === 'transaction') {
-                  // Navigate to order details if orderId is present
-                  if (route.params.orderId) {
-                    navigation.navigate('OrderDetail', { orderId: route.params.orderId });
-                  } else {
-                    // fallback: just go back or show a message
+                // Get root navigation to properly navigate to nested tabs
+                const rootNav = navigation.getParent() || navigation;
+                
+                // Handle message type - navigate directly to ChatList
+                if (type === 'message' || category === 'message') {
+                  rootNav.navigate('Main', {
+                    screen: currentUserRole === 'buyer' ? 'BuyerTabs' : 'FarmerTabs',
+                    params: {
+                      screen: 'Chats'
+                    }
+                  });
+                  return;
+                }
+                
+                // Parse actionUrl to determine navigation
+                if (actionUrl) {
+                  // Handle request URLs: "request/ab9wvhr5I70mIvKxxJwi" or "/requests/ab9wvhr5I70mIvKxxJwi/"
+                  if (actionUrl.includes('request')) {
+                    // Navigate to Requests tab without any parameters
+                    rootNav.navigate('Main', {
+                      screen: currentUserRole === 'buyer' ? 'BuyerTabs' : 'FarmerTabs',
+                      params: {
+                        screen: 'Requests'
+                      }
+                    });
+                    return;
+                  }
+                  // Handle order URLs
+                  else if (actionUrl.includes('order')) {
+                    const orderIdMatch = actionUrl.match(/order[s]?\/([a-zA-Z0-9]+)/);
+                    const orderId = orderIdMatch ? orderIdMatch[1] : null;
+                    
+                    if (orderId) {
+                      rootNav.navigate('Main', {
+                        screen: currentUserRole === 'buyer' ? 'BuyerTabs' : 'FarmerTabs',
+                        params: {
+                          screen: 'OrderDetail',
+                          params: { orderId }
+                        }
+                      });
+                    }
+                  }
+                  // Handle product URLs
+                  else if (actionUrl.includes('product')) {
+                    const productIdMatch = actionUrl.match(/product[s]?\/([a-zA-Z0-9]+)/);
+                    const productId = productIdMatch ? productIdMatch[1] : null;
+                    
+                    if (productId) {
+                      rootNav.navigate('Main', {
+                        screen: currentUserRole === 'buyer' ? 'BuyerTabs' : 'FarmerTabs',
+                        params: {
+                          screen: 'ProductDetail',
+                          params: { productId }
+                        }
+                      });
+                    }
+                  }
+                  // Handle external URLs (http/https)
+                  else if (actionUrl.startsWith('http')) {
+                    Linking.openURL(actionUrl).catch(() => {
+                      Toast.show({
+                        type: 'error',
+                        text1: t('notificationsDetail.toast.couldNotOpenLink'),
+                        position: 'bottom',
+                        visibilityTime: 2000,
+                      });
+                    });
+                  }
+                  // Fallback
+                  else {
                     navigation.goBack();
                   }
-                } else if (type === 'promotion' && actionUrl) {
-                  // Open offer/action URL
-                  if (actionUrl.startsWith('http')) {
-                    // For React Native, use Linking
-                    // eslint-disable-next-line @typescript-eslint/no-var-requires
-                    const Linking = require('react-native').Linking;
-                    Linking.openURL(actionUrl);
+                } 
+                // Legacy handling based on type
+                else if (type === 'transaction') {
+                  if (route.params.orderId) {
+                    rootNav.navigate('Main', {
+                      screen: currentUserRole === 'buyer' ? 'BuyerTabs' : 'FarmerTabs',
+                      params: {
+                        screen: 'OrderDetail',
+                        params: { orderId: route.params.orderId }
+                      }
+                    });
+                  } else {
+                    navigation.goBack();
                   }
-                } else if (type === 'update' && actionUrl) {
-                  // Open update URL (e.g., app store)
-                  // eslint-disable-next-line @typescript-eslint/no-var-requires
-                  const Linking = require('react-native').Linking;
-                  Linking.openURL(actionUrl);
                 } else if (type === 'request' && route.params.requestId) {
-                  // Navigate to request details
-                  navigation.navigate('RequestDetail', { requestId: route.params.requestId });
+                  // Navigate to Requests tab without any parameters
+                  rootNav.navigate('Main', {
+                    screen: currentUserRole === 'buyer' ? 'BuyerTabs' : 'FarmerTabs',
+                    params: {
+                      screen: 'Requests'
+                    }
+                  });
                 } else {
-                  // Default: just go back
                   navigation.goBack();
                 }
               }}
@@ -267,7 +346,8 @@ const NotificationDetail: React.FC<NotificationDetailProps> = ({ navigation, rou
                   type === 'transaction' ? 'cart-outline' :
                     type === 'promotion' ? 'gift-outline' :
                       type === 'update' ? 'arrow-up-circle-outline' :
-                        type === 'request' ? 'help-buoy-outline' : 'eye-outline'
+                        type === 'request' ? 'help-buoy-outline' :
+                          type === 'message' ? 'chatbubble-ellipses-outline' : 'eye-outline'
                 }
                 size={18}
                 color={Colors.light.textOnPrimary}
@@ -277,7 +357,8 @@ const NotificationDetail: React.FC<NotificationDetailProps> = ({ navigation, rou
                 {type === 'transaction' ? t('notificationsDetail.actions.viewOrder') :
                   type === 'promotion' ? t('notificationsDetail.actions.claimOffer') :
                     type === 'update' ? t('notificationsDetail.actions.updateNow') :
-                      type === 'request' ? t('notificationsDetail.actions.viewRequest') : t('notificationsDetail.actions.viewDetails')}
+                      type === 'request' ? t('notificationsDetail.actions.viewRequest') :
+                        type === 'message' ? t('notificationsDetail.actions.openChat') : t('notificationsDetail.actions.viewDetails')}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity

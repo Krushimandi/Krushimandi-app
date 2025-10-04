@@ -39,6 +39,7 @@ import { useRemoteConfig } from '../../hooks/useRemoteConfig';
 import { pushNotificationService } from '../../services/pushNotificationService';
 import { functions, httpsCallable } from '../../config/firebaseModular';
 import { setUserOnlineStatus } from '../../services/chatService';
+import useOfflineCapability from 'hooks/useOfflineCapability';
 // import { useIsConnected } from 'hooks/useNetworkStatus';
 
 const { width } = Dimensions.get('window');
@@ -60,6 +61,8 @@ const ProfileScreen: React.FC = () => {
   const { t } = useTranslation();
   type ProfileScreenNavigationProp = StackNavigationProp<RootStackParamList, 'ProfileScreen'>;
 
+
+  const { isOnline } = useOfflineCapability();
   const [isModalVisible, setIsModalVisible] = useState<boolean>(false);
   const navigation = useNavigation<ProfileScreenNavigationProp>();
   const [userProfile, setUserProfile] = useState<any>(null);
@@ -201,12 +204,12 @@ const ProfileScreen: React.FC = () => {
               // Set user offline before logout
               if (uid) {
                 try {
-                  // if (isOnline) {
-                  // } else {
-                  //   // Skip setting offline status manually
-                  //   // Server automatically sets user to offline after 10 minutes of inactivity
-                  // }
-                  await setUserOnlineStatus(uid, false);
+                  if (isOnline) {
+                    await setUserOnlineStatus(uid, false);
+                  } else {
+                    // Skip setting offline status manually
+                    // Server automatically sets user to offline after 10 minutes of inactivity
+                  }
                   console.log('✅ User status set to offline');
                 } catch (error) {
                   console.error('⚠️ Failed to set offline status:', error);
@@ -375,7 +378,7 @@ const ProfileScreen: React.FC = () => {
 
                         // 5. Force refresh local profile
                         await loadUserProfile();
-                        
+
                         setIsRoleSwitching(false);
                         Toast.show({ type: 'success', text1: t('toasts.roleSwitched', { role: roleLabel }), position: 'bottom' });
                         if (navigation.canGoBack()) {

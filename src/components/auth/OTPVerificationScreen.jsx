@@ -24,6 +24,7 @@ import Toast from 'react-native-toast-message';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
+import { HapticFeedback } from 'utils/haptics';
 
 const OTPVerificationScreen = ({ navigation, route }) => {
   const { phoneNumber, confirmation, setConfirmation, clearConfirmation } = useAuth();
@@ -65,6 +66,7 @@ const OTPVerificationScreen = ({ navigation, route }) => {
           ? 'Failed to resend OTP. Check network and try again'
           : 'Failed to verify code. Check network and try again';
       case 'auth/invalid-verification-code':
+        HapticFeedback.error();
         return 'Invalid verification code. Please check and try again.';
       case 'auth/session-expired':
       case 'auth/code-expired':

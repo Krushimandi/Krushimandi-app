@@ -741,7 +741,8 @@
       "promotion": "Promotions",
       "update": "Updates",
       "alert": "Alerts",
-      "request": "Requests"
+      "request": "Requests",
+      "message": "Messages"
     },
     "offer": {
       "coupon": "Coupon",
@@ -808,6 +809,7 @@
       "claimOffer": "Claim Offer",
       "updateNow": "Update Now",
       "viewRequest": "View Request",
+      "openChat": "Open Chat",
       "viewDetails": "View Details",
       "dismiss": "Dismiss",
       "viewCompleteOrder": "View Complete Order"
@@ -818,6 +820,10 @@
       "date": "Date",
       "status": "Status",
       "confirmed": "Confirmed"
+    },
+    "toast": {
+      "navigatingToRequest": "Opening request details...",
+      "couldNotOpenLink": "Could not open the link"
     }
   }
   ,
@@ -861,6 +867,14 @@
       "typing": "typing...",
       "activeNow": "Active now",
       "lastSeenRecently": "Last seen recently",
+      "lastSeenJustNow": "Last seen just now",
+      "lastSeenMinutesAgo": "Last seen {{minutes}}m ago",
+      "lastSeenHoursAgo": "Last seen {{hours}}h ago",
+      "lastSeenToday": "Last seen today at {{time}}",
+      "lastSeenYesterday": "Last seen yesterday at {{time}}",
+      "lastSeenDay": "Last seen {{day}} at {{time}}",
+      "lastSeenDate": "Last seen {{month}} {{day}} at {{time}}",
+      "lastSeenDateYear": "Last seen {{month}} {{day}}, {{year}} at {{time}}",
       "sharingBlockedTitle": "Not allowed",
       "sharingBlockedBody": "Sharing phone numbers, email addresses, social handles (e.g., Instagram), WhatsApp links, or any links is not allowed in chat.",
       "noPhoneTitle": "No phone number",

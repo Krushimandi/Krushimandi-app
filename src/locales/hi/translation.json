@@ -834,6 +834,14 @@
       "typing": "टाइप कर रहा है…",
       "activeNow": "अभी सक्रिय",
       "lastSeenRecently": "आखिरी बार हाल ही में देखा गया",
+      "lastSeenJustNow": "अभी-अभी देखा गया",
+      "lastSeenMinutesAgo": "{{minutes}}मि पहले देखा गया",
+      "lastSeenHoursAgo": "{{hours}}घं पहले देखा गया",
+      "lastSeenToday": "आज {{time}} पर देखा गया",
+      "lastSeenYesterday": "कल {{time}} पर देखा गया",
+      "lastSeenDay": "{{day}} को {{time}} पर देखा गया",
+      "lastSeenDate": "{{month}} {{day}} को {{time}} पर देखा गया",
+      "lastSeenDateYear": "{{month}} {{day}}, {{year}} को {{time}} पर देखा गया",
       "sharingBlockedTitle": "अनुमति नहीं है",
       "sharingBlockedBody": "फोन नंबर, ईमेल पते, सोशल हैंडल (जैसे Instagram), WhatsApp लिंक या किसी भी लिंक को चैट में साझा करना अनुमति नहीं है।",
       "noPhoneTitle": "फोन नंबर नहीं",
@@ -1207,7 +1215,8 @@
       "promotion": "प्रमोशन्स",
       "update": "अपडेट्स",
       "alert": "अलर्ट्स",
-      "request": "अनुरोध"
+      "request": "अनुरोध",
+      "message": "संदेश"
     },
     "offer": {
       "coupon": "कूपन",
@@ -1272,6 +1281,7 @@
       "claimOffer": "ऑफ़र प्राप्त करें",
       "updateNow": "अभी अपडेट करें",
       "viewRequest": "अनुरोध देखें",
+      "openChat": "चैट खोलें",
       "viewDetails": "विवरण देखें",
       "dismiss": "बंद करें",
       "viewCompleteOrder": "पूरा ऑर्डर देखें"
@@ -1282,6 +1292,10 @@
       "date": "तारीख",
       "status": "स्थिति",
       "confirmed": "पुष्ट"
+    },
+    "toast": {
+      "navigatingToRequest": "अनुरोध विवरण खोल रहे हैं...",
+      "couldNotOpenLink": "लिंक नहीं खोल सके"
     }
   }
 }

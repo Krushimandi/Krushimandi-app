@@ -41,6 +41,7 @@ import { getLocationWithCache, getCurrentLocation, getFastLocation } from '../..
 import { initializeLocationCache } from '../../utils/locationCache';
 import { useTranslation } from 'react-i18next';
 import { NotificationBadge } from 'components/common';
+import { HapticFeedback } from 'utils/haptics';
 
 const fruitCategories = [
   { name: 'All Fruits', type: 'all', icon: null, labelKey: 'fruits.all' },
@@ -839,7 +840,7 @@ const FarmerHomeScreen = () => {
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
                   <Icon name="notifications-outline" size={24} color="#000" />
-                  <NotificationBadge style={{margin:8}} size="small" />
+                  <NotificationBadge style={{ margin: 8 }} size="small" />
                 </TouchableOpacity>
               </View>
 
@@ -1026,7 +1027,10 @@ const FarmerHomeScreen = () => {
                           productId: item.id,
                           product: item
                         })}
-                        onLongPress={() => markFruitAsSold(item)}
+                        onLongPress={() => {
+                          HapticFeedback.longPress();
+                          markFruitAsSold(item);
+                        }}
                       >
                         <View style={styles.fruitImageContainer}>
                           <Image
@@ -1171,18 +1175,18 @@ const FarmerHomeScreen = () => {
 
                           <View style={styles.historyStats}>
                             <View style={styles.historyStat}>
+                              <Icon name="location-outline" size={12} color="#757575" />
+                              <Text style={styles.historyStatText}>
+                                {formatLocation(item.location || {})}
+                              </Text>
+                            </View>
+                            <View style={styles.historyStat}>
                               <Icon name="eye-outline" size={12} color="#757575" />
                               <Text style={styles.historyStatText}>{item.views || 0} {t('farmerHome.viewsSuffix')}</Text>
                             </View>
                             <View style={styles.historyStat}>
                               <Icon name="heart-outline" size={12} color="#757575" />
                               <Text style={styles.historyStatText}>{item.likes || 0} {t('farmerHome.likesSuffix')}</Text>
-                            </View>
-                            <View style={styles.historyStat}>
-                              <Icon name="location-outline" size={12} color="#757575" />
-                              <Text style={styles.historyStatText}>
-                                {formatLocation(item.location || {})}
-                              </Text>
                             </View>
                           </View>
                         </View>
