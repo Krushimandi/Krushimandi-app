@@ -16,7 +16,8 @@ import EditProfileScreen from '../components/ProfileScreen/EditProfileScreen';
 import AboutScreen from '../components/ProfileScreen/AboutScreen';
 import { HelpScreen, HelpGuide, FaqDetail, PaymentSecurity, AppPlatform, BestPractices } from '../components/Help';
 import LanguagesScreen from '../components/ProfileScreen/LanguagesScreen';
-import PrivacyPolicyScreen from '../components/ProfileScreen/PrivacyPolicyScreen';
+import { TermsConditionScreen } from '../components/ProfileScreen';
+import PrivacyOnlyScreen from '../components/ProfileScreen/PrivacyOnlyScreen';
 import ChatListScreen from '../components/chat/ChatListScreen';
 import ChatDetailScreen from '../components/chat/ChatDetailScreen';
 // Navigation provider
@@ -31,6 +32,8 @@ import BuyerStack from './buyer/BuyerStack';
 import { RootStackParamList } from './types';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ProfileScreen from 'components/ProfileScreen/ProfileScreen';
+import UnderMaintenanceScreen from '../components/common/UnderMaintenanceScreen';
+import { useRemoteConfig } from '../hooks/useRemoteConfig';
 
 const RootStack = createStackNavigator<RootStackParamList>();
 
@@ -47,6 +50,7 @@ const AppNavigator: React.FC<AppNavigatorProps> = () => {
   const [navigationKey] = useState(0);
   const [mainStackKey, setMainStackKey] = useState(0); // force remount of role stack when role changes
   const insets = useSafeAreaInsets();
+  const rc = useRemoteConfig();
 
   // Primary auth listener
   useEffect(() => {
@@ -67,7 +71,7 @@ const AppNavigator: React.FC<AppNavigatorProps> = () => {
             setRole(null);
           }
         } catch (error) {
-          console.log('Error loading user profile:', error);
+          console.error('Error loading user profile:', error);
           setRole(null);
         }
       } else {
@@ -116,7 +120,7 @@ const AppNavigator: React.FC<AppNavigatorProps> = () => {
           return nextRole;
         });
       }
-    }, (err) => console.log('Firestore profile listener error:', err));
+    }, (err) => console.error('Firestore profile listener error:', err));
     return unsubscribe;
   }, [uid]);
 
@@ -130,6 +134,15 @@ const AppNavigator: React.FC<AppNavigatorProps> = () => {
   }, [isAuthenticated, hasRole, role]);
 
   if (initializing) return <LoadingScreen />;
+  if (rc.maintenanceMode) {
+    return (
+      <NavigationProvider>
+        <NavigationContainer ref={navigationRef}>
+          <UnderMaintenanceScreen />
+        </NavigationContainer>
+      </NavigationProvider>
+    );
+  }
   return (
     <NavigationProvider>
       <NavigationContainer
@@ -186,7 +199,8 @@ const AppNavigator: React.FC<AppNavigatorProps> = () => {
           <RootStack.Screen name="AppPlatform" component={AppPlatform} />
           <RootStack.Screen name="BestPractices" component={BestPractices} />
           <RootStack.Screen name="Languages" component={LanguagesScreen} />
-          <RootStack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
+          <RootStack.Screen name="TermsCondition" component={TermsConditionScreen} />
+          <RootStack.Screen name="PrivacyOnly" component={PrivacyOnlyScreen} />
           <RootStack.Screen name="ProfileScreen" component={ProfileScreen} />
           <RootStack.Screen name="BuyerProfile" component={BuyerProfileScreen} />
           <RootStack.Screen name="ChatList" component={ChatListScreen} />

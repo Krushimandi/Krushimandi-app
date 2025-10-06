@@ -1,0 +1,1369 @@
+{
+  "labels": {
+    "chooseLanguage": "Choose Language",
+    "unavailable": "Unavailable",
+    "home": "Home",
+    "requests": "Requests",
+    "chats": "Chats",
+    "profile": "Profile",
+    "new": "New",
+    "all": "All"
+  },
+  "language": {
+    "en": "English",
+    "hi": "Hindi",
+    "mr": "Marathi",
+    "bn": "Bengali",
+    "ta": "Tamil",
+    "te": "Telugu",
+    "gu": "Gujarati",
+    "kn": "Kannada"
+  },
+  "common": {
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "logout": "Logout",
+    "clear": "Clear",
+    "ok": "OK",
+    "error": "Error",
+    "success": "Success",
+    "next": "Next",
+    "back": "Back",
+    "wait": "Wait",
+    "loading": "Loading...",
+    "remove": "Remove",
+    "submit": "Submit Review",
+    "goBack": "Go Back"
+  },
+  "alerts": {
+    "errorTitle": "Error",
+    "profileNotLoaded": "User profile not loaded.",
+    "switchRoleTitle": "Switch Role",
+    "switchRoleConfirm": "Are you sure you want to switch your role to {{role}}?",
+    "logoutTitle": "Logout",
+    "logoutConfirm": "Are you sure you want to logout?",
+    "logoutFailed": "Failed to logout. Please try again.",
+    "navigationErrorTitle": "Navigation Error",
+    "navigationErrorMessage": "Cannot navigate to {{route}}. This screen may not be available.",
+    "userNotFound": "User not found",
+    "cannotSwitchTitle": "Active Listings Found",
+    "cannotSwitchDueToActive": "You have active listings as a Farmer. Please mark them as sold or inactive before switching to Buyer."
+  },
+  "settings": {
+    "sectionAccount": "Account",
+    "sectionPreferences": "App Preferences",
+    "sectionSupport": "Support & Info",
+    "sectionAccountActions": "Account Actions",
+    "editProfileTitle": "Edit Profile",
+    "editProfileSubtitle": "Update your personal information",
+    "switchRoleTitle": "Switch Role",
+    "switchRoleSubtitle": "Switch role to buyer/farmer",
+    "languageTitle": "Language",
+    "languageSubtitle": "Select your preferred language",
+    "logoutSubtitle": "Sign out of your account"
+  },
+  "toasts": {
+    "featureDisabled": "This feature is Disabled Currently.",
+    "profileMissing": "Profile missing",
+    "switchingRole": "Switching role...",
+    "roleSwitched": "Role switched to {{role}}",
+    "switchRoleFailed": "Failed to switch role",
+    "cannotSwitchRole": "Cannot switch role now",
+    "feedbackSent": "Feedback Sent",
+    "feedbackThanks": "Thank you for your feedback!",
+    "feedbackError": "Feedback Error",
+    "profileUpdated": "Profile Updated",
+    "profileUpdateFailed": "Profile Update Failed",
+    "switchRoleCheckFailed": "Could not verify listings",
+    "switchRoleBlocked": "Cannot switch role",
+    "activeListingsBlock": "Active farmer listings found. Mark them as sold or inactive first."
+  },
+  "validation": {
+    "title": "Validation Error",
+    "fixBeforeSave": "Please fix the errors before saving",
+    "phoneRequired": "Phone number is required",
+    "phoneInvalid": "Please enter a valid 10-digit phone number",
+    "firstNameRequired": "First name is required",
+    "firstNameMin": "First name must be at least 2 characters",
+    "lastNameRequired": "Last name is required",
+    "lastNameMin": "Last name must be at least 2 characters"
+  },
+  "profileEdit": {
+    "changePhotoHint": "Tap to change photo",
+    "firstNameLabel": "First Name",
+    "firstNamePlaceholder": "Enter your first name",
+    "lastNameLabel": "Last Name",
+    "lastNamePlaceholder": "Enter your last name",
+    "phoneLabel": "Phone Number",
+    "phonePlaceholder": "Enter your phone number",
+    "saveButton": "Save Changes",
+    "savingTitle": "Saving Profile...",
+    "savingSubtitle": "Please wait"
+  },
+  "feedback": {
+    "headerTitle": "Share Review",
+    "title": "How was your experience?",
+    "description": "Your review will help us improve our product and make it user friendly for more users.",
+    "placeholder": "Share feedback...",
+    "submit": "Submit Review"
+  },
+  "units": {
+    "ton_one": "ton",
+    "ton_other": "tons",
+    "perKg": "/kg"
+  },
+  "time": {
+    "justNow": "Just now",
+    "minutesAgo_short": "{{count}}m ago",
+    "hoursAgo_short": "{{count}}h ago",
+    "daysAgo_short": "{{count}}d ago",
+    "today": "Today",
+    "dayAgo": "1 day ago",
+    "daysAgo": "{{count}} days ago",
+    "weekAgo": "1 week ago",
+    "weeksAgo": "{{count}} weeks ago",
+    "monthAgo": "1 month ago",
+    "monthsAgo": "{{count}} months ago",
+    "yearAgo": "1 year ago",
+    "yearsAgo": "{{count}} years ago"
+  },
+  "at": "at",
+  "lastUpdated": "Last updated",
+  "roles": {
+    "farmer": "Farmer",
+    "buyer": "Buyer"
+  },
+  "profile": {
+    "headerTitle": "Profile",
+    "headerSubtitle": "Manage your profile"
+  },
+  "support": {
+    "helpCenterTitle": "Help Center",
+    "helpCenterSubtitle": "Get help and contact support",
+    "sendFeedbackTitle": "Send Feedback",
+    "sendFeedbackSubtitle": "Help us improve the app",
+    "TermsConditionTitle": "Privacy Policy",
+    "TermsConditionSubtitle": "Read our privacy policy",
+    "aboutTitle": "About App"
+  },
+  "helpGuide": {
+    "headerTitle": "Help & Support",
+    "faqTitle": "Frequently Asked Questions",
+    "faqContent": "Find answers to common questions about using KrushiMandi.",
+    "contactTitle": "Contact Support",
+    "contactContent": "Need help? Contact our support team for assistance.",
+    "userGuideTitle": "User Guide",
+    "userGuideContent": "Learn how to use all features of the KrushiMandi app."
+  },
+  "about": {
+    "version": "Version {{version}}",
+    "build": "Build {{build}}",
+    "callingVersion": "Calling version {{version}}",
+    "companyName": "Krushimandi Innovations PVT. LTD.",
+    "rights": "© {{year}} Krushimandi. All rights reserved."
+  },
+  "fruits": {
+    "all": "All Fruits",
+    "banana": "Banana",
+    "orange": "Orange",
+    "grape": "Grape",
+    "pomegranate": "Pomegranate",
+    "sweetLemon": "Sweet Lemon",
+    "apple": "Apple",
+    "mango": "Mango",
+    "generic": "fruits"
+  },
+  "sortLabels": {
+    "newest": "Newest First",
+    "oldest": "Oldest First",
+    "price_high": "Price: High to Low",
+    "price_low": "Price: Low to High",
+    "views": "Most Viewed",
+    "likes": "Most Liked",
+    "quantity": "Most Available",
+    "alphabetical": "A to Z"
+  },
+  "sortDescriptions": {
+    "newest": "Most recently added",
+    "oldest": "Earliest listings first",
+    "price_high": "Highest price first",
+    "price_low": "Lowest price first",
+    "views": "Popular listings first",
+    "likes": "Most appreciated listings",
+    "quantity": "Largest quantity first",
+    "alphabetical": "Alphabetical order"
+  },
+  "farmerHome": {
+    "greeting": "Namaste, {{name}}!",
+    "setYourLocation": "Set your Location",
+    "searchPlaceholder": "Search fruits, location...",
+    "searchInputLabel": "Search input",
+    "searchInputHint": "Enter keywords to search for fruits",
+    "sortButtonLabel": "Sort listings",
+    "sortButtonHint": "Tap to open sort options",
+    "sectionCategories": "Fruit Categories",
+    "sectionMyListings": "My Listings",
+    "resultsSuffix": "results",
+    "tabActive": "Active",
+    "tabHistory": "History",
+    "emptyActiveTitle": "No Active Listings",
+    "emptyActiveSub1": "You haven't listed any fruits yet.",
+    "emptyActiveSub2": "Start by adding your first fruit listing.",
+    "refresh": "Refresh",
+    "noResultsTitle": "No Results Found",
+    "noFruitsMatch": "No fruits match \"{{query}}\"",
+    "noCategoryFruitsFound": "No {{category}} fruits found",
+    "tryAdjusting": "Try adjusting your search or filters.",
+    "clearFilters": "Clear Filters",
+    "statusLive": "Live",
+    "unnamedFruit": "Unnamed Fruit",
+    "historyEmptyTitle": "No History Yet",
+    "historyEmptySub1": "Your past listings will appear here.",
+    "historyEmptySub2": "Start listing fruits to build your history.",
+    "noHistoryMatch": "No history matches \"{{query}}\"",
+    "noCategoryHistoryFound": "No {{category}} history found",
+    "viewsSuffix": "views",
+    "likesSuffix": "likes",
+    "sortModalTitle": "Sort By",
+    "reset": "Reset",
+    "loadingFruits": "Loading your fruits...",
+    "refreshTitle": "Loading fruits...",
+    "errorLoadingFruitsTitle": "Error Loading Fruits",
+    "errorLoadingFruitsMessage": "Unable to load your fruit listings. Please check your internet connection and try again.",
+    "ok": "OK",
+    "retry": "Retry",
+    "markAsSoldTitle": "Mark as Sold",
+    "markAsSoldMessage": "Are you sure you want to mark \"{{name}}\" as sold?",
+    "cancel": "Cancel",
+    "markAsSoldConfirm": "Mark as Sold",
+    "reactivateTitle": "Reactivate Listing",
+    "reactivateMessage": "Do you want to reactivate \"{{name}}\" listing?",
+    "reactivateConfirm": "Reactivate",
+    "soldOut": "Sold Out",
+    "expired": "Expired",
+    "locationModalTitle": "Location",
+    "locationPrivate": "Private",
+    "setLocation": "Set Location",
+    "noLocation": "No location set yet",
+    "locationUpdated": "Location Updated",
+    "updateFailedTitle": "Update Failed",
+    "updateFailedSubtitle": "Could not save location. Try again.",
+    "locationFailedTitle": "Location Failed",
+    "locationFailedSubtitle": "Unable to update location.",
+    "updating": "Updating…",
+    "updateLocation": "Update Location",
+    "refreshFailedTitle": "Refresh Failed",
+    "refreshFailedSubtitle": "Please try again later"
+    ,
+    "toast": {
+      "successTitle": "Success",
+      "errorTitle": "Error",
+      "statusSold": "Fruit marked as sold successfully!",
+      "statusInactive": "Fruit deactivated successfully!",
+      "statusActive": "Listing reactivated successfully!",
+      "statusUpdated": "Fruit updated successfully!",
+      "updateFailed": "Failed to update fruit status: {{message}}"
+    }
+  },
+  "buyerHome": {
+    "greeting": "Namaste, {{name}}!",
+    "setYourLocation": "Set your Location",
+    "searchPlaceholder": "Search fruits...",
+    "sectionCategories": "Categories",
+    "edit": "Edit",
+    "setPreferences": "Set Preferences",
+    "sectionAvailable": "Available Fruits",
+    "loadingTitle": "Loading Fruits...",
+    "loadingSubtitle": "Please wait while we fetch fresh fruits from farmers",
+    "emptyTitleNoMatch": "No Matching Fruits",
+    "emptyTitleNoPreferred": "No Preferred Fruits Available",
+    "emptyTitleNoFruits": "No Fruits Available",
+    "emptySubNoMatch": "Try adjusting your search or category filter",
+    "emptySubNoPreferred": "No fruits matching your preferences are currently available. Try updating your preferences.",
+    "emptySubNoFruits": "Fresh fruits will be listed here when farmers post them",
+    "filtersTitle": "Filters",
+    "refreshTitle": "Loading fresh fruits...",
+    "fromLocation": "from",
+    "availableQuantity": "Available quantity"
+  },
+  "filterModal": {
+    "title": "Filters",
+    "clear": "Clear",
+    "priceRange": "Price Range",
+    "freshProduce": "Fresh Produce",
+    "sort": "Sort",
+    "byLocation": "By Location",
+    "customerRating": "Customer Rating",
+    "features": {
+      "freshStock": "Fresh Stock",
+      "withImages": "With Images",
+      "availableNow": "Available Now"
+    },
+    "freshProduceOptions": {
+      "today": "Today",
+      "last2Days": "Last 2 days",
+      "lastWeek": "Last week",
+      "lastMonth": "Last month"
+    },
+    "sortOptions": {
+      "newestFirst": "Newest First"
+    },
+    "locationOptions": {
+      "sameCity": "Same City",
+      "sameDistrict": "Same District",
+      "sameState": "Same State"
+    },
+    "ratingOptions": {
+      "all": "All",
+      "fourPlus": "4+ Stars",
+      "threePlus": "3+ Stars",
+      "twoPlus": "2+ Stars",
+      "onePlus": "1+ Stars"
+    },
+    "filtersInfo": {
+      "applied": "{{count}} filter applied",
+      "appliedPlural": "{{count}} filters applied",
+      "noFilters": "No filters applied"
+    },
+    "applyButton": "Apply Filters"
+  },
+  "buyerProfile": {
+    "headerTitle": "Buyer Profile",
+    "loading": "Loading profile...",
+    "notFound": "Profile not found",
+    "infoTitle": "Info",
+    "cannotReviewOwn": "You cannot review your own profile",
+    "successTitle": "Success",
+    "reviewSubmitSuccess": "Review submitted successfully",
+    "shareTitle": "{{name}} - KrushiMandi",
+    "shareMessage": "Check out {{name}}'s profile on KrushiMandi - {{rating}}⭐ rated buyer with {{orders}} completed orders.",
+    "reviewsLabel": "reviews",
+    "noRatings": "No ratings yet",
+    "callBtn": "Call",
+    "messageBtn": "Message",
+    "reviewBtn": "Review",
+    "tabs": {
+      "about": "About",
+      "reviews": "Reviews",
+      "stats": "Stats"
+    },
+    "contact": {
+      "title": "Contact Information",
+      "notProvided": "Not provided"
+    },
+    "memberSince": "Member since",
+    "noReviewsTitle": "No reviews yet",
+    "noReviewsSubtitle": "Be the first to review this buyer",
+    "writeReview": "Write Review",
+    "showLess": "Show Less",
+    "showAllReviews": "Show All {{count}} Reviews",
+    "stats": {
+      "title": "Statistics",
+      "averageRating": "Average Rating",
+      "completedOrders": "Completed Orders",
+      "totalRequests": "Total Requests",
+      "reviews": "Reviews",
+      "performance": "Performance",
+      "orderCompletionRate": "Order Completion Rate",
+      "orders": "Orders",
+      "requests": "Requests"
+    },
+    "reviewingBuyer": "You're reviewing this buyer",
+    "ratingWords": {
+      "excellent": "Excellent",
+      "good": "Good",
+      "average": "Average",
+      "poor": "Poor",
+      "veryPoor": "Very Poor"
+    },
+    "shareThoughtsTitle": "Share your thoughts",
+    "shareThoughtsSubtitle": "Help other farmers by sharing your experience with this buyer",
+    "reviewPlaceholder": "Write your review here...",
+    "guidelines": {
+      "title": "Review Guidelines",
+      "honest": "Be honest and constructive",
+      "focus": "Focus on your experience",
+      "professional": "Keep it professional and respectful"
+    }
+  },
+  "product": {
+    "add": {
+      "headerTitle": "Add Fruit Listing",
+      "stepOfTotal": "Step {{step}} of {{total}}",
+      "complete": "Complete",
+      "labels": {
+        "fruitName": "Fruit Name",
+        "category": "Category",
+        "availableQuantity": "Available Quantity",
+        "availabilityDate": "Availability Date",
+        "farmLocation": "Farm Location",
+        "cityVillage": "City/Village",
+        "district": "District",
+        "state": "State",
+        "pincode": "Pincode",
+        "description": "Description"
+      },
+      "placeholders": {
+        "fruitName": "e.g. Alphonso Mango, Fuji Apple",
+        "city": "City name",
+        "district": "District",
+        "state": "State",
+        "pincode": "123456",
+        "description": "Describe your fruit quality, taste, harvesting details...",
+        "availabilityDate": "Select availability date"
+      },
+      "actions": {
+        "getLocation": "Get Location",
+        "getting": "Getting...",
+        "continue": "Continue to Photos",
+        "processing": "Processing...",
+        "formIncomplete": "Form incomplete"
+      },
+      "help": {
+        "allGoodAddPhotos": "All details look good! Let's add some photos"
+      },
+      "a11y": {
+        "selectFruitCategory": "Select fruit category",
+        "opensCategoryModal": "Opens category selection modal",
+        "selectAvailableQuantity": "Select available quantity",
+        "opensQuantityModal": "Opens quantity selection modal",
+        "selectAvailabilityDate": "Select availability date",
+        "opensDatePicker": "Opens date picker",
+        "getCurrentLocation": "Get current location",
+        "getLocationHint": "Automatically fills location fields using GPS",
+        "continueHint": "Proceeds to photo upload screen",
+        "incompleteHint": "Complete all required fields first",
+        "closeModal": "Close modal",
+        "selectCategoryOption": "Select {{name}}",
+        "selectQuantityOption": "Select {{name}} - {{desc}}"
+      },
+      "validation": {
+        "fruitNameRequired": "Fruit name is required",
+        "fruitNameMin": "Fruit name must be at least 2 characters",
+        "availabilityDateRequired": "Availability date is required",
+        "cityRequired": "City is required",
+        "districtRequired": "District is required",
+        "stateRequired": "State is required",
+        "pincodeRequired": "Pincode is required",
+        "pincodeInvalid": "Please enter a valid 6-digit pincode",
+        "descriptionRequired": "Description is required",
+        "descriptionMin": "Please provide a more detailed description (min 20 characters)"
+  },
+  "alerts": {
+        "completeFormTitle": "Please Complete Form",
+        "ok": "OK",
+        "authErrorTitle": "Authentication Error",
+        "loginToContinue": "Please login to continue"
+      },
+      "fields": {
+        "fruitName": "fruit name",
+        "description": "description",
+        "cityVillage": "city/village",
+        "district": "district",
+        "state": "state",
+        "pincode": "pincode"
+      },
+      "quantity": {
+        "desc": {
+          "small": "Small batch",
+          "medium": "Medium batch",
+          "large": "Large batch",
+          "veryLarge": "Very large",
+          "bulk": "Bulk order",
+          "commercial": "Commercial",
+          "industrial": "Industrial"
+        }
+      },
+      "characters": {
+        "minCharsLabel": "({{count}}/20 chars)",
+        "remaining": "{{remaining}} characters remaining"
+      },
+      "modals": {
+        "selectCategory": "Select Category",
+        "selectQuantity": "Select Quantity"
+      },
+      "location": {
+        "addressLookupFailed": "Address lookup failed - please enter manually",
+        "gpsOffTitle": "GPS is Off",
+        "gpsOffMessage": "Please enable GPS/Location Services in your device settings.",
+        "permissionRequiredTitle": "Location Permission Required",
+        "permissionRequiredMessage": "Please grant location permission in your device settings.",
+        "genericErrorTitle": "Location Error",
+        "genericErrorMessage": "Unable to get your location. Please fill location details manually.",
+        "fillManually": "Fill Manually",
+        "openSettings": "Open Settings",
+        "tryAgain": "Try Again"
+      }
+    },
+    "photo": {
+      "headerTitle": "Add Photos",
+      "title": "Add photos of {{name}}",
+      "uploading": "Uploading...",
+      "slotLabel": "Photo {{index}}",
+      "step": {
+        "twoOfThree": "Step 2 of 3"
+      },
+      "modal": {
+        "addPhoto": "Add Photo",
+        "editPhoto": "Edit Photo",
+        "chooseMethod": "Choose how you want to add your photo",
+        "camera": "Camera",
+        "cameraSub": "Take a new photo",
+        "gallery": "Gallery",
+        "gallerySub": "Choose existing",
+        "removePhoto": "Remove Photo"
+      },
+      "info": {
+        "zero": "Upload at least {{min}} photos to showcase your fruit quality and attract buyers.",
+        "uploading": "{{count}} photo(s) are uploading in background...",
+        "needMore": "Upload {{remaining}} more photo(s) to meet minimum requirement.",
+        "addMore": "Great! You can add {{remaining}} more photo(s) to showcase better.",
+        "perfect": "Perfect! Your fruit listing is complete with all photos.",
+        "default": "Upload photos to continue."
+      },
+      "alerts": {
+        "maxTitle": "All Photos Added",
+        "maxMessage": "You have added the maximum number of photos.",
+        "uploadingTitle": "Images Uploading",
+        "uploadingMessage": "Please wait for {{count}} image(s) to finish uploading before continuing.",
+        "moreRequiredTitle": "More Photos Required"
+      },
+      "errors": {
+        "selectFailed": "Failed to select image. Please try again.",
+        "noImage": "No image was selected. Please try again."
+      }
+    },
+    "price": {
+      "headerTitle": "Set Your Price",
+      "loading": {
+        "title": "Fetching market info...",
+        "subtitle": "Getting best price for you"
+      },
+      "categoryLabel": "Category:",
+      "enterPrice": "Enter Price",
+      "enterPricePlaceholder": "Enter price",
+      "priceLabel": "Price:",
+      "finish": "Finish",
+      "tip": "Tip: Enter a price that reflects the current market value.",
+      "validation": {
+        "validNumber": "Please enter a valid price.",
+        "min": "Minimum price is ₹{{min}}/kg.",
+        "max": "Maximum price is ₹{{max}}/kg."
+      },
+      "alerts": {
+        "selectTitle": "Please select a price",
+        "selectMessage": "Please select a price for your fruit.",
+        "invalidTitle": "Invalid price"
+      },
+      "success": {
+        "title": "Success!",
+        "message": "Your {{name}} has been listed at ₹{{price}}/kg!",
+        "button": "Great!"
+      },
+      "errors": {
+        "createFailed": "Failed to create fruit listing. Please try again."
+      }
+    },
+    "card": {
+      "priceLabel": "Price",
+      "categoryLabel": "Category",
+      "addToCart": "Add to cart",
+      "reviews": "{{count}} reviews",
+      "defaultName": "Mango Oranges",
+      "defaultShortDescription": "Sweet and juicy",
+      "placeholderLongDescription": "Mangoes have bright colors and tender flesh with sweet and sour flavors. They are a treasure chest of tropical fruits."
+    },
+    "detail": {
+      "headerTitle": "Product Details",
+      "errors": {
+        "noProduct": "Product information not found. Please try again."
+      },
+      "fallback": {
+        "loading": "Loading product information...",
+        "somethingWrong": "Something went wrong while loading product details."
+      },
+      "preview": {
+        "reset": "Reset",
+        "hint": "Pinch or Double-tap to zoom",
+        "counter": "{{current}} of {{total}}"
+      },
+      "placeholder": {
+        "title": "Fresh Product",
+        "subtitle": "Image coming soon",
+        "available": "AVAILABLE"
+      },
+      "pricePerKg": "Price per KG",
+      "bestPrice": "Best Price",
+      "stats": {
+        "views": "views",
+        "likes": "likes",
+        "requests": "requests"
+      },
+      "section": {
+        "description": "Description",
+        "details": "Product Details"
+      },
+      "labels": {
+        "fruitType": "Fruit Type",
+        "availabilityStatus": "Availability Status",
+        "availableQuantity": "Available Quantity",
+        "location": "Location",
+        "availabilityDate": "Availability Date",
+        "listedDate": "Listed Date"
+      },
+      "placeholders": {
+        "locationNA": "Location not available",
+        "notSpecified": "Not specified",
+        "availableNow": "Available now",
+        "unknown": "Unknown",
+        "exactLocationNote": "Exact location shared after order confirmation"
+      },
+      "alerts": {
+        "loginRequiredTitle": "Login Required",
+        "loginRequiredMessage": "Please login to send requests to farmers.",
+        "accessDeniedTitle": "Access Denied",
+        "accessDeniedMessage": "Only buyers can send requests to farmers.",
+        "invalidRequestTitle": "Invalid Request",
+        "invalidRequestMessage": "You cannot send a request for your own product.",
+        "alreadySentTitle": "Request Already Sent",
+        "alreadySentMessage": "You have already sent a request for this product. Please wait for the farmer to respond or check your requests in the Orders section.",
+        "checkErrorMessage": "Unable to check existing requests. Please try again."
+      },
+      "toast": {
+        "requestSentTitle": "Request Sent!",
+        "requestSentMessage": "Your request has been sent to {{name}}.",
+        "wishlistUpdateFailed": "Unable to update wishlist. Please try again."
+      },
+      "chat": {
+        "intro": "I am interested in your {{name}}. Can we connect?"
+      }
+    },
+    "farmerDetail": {
+      "headerTitle": "Product Overview",
+      "actions": {
+        "goBack": "Go Back",
+        "viewRequests": "View Requests",
+        "sold": "Sold",
+        "relist": "Relist Product",
+        "saveChanges": "Save Changes"
+      },
+      "stats": {
+        "views": "Views",
+        "requests": "Requests",
+        "daysAgo": "Days ago"
+      },
+      "section": {
+        "details": "Product Details",
+        "description": "Description"
+      },
+      "labels": {
+        "location": "Location",
+        "availableQuantity": "Available Quantity",
+        "fruitType": "Fruit Type",
+        "availabilityDate": "Availability Date",
+        "listedDate": "Listed Date",
+        "status": "Status",
+        "name": "Name",
+        "description": "Description",
+        "quantity": "Quantity",
+        "pricePerKg": "Price (per kg)"
+      },
+      "placeholders": {
+        "locationNA": "Location not available",
+        "notSpecified": "Not specified",
+        "selectAvailability": "Select availability date",
+        "productDescription": "Product Description",
+        "selectQuantity": "Select quantity",
+        "enterPrice": "Enter price"
+      },
+      "modals": {
+        "editTitle": "Edit Product"
+      },
+      "toast": {
+        "updated": "Product updated successfully!",
+        "markedSold": "Product marked as sold successfully!",
+        "deactivated": "Product deactivated successfully!",
+        "updatedGeneric": "Product updated"
+      },
+      "share": {
+        "title": "{{name}} - {{tagline}}",
+        "tagline": "Fresh from Farm",
+        "forSale": "{{name}} for Sale!",
+        "location": "Location: {{location}}",
+        "price": "Price: {{price}} {{perKg}}",
+        "quantity": "Quantity: {{quantity}}",
+        "type": "Type: {{type}}",
+        "description": "Description: {{description}}",
+        "available": "Available: {{date}}",
+        "availableNow": "Now",
+        "contact": "Contact for more details and bulk orders!",
+        "errorTitle": "Share Error",
+        "errorMessage": "Unable to share the product at the moment. Please try again."
+      },
+      "alerts": {
+        "markAsSoldTitle": "Mark as Sold",
+        "markAsSoldMessage": "This will hide your product from public view and move it to history.",
+        "cancel": "Cancel",
+        "markAsSold": "Mark as Sold",
+        "provideDetails": "Provide Details",
+        "saleCompletedTitle": "Sale Completed!",
+        "saleCompletedMessage": "Congratulations on your successful sale! Help us understand how this sale happened to improve our platform:",
+        "soldViaApp": "Sold via App Inquiry",
+        "soldDirect": "Sold Directly/Offline",
+        "soldLocalMarket": "Sold to Local Market",
+        "back": "Back",
+        "saleDetailsTitle": "Sale Details",
+        "saleQuantityTitle": "Sale Quantity",
+        "saleQuantityMessage": "What percentage of your {{available}} was sold?\n\nThis helps us provide better market insights.",
+        "saleRecordedTitle": "Sale Recorded Successfully!",
+        "saleRecordedMessage": "Thank you for the details!",
+        "done": "Done",
+        "partialSale": "Partial Sale",
+        "completeSale": "Complete Sale"
+      },
+      "errors": {
+        "notFound": "Product not found",
+        "updateFailed": "Failed to update product. Please try again."
+      },
+      "validation": {
+        "nameQuantityRequired": "Please provide a name and quantity."
+      }
+    }
+  }
+  ,
+  "notifications": {
+    "title": "Notifications",
+    "subtitle": "{{count}} notifications • {{unread}} unread",
+    "loading": "Loading notifications...",
+    "filters": {
+      "all": "All",
+      "unread": "Unread",
+      "transaction": "Transactions",
+      "promotion": "Promotions",
+      "update": "Updates",
+      "alert": "Alerts",
+      "request": "Requests",
+      "message": "Messages"
+    },
+    "offer": {
+      "coupon": "Coupon",
+      "valid": "Valid",
+      "version": "Version",
+      "request": "Request",
+      "status": "Status"
+    },
+    "section": {
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "earlier": "Earlier"
+    },
+    "emptyTitleAll": "No notifications",
+    "emptyTitleFilter": "No {{filter}} notifications",
+    "emptyMessageAll": "You don't have any notifications at the moment.",
+    "emptyMessageFilter": "You don't have any {{filter}} notifications right now.",
+    "buttons": {
+      "markAllAsRead": "Mark all as read",
+      "clearFilter": "Clear Filter",
+      "refresh": "Refresh",
+      "saveChanges": "Save Changes",
+      "signIn": "Sign In"
+    },
+    "settings": {
+      "title": "Notification Settings",
+      "pushTitle": "Push Notifications",
+      "pushDesc": "Receive notifications on your device",
+      "emailTitle": "Email Notifications",
+      "emailDesc": "Get updates in your inbox",
+      "transactionTitle": "Transaction Alerts",
+      "transactionDesc": "Notifications for payments and orders",
+      "promotionsTitle": "Promotions",
+      "promotionsDesc": "Deals, offers and discounts",
+      "updatesTitle": "Updates",
+      "updatesDesc": "App updates and new features"
+    },
+    "toast": {
+      "successTitle": "Success",
+      "allMarkedRead": "All notifications marked as read",
+      "preferencesSaved": "Preferences saved successfully",
+      "preferencesError": "Failed to save preferences"
+    },
+    "errors": {
+      "generic": "Something went wrong with notifications",
+      "authRequiredTitle": "Authentication Required",
+      "authRequiredMessage": "Please sign in to view your notifications"
+    }
+  }
+  ,
+  "notificationsDetail": {
+    "labels": {
+      "coupon": "Coupon",
+      "description": "Description",
+      "validity": "Validity",
+      "version": "Version",
+      "tip": "Tip",
+      "requestId": "Request ID",
+      "date": "Date",
+      "status": "Status"
+    },
+    "actions": {
+      "viewOrder": "View Order",
+      "claimOffer": "Claim Offer",
+      "updateNow": "Update Now",
+      "viewRequest": "View Request",
+      "openChat": "Open Chat",
+      "viewDetails": "View Details",
+      "dismiss": "Dismiss",
+      "viewCompleteOrder": "View Complete Order"
+    },
+    "order": {
+      "title": "Order Details",
+      "orderId": "Order ID",
+      "date": "Date",
+      "status": "Status",
+      "confirmed": "Confirmed"
+    },
+    "toast": {
+      "navigatingToRequest": "Opening request details...",
+      "couldNotOpenLink": "Could not open the link"
+    }
+  }
+  ,
+  "chat": {
+    "input": {
+      "placeholder": "Type your message...",
+      "accessibility": {
+        "inputLabel": "Message input field",
+        "inputHint": "Double tap to start typing",
+        "send": "Send message",
+        "sendDisabled": "Type a message to send"
+      }
+    },
+    "list": {
+      "title": "Chats",
+      "subtitle": "Stay connected with your buyers",
+      "searchPlaceholder": "Search chats",
+      "emptyTitle": "No Chats",
+      "emptySubtitle": "Start a conversation with your buyers to see chats here.",
+      "startChat": "Start Chat",
+      "typing": "Typing…",
+      "menu": {
+        "startNew": "Start New Chat",
+        "refresh": "Refresh",
+        "showAll": "Show All Chats",
+        "showUnread": "Show Unread Only",
+        "sortByName": "Sort by Name",
+        "sortByRecent": "Sort by Recent",
+        "markAllRead": "Mark All as Read",
+        "help": "Help Center"
+      },
+      "toast": {
+        "startWithRequestTitle": "Start with a Request",
+        "startWithRequestMessage": "First send a request to the farmer, then chat.",
+        "allMarkedRead": "All chats marked as read",
+        "markAllReadFailed": "Failed to mark all as read"
+      }
+    },
+    "detail": {
+      "unknownUser": "Unknown",
+      "typing": "typing...",
+      "activeNow": "Active now",
+      "lastSeenRecently": "Last seen recently",
+      "lastSeenJustNow": "Last seen just now",
+      "lastSeenMinutesAgo": "Last seen {{minutes}}m ago",
+      "lastSeenHoursAgo": "Last seen {{hours}}h ago",
+      "lastSeenToday": "Last seen today at {{time}}",
+      "lastSeenYesterday": "Last seen yesterday at {{time}}",
+      "lastSeenDay": "Last seen {{day}} at {{time}}",
+      "lastSeenDate": "Last seen {{month}} {{day}} at {{time}}",
+      "lastSeenDateYear": "Last seen {{month}} {{day}}, {{year}} at {{time}}",
+      "sharingBlockedTitle": "Not allowed",
+      "sharingBlockedBody": "Sharing phone numbers, email addresses, social handles (e.g., Instagram), WhatsApp links, or any links is not allowed in chat.",
+      "noPhoneTitle": "No phone number",
+      "noPhoneBody": "This user has no phone number available.",
+      "requestNotAcceptedTitle": "Request not accepted",
+      "requestNotAcceptedBody": "You can call once the farmer accepts your latest request.",
+      "cannotCallTitle": "Cannot start call",
+      "cannotCallBody": "Your device cannot open the phone dialer.",
+      "callFailedTitle": "Call failed",
+      "callFailedBody": "Unable to initiate the call.",
+      "a11y": {
+        "goBack": "Go back to previous screen",
+        "call": "Make voice call"
+      }
+    }
+  }
+  ,
+  "terms": {
+    "headerTitle": "Terms & Conditions",
+    "effectiveDateLabel": "Effective Date: {{date}}",
+    "lastUpdatedLabel": "Last Updated: {{date}}",
+    "intro": "Welcome to Krushimandi Innovation (“Krushimandi”). By accessing or using the mobile application and related services (“Platform” or “App”), you (“User”, “Farmer”, “Buyer”) agree to comply with and be bound by these Terms & Conditions (“Terms”). Please read carefully before using the Platform.",
+    "sections": {
+      "definitions": {
+        "title": "1. Definitions",
+        "items": [
+          { "term": "Platform / App", "desc": "Krushimandi Innovation mobile application and any related web services." },
+          { "term": "User", "desc": "Any person registering or using the Platform, including Farmers and Buyers." },
+          { "term": "Farmer Produce", "desc": "Agricultural produce listed by Farmers on the Platform." },
+          { "term": "Deal / Transaction", "desc": "Any negotiation, communication, or agreement initiated through the Platform." }
+        ]
+      },
+      "msme": {
+        "title": "2. MSME Registration & Official Status",
+        "points": [
+          "Krushimandi Innovation is currently registered as an MSME under Indian law.",
+          "All Platform operations are compliant with applicable MSME regulations."
+        ]
+      },
+      "roleDisclaimer": {
+        "title": "3. Platform Role & Disclaimer",
+        "points": [
+          "The Platform is only responsible for matchmaking Farmers with Buyers.",
+          "Krushimandi does not purchase, sell, own, or store any Farmer Produce.",
+          "All deals, payments, logistics, and quality inspections are solely between the Buyer and the Farmer.",
+          "The Platform does not assume responsibility for any misrepresentation, fraud, or disputes arising from user transactions.",
+          "Krushimandi may provide guidance, suggestions, or support to Users for connecting and communicating, but does not guarantee completion or success of any transaction."
+        ]
+      },
+      "userResponsibilities": {
+        "title": "4. User Responsibilities",
+        "points": [
+          "Provide accurate and truthful information during registration and while listing produce or sending requests.",
+          "Conduct transactions responsibly, verifying price, quality, and logistics before finalizing deals.",
+          "Use the chat feature for legitimate agricultural business purposes only.",
+          "Avoid sharing personal sensitive data outside the Platform (mobile numbers, bank info, etc.) unless legally necessary.",
+          "Follow all local, state, and central laws, including market regulations, mandi rules, and government norms."
+        ]
+      },
+      "paymentFraud": {
+        "title": "5. Payment & Fraud Rules",
+        "points": [
+          "Users are solely responsible for payments.",
+          "Krushimandi does not hold, process, or mediate payments.",
+          "Any fraud, default, or dispute related to payment is the responsibility of the users involved.",
+          "Users are advised to verify Buyer/Farmer credentials, negotiate transparently, and maintain proper documentation of deals.",
+          "Krushimandi reserves the right to report fraud or criminal activity to authorities if required."
+        ],
+        "riskAdvisoryTitle": "Risk Advisory:",
+        "riskPoints": [
+          "Transactions on the Platform involve real money and financial risk.",
+          "Users are expected to act responsibly and at their own risk.",
+          "The Platform cannot and does not guarantee protection against financial loss."
+        ]
+      },
+      "ownershipIP": {
+        "title": "6. Ownership & Intellectual Property",
+        "points": [
+          "Farmers retain full ownership of their produce listed on the Platform.",
+          "Krushimandi does not claim any rights or ownership over Farmer Produce.",
+          "The Platform itself, its design, logos, and content remain the intellectual property of Krushimandi Innovation."
+        ]
+      },
+      "prohibitedActivities": {
+        "title": "7. Prohibited Activities",
+        "points": [
+          "Provide false, misleading, or fraudulent information about produce, pricing, or identity.",
+          "Circumvent the Platform to directly negotiate outside the system for unfair advantage after connecting.",
+          "Send spam, abusive, or offensive messages to other users.",
+          "Attempt to hack, disrupt, or misuse the Platform in any manner."
+        ]
+      },
+      "riskAcknowledgment": {
+        "title": "8. Risk Acknowledgment",
+        "points": [
+          "By using the Platform, users acknowledge transactions carry inherent financial and logistical risks.",
+          "The Platform does not guarantee any profit, price, or delivery.",
+          "Users use the Platform at their own discretion and risk."
+        ]
+      },
+      "legalCompliance": {
+        "title": "9. Legal Compliance & Jurisdiction",
+        "points": [
+          "All disputes arising from transactions via the Platform will be subject to Aurangabad District Court, Maharashtra, as the sole jurisdiction.",
+          "Users agree to comply with all applicable Indian laws, including but not limited to MSME Act, Agricultural Produce Market Committee (APMC) regulations, and Indian Contract Act provisions."
+        ]
+      },
+      "termination": {
+        "title": "10. Termination of Access",
+        "points": [
+          "Krushimandi reserves the right to suspend or permanently block users who violate these Terms, engage in fraudulent or illegal activities, or misuse the Platform for purposes outside the scope of matchmaking."
+        ]
+      },
+      "amendments": {
+        "title": "11. Amendments",
+        "points": [
+          "Krushimandi may update these Terms periodically.",
+          "Users will be notified via app notification or email.",
+          "Continued use of the Platform after changes implies acceptance of the updated Terms."
+        ]
+      },
+      "limitation": {
+        "title": "12. Limitation of Liability",
+        "points": [
+          "Krushimandi is not liable for financial losses, disputes, or damages arising from transactions.",
+          "Krushimandi does not guarantee delivery, payment, or quality of Farmer Produce.",
+          "All services are provided \"as is\" without warranty."
+        ]
+      },
+      "acknowledgment": {
+        "title": "13. Acknowledgment",
+        "points": [
+          "By using the Krushimandi Platform, Users explicitly acknowledge and agree that they understand the risks of money and fraud, accept full responsibility for all transactions, and that the Platform is strictly a matchmaking service and does not interfere with ownership or payments."
+        ]
+      }
+    }
+  },
+  "privacy": {
+    "headerTitle": "Privacy Policy",
+    "title": "Privacy Policy – Krushimandi Innovation",
+    "effectiveDate": "Effective Date: {{date}}",
+    "intro": "Krushimandi Innovation (\"Krushimandi\") values your trust and is committed to protecting your personal information. This Privacy Policy explains what data we collect, how we use it, and what rights you have when using the Krushimandi mobile application (\"App\" or \"Platform\"). By using Krushimandi, you agree to this Policy.",
+    "sections": {
+      "infoCollect": {
+        "title": "1. Information We Collect",
+        "intro": "We collect information to connect farmers and buyers effectively and to keep the platform safe. The types of data include:",
+        "items": [
+          { "term": "Account Information", "desc": "Name, mobile number, password, profile details (Farmer or Buyer)." },
+          { "term": "Farmer Data", "desc": "Crop details, quality, quantity, and availability of produce." },
+          { "term": "Buyer Data", "desc": "Purchase requirements, negotiation preferences, and deal interests." },
+          { "term": "Device Information", "desc": "Mobile model, operating system, IP address, app version, and crash logs." },
+          { "term": "Usage Information", "desc": "Pages you visit, time spent, communication activity, and navigation behavior." }
+        ]
+      },
+      "howWeUse": {
+        "title": "2. How We Use Your Information",
+        "intro": "Your data is used to improve the platform and match you with the right parties. Specifically:",
+        "points": [
+          "To create and manage user accounts.",
+          "To connect farmers with buyers for potential deals.",
+          "To personalize recommendations and improve user experience.",
+          "To monitor app safety, detect suspicious activities, and prevent fraud.",
+          "To analyze trends and improve algorithms for better matchmaking.",
+          "To communicate updates, alerts, or policy changes."
+        ]
+      },
+      "ourRole": {
+        "title": "3. Our Role in Transactions",
+        "points": [
+          "Krushimandi does not buy or sell produce and claims no ownership over goods listed.",
+          "The platform only acts as a connector between farmers and buyers.",
+          "All negotiations, pricing, payments, and logistics are handled directly between users.",
+          "Krushimandi is not liable for fraud, delayed payments, poor quality produce, or disputes."
+        ]
+      },
+      "fraudDisclaimer": {
+        "title": "4. Fraud and Payment Disclaimer",
+        "points": [
+          "Users are responsible for verifying the authenticity of the parties they deal with.",
+          "Do not share unnecessary financial or personal details with unknown users.",
+          "Any fraud, misrepresentation, or payment default is strictly between Farmer and Buyer.",
+          "Krushimandi may suspend or restrict accounts involved in suspicious or illegal activities.",
+          "Serious fraud cases may be reported to law enforcement as required."
+        ]
+      },
+      "dataSecurity": {
+        "title": "5. Data Storage and Security",
+        "points": [
+          "Data is stored using secure, industry-standard practices.",
+          "While we take measures to safeguard your data, no online system is 100% secure.",
+          "Users must keep login details confidential and use the app responsibly.",
+          "If you suspect unauthorized access, report it immediately."
+        ]
+      },
+      "dataRetention": {
+        "title": "6. Data Retention",
+        "points": [
+          "Your data will be kept as long as your account is active or services are needed.",
+          "Some information may be retained for legal or compliance reasons even after account deletion.",
+          "Once no longer required, data will be anonymized or securely deleted."
+        ]
+      },
+      "jurisdiction": {
+        "title": "7. Legal Jurisdiction",
+        "points": [
+          "All disputes or legal cases related to Krushimandi will fall under the Aurangabad District Court, Maharashtra.",
+          "By using the app, you agree to submit to this jurisdiction."
+        ]
+      },
+      "changes": {
+        "title": "8. Changes to This Policy",
+        "points": [
+          "We may update this Privacy Policy when laws change or new features are added.",
+          "Important updates will be notified via the app or other communication methods.",
+          "Continued use of Krushimandi after updates means you accept the new policy."
+        ]
+      },
+      "contact": {
+        "title": "9. Contact Us",
+        "text": "For any concerns, feedback, or questions about this Privacy Policy, please reach out through the support details provided within the Krushimandi application."
+      }
+    }
+  },
+  "auth": {
+    "mobile": {
+      "title": "Verify your phone number",
+      "subtitle": "We'll send you a 6-digit verification code to confirm your identity",
+      "label": "Mobile Number",
+      "placeholder": "Enter mobile number",
+      "continue": "Continue",
+      "digits": "digits",
+      "help": {
+        "title": "Need Help?",
+        "tipsTitle": "Tips for entering your mobile number:",
+        "tip1": "Enter 10-digit Indian mobile number",
+        "tip2": "Your number is secure and verified",
+        "tip3": "You'll receive an SMS verification code"
+      },
+      "errors": {
+        "empty": "Please enter your mobile number",
+        "invalid": "Please enter a valid 10-digit mobile number",
+        "network": "Failed to send OTP. Check network and try again",
+        "tooMany": "Too many attempts. Please wait and try again",
+        "invalidPhone": "Invalid phone number. Please check and try again",
+        "quota": "OTP quota exceeded. Try again later",
+        "missingPhone": "Please enter a valid phone number",
+        "notAllowed": "Phone authentication is not enabled. Please contact support",
+        "invalidCode": "Invalid verification code. Please try again",
+        "invalidId": "Verification expired. Please request a new code",
+        "generic": "Failed to send OTP. Please try again"
+      }
+    },
+    "otp": {
+      "title": "We just sent an SMS",
+      "subtitle": "Enter the 6-digit code we sent to",
+      "consent": "By continuing, you agree to our Terms & Conditions and Privacy Policy.",
+      "consentA11y": "View Terms & Conditions and Privacy Policy",
+      "resendPrompt": "Didn't receive the code?",
+      "resendNow": "Resend code",
+      "resendIn": "Resend in {{time}}",
+      "autoVerifying": "Auto-Verifying...",
+      "verifyButton": "Verify Code",
+      "wait": "Wait {{time}}",
+      "editPhone": "Edit Phone",
+      "errors": {
+        "networkResend": "Failed to resend OTP. Check network and try again",
+        "networkVerify": "Failed to verify code. Check network and try again",
+        "invalidCode": "Invalid verification code. Please check and try again.",
+        "expired": "OTP has expired. Please request a new one.",
+        "tooMany": "Too many attempts. Please try again later.",
+        "sessionExpired": "Session expired. Please request a new OTP.",
+        "quota": "OTP quota exceeded. Try again later.",
+        "notAllowed": "Phone authentication is not enabled. Please contact support",
+        "genericResend": "Failed to resend OTP. Please try again",
+        "generic": "Invalid OTP. Please try again.",
+        "incomplete": "Please enter complete 6-digit OTP code"
+      },
+      "help": {
+        "title": "Need Help?",
+        "subtitle": "Having trouble with your code?"
+      },
+      "toast": {
+        "welcomeBack": "Welcome Back!",
+        "signedIn": "Signed in",
+        "continueSetup": "Continue setting up your profile",
+        "otpSentTitle": "OTP Sent",
+        "otpSentSub": "A new OTP has been sent to your phone."
+      }
+    },
+    "role": {
+      "title": "Choose your role",
+      "selectLine1": {
+        "prefix": "Select",
+        "suffix": "if you want to sell fruits"
+      },
+      "selectLine2": {
+        "prefix": "or",
+        "suffix": "if you want to purchase"
+      },
+      "getStarted": "Get started"
+    },
+    "intro": {
+      "title": "Introduce yourself",
+      "titleWithRole": "Introduce yourself as a {{role}}",
+      "subtitle": "Help us personalize your experience by sharing your name",
+      "addPhoto": "Add Profile Photo",
+      "changePhoto": "Change Profile Photo",
+      "personalInfo": "Personal Information",
+      "firstName": "First Name",
+      "lastName": "Last Name",
+      "businessType": "Business Type",
+      "selectBusinessType": "Select Business Type",
+      "businessTypes": {
+        "wholesaler": "Wholesaler",
+        "exporter": "Exporter",
+        "commission_agent": "Commission Agent",
+        "retailer": "Retailer",
+        "transporter": "Transporter"
+      },
+      "camera": "Camera",
+      "gallery": "Gallery",
+      "takeNew": "Take a new photo",
+      "chooseExisting": "Choose existing",
+      "removePhoto": "Remove Photo",
+      "help": {
+        "title": "Need Help?",
+        "text": "Enter your first and last name as you'd like them to appear in your profile. You can change this later in settings."
+      },
+      "authErrorTitle": "Authentication Error",
+      "authErrorSubtitle": "Your session has expired. Please sign in again.",
+      "roleMissing": "User role not found. Please select your role again.",
+      "syncErrorTitle": "Sync Error",
+      "saveFailed": "Failed to save user information. Please try again.",
+      "status": {
+        "uploadingPhoto": "Uploading photo...",
+        "photoUploaded": "Photo uploaded!",
+        "updatingProfile": "Updating profile...",
+        "savingCloud": "Saving to cloud...",
+        "savingLocal": "Saving locally...",
+        "complete": "Complete!",
+        "uploadingGeneric": "Uploading",
+        "finalizing": "Finalizing..."
+      }
+    },
+    "welcome": {
+      "welcomeTo": "Welcome to",
+      "description": "Connect farmers directly with buyers — create transparent pricing, reduce middleman costs, and build sustainable agricultural partnerships for better profits.",
+      "getStarted": "Get Started"
+    }
+  },
+  "requests": {
+      "title": {
+        "myRequests": "My Requests",
+        "receivedRequests": "Received Requests"
+      },
+      "subtitle": {
+        "count": "{{filtered}} of {{total}} requests"
+      },
+      "search": {
+        "placeholder": "Search products, farmers, locations..."
+      },
+      "filters": {
+        "all": "All",
+        "pending": "Pending",
+        "accepted": "Accepted",
+        "sold": "Sold",
+        "rejected": "Rejected",
+        "cancelled": "Cancelled",
+        "expired": "Expired"
+      },
+      "sort": {
+        "sortBy": "Sort by",
+        "date": "Date",
+        "alphabetical": "A-Z",
+        "quantity": "Quantity",
+        "price": "Price"
+      },
+      "statusInfo": {
+        "pending": "Expected response: 24-48 hours",
+        "responseTime": "Response time",
+        "hours": "hours",
+        "recently": "Recently",
+        "cancelled": "Request was cancelled by buyer",
+        "reason": "Reason"
+      },
+      "actions": {
+        "call": "Call",
+        "message": "Message",
+        "deleteRequest": "Delete Request",
+        "deleteConfirm": "Are you sure you want to delete this request?",
+        "delete": "Delete"
+      },
+      "toast": {
+        "deleted": "Request Deleted",
+        "deletedMessage": "Your request has been deleted successfully.",
+        "deleteFailed": "Failed to delete request. Please try again.",
+        "resent": "Request Resent",
+        "resentMessage": "Your request has been resent successfully.",
+        "resendFailed": "Failed to resend request. Please try again.",
+        "numberCopied": "Number Copied"
+      },
+      "contact": {
+        "unavailable": "Contact unavailable",
+        "phoneNotFound": "Farmer phone not found",
+        "invalid": "Invalid number",
+        "invalidMessage": "Phone number appears invalid.",
+        "unableToOpen": "Unable to open dialer",
+        "dialManually": "Please dial manually",
+        "copy": "Copy",
+        "callFailed": "Could not initiate call",
+        "farmerUnknown": "Farmer Unknown",
+        "noFarmerId": "Cannot find farmer ID for this request.",
+        "gettingInfo": "Getting Contact Info",
+        "fetching": "Fetching farmer contact details...",
+        "unavailableTitle": "Contact Information Unavailable",
+        "unavailableMessage": "Could not find a phone number for {{name}}.",
+        "farmer": "farmer",
+        "yourProduct": "your product",
+        "defaultMessage": "Hello {{name}}! I have a question about {{product}}.",
+        "composeMessage": "Compose Message",
+        "pasteMessage": "Paste the prepared message you copied.",
+        "unableToOpenMessages": "Unable to Open Messages",
+        "phone": "Phone",
+        "copyNumber": "Copy Number",
+        "copyMessage": "Copy Message",
+        "messageFailed": "Could not open messaging app"
+      },
+      "chat": {
+        "unavailable": "Chat unavailable",
+        "tryAgain": "Please try again in a moment."
+      },
+      "item": {
+        "unknownProduct": "Unknown Product",
+        "unknownFarmer": "Unknown Farmer",
+        "unknownBuyer": "Unknown Buyer",
+        "priceNotAvailable": "Price not available",
+        "ton": "ton"
+      },
+      "location": {
+        "unknown": "Unknown Location"
+      },
+      "empty": {
+        "noMatching": "No matching requests",
+        "noRequests": "No requests found",
+        "tryAdjusting": "Try adjusting your search or filters",
+        "startSending": "Start by sending requests to farmers",
+        "buyersWillSend": "Buyers will send requests for your products"
+      },
+      "farmer": {
+        "title": "Requests",
+        "subtitle": "{{filtered}} of {{total}} requests",
+        "subtitleWithProduct": "{{filtered}} requests for {{productName}}",
+        "searchPlaceholder": "Search buyers, products, locations...",
+        "manage": "Manage",
+        "done": "Done",
+        "selected": "{{count}} selected",
+        "bulkAccept": "Accept",
+        "bulkReject": "Reject",
+        "accept": "Accept",
+        "reject": "Reject",
+        "contact": "Contact",
+        "clearFilter": "Clear filter for \"{{productName}}\"",
+        "showAllRequests": "Show all requests",
+        "filterBadge": "{{productName}}",
+        "requested": "Requested:",
+        "yourPrice": "Your Price:",
+        "buyerMessage": "Message :",
+        "buyerMessageLabel": "Buyer Message",
+        "noMessageProvided": "No message provided",
+        "loadingRequests": "Loading requests...",
+        "requestAccepted": "Request Accepted",
+        "requestAcceptedMessage": "Request accepted successfully",
+        "requestRejected": "Request Rejected",
+        "requestRejectedMessage": "Request rejected successfully",
+        "requestsAccepted": "Requests Accepted",
+        "requestsAcceptedMessage": "{{count}} requests accepted successfully",
+        "requestsRejected": "Requests Rejected",
+        "requestsRejectedMessage": "{{count}} requests rejected successfully",
+        "errorTitle": "Error",
+        "errorAccept": "Failed to accept request",
+        "errorReject": "Failed to reject request",
+        "errorBulkAccept": "Failed to accept requests",
+        "errorBulkReject": "Failed to reject requests",
+        "errorLoadingTitle": "Error Loading Requests",
+        "errorLoadingMessage": "Failed to load requests. Please try again.",
+        "emptyNoProduct": "No requests for {{productName}}",
+        "emptyNoProductSubtext": "This product hasn't received any requests yet",
+        "showAllButton": "Show all requests"
+      }
+    }
+}

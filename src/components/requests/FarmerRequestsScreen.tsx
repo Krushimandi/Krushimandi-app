@@ -24,6 +24,7 @@ import {
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NavigationProp, ParamListBase } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
+import { useTranslation } from 'react-i18next';
 import { useAuthState } from '../providers/AuthStateProvider';
 import { useRequests } from '../../hooks/useRequests';
 import { useTabBarControl } from '../../utils/navigationControls';
@@ -138,6 +139,7 @@ interface FilterButtonProps {
 }
 
 const FarmerRequestsScreen = ({ route }: { route?: any }) => {
+    const { t } = useTranslation();
     const navigation = useNavigation<NavigationProp<ParamListBase>>();
     const { showTabBar } = useTabBarControl();
     const { user } = useAuthState();
@@ -166,11 +168,11 @@ const FarmerRequestsScreen = ({ route }: { route?: any }) => {
     const effectiveProductName = isFilterCleared ? null : productName;
 
     const filters = [
-        // { label: 'All', value: 'all' as FilterCategory },
-        { label: 'Pending', value: 'pending' as FilterCategory },
-        { label: 'Accepted', value: 'accepted' as FilterCategory },
-        { label: 'Rejected', value: 'rejected' as FilterCategory },
-        { label: 'Expired', value: 'expired' as FilterCategory }
+        // { label: t('requests.filters.all'), value: 'all' as FilterCategory },
+        { label: t('requests.filters.pending'), value: 'pending' as FilterCategory },
+        { label: t('requests.filters.accepted'), value: 'accepted' as FilterCategory },
+        { label: t('requests.filters.rejected'), value: 'rejected' as FilterCategory },
+        { label: t('requests.filters.expired'), value: 'expired' as FilterCategory }
     ];
 
     // Only show non-cancelled requests in this screen
@@ -181,17 +183,15 @@ const FarmerRequestsScreen = ({ route }: { route?: any }) => {
     // Load requests when component mounts or user changes
     useEffect(() => {
         if (user?.uid && user?.role === 'farmer') {
-            console.log('🔄 Loading farmer requests for user:', user.uid);
             loadRequests();
         } else {
-            console.log('❌ User not ready or not a farmer:', { uid: user?.uid, role: user?.role });
+            // no-op when not a farmer
         }
     }, [user?.uid, user?.role]);
 
     // Reload requests when screen comes into focus
     useFocusEffect(
         useCallback(() => {
-            console.log('🎯 Screen focused - reloading requests');
             if (user?.uid && user?.role === 'farmer') {
                 loadRequests();
             }
@@ -208,22 +208,20 @@ const FarmerRequestsScreen = ({ route }: { route?: any }) => {
 
     const loadRequests = useCallback(async () => {
         try {
-            console.log('🔄 Starting to load farmer requests...');
-            const result = await loadFarmerRequests();
-            console.log('✅ Farmer requests loaded successfully:', result);
+            await loadFarmerRequests();
         } catch (error) {
             console.error('❌ Error loading farmer requests:', error);
             // Show user-friendly error message
             Toast.show({
                 type: 'error',
-                text1: 'Error Loading Requests',
-                text2: 'Failed to load requests. Please try again.'
+                position: 'bottom',
+                text1: t('requests.farmer.errorLoadingTitle'),
+                text2: t('requests.farmer.errorLoadingMessage')
             });
         }
     }, [loadFarmerRequests]);
 
     const onRefresh = useCallback(async () => {
-        console.log('🔄 Manual refresh triggered');
         setRefreshing(true);
         try {
             await loadRequests();
@@ -254,11 +252,8 @@ const FarmerRequestsScreen = ({ route }: { route?: any }) => {
     const handleBulkAccept = async () => {
         if (selectedRequests.length === 0) return;
 
-        console.log('🟢 Bulk accepting requests:', selectedRequests);
-
         try {
             for (const requestId of selectedRequests) {
-                console.log('🟢 Processing bulk accept for:', requestId);
                 const success = await respondToRequest({
                     requestId,
                     status: 'accepted'
@@ -271,17 +266,14 @@ const FarmerRequestsScreen = ({ route }: { route?: any }) => {
 
             setSelectedRequests([]);
             setIsManageMode(false);
-            Toast.show({
-                type: 'success',
-                text1: 'Requests Accepted',
-                text2: `${selectedRequests.length} requests accepted successfully`
-            });
+
         } catch (error) {
             console.error('❌ Error in bulk accept:', error);
             Toast.show({
                 type: 'error',
-                text1: 'Error',
-                text2: 'Failed to accept requests'
+                position: 'bottom',
+                text1: t('requests.farmer.errorTitle'),
+                text2: t('requests.farmer.errorBulkAccept')
             });
         }
     };
@@ -289,11 +281,8 @@ const FarmerRequestsScreen = ({ route }: { route?: any }) => {
     const handleBulkReject = async () => {
         if (selectedRequests.length === 0) return;
 
-        console.log('🔴 Bulk rejecting requests:', selectedRequests);
-
         try {
             for (const requestId of selectedRequests) {
-                console.log('🔴 Processing bulk reject for:', requestId);
                 const success = await respondToRequest({
                     requestId,
                     status: 'rejected'
@@ -306,17 +295,13 @@ const FarmerRequestsScreen = ({ route }: { route?: any }) => {
 
             setSelectedRequests([]);
             setIsManageMode(false);
-            Toast.show({
-                type: 'success',
-                text1: 'Requests Rejected',
-                text2: `${selectedRequests.length} requests rejected successfully`
-            });
         } catch (error) {
             console.error('❌ Error in bulk reject:', error);
             Toast.show({
                 type: 'error',
-                text1: 'Error',
-                text2: 'Failed to reject requests'
+                position: 'bottom',
+                text1: t('requests.farmer.errorTitle'),
+                text2: t('requests.farmer.errorBulkReject')
             });
         }
     };
@@ -324,66 +309,55 @@ const FarmerRequestsScreen = ({ route }: { route?: any }) => {
     // Direct response functions
     const handleDirectAccept = async (requestId: string) => {
         try {
-            console.log('🟢 Accepting request:', requestId);
             const success = await respondToRequest({
                 requestId,
                 status: 'accepted'
             });
 
-            if (success) {
-                console.log('✅ Request accepted successfully');
-                Toast.show({
-                    type: 'success',
-                    text1: 'Request Accepted',
-                    text2: 'Request accepted successfully'
-                });
-            } else {
-                console.log('❌ Request acceptance failed');
+            if (!success) {
                 Toast.show({
                     type: 'error',
-                    text1: 'Error',
-                    text2: 'Failed to accept request'
+                    position: 'bottom',
+                    text1: t('requests.farmer.errorTitle'),
+                    text2: t('requests.farmer.errorAccept')
                 });
             }
         } catch (error) {
             console.error('❌ Error accepting request:', error);
             Toast.show({
                 type: 'error',
-                text1: 'Error',
-                text2: 'Failed to accept request'
+                text1: t('requests.farmer.errorTitle'),
+                text2: t('requests.farmer.errorAccept')
             });
         }
     };
 
     const handleDirectReject = async (requestId: string) => {
         try {
-            console.log('🔴 Rejecting request:', requestId);
             const success = await respondToRequest({
                 requestId,
                 status: 'rejected'
             });
 
             if (success) {
-                console.log('✅ Request rejected successfully');
                 Toast.show({
                     type: 'success',
-                    text1: 'Request Rejected',
-                    text2: 'Request rejected successfully'
+                    text1: t('requests.farmer.requestRejected'),
+                    text2: t('requests.farmer.requestRejectedMessage')
                 });
             } else {
-                console.log('❌ Request rejection failed');
                 Toast.show({
                     type: 'error',
-                    text1: 'Error',
-                    text2: 'Failed to reject request'
+                    text1: t('requests.farmer.errorTitle'),
+                    text2: t('requests.farmer.errorReject')
                 });
             }
         } catch (error) {
             console.error('❌ Error rejecting request:', error);
             Toast.show({
                 type: 'error',
-                text1: 'Error',
-                text2: 'Failed to reject request'
+                text1: t('requests.farmer.errorTitle'),
+                text2: t('requests.farmer.errorReject')
             });
         }
     };
@@ -398,9 +372,9 @@ const FarmerRequestsScreen = ({ route }: { route?: any }) => {
 
     const handleViewMessage = (message: string) => {
         Alert.alert(
-            'Buyer Message',
+            t('requests.farmer.buyerMessageLabel'),
             message,
-            [{ text: 'OK' }]
+            [{ text: t('common.ok') }]
         );
     };
 
@@ -527,13 +501,13 @@ const FarmerRequestsScreen = ({ route }: { route?: any }) => {
                         {/* Quantity and Price */}
                         <View style={styles.quantityPriceRow}>
                             <View style={styles.quantitySection}>
-                                <Text style={styles.quantityLabel}>Requested:</Text>
+                                <Text style={styles.quantityLabel}>{t('requests.farmer.requested')}</Text>
                                 <Text style={styles.quantityValue}>
                                     {item.quantity ? formatRequestQuantity(item.quantity) : 'N/A'} {item.quantityUnit}
                                 </Text>
                             </View>
                             <View style={styles.priceSection}>
-                                <Text style={styles.priceLabel}>Your Price:</Text>
+                                <Text style={styles.priceLabel}>{t('requests.farmer.yourPrice')}</Text>
                                 <Text style={styles.priceValue}>
                                     {formatPrice(item.productSnapshot.price)}
                                 </Text>
@@ -543,7 +517,7 @@ const FarmerRequestsScreen = ({ route }: { route?: any }) => {
                         {/* Buyer Message */}
                         {item.message && (
                             <View style={styles.responseSection}>
-                                <Text style={styles.responseLabel}>Message :</Text>
+                                <Text style={styles.responseLabel}>{t('requests.farmer.buyerMessage')}</Text>
                                 {item.message ? (
                                     <View style={styles.messageRow}>
                                         <Icon name="mail-outline" size={14} color="#6B7280" />
@@ -551,7 +525,7 @@ const FarmerRequestsScreen = ({ route }: { route?: any }) => {
                                     </View>
                                 ) : (
                                     <Text style={styles.responseText}>
-                                        No message provided
+                                        {t('requests.farmer.noMessageProvided')}
                                     </Text>
                                 )}
                             </View>
@@ -569,7 +543,7 @@ const FarmerRequestsScreen = ({ route }: { route?: any }) => {
                                 >
                                     {/* hidden icon for better UI */}
                                     {/* <Icon name="checkmark" size={16} color="#FFFFFF" /> */}
-                                    <Text style={styles.actionButtonText}>Accept</Text>
+                                    <Text style={styles.actionButtonText}>{t('requests.farmer.accept')}</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity
                                     style={styles.rejectButton}
@@ -577,7 +551,7 @@ const FarmerRequestsScreen = ({ route }: { route?: any }) => {
                                 >
                                     {/* hidden icon for better UI */}
                                     {/* <Icon name="close" size={16} color="#FFFFFF" /> */}
-                                    <Text style={styles.actionButtonText}>Reject</Text>
+                                    <Text style={styles.actionButtonText}>{t('requests.farmer.reject')}</Text>
                                 </TouchableOpacity>
                             </>
                         )}
@@ -598,7 +572,7 @@ const FarmerRequestsScreen = ({ route }: { route?: any }) => {
                                 onPress={() => handleContactBuyer(item)}
                             >
                                 <Icon name="call-outline" size={16} color="#FFFFFF" />
-                                <Text style={styles.actionButtonText}>Contact</Text>
+                                <Text style={styles.actionButtonText}>{t('requests.farmer.contact')}</Text>
                             </TouchableOpacity>
                         )}
 
@@ -645,24 +619,30 @@ const FarmerRequestsScreen = ({ route }: { route?: any }) => {
         return (
             <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color={Colors.light.primary} />
-                <Text style={styles.loadingText}>Loading requests...</Text>
+                <Text style={styles.loadingText}>{t('requests.farmer.loadingRequests')}</Text>
             </View>
         );
     }
 
     return (
         <View style={styles.container}>
-            <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+            <StatusBar barStyle="dark-content" />
 
             {/* Header */}
             <View style={styles.header}>
                 <View style={styles.headerTop}>
                     <View style={styles.headerTitleSection}>
-                        <Text style={styles.headerTitle}>Requests</Text>
+                        <Text style={styles.headerTitle}>{t('requests.farmer.title')}</Text>
                         <Text style={styles.headerSubtitle}>
                             {effectiveFilterByProduct
-                                ? `${filteredRequests.length} requests for ${effectiveProductName}`
-                                : `${filteredRequests.length} of ${stats.total} requests`
+                                ? t('requests.farmer.subtitleWithProduct', {
+                                    filtered: filteredRequests.length,
+                                    productName: effectiveProductName
+                                })
+                                : t('requests.farmer.subtitle', {
+                                    filtered: filteredRequests.length,
+                                    total: stats.total
+                                })
                             }
                         </Text>
 
@@ -687,7 +667,7 @@ const FarmerRequestsScreen = ({ route }: { route?: any }) => {
                         onPress={toggleManageMode}
                     >
                         <Text style={[styles.manageButtonText, isManageMode && styles.manageButtonTextActive]}>
-                            {isManageMode ? 'Done' : 'Manage'}
+                            {isManageMode ? t('requests.farmer.done') : t('requests.farmer.manage')}
                         </Text>
                     </TouchableOpacity>
                 </View>
@@ -698,7 +678,7 @@ const FarmerRequestsScreen = ({ route }: { route?: any }) => {
                         <View style={styles.bulkActionsLeft}>
                             <Icon name="checkmark-circle" size={20} color={Colors.light.primary} />
                             <Text style={styles.bulkActionsLabel}>
-                                {selectedRequests.length} selected
+                                {t('requests.farmer.selected', { count: selectedRequests.length })}
                             </Text>
                         </View>
                         <View style={styles.bulkActions}>
@@ -707,14 +687,14 @@ const FarmerRequestsScreen = ({ route }: { route?: any }) => {
                                 onPress={handleBulkAccept}
                             >
                                 <Icon name="checkmark" size={16} color="#FFFFFF" />
-                                <Text style={styles.bulkActionText}>Accept</Text>
+                                <Text style={styles.bulkActionText}>{t('requests.farmer.bulkAccept')}</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                                 style={styles.bulkRejectButton}
                                 onPress={handleBulkReject}
                             >
                                 <Icon name="close" size={16} color="#FFFFFF" />
-                                <Text style={styles.bulkActionText}>Reject</Text>
+                                <Text style={styles.bulkActionText}>{t('requests.farmer.bulkReject')}</Text>
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -726,7 +706,7 @@ const FarmerRequestsScreen = ({ route }: { route?: any }) => {
                 <Icon name="search" size={20} color="#6B7280" />
                 <TextInput
                     style={styles.searchInput}
-                    placeholder="Search buyers, products, locations..."
+                    placeholder={t('requests.farmer.searchPlaceholder')}
                     value={searchQuery}
                     onChangeText={setSearchQuery}
                     placeholderTextColor="#9CA3AF"
@@ -748,9 +728,9 @@ const FarmerRequestsScreen = ({ route }: { route?: any }) => {
                         <Icon name="close-circle" size={16} color={Colors.light.primary} />
                         <View style={styles.clearFilterTextContainer}>
                             <Text style={styles.clearFilterText}>
-                                Clear filter for "{effectiveProductName}"
+                                {t('requests.farmer.clearFilter', { productName: effectiveProductName })}
                             </Text>
-                            <Text style={styles.showAllText}>Show all requests</Text>
+                            <Text style={styles.showAllText}>{t('requests.farmer.showAllRequests')}</Text>
                         </View>
                     </TouchableOpacity>
                 </View>
@@ -796,18 +776,18 @@ const FarmerRequestsScreen = ({ route }: { route?: any }) => {
                         <Icon name="document-text-outline" size={64} color="#D1D5DB" />
                         <Text style={styles.emptyText}>
                             {effectiveFilterByProduct
-                                ? `No requests for ${effectiveProductName}`
+                                ? t('requests.farmer.emptyNoProduct', { productName: effectiveProductName })
                                 : searchQuery || selectedFilter !== 'all'
-                                    ? 'No matching requests'
-                                    : 'No requests received'
+                                    ? t('requests.empty.noMatching')
+                                    : t('requests.empty.noRequests')
                             }
                         </Text>
                         <Text style={styles.emptySubtext}>
                             {effectiveFilterByProduct
-                                ? 'This product hasn\'t received any requests yet'
+                                ? t('requests.farmer.emptyNoProductSubtext')
                                 : searchQuery || selectedFilter !== 'all'
-                                    ? 'Try adjusting your search or filters'
-                                    : 'Buyers will send requests for your products'
+                                    ? t('requests.empty.tryAdjusting')
+                                    : t('requests.empty.buyersWillSend')
                             }
                         </Text>
                         {effectiveFilterByProduct && (
@@ -816,7 +796,7 @@ const FarmerRequestsScreen = ({ route }: { route?: any }) => {
                                 onPress={clearProductFilter}
                             >
                                 <Icon name="eye" size={16} color={Colors.light.primary} />
-                                <Text style={styles.showAllButtonText}>Show all requests</Text>
+                                <Text style={styles.showAllButtonText}>{t('requests.farmer.showAllButton')}</Text>
                             </TouchableOpacity>
                         )}
                     </View>

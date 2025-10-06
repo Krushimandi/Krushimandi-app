@@ -110,25 +110,19 @@ export const isAuthComplete = async () => {
   try {
     const user = auth.currentUser;
     if (!user) {
-      console.log('❌ No authenticated user found');
       return false;
     }
     
     // First validate if the user still exists on Firebase server
     const isValidUser = await validateCurrentUser();
     if (!isValidUser) {
-      console.log('❌ User validation failed in isAuthComplete');
       return false;
     }
     
     // Use the comprehensive validation function
     const validation = await validateUserProfileCompleteness(user.uid);
     
-    console.log('Auth completion check:', {
-      isComplete: validation.isComplete,
-      missingFields: validation.missingFields,
-      userRole: validation.userData?.userRole
-    });
+    
     
     return validation.isComplete;
   } catch (error) {

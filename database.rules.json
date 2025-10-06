@@ -2,6 +2,13 @@
   "rules": {
     ".read": false,
     ".write": false,
+    "status": {
+      "$uid": {
+        ".read": "auth != null",
+        ".write": "auth != null && auth.uid == $uid",
+        ".validate": "newData.hasChildren(['lastSeen']) && (newData.child('lastSeen').isString() || newData.child('lastSeen').isNumber())"
+      }
+    },
     "userChats": {
       "$uid": {
         ".read": "auth != null && auth.uid == $uid",
@@ -27,8 +34,7 @@
         "typing": {
           "$uid": {
             ".read": "auth != null && root.child('chats/'+$chatId+'/participants').val().hasAny([auth.uid])",
-            ".write": "auth != null && root.child('chats/'+$chatId+'/participants').val().hasAny([auth.uid]) && $uid == auth.uid",
-            ".validate": "newData.isBoolean()"
+            ".write": "auth != null && root.child('chats/'+$chatId+'/participants').val().hasAny([auth.uid]) && $uid == auth.uid"
           }
         }
       }

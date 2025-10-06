@@ -3,7 +3,7 @@
  * Modal for buyers to send requests to farmers
  */
 
-import React, { useState ,useEffect} from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -19,6 +19,7 @@ import {
 import Icon from 'react-native-vector-icons/Ionicons';
 import { Colors } from '../../constants';
 import { CreateRequestInput } from '../../types/Request';
+import { useTranslation } from 'react-i18next';
 
 
 
@@ -33,6 +34,7 @@ interface SendRequestModalProps {
     name: string;
     price: number;
     priceUnit: string;
+    availability_date: string; // ISO date string
     farmerName: string;
     quantity: [number, number];
   };
@@ -44,45 +46,174 @@ const SendRequestModal: React.FC<SendRequestModalProps> = ({
   onSend,
   product,
 }) => {
+  const { t, i18n } = useTranslation();
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [messageError, setMessageError] = useState<string>('');
+
+  // Comprehensive validation function for message content
+  const validateMessage = (text: string): { isValid: boolean; error: string } => {
+    if (!text.trim()) {
+      return { isValid: true, error: '' };
+    }
+
+    const trimmedText = text.trim().toLowerCase();
+
+    // Pattern 1: Check for phone numbers (various formats)
+    // Matches: 1234567890, +911234567890, 123-456-7890, (123) 456-7890, etc.
+    const phonePatterns = [
+      /\b\d{10,}\b/, // 10+ consecutive digits
+      /\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}\b/, // Phone format with separators
+      /\+?\d{1,3}[-.\s]?\d{10}\b/, // International format
+      /\(\d{3}\)\s*\d{3}[-.\s]?\d{4}/, // (123) 456-7890 format
+      /\b\d{5}[-.\s]?\d{5}\b/, // Indian mobile format
+      /\b[6-9]\d{9}\b/, // Indian mobile starting with 6-9
+    ];
+
+    for (const pattern of phonePatterns) {
+      if (pattern.test(text)) {
+        return { 
+          isValid: false, 
+          error: t('requests.errors.phoneNotAllowed', 'Phone numbers are not allowed in messages') 
+        };
+      }
+    }
+
+    // Pattern 2: Check for email addresses
+    const emailPattern = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/;
+    if (emailPattern.test(text)) {
+      return { 
+        isValid: false, 
+        error: t('requests.errors.emailNotAllowed', 'Email addresses are not allowed in messages') 
+      };
+    }
+
+    // Pattern 3: Check for URLs and links
+    const urlPatterns = [
+      /https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)/,
+      /www\.[a-zA-Z0-9-]+\.[a-zA-Z]{2,}/,
+      /\b[a-zA-Z0-9-]+\.com\b/i,
+      /\b[a-zA-Z0-9-]+\.in\b/i,
+      /\b[a-zA-Z0-9-]+\.(org|net|co|io)\b/i,
+    ];
+
+    for (const pattern of urlPatterns) {
+      if (pattern.test(text)) {
+        return { 
+          isValid: false, 
+          error: t('requests.errors.linksNotAllowed', 'Links and websites are not allowed in messages') 
+        };
+      }
+    }
+
+    // Pattern 4: Check for @ mentions or social media handles
+    if (/@\w+/.test(text)) {
+      return { 
+        isValid: false, 
+        error: t('requests.errors.socialMediaNotAllowed', 'Social media handles are not allowed') 
+      };
+    }
+
+    // Pattern 5: Check for contact-related keywords
+    const contactKeywords = [
+      'whatsapp', 'wa', 'telegram', 'call me', 'call', 'contact me', 
+      'my number', 'my phone', 'reach me', 'dm me', 'direct message',
+      'facebook', 'instagram', 'twitter', 'snapchat', 'messenger',
+      'gmail', 'yahoo', 'hotmail', 'outlook', 'email me',
+      'mob no', 'mobile no', 'phone no', 'contact no',
+      'व्हाट्सएप', 'कॉल', 'नंबर', 'संपर्क', // Hindi
+      'व्हाट्सअॅप', 'कॉल करा', 'नंबर', 'संपर्क', // Marathi
+    ];
+
+    for (const keyword of contactKeywords) {
+      if (trimmedText.includes(keyword)) {
+        return { 
+          isValid: false, 
+          error: t('requests.errors.contactInfoNotAllowed', 'Sharing contact information is not allowed') 
+        };
+      }
+    }
+
+    // Pattern 6: Check for excessive numbers (even if not a complete phone number)
+    const numberCount = (text.match(/\d/g) || []).length;
+    if (numberCount > 6) {
+      return { 
+        isValid: false, 
+        error: t('requests.errors.tooManyNumbers', 'Too many numbers detected in message') 
+      };
+    }
+
+    // Pattern 7: Check for identity disclosure attempts
+    const identityKeywords = [
+      'my name is', 'i am', 'call me', 'find me',
+      'मेरा नाम', 'मैं हूं', // Hindi
+      'माझे नाव', 'मी आहे', // Marathi
+    ];
+
+    for (const keyword of identityKeywords) {
+      if (trimmedText.includes(keyword)) {
+        return { 
+          isValid: false, 
+          error: t('requests.errors.identityDisclosureNotAllowed', 'Identity disclosure is not allowed') 
+        };
+      }
+    }
+
+    return { isValid: true, error: '' };
+  };
 
 
 
 
 
-// const [selectedQuantity, setSelectedQuantity] = useState(product.quantity[0]);
+  // const [selectedQuantity, setSelectedQuantity] = useState(product.quantity[0]);
 
-//   // useEffect(() => {
-//   //   setSelectedQuantity(product.quantity[0]);
-//   // }, [product]);
+  //   // useEffect(() => {
+  //   //   setSelectedQuantity(product.quantity[0]);
+  //   // }, [product]);
 
 
 
 
   // Format quantity range display
   const formatQuantityRange = (quantity: [number, number]) => {
+    const formatQty = (n: number) => `${n} ${t('units.ton', { count: n })}`;
     if (quantity[0] === 0 && quantity[1] === 0) {
-      return "0 tons";
+      return formatQty(0);
     }
     if (quantity[0] === quantity[1]) {
-      return `${quantity[0]} tons`;
+      return formatQty(quantity[0]);
     }
-    return `${quantity[0]}-${quantity[1]} tons`;
+    return `${formatQty(quantity[0])} - ${formatQty(quantity[1])}`;
   };
 
 
   const handleSend = async () => {
     const quantityRange = product.quantity;
-    
+
     if (quantityRange[0] <= 0 && quantityRange[1] <= 0) {
-      Alert.alert('Invalid Product', 'This product has no available quantity');
+      Alert.alert(
+        t('requests.noQuantityTitle', 'Invalid Product'),
+        t('requests.noQuantityMessage', 'This product has no available quantity')
+      );
       return;
+    }
+
+    // Validate message before sending
+    if (message.trim()) {
+      const validation = validateMessage(message);
+      if (!validation.isValid) {
+        Alert.alert(
+          t('alerts.errorTitle', 'Invalid Message'),
+          validation.error
+        );
+        return;
+      }
     }
 
     try {
       setLoading(true);
-      
+
       const request: CreateRequestInput = {
         productId: product.id,
         quantity: quantityRange,
@@ -93,12 +224,13 @@ const SendRequestModal: React.FC<SendRequestModalProps> = ({
 
 
       await onSend(request);
-      
+
       // Reset form
       setMessage('');
+      setMessageError('');
       onClose();
     } catch (error) {
-      Alert.alert('Error', 'Failed to send request. Please try again.');
+      Alert.alert(t('alerts.errorTitle', 'Error'), t('requests.sendError', 'Failed to send request. Please try again.'));
     } finally {
       setLoading(false);
     }
@@ -123,7 +255,7 @@ const SendRequestModal: React.FC<SendRequestModalProps> = ({
 
 
 
-  
+
   return (
     <Modal visible={visible} animationType="slide" transparent>
       <View style={styles.overlay}>
@@ -131,8 +263,8 @@ const SendRequestModal: React.FC<SendRequestModalProps> = ({
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.headerLeft}>
-              <Text style={styles.title}>Send Request</Text>
-              <Text style={styles.subtitle}>to {product.farmerName}</Text>
+              <Text style={styles.title}>{t('requests.sendRequestTitle', 'Send Request')}</Text>
+              <Text style={styles.subtitle}>{t('requests.toFarmer', { name: product.farmerName, defaultValue: `to ${product.farmerName}` })}</Text>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
               <Icon name="close" size={24} color="#6B7280" />
@@ -147,27 +279,32 @@ const SendRequestModal: React.FC<SendRequestModalProps> = ({
                 ₹{product.price}/{product.priceUnit}
               </Text>
               <Text style={styles.productQuantity}>
-                Available: {formatQuantityRange(product.quantity)}
+                {t('requests.availableFrom', 'Available from:')} {new Date(product.availability_date).toLocaleDateString(i18n.language === 'hi' ? 'hi-IN' : i18n.language === 'mr' ? 'mr-IN' : 'en-IN', {
+                  weekday: 'long',
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric'
+                })}
               </Text>
               <Text style={styles.farmerName}>
-                Farmer: {product.farmerName}
+                {t('requests.farmerLabel', 'Farmer:')} {product.farmerName}
               </Text>
             </View>
 
             {/* Request Info  */}
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Request Details</Text>
+              <Text style={styles.sectionTitle}>{t('requests.requestDetailsTitle', 'Request Details')}</Text>
               <View style={styles.requestInfo}>
-                <Text style={styles.requestLabel}>Quantity to Request:</Text>
+                <Text style={styles.requestLabel}>{t('requests.quantityToRequest', 'Quantity to Request:')}</Text>
                 <Text style={styles.requestValue}>{formatQuantityRange(product.quantity)}</Text>
                 <Text style={styles.requestNote}>
-                  You are requesting the full available quantity
+                  {t('requests.requestingFull', 'You are requesting the full available quantity')}
                 </Text>
               </View>
-            </View> 
+            </View>
 
 
-{/* 
+            {/* 
 
 
 <View style={styles.section}>
@@ -210,20 +347,33 @@ const SendRequestModal: React.FC<SendRequestModalProps> = ({
 
             {/* Message */}
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Message (Optional)</Text>
+              <Text style={styles.sectionTitle}>{t('requests.messageOptional', 'Message (Optional)')}</Text>
               <TextInput
-                style={styles.messageInput}
+                style={[
+                  styles.messageInput,
+                  messageError && styles.messageInputError
+                ]}
                 value={message}
-                onChangeText={(t) => {
-                  if (t.length <= 60) setMessage(t);
+                onChangeText={(text) => {
+                  if (text.length <= 60) {
+                    setMessage(text);
+                    const validation = validateMessage(text);
+                    setMessageError(validation.error);
+                  }
                 }}
-                placeholder="Add any specific requirements or notes... (max 60 chars)"
+                placeholder={t('requests.messagePlaceholder', 'Add any specific requirements or notes... (max 60 chars)')}
                 multiline
                 numberOfLines={4}
                 textAlignVertical="top"
                 placeholderTextColor="#9CA3AF"
                 maxLength={60}
               />
+              {messageError ? (
+                <View style={styles.errorRow}>
+                  <Icon name="alert-circle" size={16} color="#EF4444" />
+                  <Text style={styles.errorText}>{messageError}</Text>
+                </View>
+              ) : null}
               <View style={styles.charCounterRow}>
                 <Text style={styles.charCounterText}>{message.length}/60</Text>
               </View>
@@ -240,7 +390,7 @@ const SendRequestModal: React.FC<SendRequestModalProps> = ({
               ) : (
                 <>
                   <Icon name="paper-plane" size={20} color="#FFFFFF" />
-                  <Text style={styles.sendButtonText}>Send Request</Text>
+                  <Text style={styles.sendButtonText}>{t('requests.sendRequestButton', 'Send Request')}</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -415,6 +565,22 @@ const styles = StyleSheet.create({
     color: Colors.light.primary,
     minWidth: 60,
     textAlign: 'center',
+  },
+  messageInputError: {
+    borderColor: '#EF4444',
+    borderWidth: 1.5,
+  },
+  errorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+    gap: 6,
+  },
+  errorText: {
+    fontSize: 12,
+    color: '#EF4444',
+    fontWeight: '500',
+    flex: 1,
   },
 });
 

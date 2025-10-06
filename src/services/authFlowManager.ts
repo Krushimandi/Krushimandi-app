@@ -57,13 +57,13 @@ class AuthFlowManager {
    */
   async loadUserProfile(uid: string): Promise<UserProfile | null> {
     try {
-      console.log('📖 Loading user profile from Firestore:', uid);
+      
       
   const docRef = firestore.collection('profiles').doc(uid);
       const doc = await docRef.get();
       
       if (!doc.exists) {
-        console.log('❌ User profile not found in Firestore');
+        
         return null;
       }
 
@@ -102,13 +102,13 @@ class AuthFlowManager {
           updatedAt: profile.updatedAt?.toDate?.()?.toISOString() || new Date().toISOString(),
         });
       } else {
-        console.log('⚠️ Profile exists but missing userRole, will force role_selection.');
+        
       }
 
       // Persist to AsyncStorage for offline access
       await this.persistUserData(profile);
 
-      console.log('✅ User profile loaded and stored:', profile.userRole);
+      
       return profile;
     } catch (error) {
       console.error('❌ Failed to load user profile:', error);
@@ -138,7 +138,7 @@ class AuthFlowManager {
       };
 
       await AsyncStorage.setItem('userData', JSON.stringify(userData));
-      console.log('✅ User data persisted to AsyncStorage');
+      
     } catch (error) {
       console.error('❌ Failed to persist user data:', error);
     }
@@ -180,7 +180,7 @@ class AuthFlowManager {
       const profile = await this.loadUserProfile(user.uid);
       
       if (!profile) {
-        console.log('[AuthFlow] No profile document -> role_selection');
+        
         return {
           step: 'role_selection',
           isFirstLaunch: false,
@@ -192,7 +192,7 @@ class AuthFlowManager {
       }
 
       if (!profile.userRole) {
-        console.log('[AuthFlow] Profile loaded but userRole missing -> role_selection');
+        
         return {
           step: 'role_selection',
           isFirstLaunch: false,
@@ -258,7 +258,6 @@ class AuthFlowManager {
   async getNavigationRoute(): Promise<NavigationRoute> {
     const state = await this.getAuthFlowState();
     
-    console.log('🧭 Auth flow state:', state);
 
     switch (state.step) {
       case 'welcome':
@@ -304,7 +303,7 @@ class AuthFlowManager {
       const newState = { ...currentState, step };
       
       await AsyncStorage.setItem(this.FLOW_STATE_KEY, JSON.stringify(newState));
-      console.log('✅ Auth flow state updated:', step);
+      
     } catch (error) {
       console.error('❌ Failed to update flow state:', error);
     }
@@ -316,7 +315,7 @@ class AuthFlowManager {
   async markFirstLaunchComplete(): Promise<void> {
     try {
       await AsyncStorage.setItem(this.FIRST_LAUNCH_KEY, 'true');
-      console.log('✅ First launch marked as complete');
+      
     } catch (error) {
       console.error('❌ Failed to mark first launch complete:', error);
     }
@@ -351,7 +350,6 @@ class AuthFlowManager {
       const authStore = useAuthStore.getState();
       authStore.setUser(null);
       
-      console.log('✅ Auth flow cleared');
     } catch (error) {
       console.error('❌ Failed to clear auth flow:', error);
     }
@@ -362,7 +360,7 @@ class AuthFlowManager {
    */
   async handleOTPVerification(confirmation: any, otp: string): Promise<NavigationRoute> {
     try {
-      console.log('🔐 Verifying OTP and loading profile...');
+      
       
       // Confirm OTP
       const userCredential = await confirmation.confirm(otp);
@@ -374,7 +372,7 @@ class AuthFlowManager {
 
       // Try to load existing profile
       const profile = await this.loadUserProfile(user.uid);
-      console.log('📋 Loaded profile after OTP:', profile);
+      
       
       if (!profile || !profile.userRole) {
         await this.updateFlowState('role_selection');

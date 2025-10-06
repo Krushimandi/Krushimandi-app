@@ -28,7 +28,7 @@ const AppPlatform = ({ route, navigation }) => {
     }
   };
 
-   // Add a 'category' field to each FAQ
+  // Add a 'category' field to each FAQ
   const platformFaq = [
     {
       title: 'How to track my active and past listings?',
@@ -51,7 +51,7 @@ const AppPlatform = ({ route, navigation }) => {
       image: require('../../assets/help_center/mark-sold.jpg'),
       category: 'Settings',
     },
-   
+
     {
       title: 'How to enable or disable app notifications?',
       content:
@@ -74,13 +74,16 @@ const AppPlatform = ({ route, navigation }) => {
       title: item.title,
       content: item.content,
       image: item.image,
-      category: item.category, 
+      category: item.category,
     });
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#43B86C" translucent />
+      <StatusBar
+        barStyle="light-content"
+        backgroundColor="#43B86C"
+        translucent />
 
       {/* Header with same styling as HelpScreen */}
       <View style={styles.headerContainer}>
@@ -104,7 +107,7 @@ const AppPlatform = ({ route, navigation }) => {
         </View>
       </View>
 
-      <ScrollView 
+      <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
@@ -112,7 +115,7 @@ const AppPlatform = ({ route, navigation }) => {
         {/* FAQ Section */}
         <View style={styles.faqContainer}>
           <Text style={styles.sectionTitle}>{faqTitle}</Text>
-          
+
           <View style={styles.faqItems}>
             {faqList.map((item, index) => (
               <TouchableOpacity

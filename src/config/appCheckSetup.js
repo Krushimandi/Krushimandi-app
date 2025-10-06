@@ -23,19 +23,19 @@ export const initializeAppCheck = async () => {
           debugToken: '35515E03-8C57-424C-8D9B-FBC0E1856296'
         },
       });
-      console.log('[AppCheck] Using DEBUG provider');
+      
     } else if (Platform.OS === 'android') {
       // Prefer Play Integrity on Android in release
       provider.configure({
         android: { provider: 'playIntegrity' },
       });
-      console.log('[AppCheck] Using Play Integrity provider');
+      
     } else {
       // Conservative default on iOS: DeviceCheck (App Attest requires extra setup)
       provider.configure({
         apple: { provider: 'deviceCheck' },
       });
-      console.log('[AppCheck] Using DeviceCheck provider');
+      
     }
 
     await appCheckInstance.initializeAppCheck({
@@ -43,11 +43,11 @@ export const initializeAppCheck = async () => {
       isTokenAutoRefreshEnabled: true,
     });
 
-  console.log('[AppCheck] initializeAppCheck invoked – fetching token...');
+  
   // Use modular API to avoid deprecation warnings
   const tokenResult = await getAppCheckToken(appCheckInstance);
     if (tokenResult?.token) {
-      console.log('✅ [AppCheck] Token acquired (length):', tokenResult.token.length);
+      
     } else {
       console.warn('⚠️ [AppCheck] Token unavailable after initialization');
     }

@@ -32,6 +32,51 @@ async function fetchUserFcmTokens(uid) {
   return [];
 }
 
+// Fetch user notification preferences
+async function fetchUserPreferences(uid) {
+  try {
+    const snap = await db.collection('profiles').doc(uid).get();
+    if (snap.exists) {
+      const prefs = snap.data().notificationPreferences;
+      if (prefs && typeof prefs === 'object') return prefs;
+    }
+  } catch (_) {}
+  // Return defaults if not found
+  return {
+    pushNotifications: true,
+    emailNotifications: false,
+    transactionAlerts: true,
+    promotions: true,
+    updates: true,
+    soundEnabled: true,
+  };
+}
+
+// Check if user wants to receive this type of notification
+function shouldSendNotification(preferences, category) {
+  // Always send if pushNotifications is disabled completely
+  if (!preferences.pushNotifications) return false;
+  
+  // Map categories to preference keys
+  const categoryMap = {
+    'request': 'transactionAlerts',
+    'transaction': 'transactionAlerts',
+    'promo': 'promotions',
+    'promotion': 'promotions',
+    'update': 'updates',
+    'alert': 'transactionAlerts',
+    'message': 'transactionAlerts', // Chat messages use transactionAlerts preference
+  };
+  
+  const prefKey = categoryMap[category];
+  if (prefKey && preferences[prefKey] !== undefined) {
+    return preferences[prefKey];
+  }
+  
+  // Default to true for unknown categories
+  return true;
+}
+
 /**
  * Create a notification document with a consistent shape and optionally push FCM.
  */
@@ -62,6 +107,15 @@ async function createNotificationAndPush({
 
   if (sendPush) {
     try {
+      // Check user preferences before sending push
+      const preferences = await fetchUserPreferences(to);
+      const shouldSend = shouldSendNotification(preferences, category);
+      
+      if (!shouldSend) {
+        console.log(`Skipping push for user ${to}, category ${category} - disabled in preferences`);
+        return ref.id;
+      }
+      
       const tokens = await fetchUserFcmTokens(to);
       if (tokens.length) {
         // Chunk tokens to <= 500 per call

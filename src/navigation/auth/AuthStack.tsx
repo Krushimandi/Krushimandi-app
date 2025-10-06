@@ -35,7 +35,7 @@ const AuthNavigator = () => {
         // Use auth flow manager to determine initial route
         const route = await authFlowManager.resumeAuthFlow();
         
-        console.log('🚀 Auth flow determined route:', route);
+        
         
         if (mounted) {
           if (route.screen === 'Main') {
@@ -109,7 +109,7 @@ const AuthNavigator = () => {
 
 // Helper: Map currentStep to AuthStack screen
 export const getAuthScreen = (step: string) => {
-  console.log('Current Auth Step:', step);
+  
   switch (step) {
     case 'welcome':
       return 'Welcome';

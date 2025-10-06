@@ -2,6 +2,13 @@
  * Admin Auth Service
  * - Manage dashboard roles via custom claims
  * - Sync roles from Firestore users/{uid}
+exports.whoAmI = onCall(
+  { region: 'asia-south1' },
+  async (request) => {
+    const context = request;
+    return { uid: context?.auth?.uid || null, claims: context?.auth?.token || null };
+  }
+);from Firestore users/{uid}
  * - Provide helper to inspect caller claims
  */
 
@@ -34,34 +41,42 @@ function assertCallerIsAdmin(context) {
 }
 
 // Callable: set a dashboard role for a user (admin-only)
-exports.setDashboardUserRole = onCall(async (request) => {
-  const data = request.data;
-  const context = request;
-  assertCallerIsAdmin(context);
+exports.setDashboardUserRole = onCall(
+  { region: 'asia-south1' },
+  async (request) => {
+    const data = request.data;
+    const context = request;
+    assertCallerIsAdmin(context);
 
-  const { uid, role, active = true, profile = {} } = data || {};
-  if (!uid || !role) {
-  throw new HttpsError('invalid-argument', 'uid and role are required');
+    const { uid, role, active = true, profile = {} } = data || {};
+    if (!uid || !role) {
+      throw new HttpsError('invalid-argument', 'uid and role are required');
+    }
+
+    const claims = buildClaims(role, active);
+
+    await admin.auth().setCustomUserClaims(uid, claims);
+    await db
+      .collection('users')
+      .doc(uid)
+      .set(
+        { role, active: Boolean(active), updatedAt: admin.firestore.FieldValue.serverTimestamp(), ...profile },
+        { merge: true }
+      );
+
+    return { ok: true, uid, claims };
   }
-
-  const claims = buildClaims(role, active);
-
-  await admin.auth().setCustomUserClaims(uid, claims);
-  await db
-    .collection('users')
-    .doc(uid)
-    .set(
-      { role, active: Boolean(active), updatedAt: admin.firestore.FieldValue.serverTimestamp(), ...profile },
-      { merge: true }
-    );
-
-  return { ok: true, uid, claims };
-});
+);
 
 // Firestore trigger: keep claims in sync with users/{uid}
-exports.syncClaimsFromUsers = onDocumentWritten('users/{uid}', async (event) => {
-  const after = event.data?.after?.data() || null;
-  const ctx = { params: event.params };
+exports.syncClaimsFromUsers = onDocumentWritten(
+  {
+    document: 'users/{uid}',
+    region: 'asia-south1',
+  },
+  async (event) => {
+    const after = event.data?.after?.data() || null;
+    const ctx = { params: event.params };
     if (!after) return null;
     const role = (after.role || '').toString().toLowerCase();
     const active = after.active !== false;
@@ -73,7 +88,8 @@ exports.syncClaimsFromUsers = onDocumentWritten('users/{uid}', async (event) => 
       console.error('syncClaimsFromUsers error:', e);
       return null;
     }
-  });
+  }
+);
 
 // Helper: inspect caller’s claims
 exports.whoAmI = onCall(async (request) => {

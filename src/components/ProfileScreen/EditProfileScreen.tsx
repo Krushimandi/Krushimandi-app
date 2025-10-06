@@ -23,9 +23,11 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { updateUserInFirestore, getUserFromFirestore } from '../../services/firebaseService';
 import Toast from 'react-native-toast-message';
+import { useTranslation } from 'react-i18next';
 
 const EditProfileScreen = () => {
   const navigation = useNavigation();
+  const { t } = useTranslation();
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [uploading, setUploading] = useState<boolean>(false);
@@ -42,30 +44,30 @@ const EditProfileScreen = () => {
   const validatePhone = (phone: string) => {
     const phoneRegex = /^[0-9]{10}$/;
     if (!phone.trim()) {
-      return 'Phone number is required';
+      return t('validation.phoneRequired');
     }
     if (!phoneRegex.test(phone.replace(/\s/g, ''))) {
-      return 'Please enter a valid 10-digit phone number';
+      return t('validation.phoneInvalid');
     }
     return '';
   };
 
   const validateFirstName = (name: string) => {
     if (!name.trim()) {
-      return 'First name is required';
+      return t('validation.firstNameRequired');
     }
     if (name.trim().length < 2) {
-      return 'First name must be at least 2 characters';
+      return t('validation.firstNameMin');
     }
     return '';
   };
 
   const validateLastName = (name: string) => {
     if (!name.trim()) {
-      return 'Last name is required';
+      return t('validation.lastNameRequired');
     }
     if (name.trim().length < 2) {
-      return 'Last name must be at least 2 characters';
+      return t('validation.lastNameMin');
     }
     return '';
   };
@@ -120,7 +122,7 @@ const EditProfileScreen = () => {
     launchImageLibrary(
       {
         mediaType: 'photo',
-        quality: 0.7, // Compress to 70% quality
+        quality: 0.8, // Compress to 80% quality
         maxWidth: 500,
         maxHeight: 500,
       },
@@ -202,8 +204,8 @@ const EditProfileScreen = () => {
     if (!validateAllFields()) {
       Toast.show({
         type: 'error',
-        text1: 'Validation Error',
-        text2: 'Please fix the errors before saving',
+        text1: t('validation.title'),
+        text2: t('validation.fixBeforeSave'),
         visibilityTime: 2000,
         position: 'bottom',
       });
@@ -215,7 +217,7 @@ const EditProfileScreen = () => {
       const userDataString = await AsyncStorage.getItem('userData');
       const userData = userDataString ? JSON.parse(userDataString) : null;
       if (!userData?.uid || !userData?.userRole) {
-        Alert.alert('Error', 'User not found');
+        Alert.alert(t('alerts.errorTitle'), t('alerts.userNotFound'));
         setIsSaving(false);
         return;
       }
@@ -243,7 +245,7 @@ const EditProfileScreen = () => {
       );
       Toast.show({
         type: 'success',
-        text1: 'Profile Updated',
+        text1: t('toasts.profileUpdated'),
         visibilityTime: 1200,
         position: 'bottom',
       });
@@ -256,7 +258,7 @@ const EditProfileScreen = () => {
       console.error('Profile update failed:', error);
       Toast.show({
         type: 'error',
-        text1: 'Profile Update Failed',
+        text1: t('toasts.profileUpdateFailed'),
       });
     }
   };
@@ -297,8 +299,8 @@ const EditProfileScreen = () => {
           </TouchableOpacity>
 
           <View style={styles.headerTitleContainer}>
-            <Text style={styles.headerTitle}>Edit Profile</Text>
-            <Text style={styles.headerSubtitle}>Update your information</Text>
+            <Text style={styles.headerTitle}>{t('settings.editProfileTitle')}</Text>
+            <Text style={styles.headerSubtitle}>{t('settings.editProfileSubtitle')}</Text>
           </View>
         </View>
       </View>
@@ -335,13 +337,13 @@ const EditProfileScreen = () => {
                 </View>
               )}
             </View>
-            <Text style={styles.profileImageText}>Tap to change photo</Text>
+            <Text style={styles.profileImageText}>{t('profileEdit.changePhotoHint')}</Text>
           </View>
 
           {/* Form Section */}
           <View style={styles.formContainer}>
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>First Name</Text>
+              <Text style={styles.label}>{t('profileEdit.firstNameLabel')}</Text>
               <View style={[styles.inputContainer, firstNameError ? styles.inputError : {}]}>
                 <Ionicons name="person-outline" size={20} color="#64748B" style={styles.inputIcon} />
                 <TextInput
@@ -351,7 +353,7 @@ const EditProfileScreen = () => {
                     setFirstName(text);
                     if (firstNameError) setFirstNameError('');
                   }}
-                  placeholder="Enter your first name"
+                  placeholder={t('profileEdit.firstNamePlaceholder')}
                   placeholderTextColor="#94A3B8"
                   editable={!isSaving}
                 />
@@ -360,7 +362,7 @@ const EditProfileScreen = () => {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Last Name</Text>
+              <Text style={styles.label}>{t('profileEdit.lastNameLabel')}</Text>
               <View style={[styles.inputContainer, lastNameError ? styles.inputError : {}]}>
                 <Ionicons name="person-outline" size={20} color="#64748B" style={styles.inputIcon} />
                 <TextInput
@@ -370,7 +372,7 @@ const EditProfileScreen = () => {
                     setLastName(text);
                     if (lastNameError) setLastNameError('');
                   }}
-                  placeholder="Enter your last name"
+                  placeholder={t('profileEdit.lastNamePlaceholder')}
                   placeholderTextColor="#94A3B8"
                   editable={!isSaving}
                 />
@@ -379,7 +381,7 @@ const EditProfileScreen = () => {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Phone Number</Text>
+              <Text style={styles.label}>{t('profileEdit.phoneLabel')}</Text>
               <View style={[styles.inputContainer, phoneError ? styles.inputError : {}]}>
                 <Ionicons name="call-outline" size={20} color="#64748B" style={styles.inputIcon} />
                 <TextInput
@@ -390,7 +392,7 @@ const EditProfileScreen = () => {
                     if (phoneError) setPhoneError('');
                   }}
                   keyboardType="phone-pad"
-                  placeholder="Enter your phone number"
+                  placeholder={t('profileEdit.phonePlaceholder')}
                   placeholderTextColor="#94A3B8"
                   editable={!isSaving}
                 />
@@ -404,7 +406,7 @@ const EditProfileScreen = () => {
               onPress={handleSave}
               disabled={isSaving}
             >
-              <Text style={styles.saveText}>Save Changes</Text>
+              <Text style={styles.saveText}>{t('profileEdit.saveButton')}</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -420,8 +422,8 @@ const EditProfileScreen = () => {
         <View style={styles.loadingOverlay}>
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#43B86C" style={styles.loadingSpinner} />
-            <Text style={styles.loadingText}>Saving Profile...</Text>
-            <Text style={styles.loadingSubText}>Please wait</Text>
+            <Text style={styles.loadingText}>{t('profileEdit.savingTitle')}</Text>
+            <Text style={styles.loadingSubText}>{t('profileEdit.savingSubtitle')}</Text>
           </View>
         </View>
       </Modal>

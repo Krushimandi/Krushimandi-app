@@ -229,12 +229,7 @@ export class HttpErrorHandler {
         method: httpError.originalError.config?.method,
       });
     } else {
-      // In production, log only essential information
-      console.error('HTTP Error:', {
-        code: httpError.code,
-        status: httpError.status,
-        url: httpError.originalError.config?.url,
-      });
+      console.error('HTTP Error:', httpError.message);
     }
   }
 }

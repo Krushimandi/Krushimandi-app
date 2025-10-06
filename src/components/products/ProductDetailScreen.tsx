@@ -29,13 +29,18 @@ import { auth, firestore } from '../../config/firebaseModular';
 import { increment } from '@react-native-firebase/firestore';
 import { GestureHandlerRootView, Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Reanimated, { useSharedValue, useAnimatedStyle, withTiming, withSpring, runOnJS } from 'react-native-reanimated';
+import FastImage from 'react-native-fast-image';
 import { useRequests } from '../../hooks/useRequests';
 import { useAuthState } from '../providers/AuthStateProvider';
 import SendRequestModal from '../requests/SendRequestModal';
 import { CreateRequestInput } from '../../types/Request';
 import ErrorBoundary from '../common/ErrorBoundary';
+import { useTranslation } from 'react-i18next';
+import { HapticFeedback } from 'utils/haptics';
 
 const { width, height } = Dimensions.get('window');
+// Note: Avoid wrapping FastImage with Reanimated.createAnimatedComponent to prevent
+// potential getScrollableNode null errors in some RN/Reanimated versions.
 
 // Enhanced Product interface with proper typing
 interface Product extends Omit<Fruit, 'rating' | 'reviewCount'> {
@@ -74,6 +79,7 @@ type ProductDetailScreenProps = {
 };
 
 const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, route }) => {
+  const { t, i18n } = useTranslation();
   // Component mounted flag to prevent memory leaks
   const isMountedRef = useRef(true);
 
@@ -86,15 +92,15 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
 
     useEffect(() => {
       Alert.alert(
-        'Error',
-        routeValidation.error || 'Product information not found. Please try again.',
-        [{ text: 'OK', onPress: () => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('BuyerTabs' as never) }]
+        t('alerts.errorTitle', 'Error'),
+        t('product.detail.errors.noProduct', 'Product information not found. Please try again.'),
+        [{ text: t('common.ok', 'OK'), onPress: () => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('BuyerTabs' as never) }]
       );
-    }, [routeValidation.error, navigation]);
+    }, [routeValidation.error, navigation, t]);
 
     // Return minimal error component
     return (
-      <ErrorBoundary fallback={<Text>Error loading product details</Text>}>
+      <ErrorBoundary fallback={<Text>{t('product.detail.fallback.somethingWrong', 'Something went wrong while loading product details.')}</Text>}>
         <SafeAreaView style={styles.container}>
           <View style={styles.header}>
             <TouchableOpacity
@@ -103,11 +109,11 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
             >
               <Ionicons name="arrow-back" size={24} color="#007E2F" />
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>Product Details</Text>
+            <Text style={styles.headerTitle}>{t('product.detail.headerTitle', 'Product Details')}</Text>
             <View style={{ width: 40 }} />
           </View>
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-            <Text>Loading product information...</Text>
+            <Text>{t('product.detail.fallback.loading', 'Loading product information...')}</Text>
           </View>
         </SafeAreaView>
       </ErrorBoundary>
@@ -120,18 +126,18 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
   const product: Product = {
     // Use actual data - these should come from navigation params
     id: rawProduct.id || route?.params?.productId || 'unknown-id',
-    name: rawProduct.name || 'Unknown Product',
+    name: rawProduct.name || t('farmerHome.unnamedFruit', 'Unnamed Fruit'),
     type: rawProduct.type || 'unknown',
     // grade: rawProduct.grade || 'N/A', // disabled: grade not present in DB
-    description: rawProduct.description || 'No description available',
+    description: rawProduct.description || t('product.detail.placeholders.notSpecified', 'No description available'),
     quantity: rawProduct.quantity || [1, 1],
     price_per_kg: rawProduct.price_per_kg || rawProduct.price || 0,
     availability_date: rawProduct.availability_date || new Date().toISOString(),
     image_urls: rawProduct.image_urls || [],
     location: rawProduct.location || {
-      city: 'Unknown',
-      district: 'Unknown',
-      state: 'Unknown',
+      city: t('product.detail.placeholders.unknown', 'Unknown'),
+      district: t('product.detail.placeholders.unknown', 'Unknown'),
+      state: t('product.detail.placeholders.unknown', 'Unknown'),
       pincode: '000000',
       lat: 0,
       lng: 0
@@ -146,9 +152,9 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
     rating: rawProduct.rating || 4.0,
     reviewCount: rawProduct.reviewCount || 0,
     sizes: rawProduct.sizes || ['1 kg', '500 gm', '2 kg'],
-    details: rawProduct.details || `${rawProduct.name || 'Product'} from ${rawProduct.location ? formatLocation(rawProduct.location) : 'Unknown location'}`,
-    postedDate: rawProduct.postedDate || (rawProduct.created_at ? getRelativeTime(rawProduct.created_at) : 'Recently'),
-    farmer_name: 'Unknown Farmer', // Will be updated with farmerData later
+    details: rawProduct.details || `${rawProduct.name || t('farmerHome.unnamedFruit', 'Unnamed Fruit')} ${t('buyerHome.fromLocation', 'from')} ${rawProduct.location ? formatLocation(rawProduct.location) : t('product.detail.placeholders.locationNA', 'Location not available')}`,
+    postedDate: rawProduct.postedDate || (rawProduct.created_at ? getRelativeTime(rawProduct.created_at) : t('chats.detail.lastSeenRecently', 'Recently')),
+    farmer_name: `${t('chats.detail.unknownUser', 'Unknown')} ${t('roles.farmer', 'Farmer')}`,
     farmer_rating: rawProduct.farmer_rating || 4.0
   };
 
@@ -269,19 +275,28 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
 
   const hasMultipleImages = product.image_urls && product.image_urls.length > 1;
 
+  // Preload all product images once (hero high priority)
+  useEffect(() => {
+    if (!product.image_urls?.length) return;
+    try {
+      const sources = product.image_urls.map((uri: string, idx: number) => ({
+        uri,
+        priority: idx === 0 ? FastImage.priority.high : FastImage.priority.normal,
+        cache: FastImage.cacheControl.immutable,
+      }));
+      FastImage.preload(sources);
+    } catch { }
+  }, [product.image_urls]);
+
   // Prefetch neighboring images for smoother swipes inside preview
   useEffect(() => {
     if (!screenState.showImagePreview || !product.image_urls?.length) return;
     const total = product.image_urls.length;
     if (total < 2) return;
     const current = previewIndexState;
-    const prev = product.image_urls[(current - 1 + total) % total];
-    const next = product.image_urls[(current + 1) % total];
-    // Fire & forget prefetch (cache layer); ignore rejections silently
-    if (typeof Image?.prefetch === 'function') {
-      try { Image.prefetch(prev); } catch { }
-      try { Image.prefetch(next); } catch { }
-    }
+    const prevUri = product.image_urls[(current - 1 + total) % total];
+    const nextUri = product.image_urls[(current + 1) % total];
+    try { FastImage.preload([{ uri: prevUri, cache: FastImage.cacheControl.immutable }, { uri: nextUri, cache: FastImage.cacheControl.immutable }]); } catch { }
   }, [previewIndexState, screenState.showImagePreview, product.image_urls]);
 
   // Mini component: Zoomable single image with pinch + pan + double-tap reset (Gesture API version)
@@ -365,12 +380,17 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
       return (
         <GestureDetector gesture={gesture}>
           <Reanimated.View style={{ width, height, justifyContent: 'center', alignItems: 'center' }}>
-            <Pressable onPress={handleDoubleTap}>
-              <Reanimated.Image
-                source={{ uri }}
-                style={[{ width, height, resizeMode: 'contain' }, imgStyle]}
-              />
-            </Pressable>
+            {/* Animate a wrapper around the image to avoid animated FastImage ref issues */}
+            <Reanimated.View style={[{ width, height }, imgStyle]}>
+              <Pressable onPress={handleDoubleTap}>
+                <FastImage
+                  source={{ uri, priority: FastImage.priority.high, cache: FastImage.cacheControl.immutable }}
+                  style={{ width: '100%', height: '100%' }}
+                  resizeMode={FastImage.resizeMode.contain}
+                />
+              </Pressable>
+            </Reanimated.View>
+            {/* Overlays remain outside the transformed wrapper so they don't scale */}
             <TouchableOpacity
               onPress={resetZoom}
               activeOpacity={0.6}
@@ -745,6 +765,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
   };
 
   const handleWishlistToggle = async () => {
+    HapticFeedback.buttonPress();
     if (isWishlistLoading) return;
 
     console.log('🔄 Starting wishlist toggle for fruit:', product.id);
@@ -820,8 +841,8 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
 
       Toast.show({
         type: 'error',
-        text1: '❌ Wishlist Error',
-        text2: 'Unable to update wishlist. Please try again.',
+        text1: t('alerts.errorTitle', 'Error'),
+        text2: t('product.detail.toast.wishlistUpdateFailed', 'Unable to update wishlist. Please try again.'),
         position: 'bottom',
         visibilityTime: 3000,
       });
@@ -894,21 +915,22 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
 
   // Function to handle the product request
   const handleRequestProduct = async () => {
+    HapticFeedback.modal();
     // Check if user is authenticated and is a buyer
     if (!user) {
       Alert.alert(
-        "Login Required",
-        "Please login to send requests to farmers.",
-        [{ text: "OK" }]
+        t('product.detail.alerts.loginRequiredTitle', 'Login Required'),
+        t('product.detail.alerts.loginRequiredMessage', 'Please login to send requests to farmers.'),
+        [{ text: t('common.ok', 'OK') }]
       );
       return;
     }
 
     if (userRole !== 'buyer') {
       Alert.alert(
-        "Access Denied",
-        "Only buyers can send requests to farmers.",
-        [{ text: "OK" }]
+        t('product.detail.alerts.accessDeniedTitle', 'Access Denied'),
+        t('product.detail.alerts.accessDeniedMessage', 'Only buyers can send requests to farmers.'),
+        [{ text: t('common.ok', 'OK') }]
       );
       return;
     }
@@ -916,9 +938,9 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
     // Check if user is trying to request their own product
     if (user.uid === product.farmer_id) {
       Alert.alert(
-        "Invalid Request",
-        "You cannot send a request for your own product.",
-        [{ text: "OK" }]
+        t('product.detail.alerts.invalidRequestTitle', 'Invalid Request'),
+        t('product.detail.alerts.invalidRequestMessage', 'You cannot send a request for your own product.'),
+        [{ text: t('common.ok', 'OK') }]
       );
       return;
     }
@@ -930,9 +952,9 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
 
       if (hasExisting) {
         Alert.alert(
-          "Request Already Sent",
-          "You have already sent a request for this product. Please wait for the farmer to respond or check your requests in the Orders section.",
-          [{ text: "OK" }]
+          t('product.detail.alerts.alreadySentTitle', 'Request Already Sent'),
+          t('product.detail.alerts.alreadySentMessage', 'You have already sent a request for this product. Please wait for the farmer to respond or check your requests in the Orders section.'),
+          [{ text: t('common.ok', 'OK') }]
         );
         return;
       }
@@ -941,9 +963,9 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
     } catch (error) {
       console.error('❌ Error checking existing requests:', error);
       Alert.alert(
-        "Error",
-        "Unable to check existing requests. Please try again.",
-        [{ text: "OK" }]
+        t('alerts.errorTitle', 'Error'),
+        t('product.detail.alerts.checkErrorMessage', 'Unable to check existing requests. Please try again.'),
+        [{ text: t('common.ok', 'OK') }]
       );
       return;
     }
@@ -965,9 +987,9 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
 
         Toast.show({
           type: 'success',
-          text1: 'Request Sent!',
+          text1: t('product.detail.toast.requestSentTitle', 'Request Sent!'),
           position: 'bottom',
-          text2: `Your request has been sent to ${product.farmer_name || 'the farmer'}.`,
+          text2: t('product.detail.toast.requestSentMessage', { name: product.farmer_name || t('roles.farmer', 'the farmer') }),
           visibilityTime: 3000,
         });
 
@@ -977,7 +999,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
           const { buildChatId, ensureChatExists, sendMessage, fetchUserProfile, chatHasMessages } = await import('../../services/chatService');
 
           const buyerId = user?.uid;
-            // product.farmer_id already validated earlier when sending request
+          // product.farmer_id already validated earlier when sending request
           const farmerId = product.farmer_id;
           if (buyerId && farmerId && buyerId !== farmerId) {
             const chatId = buildChatId(buyerId, farmerId);
@@ -985,8 +1007,8 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
             // Best-effort fetch of participant meta so names/avatars appear immediately
             let buyerMeta: any = undefined;
             let farmerMeta: any = undefined;
-            try { buyerMeta = await fetchUserProfile(buyerId); } catch (_) {}
-            try { farmerMeta = await fetchUserProfile(farmerId); } catch (_) {}
+            try { buyerMeta = await fetchUserProfile(buyerId); } catch (_) { }
+            try { farmerMeta = await fetchUserProfile(farmerId); } catch (_) { }
 
             await ensureChatExists(chatId, [buyerId, farmerId], {
               ...(buyerMeta ? { [buyerId]: buyerMeta } : {}),
@@ -996,18 +1018,18 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
             // Only send intro message if chat currently has no prior messages
             const hasMsgs = await chatHasMessages(chatId);
             if (!hasMsgs) {
-              const fruitName = (product.name || (product as any).title || 'your produce').toString().trim();
-              const introMsg = `I am interested in your ${fruitName}. Can we connect?`;
+              const fruitName = (product.name || (product as any).title || t('product.detail.placeholder.title', 'Fresh Product')).toString().trim();
+              const introMsg = t('product.detail.chat.intro', { name: fruitName, defaultValue: `I am interested in your ${fruitName}. Can we connect?` });
               await sendMessage(chatId, buyerId, farmerId, introMsg);
             }
 
             // Navigate to ChatDetail screen with expected params
             try {
-              const displayMeta = farmerMeta || { displayName: (product as any).farmer_name || 'Farmer', profileImage: (product as any).farmer_profileImage || null };
+              const displayMeta = farmerMeta || { displayName: (product as any).farmer_name || t('roles.farmer', 'Farmer'), profileImage: (product as any).farmer_profileImage || null };
               (navigation as any).navigate('ChatDetail', {
                 chatId,
                 otherUid: farmerId,
-                name: displayMeta.displayName || 'Farmer',
+                name: displayMeta.displayName || t('roles.farmer', 'Farmer'),
                 avatarUri: displayMeta.profileImage || null,
               });
             } catch (navErr) {
@@ -1021,9 +1043,9 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
     } catch (error) {
       console.error('Error sending request:', error);
       Alert.alert(
-        'Error',
-        'Failed to send request. Please try again.',
-        [{ text: 'OK' }]
+        t('alerts.errorTitle', 'Error'),
+        t('requests.sendError', 'Failed to send request. Please try again.'),
+        [{ text: t('common.ok', 'OK') }]
       );
     }
   };
@@ -1053,15 +1075,15 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
           <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
             <Ionicons name="arrow-back" size={24} color="#007E2F" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Product Details</Text>
+          <Text style={styles.headerTitle}>{t('product.detail.headerTitle', 'Product Details')}</Text>
           <View style={{ width: 40 }} />
         </View>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
           <Text style={{ fontSize: 18, textAlign: 'center', marginBottom: 20 }}>
-            Something went wrong while loading product details.
+            {t('product.detail.fallback.somethingWrong', 'Something went wrong while loading product details.')}
           </Text>
           <TouchableOpacity onPress={handleBackPress} style={{ backgroundColor: '#007E2F', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 }}>
-            <Text style={{ color: 'white', fontWeight: 'bold' }}>Go Back</Text>
+            <Text style={{ color: 'white', fontWeight: 'bold' }}>{t('common.goBack', 'Go Back')}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -1081,7 +1103,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
             <Ionicons name="arrow-back" size={22} color="#000" />
           </TouchableOpacity>
 
-          <Text style={styles.modernHeaderTitle}>Product Details</Text>
+          <Text style={styles.modernHeaderTitle}>{t('product.detail.headerTitle', 'Product Details')}</Text>
           <View style={styles.headerActions}>
             <TouchableOpacity
               style={[
@@ -1125,22 +1147,11 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                   onPress={() => openImagePreview(selectedImageIndex)}
                   style={styles.heroImageContainer}
                 >
-                  <Image
-                    source={{ uri: product.image_urls[selectedImageIndex] }}
+                  <FastImage
+                    source={{ uri: product.image_urls[selectedImageIndex], priority: FastImage.priority.high, cache: FastImage.cacheControl.immutable }}
                     style={styles.heroProductImage}
-                    resizeMode="cover"
+                    resizeMode={FastImage.resizeMode.cover}
                   />
-                  {/* Quick Stats Overlay */}
-                  {/* <View style={styles.quickStatsOverlay}>
-                    <View style={styles.quickStat}>
-                      <Ionicons name="eye" size={14} color="#FFF" />
-                      <Text style={styles.quickStatText}>{currentViews}</Text>
-                    </View>
-                    <View style={styles.quickStat}>
-                      <Ionicons name="heart" size={14} color="#FFF" />
-                      <Text style={styles.quickStatText}>{currentLikes}</Text>
-                    </View>
-                  </View> */}
 
                   {/* Image Counter with Modern Design */}
                   {product.image_urls.length > 1 && (
@@ -1173,10 +1184,10 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                           onLongPress={() => openImagePreview(index)}
                           activeOpacity={0.8}
                         >
-                          <Image
-                            source={{ uri: item }}
+                          <FastImage
+                            source={{ uri: item, priority: FastImage.priority.low, cache: FastImage.cacheControl.immutable }}
                             style={styles.enhancedThumbnailImage}
-                            resizeMode="cover"
+                            resizeMode={FastImage.resizeMode.cover}
                           />
                           {selectedImageIndex === index && (
                             <View style={styles.thumbnailSelectionOverlay}>
@@ -1206,7 +1217,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                 {/* Status Badge */}
                 <View style={styles.enhancedStatusBadge}>
                   <View style={styles.statusPulse} />
-                  <Text style={styles.enhancedStatusText}>AVAILABLE</Text>
+                  <Text style={styles.enhancedStatusText}>{t('product.detail.placeholder.available', 'AVAILABLE')}</Text>
                 </View>
               </View>
             )}
@@ -1232,11 +1243,11 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                   <Ionicons name="pricetag" size={22} color="#4CAF50" />
                 </View>
                 <View style={styles.enhancedPriceInfo}>
-                  <Text style={styles.enhancedPriceLabel}>Price per KG</Text>
+                  <Text style={styles.enhancedPriceLabel}>{t('product.detail.pricePerKg', 'Price per KG')}</Text>
                   <Text style={styles.enhancedPrice}>₹{product.price_per_kg}</Text>
                 </View>
                 <View style={styles.priceBadge}>
-                  <Text style={styles.priceBadgeText}>Best Price</Text>
+                  <Text style={styles.priceBadgeText}>{t('product.detail.bestPrice', 'Best Price')}</Text>
                 </View>
               </View>
             </View>
@@ -1250,7 +1261,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                   </View>
                   <View style={styles.enhancedEngagementTextContainer}>
                     <Text style={styles.enhancedEngagementNumber}>{currentViews}</Text>
-                    <Text style={styles.enhancedEngagementLabel}>views</Text>
+                    <Text style={styles.enhancedEngagementLabel}>{t('product.detail.stats.views', 'views')}</Text>
                   </View>
                 </TouchableOpacity>
 
@@ -1292,7 +1303,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                       styles.enhancedEngagementLabel,
                       isWishlistLoading && { opacity: 0.6 }
                     ]}>
-                      likes
+                      {t('product.detail.stats.likes', 'likes')}
                     </Text>
                   </View>
                 </TouchableOpacity>
@@ -1312,7 +1323,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                         <Text style={[styles.enhancedEngagementNumber, { color: '#FF9800' }]}>
                           {requestCount}
                         </Text>
-                        <Text style={styles.enhancedEngagementLabel}>requests</Text>
+                        <Text style={styles.enhancedEngagementLabel}>{t('product.detail.stats.requests', 'requests')}</Text>
                       </View>
                     </TouchableOpacity>
                   </>
@@ -1340,7 +1351,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
             {product.description && (
               <>
                 <View style={styles.modernDetailSection}>
-                  <Text style={styles.modernSectionTitle}>Description</Text>
+                  <Text style={styles.modernSectionTitle}>{t('product.detail.section.description', 'Description')}</Text>
                   <Text style={styles.descriptionText}>{product.description}</Text>
                 </View>
                 <View style={styles.modernDivider} />
@@ -1349,7 +1360,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
 
             {/* Modern Product Details Grid */}
             <View style={styles.modernDetailSection}>
-              <Text style={styles.modernSectionTitle}>Product Details</Text>
+              <Text style={styles.modernSectionTitle}>{t('product.detail.section.details', 'Product Details')}</Text>
               <View style={styles.modernDetailsGrid}>
                 {/* Type (Grade disabled) */}
                 <View style={styles.modernDetailCard}>
@@ -1357,7 +1368,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                     <Ionicons name="leaf-outline" size={22} color="#007E2F" />
                   </View>
                   <View style={styles.modernDetailContent}>
-                    <Text style={styles.modernDetailLabel}>Fruit Type</Text>
+                    <Text style={styles.modernDetailLabel}>{t('product.detail.labels.fruitType', 'Fruit Type')}</Text>
                     <Text style={styles.modernDetailValue}>{product.type}</Text>
                   </View>
                 </View>
@@ -1377,7 +1388,9 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                     />
                   </View>
                   <View style={styles.modernDetailContent}>
-                    <Text style={styles.modernDetailLabel}>Availability Status</Text>
+                    <Text style={styles.modernDetailLabel}>
+                      {t('product.detail.labels.availabilityStatus', 'Availability Status')}
+                    </Text>
                     <Text style={[
                       styles.modernDetailValue,
                       {
@@ -1385,7 +1398,13 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                         fontWeight: '700'
                       }
                     ]}>
-                      {product.status?.charAt(0).toUpperCase() + product.status?.slice(1) || 'Active'}
+                      {(() => {
+                        const s = (product.status || 'active').toLowerCase();
+                        if (s === 'active') return t('farmerHome.tabActive', 'Active');
+                        if (s === 'sold' || s === 'sold_out' || s === 'soldout') return t('farmerHome.soldOut', 'Sold Out');
+                        if (s === 'expired') return t('farmerHome.expired', 'Expired');
+                        return t('farmerHome.tabActive', 'Active');
+                      })()}
                     </Text>
                   </View>
                 </View>
@@ -1396,7 +1415,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
 
             {/* Quantity Information */}
             <View style={styles.modernDetailSection}>
-              <Text style={styles.modernSectionTitle}>Available Quantity</Text>
+              <Text style={styles.modernSectionTitle}>{t('product.detail.labels.availableQuantity', 'Available Quantity')}</Text>
               <View style={styles.quantityCard}>
                 <View style={styles.quantityIconContainer}>
                   <Ionicons name="scale-outline" size={24} color="#007E2F" />
@@ -1405,7 +1424,9 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                   <Text style={styles.quantityText}>
                     {formatFruitQuantity(product.quantity)}
                   </Text>
-                  <Text style={styles.quantitySubtext}>Total available</Text>
+                  <Text style={styles.quantitySubtext}>
+                    {t('product.detail.labels.availableQuantity', 'Available Quantity')}
+                  </Text>
                 </View>
               </View>
             </View>
@@ -1414,7 +1435,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
 
             {/* Location Details - Modern with Privacy */}
             <View style={styles.modernDetailSection}>
-              <Text style={styles.modernSectionTitle}>Location Details</Text>
+              <Text style={styles.modernSectionTitle}>{t('product.detail.labels.location', 'Location')}</Text>
               <View style={styles.modernLocationCard}>
                 <View style={styles.locationIconContainer}>
                   <Ionicons name="location" size={24} color="#007E2F" />
@@ -1425,13 +1446,13 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                     {product.location.district}, {product.location.state}
                   </Text>
                   <Text style={styles.locationTertiary}>
-                    PIN: {product.location.pincode}
+                    {t('product.add.labels.pincode', 'Pincode')}: {product.location.pincode}
                   </Text>
                   {/* Privacy: Don't show exact coordinates to buyers */}
                   <View style={styles.locationPrivacyNote}>
                     <Ionicons name="shield-checkmark" size={14} color="#666666" />
                     <Text style={styles.privacyText}>
-                      Exact location shared after order confirmation
+                      {t('product.detail.placeholders.exactLocationNote', 'Exact location shared after order confirmation')}
                     </Text>
                   </View>
                 </View>
@@ -1442,14 +1463,18 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
 
             {/* Availability Information */}
             <View style={styles.modernDetailSection}>
-              <Text style={styles.modernSectionTitle}>Availability</Text>
+              <Text style={styles.modernSectionTitle}>
+                {t('product.detail.labels.availabilityDate', 'Availability Date')}
+              </Text>
               <View style={styles.availabilityCard}>
                 <View style={styles.availabilityRow}>
                   <Ionicons name="calendar-outline" size={20} color="#007E2F" />
                   <View style={styles.availabilityTextContainer}>
-                    <Text style={styles.availabilityLabel}>Available from</Text>
+                    <Text style={styles.availabilityLabel}>
+                      {t('requests.availableFrom', 'Available from:')}
+                    </Text>
                     <Text style={styles.availabilityValue}>
-                      {new Date(product.availability_date).toLocaleDateString('en-IN', {
+                      {new Date(product.availability_date).toLocaleDateString(i18n.language || 'en-IN', {
                         weekday: 'long',
                         year: 'numeric',
                         month: 'long',
@@ -1465,15 +1490,17 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
 
             {/* Timestamps */}
             <View style={styles.modernDetailSection}>
-              <Text style={styles.modernSectionTitle}>Listing Information</Text>
+              <Text style={styles.modernSectionTitle}>
+                {t('product.detail.labels.listedDate', 'Listed Date')}
+              </Text>
               <View style={styles.timestampCard}>
                 <View style={styles.timestampRow}>
                   <Ionicons name="add-circle-outline" size={20} color="#666666" />
                   <View style={styles.timestampTextContainer}>
-                    <Text style={styles.timestampLabel}>Created</Text>
+                    <Text style={styles.timestampLabel}>{t('product.detail.labels.listedDate', 'Listed Date')}</Text>
                     <Text style={styles.timestampValue}>
-                      {new Date(product.created_at).toLocaleDateString('en-IN')} at{' '}
-                      {new Date(product.created_at).toLocaleTimeString('en-IN', {
+                      {new Date(product.created_at).toLocaleDateString(i18n.language || 'en-IN')} {t('at', 'at')}{' '}
+                      {new Date(product.created_at).toLocaleTimeString(i18n.language || 'en-IN', {
                         hour: '2-digit',
                         minute: '2-digit'
                       })}
@@ -1483,10 +1510,10 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                 <View style={styles.timestampRow}>
                   <Ionicons name="create-outline" size={20} color="#666666" />
                   <View style={styles.timestampTextContainer}>
-                    <Text style={styles.timestampLabel}>Last updated</Text>
+                    <Text style={styles.timestampLabel}>{t('lastUpdated', 'Last updated')}</Text>
                     <Text style={styles.timestampValue}>
-                      {new Date(product.updated_at).toLocaleDateString('en-IN')} at{' '}
-                      {new Date(product.updated_at).toLocaleTimeString('en-IN', {
+                      {new Date(product.updated_at).toLocaleDateString(i18n.language || 'en-IN')} {t('at', 'at')}{' '}
+                      {new Date(product.updated_at).toLocaleTimeString(i18n.language || 'en-IN', {
                         hour: '2-digit',
                         minute: '2-digit'
                       })}
@@ -1500,7 +1527,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
 
             {/* Modern Farmer Details Section */}
             <View style={styles.modernDetailSection}>
-              <Text style={styles.modernSectionTitle}>Farmer Information</Text>
+              <Text style={styles.modernSectionTitle}>{t('product.farmerDetail.headerTitle')}</Text>
 
               {isFarmerDataLoading ? (
                 <View style={styles.modernFarmerCard}>
@@ -1512,7 +1539,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                     <View style={styles.modernFarmerInfo}>
                       <Text style={styles.modernFarmerName}>
                         {(() => {
-                          const displayName = farmerData?.displayName || 'Unknown Farmer';
+                          const displayName = farmerData?.displayName || `${t('chats.detail.unknownUser', 'Unknown')} ${t('roles.farmer', 'Farmer')}`;
                           return displayName;
                         })()}
                       </Text>
@@ -1531,10 +1558,10 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                           { backgroundColor: farmerData?.avatar_color || '#007E2F' }
                         ]}>
                           {farmerData?.profile_image_url ? (
-                            <Image
-                              source={{ uri: farmerData.profile_image_url }}
+                            <FastImage
+                              source={{ uri: farmerData.profile_image_url, cache: FastImage.cacheControl.immutable }}
                               style={styles.farmerProfileImage}
-                              resizeMode="cover"
+                              resizeMode={FastImage.resizeMode.cover}
                             />
                           ) : (
                             <Text style={styles.modernFarmerAvatarText}>
@@ -1548,7 +1575,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                       <View style={styles.modernFarmerInfo}>
                         <Text style={styles.modernFarmerName}>
                           {(() => {
-                            const displayName = farmerData?.displayName || 'Unknown Farmer';
+                            const displayName = farmerData?.displayName || `${t('chats.detail.unknownUser', 'Unknown')} ${t('roles.farmer', 'Farmer')}`;
                             console.log('🔍 Farmer name display logic:', {
                               'farmerData?.displayName': farmerData?.displayName,
                               'product.farmer_name': product.farmer_name,
@@ -1570,7 +1597,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                   {farmerReviews.length > 0 && (
                     <>
                       <View style={styles.modernReviewsHeader}>
-                        <Text style={styles.modernReviewsTitle}>Recent Reviews</Text>
+                        <Text style={styles.modernReviewsTitle}>{t('buyerProfile.tabs.reviews', 'Reviews')}</Text>
                         <View style={styles.reviewsCountBadge}>
                           <Text style={styles.reviewsCountText}>{farmerReviews.length}</Text>
                         </View>
@@ -1588,10 +1615,10 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                               <View style={styles.reviewInfo}>
                                 <View style={styles.reviewTopRow}>
                                   <Text style={styles.reviewerName}>
-                                    {review.buyer_name || 'Anonymous'}
+                                    {review.buyer_name || t('chats.detail.unknownUser', 'Unknown')}
                                   </Text>
                                   <Text style={styles.reviewDate}>
-                                    {review.created_at ? getRelativeTime(review.created_at) : 'Recently'}
+                                    {review.created_at ? getRelativeTime(review.created_at) : t('chats.detail.lastSeenRecently', 'Recently')}
                                   </Text>
                                 </View>
                                 <View style={styles.reviewRatingContainer}>
@@ -1611,7 +1638,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                       {farmerReviews.length > 3 && (
                         <TouchableOpacity style={styles.modernViewMoreButton}>
                           <Text style={styles.modernViewMoreText}>
-                            View all {farmerReviews.length} reviews
+                            {t('buyerProfile.showAllReviews', { count: farmerReviews.length, defaultValue: `Show All ${farmerReviews.length} Reviews` })}
                           </Text>
                           <Ionicons name="chevron-forward" size={16} color="#007E2F" />
                         </TouchableOpacity>
@@ -1706,10 +1733,10 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
                 hasExistingRequestForProduct && { color: '#9E9E9E' }
               ]}>
                 {isCheckingExistingRequest
-                  ? 'Checking status...'
+                  ? t('requests.checkingStatus', 'Checking status...')
                   : hasExistingRequestForProduct
-                    ? 'Request sent successfully'
-                    : 'Swipe to send request'
+                    ? t('product.detail.toast.requestSentTitle', 'Request Sent!')
+                    : t('requests.sendRequestTitle', 'Send Request')
                 }
               </Text>
             </View>
@@ -1731,8 +1758,8 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
               hasExistingRequestForProduct && { color: '#4CAF50' }
             ]}>
               {hasExistingRequestForProduct
-                ? 'You have already sent a request for this product.'
-                : `Slide right to send a purchase request.`
+                ? t('product.detail.alerts.alreadySentMessage', 'You have already sent a request for this product. Please wait for the farmer to respond or check your requests in the Orders section.')
+                : t('requests.slideToSend', 'Slide right to send a purchase request.')
               }
             </Text>
           </View>
@@ -1748,7 +1775,8 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
             name: product.name,
             price: product.price_per_kg,
             priceUnit: 'kg',
-            farmerName: farmerData?.displayName || 'Unknown Farmer',
+            availability_date: product.availability_date,
+            farmerName: farmerData?.displayName || `${t('chats.detail.unknownUser', 'Unknown')} ${t('roles.farmer', 'Farmer')}`,
             quantity: product.quantity,
           }}
         />
@@ -1817,6 +1845,7 @@ const styles = StyleSheet.create({
   enhancedImageSection: {
     backgroundColor: '#FFFFFF',
     paddingBottom: 24,
+    paddingTop: 8,
   },
   heroImageContainer: {
     width: width - 32,

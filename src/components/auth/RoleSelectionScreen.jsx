@@ -17,9 +17,11 @@ import { authFlowManager } from '../../services/authFlowManager';
 import { saveUserRole } from '../../utils/userRoleStorage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import auth from '@react-native-firebase/auth';
+import { useTranslation } from 'react-i18next';
 
 const RoleSelectionScreen = ({ navigation }) => {
   const [selectedRole, setSelectedRole] = useState(null);
+  const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
@@ -177,12 +179,12 @@ const RoleSelectionScreen = ({ navigation }) => {
 
             {/* Title and Description */}
             <View style={styles.textContainer}>
-              <Text style={styles.heading}>Choose your role</Text>
+              <Text style={styles.heading}>{t('auth.role.title')}</Text>
               <Text style={styles.subtext}>
-                Select <Text style={styles.highlightText}>Farmer</Text> if you want to sell fruits
+                {t('auth.role.selectLine1.prefix')} <Text style={styles.highlightText}>{t('roles.farmer')}</Text> {t('auth.role.selectLine1.suffix')}
               </Text>
               <Text style={styles.subtext}>
-                or <Text style={styles.highlightText}>Buyer</Text> if you want to purchase
+                {t('auth.role.selectLine2.prefix')} <Text style={styles.highlightText}>{t('roles.buyer')}</Text> {t('auth.role.selectLine2.suffix')}
               </Text>
             </View>
 
@@ -202,7 +204,7 @@ const RoleSelectionScreen = ({ navigation }) => {
                   <Ionicons name="leaf" size={32} color="#007E2F" />
                 </View>
                 <Text style={[styles.roleText, selectedRole === 'farmer' && styles.roleTextSelected]}>
-                  Farmer
+                  {t('roles.farmer')}
                 </Text>
                 {selectedRole === 'farmer' && (
                   <View style={styles.selectedIndicator}>
@@ -225,7 +227,7 @@ const RoleSelectionScreen = ({ navigation }) => {
                   <Ionicons name="storefront" size={32} color="#FF6B6B" />
                 </View>
                 <Text style={[styles.roleText, selectedRole === 'buyer' && styles.roleTextSelected]}>
-                  Buyer
+                  {t('roles.buyer')}
                 </Text>
                 {selectedRole === 'buyer' && (
                   <View style={styles.selectedIndicator}>
@@ -260,7 +262,7 @@ const RoleSelectionScreen = ({ navigation }) => {
               <ActivityIndicator size="small" color="#FFFFFF" />
             ) : (
               <>
-                <Text style={styles.getStartedText}>Get started</Text>
+                <Text style={styles.getStartedText}>{t('auth.role.getStarted')}</Text>
                 <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
               </>
             )}

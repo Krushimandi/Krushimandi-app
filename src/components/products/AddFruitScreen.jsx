@@ -30,6 +30,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTabBarControl } from '../../utils/navigationControls';
 import { getCurrentLocation, reverseGeocode, getFastLocation, checkAndPromptGPSSettings, testReverseGeocode, getLocationWithCache } from '../../utils/permissions';
 import { initializeLocationCache } from '../../utils/locationCache';
+import { useTranslation } from 'react-i18next';
 
 // Debounce utility function with cancel method
 const debounce = (func, wait) => {
@@ -52,6 +53,7 @@ const debounce = (func, wait) => {
 };
 
 const AddFruitScreen = ({ navigation }) => {
+  const { t } = useTranslation();
   const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
   const { hideTabBar, showTabBar } = useTabBarControl();
 
@@ -115,13 +117,13 @@ const AddFruitScreen = ({ navigation }) => {
   const buttonAnimY = useRef(new Animated.Value(0)).current;
 
   const categories = [
-    { id: 'banana', name: 'Banana' },
-    { id: 'orange', name: 'Orange' },
-    { id: 'grape', name: 'Grape' },
-    { id: 'pomegranate', name: 'Pomegranate' },
-    { id: 'sweet lemon', name: 'Sweet Lemon' },
-    { id: 'apple', name: 'Apple' },
-    { id: 'mango', name: 'Mango' }
+    { id: 'banana', name: t('fruits.banana') },
+    { id: 'orange', name: t('fruits.orange') },
+    { id: 'grape', name: t('fruits.grape') },
+    { id: 'pomegranate', name: t('fruits.pomegranate') },
+    { id: 'sweet lemon', name: t('fruits.sweetLemon') },
+    { id: 'apple', name: t('fruits.apple') },
+    { id: 'mango', name: t('fruits.mango') }
   ];
 
   // const grades = [
@@ -131,13 +133,13 @@ const AddFruitScreen = ({ navigation }) => {
   // ];
 
   const quantities = [
-    { id: '1-2', name: '1-2 tons', desc: 'Small batch' },
-    { id: '3-5', name: '3-5 tons', desc: 'Medium batch' },
-    { id: '6-9', name: '6-9 tons', desc: 'Large batch' },
-    { id: '10-12', name: '10-12 tons', desc: 'Very large' },
-    { id: '13-15', name: '13-15 tons', desc: 'Bulk order' },
-    { id: '16-20', name: '16-20 tons', desc: 'Commercial' },
-    { id: '20+', name: '20+ tons', desc: 'Industrial' }
+    { id: '1-2', name: `1-2 ${t('units.ton_other')}`, desc: t('product.add.quantity.desc.small') },
+    { id: '3-5', name: `3-5 ${t('units.ton_other')}`, desc: t('product.add.quantity.desc.medium') },
+    { id: '6-9', name: `6-9 ${t('units.ton_other')}`, desc: t('product.add.quantity.desc.large') },
+    { id: '10-12', name: `10-12 ${t('units.ton_other')}`, desc: t('product.add.quantity.desc.veryLarge') },
+    { id: '13-15', name: `13-15 ${t('units.ton_other')}`, desc: t('product.add.quantity.desc.bulk') },
+    { id: '16-20', name: `16-20 ${t('units.ton_other')}`, desc: t('product.add.quantity.desc.commercial') },
+    { id: '20+', name: `20+ ${t('units.ton_other')}`, desc: t('product.add.quantity.desc.industrial') }
   ];
 
   // Enhanced scroll to input with keyboard-aware logic
@@ -160,7 +162,7 @@ const AddFruitScreen = ({ navigation }) => {
 
         const scrollPosition = scrollPositions[inputKey] || 450;
 
-        console.log(`Scrolling to location input ${inputKey} at position:`, scrollPosition);
+
 
         scrollViewRef.current?.scrollTo({
           y: scrollPosition,
@@ -176,7 +178,7 @@ const AddFruitScreen = ({ navigation }) => {
           const keyboardAdjustment = keyboardHeight > 0 ? keyboardHeight + 50 : 0; // More aggressive adjustment
           const finalScrollPosition = baseDescriptionPosition + keyboardAdjustment;
 
-          console.log(`Scrolling description with keyboard height:`, keyboardHeight, `to position:`, finalScrollPosition);
+
 
           scrollViewRef.current?.scrollTo({
             y: finalScrollPosition,
@@ -267,29 +269,29 @@ const AddFruitScreen = ({ navigation }) => {
       let fieldName = currentField;
       switch (currentField) {
         case 'fruitName':
-          fieldName = 'fruit name';
+          fieldName = t('product.add.fields.fruitName');
           break;
         case 'description':
-          fieldName = 'description';
+          fieldName = t('product.add.fields.description');
           break;
         case 'city':
-          fieldName = 'city/village';
+          fieldName = t('product.add.fields.cityVillage');
           break;
         case 'district':
-          fieldName = 'district';
+          fieldName = t('product.add.fields.district');
           break;
         case 'state':
-          fieldName = 'state';
+          fieldName = t('product.add.fields.state');
           break;
         case 'pincode':
-          fieldName = 'pincode';
+          fieldName = t('product.add.fields.pincode');
           break;
       }
 
       Alert.alert(
-        'Please Complete Form',
-        `${currentError || `Please fill the ${fieldName} field to continue.`}`,
-        [{ text: 'OK' }]
+        t('product.add.alerts.completeFormTitle'),
+        `${currentError || t('validation.fixBeforeSave')}`,
+        [{ text: t('product.add.alerts.ok') }]
       );
       return;
     }
@@ -305,7 +307,7 @@ const AddFruitScreen = ({ navigation }) => {
       const user = userData ? JSON.parse(userData) : null;
 
       if (!user || !user.uid) {
-        Alert.alert('Authentication Error', 'Please login to continue');
+        Alert.alert(t('product.add.alerts.authErrorTitle'), t('product.add.alerts.loginToContinue'));
         setIsSubmitting(false);
         return;
       }
@@ -325,7 +327,7 @@ const AddFruitScreen = ({ navigation }) => {
         // grade,
         quantity: quantityParts,
         description: description.trim(),
-  availability_date: availabilityDate || null,
+        availability_date: availabilityDate || null,
         location: {
           city: city.trim(),
           district: district.trim(),
@@ -347,22 +349,13 @@ const AddFruitScreen = ({ navigation }) => {
         }
       };
 
-      console.log('🍎 Fruit data prepared:', fruitData);
-      Keyboard.dismiss();
 
-      // Success animation
-      Animated.timing(fadeAnim, {
-        toValue: 0.8,
-        duration: 200,
-        useNativeDriver: true,
-      }).start(() => {
-        // Navigate to PhotoUpload screen with the fruit data
-        navigation.navigate('PhotoUpload', { fruitData });
-      });
+      Keyboard.dismiss();
+      // Navigate to PhotoUpload screen with the fruit data
+      navigation.navigate('PhotoUpload', { fruitData });
 
     } catch (error) {
-      console.error('Error preparing fruit data:', error);
-      Alert.alert('Error', 'Something went wrong. Please try again.');
+      Alert.alert(t('alerts.errorTitle'), t('farmerHome.refreshFailedSubtitle'));
     } finally {
       setIsSubmitting(false);
     }
@@ -389,7 +382,7 @@ const AddFruitScreen = ({ navigation }) => {
         return; // User chose to fill manually or went to settings
       }
 
-      console.log('Getting high-accuracy cached location...');
+
 
       // Use cached location method for faster response
       const result = await getLocationWithCache();
@@ -400,11 +393,11 @@ const AddFruitScreen = ({ navigation }) => {
         setCurrentLocation({ lat: location.latitude, lng: location.longitude });
 
         // Always fill city (fallback to district if city is empty)
-        const cityToFill = locationData.city || locationData.district || 'Current Area';
+        const cityToFill = locationData.city || locationData.district || '';
 
         setCity(cityToFill);
         setDistrict(locationData.district || cityToFill);
-        setState(locationData.state || 'India');
+        setState(locationData.state || '');
         setPincode(locationData.pincode || '');
 
         // Clear any location errors
@@ -472,7 +465,7 @@ const AddFruitScreen = ({ navigation }) => {
         //     { text: 'OK' }]
         // );
       } else {
-        setLocationError('Address lookup failed - please enter manually');
+        setLocationError(t('product.add.location.addressLookupFailed'));
         // Alert.alert(
         //   'Location Found',
         //   'GPS coordinates obtained but address details unavailable. Please fill manually.',
@@ -480,21 +473,19 @@ const AddFruitScreen = ({ navigation }) => {
         // );
       }
     } catch (error) {
-      console.error('Location error:', error);
-
-      const message = error.userMessage || error.message || 'Unable to get your location. Please fill location details manually.';
+      const message = error.userMessage || error.message || t('product.add.location.genericErrorMessage');
       setLocationError(message);
 
       // Enhanced error handling for different location error types
       if (error.code === 2) {
         // GPS/Location Services are disabled
         Alert.alert(
-          'GPS is Off',
-          'Please enable GPS/Location Services in your device settings.',
+          t('product.add.location.gpsOffTitle'),
+          t('product.add.location.gpsOffMessage'),
           [
-            { text: 'Fill Manually', style: 'cancel' },
+            { text: t('product.add.location.fillManually'), style: 'cancel' },
             {
-              text: 'Open Settings',
+              text: t('product.add.location.openSettings'),
               onPress: () => {
                 // For Android, you can use Linking to open location settings
                 if (Platform.OS === 'android') {
@@ -505,33 +496,33 @@ const AddFruitScreen = ({ navigation }) => {
                 }
               }
             },
-            { text: 'Try Again', onPress: () => handleGetLocation() }
+            { text: t('product.add.location.tryAgain'), onPress: () => handleGetLocation() }
           ]
         );
       } else if (error.code === 1) {
         // Permission denied
         Alert.alert(
-          'Location Permission Required',
-          'Please grant location permission in your device settings.',
+          t('product.add.location.permissionRequiredTitle'),
+          t('product.add.location.permissionRequiredMessage'),
           [
-            { text: 'Fill Manually', style: 'cancel' },
+            { text: t('product.add.location.fillManually'), style: 'cancel' },
             {
-              text: 'Open Settings',
+              text: t('product.add.location.openSettings'),
               onPress: () => {
                 Linking.openSettings();
               }
             },
-            { text: 'Try Again', onPress: () => handleGetLocation() }
+            { text: t('product.add.location.tryAgain'), onPress: () => handleGetLocation() }
           ]
         );
       } else {
         // Other location errors
         Alert.alert(
-          'Location Error',
+          t('product.add.location.genericErrorTitle'),
           message,
           [
-            { text: 'Fill Manually', style: 'cancel' },
-            { text: 'Try Again', onPress: () => handleGetLocation() }
+            { text: t('product.add.location.fillManually'), style: 'cancel' },
+            { text: t('product.add.location.tryAgain'), onPress: () => handleGetLocation() }
           ]
         );
       }
@@ -553,46 +544,46 @@ const AddFruitScreen = ({ navigation }) => {
 
     // 1. Fruit name validation (highest priority)
     if (!fruitName.trim()) {
-      firstError = firstError || { field: 'fruitName', message: 'Fruit name is required' };
+      firstError = firstError || { field: 'fruitName', message: t('product.add.validation.fruitNameRequired') };
       isValid = false;
     } else if (fruitName.trim().length < 2) {
-      firstError = firstError || { field: 'fruitName', message: 'Fruit name must be at least 2 characters' };
+      firstError = firstError || { field: 'fruitName', message: t('product.add.validation.fruitNameMin') };
       isValid = false;
     }
 
     // 2. Availability date (new requirement)
     if (!availabilityDate) {
-      firstError = firstError || { field: 'availabilityDate', message: 'Availability date is required' };
+      firstError = firstError || { field: 'availabilityDate', message: t('product.add.validation.availabilityDateRequired') };
       isValid = false;
     }
 
     // 3. Location validation (second priority)
     if (!city.trim()) {
-      firstError = firstError || { field: 'city', message: 'City is required' };
+      firstError = firstError || { field: 'city', message: t('product.add.validation.cityRequired') };
       isValid = false;
     }
     if (!district.trim()) {
-      firstError = firstError || { field: 'district', message: 'District is required' };
+      firstError = firstError || { field: 'district', message: t('product.add.validation.districtRequired') };
       isValid = false;
     }
     if (!state.trim()) {
-      firstError = firstError || { field: 'state', message: 'State is required' };
+      firstError = firstError || { field: 'state', message: t('product.add.validation.stateRequired') };
       isValid = false;
     }
     if (!pincode.trim()) {
-      firstError = firstError || { field: 'pincode', message: 'Pincode is required' };
+      firstError = firstError || { field: 'pincode', message: t('product.add.validation.pincodeRequired') };
       isValid = false;
     } else if (!/^\d{6}$/.test(pincode.trim())) {
-      firstError = firstError || { field: 'pincode', message: 'Please enter a valid 6-digit pincode' };
+      firstError = firstError || { field: 'pincode', message: t('product.add.validation.pincodeInvalid') };
       isValid = false;
     }
 
     // 4. Description validation (lowest priority)
     if (!description.trim()) {
-      firstError = firstError || { field: 'description', message: 'Description is required' };
+      firstError = firstError || { field: 'description', message: t('product.add.validation.descriptionRequired') };
       isValid = false;
     } else if (description.trim().length < 20) {
-      firstError = firstError || { field: 'description', message: 'Please provide a more detailed description (min 20 characters)' };
+      firstError = firstError || { field: 'description', message: t('product.add.validation.descriptionMin') };
       isValid = false;
     }
 
@@ -680,9 +671,9 @@ const AddFruitScreen = ({ navigation }) => {
     const initializeCache = async () => {
       try {
         await initializeLocationCache();
-        console.log('📍 Location cache initialized for faster responses');
+
       } catch (error) {
-        console.log('📍 Location cache initialization skipped:', error.message);
+
       }
     };
 
@@ -701,7 +692,7 @@ const AddFruitScreen = ({ navigation }) => {
         if (focusedInput === 'description') {
           setTimeout(() => {
             const scrollPosition = 700 + keyboardHeight + 50;
-            console.log('Auto-scrolling description on keyboard show to:', scrollPosition);
+
             scrollViewRef.current?.scrollTo({
               y: scrollPosition,
               animated: true
@@ -709,16 +700,12 @@ const AddFruitScreen = ({ navigation }) => {
           }, 100);
         }
 
-        // IMPORTANT:
-        // Android uses windowSoftInputMode=adjustResize (see AndroidManifest)
-        // and this screen also wraps content in KeyboardAvoidingView.
-        // Moving the fixed bottom button by -keyboardHeight causes a double adjustment
-        // which pushes the button to the top. So we keep Android offset at 0.
-        // On iOS, apply a tiny lift for visual comfort only.
-        const offset = Platform.OS === 'ios' ? -30 : 0;
+        // Move button above keyboard for both platforms
+        // Use the actual keyboard height to position button correctly
+        const buttonOffset = Platform.OS === 'ios' ? -keyboardHeight + 50 : -keyboardHeight + 20;
         Animated.timing(buttonAnimY, {
-          toValue: offset,
-          duration: 200,
+          toValue: buttonOffset,
+          duration: 250,
           useNativeDriver: true,
         }).start();
       }
@@ -730,7 +717,7 @@ const AddFruitScreen = ({ navigation }) => {
         // Animate button back to original position
         Animated.timing(buttonAnimY, {
           toValue: 0,
-          duration: 200,
+          duration: 250,
           useNativeDriver: true,
         }).start();
       }
@@ -754,6 +741,8 @@ const AddFruitScreen = ({ navigation }) => {
   //     }
   //   }
   // }, [category, description]);
+
+  const androidVersion = Platform.Version;
 
   // Hardware back button handler
   useEffect(() => {
@@ -830,8 +819,8 @@ const AddFruitScreen = ({ navigation }) => {
           </TouchableOpacity>
 
           <View style={styles.headerTitleContainer}>
-            <Text style={styles.headerTitle}>Add Fruit Listing</Text>
-            <Text style={styles.headerSubtitle}>Step 1 of 3</Text>
+            <Text style={styles.headerTitle}>{t('product.add.headerTitle')}</Text>
+            <Text style={styles.headerSubtitle}>{t('product.add.stepOfTotal', { step: 1, total: 3 })}</Text>
           </View>
 
           <View style={styles.headerActions}>
@@ -865,14 +854,20 @@ const AddFruitScreen = ({ navigation }) => {
             />
           </View>
           <Text style={styles.progressText}>
-            {Math.round(progress * 100)}% Complete
+            {Math.round(progress * 100)}% {t('product.add.complete')}
           </Text>
         </View>
 
-        <Animated.View style={[styles.contentContainer, { opacity: fadeAnim, transform: [{ translateX: shakeAnim }] }]}>
+        <Animated.View style={[styles.contentContainer, { transform: [{ translateX: shakeAnim }] }]}>
           <KeyboardAvoidingView
             style={{ flex: 1 }}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            behavior={
+              Platform.OS === 'ios'
+                ? 'padding'
+                : androidVersion >= 30
+                  ? undefined
+                  : 'padding'
+            }
             keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
           >
             <ScrollView
@@ -880,7 +875,9 @@ const AddFruitScreen = ({ navigation }) => {
               style={styles.scrollView}
               contentContainerStyle={[
                 styles.scrollContent,
-                { paddingBottom: keyboardHeight > 0 ? keyboardHeight - 100 : 120 }
+                {
+                  paddingBottom: keyboardHeight > 0 ? keyboardHeight + 50 : 100
+                }
               ]}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
@@ -890,7 +887,7 @@ const AddFruitScreen = ({ navigation }) => {
                 {/* Fruit Name Input */}
                 <View style={styles.modernInputContainer}>
                   <Text style={styles.modernLabel}>
-                    <Ionicons name="leaf-outline" size={16} color="#00C851" /> Fruit Name *
+                    <Ionicons name="leaf-outline" size={16} color="#00C851" /> {t('product.add.labels.fruitName')} *
                   </Text>
                   <TextInput
                     ref={(ref) => inputRefs.current.fruitName = ref}
@@ -903,7 +900,7 @@ const AddFruitScreen = ({ navigation }) => {
                     onChangeText={(value) => handleInputChange('fruitName', value)}
                     onFocus={() => handleInputFocus('fruitName')}
                     onBlur={() => setFocusedInput('')}
-                    placeholder="e.g. Alphonso Mango, Fuji Apple"
+                    placeholder={t('product.add.placeholders.fruitName')}
                     placeholderTextColor="#94A3B8"
                     autoCapitalize="words"
                     returnKeyType="next"
@@ -917,14 +914,14 @@ const AddFruitScreen = ({ navigation }) => {
                 {/* Category Selection */}
                 <View style={styles.modernInputContainer}>
                   <Text style={styles.modernLabel}>
-                    <Ionicons name="apps-outline" size={16} color="#00C851" /> Category *
+                    <Ionicons name="apps-outline" size={16} color="#00C851" /> {t('product.add.labels.category')} *
                   </Text>
                   <TouchableOpacity
                     style={styles.modernDropdown}
                     onPress={() => setShowCategoryModal(true)}
                     accessible={true}
-                    accessibilityLabel="Select fruit category"
-                    accessibilityHint="Opens category selection modal"
+                    accessibilityLabel={t('product.add.a11y.selectFruitCategory')}
+                    accessibilityHint={t('product.add.a11y.opensCategoryModal')}
                   >
                     <View style={styles.dropdownContent}>
                       <Text style={styles.modernDropdownText}>
@@ -963,19 +960,19 @@ const AddFruitScreen = ({ navigation }) => {
                 {/* Quantity Selection */}
                 <View style={styles.modernInputContainer}>
                   <Text style={styles.modernLabel}>
-                    <Ionicons name="scale-outline" size={16} color="#00C851" /> Available Quantity *
+                    <Ionicons name="scale-outline" size={16} color="#00C851" /> {t('product.add.labels.availableQuantity')} *
                   </Text>
                   <TouchableOpacity
                     style={styles.modernDropdown}
                     onPress={() => setShowQuantityModal(true)}
                     accessible={true}
-                    accessibilityLabel="Select available quantity"
-                    accessibilityHint="Opens quantity selection modal"
+                    accessibilityLabel={t('product.add.a11y.selectAvailableQuantity')}
+                    accessibilityHint={t('product.add.a11y.opensQuantityModal')}
                   >
                     <View style={styles.dropdownContent}>
                       <Text style={styles.quantityIcon}>⚖️</Text>
                       <Text style={styles.modernDropdownText}>
-                        {quantities.find(q => q.id === quantity)?.name || `${quantity} tons`}
+                        {quantities.find(q => q.id === quantity)?.name || `${quantity} ${t('units.ton_other')}`}
                       </Text>
                     </View>
                     <Ionicons name="chevron-down" size={20} color="#64748B" />
@@ -985,7 +982,7 @@ const AddFruitScreen = ({ navigation }) => {
                 {/* Availability Date Picker (below Quantity) */}
                 <View style={styles.modernInputContainer}>
                   <Text style={styles.modernLabel}>
-                    <Ionicons name="calendar-outline" size={16} color="#00C851" /> Availability Date *
+                    <Ionicons name="calendar-outline" size={16} color="#00C851" /> {t('product.add.labels.availabilityDate')} *
                   </Text>
                   <TouchableOpacity
                     style={[
@@ -998,16 +995,16 @@ const AddFruitScreen = ({ navigation }) => {
                       setShowDatePicker(true);
                     }}
                     accessible={true}
-                    accessibilityLabel="Select availability date"
-                    accessibilityHint="Opens date picker"
+                    accessibilityLabel={t('product.add.a11y.selectAvailabilityDate')}
+                    accessibilityHint={t('product.add.a11y.opensDatePicker')}
                   >
                     <Text style={{ color: availabilityDate ? '#111827' : '#94A3B8', fontSize: 16 }}>
-                      {availabilityDate ? new Date(availabilityDate).toLocaleDateString() : 'Select availability date'}
+                      {availabilityDate ? new Date(availabilityDate).toLocaleDateString() : t('product.add.placeholders.availabilityDate')}
                     </Text>
                     <Ionicons name="calendar" size={20} color="#64748B" />
                   </TouchableOpacity>
                   {(showValidationErrors || touchedFields.availabilityDate) && !availabilityDate && (
-                    <Text style={styles.errorText}>Availability date is required</Text>
+                    <Text style={styles.errorText}>{t('product.add.validation.availabilityDateRequired')}</Text>
                   )}
                   {showDatePicker && (
                     <DateTimePicker
@@ -1029,7 +1026,7 @@ const AddFruitScreen = ({ navigation }) => {
                 <View style={styles.modernSectionContainer}>
                   <View style={styles.sectionHeader}>
                     <Text style={styles.modernSectionTitle}>
-                      <Ionicons name="location-outline" size={18} color="#00C851" /> Farm Location *
+                      <Ionicons name="location-outline" size={18} color="#00C851" /> {t('product.add.labels.farmLocation')} *
                     </Text>
                     <TouchableOpacity
                       style={[
@@ -1039,8 +1036,8 @@ const AddFruitScreen = ({ navigation }) => {
                       onPress={handleGetLocation}
                       disabled={isGettingLocation}
                       accessible={true}
-                      accessibilityLabel="Get current location"
-                      accessibilityHint="Automatically fills location fields using GPS"
+                      accessibilityLabel={t('product.add.a11y.getCurrentLocation')}
+                      accessibilityHint={t('product.add.a11y.getLocationHint')}
                     >
                       {isGettingLocation ? (
                         <ActivityIndicator size="small" color="#FFFFFF" />
@@ -1048,7 +1045,7 @@ const AddFruitScreen = ({ navigation }) => {
                         <MaterialIcons name="my-location" size={18} color="#FFFFFF" />
                       )}
                       <Text style={styles.locationButtonText}>
-                        {isGettingLocation ? 'Getting...' : 'Get Location'}
+                        {isGettingLocation ? t('product.add.actions.getting') : t('product.add.actions.getLocation')}
                       </Text>
                     </TouchableOpacity>
                   </View>
@@ -1064,7 +1061,7 @@ const AddFruitScreen = ({ navigation }) => {
 
                   <View style={styles.locationGrid}>
                     <View style={[styles.modernInputContainer, styles.halfWidth]}>
-                      <Text style={styles.modernLabel}>City/Village *</Text>
+                      <Text style={styles.modernLabel}>{t('product.add.labels.cityVillage')} *</Text>
                       <TextInput
                         ref={(ref) => inputRefs.current.city = ref}
                         style={[
@@ -1076,7 +1073,7 @@ const AddFruitScreen = ({ navigation }) => {
                         onChangeText={(value) => handleInputChange('city', value)}
                         onFocus={() => handleInputFocus('city')}
                         onBlur={() => setFocusedInput('')}
-                        placeholder="City name"
+                        placeholder={t('product.add.placeholders.city')}
                         placeholderTextColor="#94A3B8"
                         autoCapitalize="words"
                         returnKeyType="next"
@@ -1088,7 +1085,7 @@ const AddFruitScreen = ({ navigation }) => {
                     </View>
 
                     <View style={[styles.modernInputContainer, styles.halfWidth]}>
-                      <Text style={styles.modernLabel}>District *</Text>
+                      <Text style={styles.modernLabel}>{t('product.add.labels.district')} *</Text>
                       <TextInput
                         ref={(ref) => inputRefs.current.district = ref}
                         style={[
@@ -1100,7 +1097,7 @@ const AddFruitScreen = ({ navigation }) => {
                         onChangeText={(value) => handleInputChange('district', value)}
                         onFocus={() => handleInputFocus('district')}
                         onBlur={() => setFocusedInput('')}
-                        placeholder="District"
+                        placeholder={t('product.add.placeholders.district')}
                         placeholderTextColor="#94A3B8"
                         autoCapitalize="words"
                         returnKeyType="next"
@@ -1114,7 +1111,7 @@ const AddFruitScreen = ({ navigation }) => {
 
                   <View style={styles.locationGrid}>
                     <View style={[styles.modernInputContainer, styles.halfWidth]}>
-                      <Text style={styles.modernLabel}>State *</Text>
+                      <Text style={styles.modernLabel}>{t('product.add.labels.state')} *</Text>
                       <TextInput
                         ref={(ref) => inputRefs.current.state = ref}
                         style={[
@@ -1126,7 +1123,7 @@ const AddFruitScreen = ({ navigation }) => {
                         onChangeText={(value) => handleInputChange('state', value)}
                         onFocus={() => handleInputFocus('state')}
                         onBlur={() => setFocusedInput('')}
-                        placeholder="State"
+                        placeholder={t('product.add.placeholders.state')}
                         placeholderTextColor="#94A3B8"
                         autoCapitalize="words"
                         returnKeyType="next"
@@ -1138,7 +1135,7 @@ const AddFruitScreen = ({ navigation }) => {
                     </View>
 
                     <View style={[styles.modernInputContainer, styles.halfWidth]}>
-                      <Text style={styles.modernLabel}>Pincode *</Text>
+                      <Text style={styles.modernLabel}>{t('product.add.labels.pincode')} *</Text>
                       <TextInput
                         ref={(ref) => inputRefs.current.pincode = ref}
                         style={[
@@ -1150,7 +1147,7 @@ const AddFruitScreen = ({ navigation }) => {
                         onChangeText={(value) => handleInputChange('pincode', value)}
                         onFocus={() => handleInputFocus('pincode')}
                         onBlur={() => setFocusedInput('')}
-                        placeholder="123456"
+                        placeholder={t('product.add.placeholders.pincode')}
                         placeholderTextColor="#94A3B8"
                         keyboardType="numeric"
                         maxLength={6}
@@ -1166,9 +1163,9 @@ const AddFruitScreen = ({ navigation }) => {
                 {/* Description */}
                 <View style={styles.modernInputContainer}>
                   <Text style={styles.modernLabel}>
-                    <Ionicons name="document-text-outline" size={16} color="#00C851" /> Description *
+                    <Ionicons name="document-text-outline" size={16} color="#00C851" /> {t('product.add.labels.description')} *
                     <Text style={styles.characterCount}>
-                      ({description.replace(/\n/g, "").trim().length}/20 chars)
+                      {t('product.add.characters.minCharsLabel', { count: description.replace(/\n/g, "").trim().length })}
                     </Text>
                   </Text>
                   <TextInput
@@ -1183,7 +1180,7 @@ const AddFruitScreen = ({ navigation }) => {
                     onChangeText={(value) => handleInputChange('description', value)}
                     onFocus={() => handleInputFocus('description')}
                     onBlur={() => setFocusedInput('')}
-                    placeholder="Describe your fruit quality, taste, harvesting details..."
+                    placeholder={t('product.add.placeholders.description')}
                     placeholderTextColor="#94A3B8"
                     multiline={true}
                     numberOfLines={4}
@@ -1193,7 +1190,7 @@ const AddFruitScreen = ({ navigation }) => {
                   />
                   <View style={styles.characterCounter}>
                     <Text style={styles.characterCounterText}>
-                      {500 - description.length} characters remaining
+                      {t('product.add.characters.remaining', { remaining: 500 - description.length })}
                     </Text>
                   </View>
                   {(showValidationErrors || touchedFields.description) && validationErrors.description && (
@@ -1209,7 +1206,11 @@ const AddFruitScreen = ({ navigation }) => {
         <Animated.View style={[
           styles.modernButtonContainer,
           {
-            transform: [{ translateY: buttonAnimY }]
+            transform: [{
+              translateY: androidVersion >= 30
+                ? buttonAnimY
+                : 0
+            }]
           }
         ]}>
           <TouchableOpacity
@@ -1220,8 +1221,8 @@ const AddFruitScreen = ({ navigation }) => {
             onPress={handleContinue}
             disabled={!isFormValid || isSubmitting}
             accessible={true}
-            accessibilityLabel={isFormValid ? "Continue to photos" : "Form incomplete"}
-            accessibilityHint={isFormValid ? "Proceeds to photo upload screen" : "Complete all required fields first"}
+            accessibilityLabel={isFormValid ? t('product.add.actions.continue') : t('product.add.actions.formIncomplete')}
+            accessibilityHint={isFormValid ? t('product.add.a11y.continueHint') : t('product.add.a11y.incompleteHint')}
           >
             {isSubmitting ? (
               <ActivityIndicator size="small" color="#FFFFFF" style={styles.buttonIcon} />
@@ -1234,12 +1235,12 @@ const AddFruitScreen = ({ navigation }) => {
               />
             )}
             <Text style={styles.modernButtonText}>
-              {isSubmitting ? 'Processing...' : 'Continue to Photos'}
+              {isSubmitting ? t('product.add.actions.processing') : t('product.add.actions.continue')}
             </Text>
           </TouchableOpacity>
 
           <Text style={styles.buttonHelpText}>
-            {isFormValid && "All details look good! Let's add some photos"}
+            {isFormValid && t('product.add.help.allGoodAddPhotos')}
           </Text>
         </Animated.View>
 
@@ -1256,12 +1257,12 @@ const AddFruitScreen = ({ navigation }) => {
           >
             <View style={styles.modernModalContent}>
               <View style={styles.modalHeader}>
-                <Text style={styles.modernModalTitle}>Select Category</Text>
+                <Text style={styles.modernModalTitle}>{t('product.add.modals.selectCategory')}</Text>
                 <TouchableOpacity
                   style={styles.modalCloseIcon}
                   onPress={() => closeModal('category')}
                   accessible={true}
-                  accessibilityLabel="Close modal"
+                  accessibilityLabel={t('product.add.a11y.closeModal')}
                 >
                   <Ionicons name="close" size={24} color="#64748B" />
                 </TouchableOpacity>
@@ -1280,7 +1281,7 @@ const AddFruitScreen = ({ navigation }) => {
                       closeModal('category');
                     }}
                     accessible={true}
-                    accessibilityLabel={`Select ${cat.name}`}
+                    accessibilityLabel={t('product.add.a11y.selectCategoryOption', { name: cat.name })}
                     accessibilityRole="button"
                   >
                     <View style={styles.optionTextContainer}>
@@ -1319,7 +1320,7 @@ const AddFruitScreen = ({ navigation }) => {
                   style={styles.modalCloseIcon}
                   onPress={() => closeModal('grade')}
                   accessible={true}
-                  accessibilityLabel="Close modal"
+                  accessibilityLabel={t('product.add.a11y.closeModal')}
                 >
                   <Ionicons name="close" size={24} color="#64748B" />
                 </TouchableOpacity>
@@ -1377,12 +1378,12 @@ const AddFruitScreen = ({ navigation }) => {
           >
             <View style={styles.modernModalContent}>
               <View style={styles.modalHeader}>
-                <Text style={styles.modernModalTitle}>Select Quantity</Text>
+                <Text style={styles.modernModalTitle}>{t('product.add.modals.selectQuantity')}</Text>
                 <TouchableOpacity
                   style={styles.modalCloseIcon}
                   onPress={() => closeModal('quantity')}
                   accessible={true}
-                  accessibilityLabel="Close modal"
+                  accessibilityLabel={t('product.add.a11y.closeModal')}
                 >
                   <Ionicons name="close" size={24} color="#64748B" />
                 </TouchableOpacity>
@@ -1401,7 +1402,7 @@ const AddFruitScreen = ({ navigation }) => {
                       closeModal('quantity');
                     }}
                     accessible={true}
-                    accessibilityLabel={`Select ${qty.name} - ${qty.desc}`}
+                    accessibilityLabel={t('product.add.a11y.selectQuantityOption', { name: qty.name, desc: qty.desc })}
                     accessibilityRole="button"
                   >
                     <Text style={styles.quantityIconLarge}>⚖️</Text>
@@ -1436,7 +1437,7 @@ const AddFruitScreen = ({ navigation }) => {
             onPress={() => closeModal('tooltip')}
             activeOpacity={1}
             accessible={true}
-            accessibilityLabel="Close tooltip"
+            accessibilityLabel={t('product.add.a11y.closeModal')}
           >
             <View
               style={[
@@ -1449,7 +1450,7 @@ const AddFruitScreen = ({ navigation }) => {
               ]}
             >
               <Text style={styles.modernTooltipText}>
-                💡 Add details about taste, color, size, harvest date, and special qualities to attract more buyers!
+                💡 {t('product.add.help.allGoodAddPhotos')}
               </Text>
             </View>
           </TouchableOpacity>
@@ -1558,11 +1559,11 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    paddingBottom: 60, // Minimal padding since tab bar is hidden
+    paddingBottom: 80, // Base padding for button container
   },
   content: {
-    paddingHorizontal: 16,
-    paddingTop: 20,
+    paddingHorizontal: 20,
+    paddingTop: 24,
   },
 
   // Modern Input Styles
@@ -1807,30 +1808,31 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     backgroundColor: '#FFFFFF',
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 20, // Will be dynamically adjusted
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: Platform.OS === 'ios' ? 10 : 0, // Safe area bottom padding
     borderTopWidth: 1,
     borderTopColor: '#E5E7EB',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 10,
+    shadowOffset: { width: 0, height: -3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 12,
   },
   modernContinueButton: {
     backgroundColor: '#10B981',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 14,
+    paddingVertical: 18,
+    paddingHorizontal: 24,
+    borderRadius: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    minHeight: 56,
     shadowColor: '#10B981',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 8,
   },
   modernButtonDisabled: {
     backgroundColor: '#D1D5DB',
@@ -1838,19 +1840,21 @@ const styles = StyleSheet.create({
     elevation: 0,
   },
   buttonIcon: {
-    marginRight: 8,
+    marginRight: 10,
   },
   modernButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '700',
+    letterSpacing: 0.5,
   },
   buttonHelpText: {
     textAlign: 'center',
-    fontSize: 14,
+    fontSize: 13,
     color: '#6B7280',
-    marginTop: 6,
+    marginTop: 8,
     fontWeight: '500',
+    lineHeight: 18,
   },
 
   // Modern Modal Styles

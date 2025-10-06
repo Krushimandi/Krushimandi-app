@@ -17,12 +17,14 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Feather from 'react-native-vector-icons/Feather';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useFocusEffect } from '@react-navigation/native';
 import { Colors } from '../../constants';
+import Toast from 'react-native-toast-message';
+import { useAuthState } from '../providers/AuthStateProvider';
 import { useTabBarControl } from '../../utils/navigationControls';
 import { auth } from '../../config/firebaseModular';
-import { subscribeUserChats, fetchUserProfile, buildChatId } from '../../services/chatService';
+import { subscribeUserChats, fetchUserProfile, buildChatId, markChatRead, setUserOnlineStatus } from '../../services/chatService';
+import { useTranslation } from 'react-i18next';
 
 // Simple debounce helper (short + inline to avoid extra deps)
 const debounce = (fn, delay = 300) => {
@@ -46,7 +48,7 @@ const ChatItem = React.memo(({ item, onPress }) => {
           <View style={styles.nameRow}>
             <Text style={styles.chatName} numberOfLines={1}>{item.name}</Text>
             {item.status === 'typing' && (
-              <View style={styles.typingBadge}><Text style={styles.typingBadgeText}>Typing…</Text></View>
+              <View style={styles.typingBadge}><Text style={styles.typingBadgeText}>{t('chat.list.typing', { defaultValue: 'Typing…' })}</Text></View>
             )}
           </View>
           <Text style={styles.chatTime}>{item.time}</Text>
@@ -70,10 +72,15 @@ const ChatItem = React.memo(({ item, onPress }) => {
 });
 
 const ChatListScreen = ({ navigation }) => {
+  const { t } = useTranslation();
   const { showTabBar } = useTabBarControl();
+  const { user } = useAuthState();
   const [search, setSearch] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [menuVisible, setMenuVisible] = useState(false);
+  const [showUnreadOnly, setShowUnreadOnly] = useState(false);
+  const [sortBy, setSortBy] = useState('recent'); // 'recent' | 'name'
   const scrollY = useRef(new Animated.Value(0)).current;
 
   // Get screen dimensions for dynamic calculations
@@ -119,20 +126,24 @@ const ChatListScreen = ({ navigation }) => {
         const otherUid = (c.participants || []).find(p => p !== uid) || '';
         let displayName = 'User';
         let avatarUri = null;
+        let phoneNumber = null;
         const meta = (c.participantsMeta && c.participantsMeta[otherUid]) || null;
 
         if (meta && (meta.displayName || meta.profileImage)) {
           displayName = meta.displayName || displayName;
           avatarUri = meta.profileImage || null;
+          if (meta.phoneNumber) phoneNumber = meta.phoneNumber;
         } else if (profiles[otherUid]) {
           displayName = profiles[otherUid].displayName || displayName;
           avatarUri = profiles[otherUid].profileImage || null;
+          if (profiles[otherUid].phoneNumber) phoneNumber = profiles[otherUid].phoneNumber;
         } else if (otherUid) {
           const fetched = await fetchUserProfile(otherUid);
           if (fetched) {
             updates[otherUid] = fetched;
             displayName = fetched.displayName || displayName;
             avatarUri = fetched.profileImage || null;
+            if (fetched.phoneNumber) phoneNumber = fetched.phoneNumber;
           }
         }
         return {
@@ -140,15 +151,17 @@ const ChatListScreen = ({ navigation }) => {
           chatId: c.id,
           otherUid,
           name: displayName,
+          phoneNumber,
           lastMessage: c.lastMessage || '',
           time: formatTime(c.updatedAt),
-          avatar: avatarUri ? { uri: avatarUri } : require('../../assets/fruits/profile.jpg'),
+          updatedAt: c.updatedAt || 0,
+          avatar: avatarUri ? { uri: avatarUri } : require('../../assets/icons/default-avatar.png'),
           unread: (c.unreadCount && c.unreadCount[uid]) || 0,
           online: false,
         };
       }));
       if (Object.keys(updates).length) setProfiles(prev => ({ ...prev, ...updates }));
-  console.log('Fetched chats:', items);
+      console.log('Fetched chats:', items);
       setChats(items);
       setLoading(false);
     }, (err) => {
@@ -162,11 +175,43 @@ const ChatListScreen = ({ navigation }) => {
   const handleSearchChange = useCallback(debounce(v => setDebouncedSearch(v.trim()), 300), []);
 
   const filteredChats = useMemo(() => {
-    return chats.filter(c => c.name?.toLowerCase?.().includes(debouncedSearch.toLowerCase()));
-  }, [chats, debouncedSearch]);
+    let arr = chats;
+    // text filter
+    if (debouncedSearch) {
+      const q = debouncedSearch.toLowerCase();
+      arr = arr.filter(c => c.name?.toLowerCase?.().includes(q));
+    }
+    // unread filter
+    if (showUnreadOnly) {
+      arr = arr.filter(c => (c.unread || 0) > 0);
+    }
+    // sort
+    if (sortBy === 'name') {
+      arr = [...arr].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    } else {
+      arr = [...arr].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+    }
+    return arr;
+  }, [chats, debouncedSearch, showUnreadOnly, sortBy]);
 
   // Show tab bar on focus (keeps consistency across navigation)
   useFocusEffect(useCallback(() => { showTabBar(); }, [showTabBar]));
+
+  // Set user online when ChatListScreen is focused, offline when unfocused
+  useFocusEffect(
+    useCallback(() => {
+      const uid = auth.currentUser?.uid;
+      if (!uid) return;
+
+      // Set online when screen gains focus
+      setUserOnlineStatus(uid, true);
+
+      // Set offline when screen loses focus
+      return () => {
+        setUserOnlineStatus(uid, false);
+      };
+    }, [])
+  );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -184,6 +229,7 @@ const ChatListScreen = ({ navigation }) => {
       otherUid: chat.otherUid,
       name: chat.name,
       avatarUri: chat.avatar?.uri || null,
+      phoneNumber: chat.phoneNumber || null,
     });
   }, [navigation]);
 
@@ -226,18 +272,26 @@ const ChatListScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <StatusBar
+        barStyle="dark-content"
+        backgroundColor="#FFFFFF"
+        translucent={true}
+      />
 
       {/* Fixed Header */}
       <Animated.View style={[styles.headerWrapper, { height: headerHeight }]}>
         <View style={styles.headerTopRow}>
           <View style={styles.headerTitleContainer}>
-            <Animated.Text style={[styles.screenTitle, { fontSize: titleSize }]}>Chats</Animated.Text>
-            <Text style={styles.screenSubtitle}>Stay connected with your buyers</Text>
+            <Animated.Text style={[styles.screenTitle, { fontSize: titleSize }]}>
+              {t('chat.list.title', { defaultValue: 'Chats' })}
+            </Animated.Text>
+            <Text style={styles.screenSubtitle}>
+              {t('chat.list.subtitle', { defaultValue: 'Stay connected with your buyers' })}
+            </Text>
           </View>
-          <TouchableOpacity style={styles.iconButton} activeOpacity={0.8}>
+          {/* <TouchableOpacity style={styles.iconButton} activeOpacity={0.8} onPress={() => setMenuVisible(true)}>
             <Icon name="ellipsis-vertical" size={22} color={Colors.light.textSecondary} />
-          </TouchableOpacity>
+          </TouchableOpacity> */}
         </View>
 
         {/* Search Bar */}
@@ -252,7 +306,7 @@ const ChatListScreen = ({ navigation }) => {
             <Icon name="search" size={18} color={Colors.light.textSecondary} />
             <TextInput
               style={styles.searchInput}
-              placeholder="Search chats"
+              placeholder={t('chat.list.searchPlaceholder', { defaultValue: 'Search chats' })}
               placeholderTextColor={Colors.light.textSecondary + '80'}
               value={search}
               onChangeText={(v) => { setSearch(v); handleSearchChange(v); }}
@@ -289,12 +343,29 @@ const ChatListScreen = ({ navigation }) => {
         ListEmptyComponent={!loading && (
           <View style={styles.emptyState}>
             <Feather name="message-circle" size={72} color={Colors.light.primary + '60'} />
-            <Text style={styles.emptyTitle}>No Chats</Text>
-            <Text style={styles.emptySubtitle}>Start a conversation with your buyers to see chats here.</Text>
-            <TouchableOpacity style={styles.startChatButton} onPress={() => { /* placeholder */ }}>
-              <Feather name="plus" size={18} color="#FFFFFF" />
-              <Text style={styles.startChatButtonText}>Start Chat</Text>
-            </TouchableOpacity>
+            <Text style={styles.emptyTitle}>{t('chat.list.emptyTitle', { defaultValue: 'No Chats' })}</Text>
+            <Text style={styles.emptySubtitle}>{t('chat.list.emptySubtitle', { defaultValue: 'Start a conversation with your buyers to see chats here.' })}</Text>
+            {user?.role === 'buyer' && (
+              <TouchableOpacity
+                style={styles.startChatButton}
+                onPress={() => {
+                  Toast.show({
+                    type: 'info',
+                    position: 'bottom',
+                    text1: t('chat.list.toast.startWithRequestTitle', { defaultValue: 'Start with a Request' }),
+                    text2: t('chat.list.toast.startWithRequestMessage', { defaultValue: 'First send a request to the farmer, then chat.' }),
+                  });
+                  try {
+                    navigation.navigate('Main', { screen: 'BuyerTabs', params: { screen: 'Home' } });
+                  } catch (_) {
+                    try { navigation.navigate('Home'); } catch (_) { }
+                  }
+                }}
+              >
+                <Feather name="plus" size={18} color="#FFFFFF" />
+                <Text style={styles.startChatButtonText}>{t('chat.list.startChat', { defaultValue: 'Start Chat' })}</Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
         onScroll={Animated.event(
@@ -313,12 +384,73 @@ const ChatListScreen = ({ navigation }) => {
           index,
         })}
       />
+
+      {/* Three-dot Menu */}
+      {menuVisible && (
+        <View style={styles.menuOverlay}>
+          <TouchableOpacity style={styles.menuBackdrop} activeOpacity={1} onPress={() => setMenuVisible(false)} />
+          <View style={styles.menuSheet}>
+            {user?.role === 'buyer' && (
+              <TouchableOpacity style={styles.menuItem} onPress={() => {
+                setMenuVisible(false);
+                Toast.show({ type: 'info', position: 'bottom', text1: t('chat.list.toast.startWithRequestTitle', { defaultValue: 'Start with a Request' }), text2: t('chat.list.toast.startWithRequestMessage', { defaultValue: 'First send a request to the farmer, then chat.' }) });
+                try {
+                  navigation.navigate('Main', { screen: 'BuyerTabs', params: { screen: 'Home' } });
+                } catch (_) { try { navigation.navigate('Home'); } catch (_) { } }
+              }}>
+                <Icon name="chatbubbles-outline" size={18} color="#111827" style={styles.menuIcon} />
+                <Text style={styles.menuText}>{t('chat.list.menu.startNew', { defaultValue: 'Start New Chat' })}</Text>
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity style={styles.menuItem} onPress={() => { setMenuVisible(false); onRefresh(); }}>
+              <Icon name="refresh-outline" size={18} color="#111827" style={styles.menuIcon} />
+              <Text style={styles.menuText}>{t('chat.list.menu.refresh', { defaultValue: 'Refresh' })}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.menuItem} onPress={() => { setShowUnreadOnly(v => !v); }}>
+              <Icon name={showUnreadOnly ? 'checkbox-outline' : 'square-outline'} size={18} color="#111827" style={styles.menuIcon} />
+              <Text style={styles.menuText}>{showUnreadOnly ? t('chat.list.menu.showAll', { defaultValue: 'Show All Chats' }) : t('chat.list.menu.showUnread', { defaultValue: 'Show Unread Only' })}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.menuItem} onPress={() => { setSortBy(s => (s === 'recent' ? 'name' : 'recent')); }}>
+              <Icon name="swap-vertical-outline" size={18} color="#111827" style={styles.menuIcon} />
+              <Text style={styles.menuText}>{sortBy === 'recent' ? t('chat.list.menu.sortByName', { defaultValue: 'Sort by Name' }) : t('chat.list.menu.sortByRecent', { defaultValue: 'Sort by Recent' })}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.menuItem} onPress={async () => {
+              try {
+                const uid = auth.currentUser?.uid;
+                if (!uid) { setMenuVisible(false); return; }
+                const toMark = chats.filter(c => (c.unread || 0) > 0);
+                await Promise.allSettled(toMark.map(c => markChatRead(uid, c.chatId)));
+                Toast.show({ type: 'success', position: 'bottom', text1: t('chat.list.toast.allMarkedRead', { defaultValue: 'All chats marked as read' }) });
+              } catch (e) {
+                Toast.show({ type: 'error', position: 'bottom', text1: t('chat.list.toast.markAllReadFailed', { defaultValue: 'Failed to mark all as read' }) });
+              } finally {
+                setMenuVisible(false);
+              }
+            }}>
+              <Icon name="checkmark-done-outline" size={18} color="#111827" style={styles.menuIcon} />
+              <Text style={styles.menuText}>{t('chat.list.menu.markAllRead', { defaultValue: 'Mark All as Read' })}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.menuItem} onPress={() => { setMenuVisible(false); try { navigation.navigate('HelpScreen'); } catch (_) { } }}>
+              <Icon name="help-circle-outline" size={18} color="#111827" style={styles.menuIcon} />
+              <Text style={styles.menuText}>{t('chat.list.menu.help', { defaultValue: 'Help Center' })}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#F8FAFC' },
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#FFFFFF'
+  },
   headerWrapper: {
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
@@ -361,7 +493,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F1F5F9',
     position: 'relative'
   },
-  
+
   searchFiltersRow: {
     marginTop: 12,
     marginBottom: 10
@@ -400,17 +532,6 @@ const styles = StyleSheet.create({
   chatItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 14,
-    marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 2,
-    borderWidth: 1,
-    borderColor: '#F1F5F9',
     minHeight: 74, // Ensure consistent height for getItemLayout
   },
   avatarWrapper: {
@@ -437,7 +558,7 @@ const styles = StyleSheet.create({
     borderColor: '#FFFFFF'
   },
   chatInfoWrapper: { flex: 1 },
-  nameTimeRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  nameTimeRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 },
   nameRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -548,6 +669,39 @@ const styles = StyleSheet.create({
     height: 3,
     backgroundColor: Colors.light.primary + '30'
   },
+  // Menu styles
+  menuOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 50,
+  },
+  menuBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.15)'
+  },
+  menuSheet: {
+    position: 'absolute',
+    right: 12,
+    top: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 56 : 64,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingVertical: 6,
+    width: 220,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB'
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  menuIcon: { marginRight: 10 },
+  menuText: { fontSize: 14, color: '#111827', fontWeight: '600' },
 });
 
 export default ChatListScreen;

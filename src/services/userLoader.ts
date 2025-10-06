@@ -12,7 +12,7 @@ const toIso = (ts: any): string => {
     if (typeof ts?.toDate === 'function') return ts.toDate().toISOString();
     if (typeof ts === 'number') return new Date(ts).toISOString();
     if (typeof ts === 'string') return ts;
-  } catch {}
+  } catch { }
   return new Date().toISOString();
 };
 
@@ -47,10 +47,10 @@ export const loadUserProfileToStore = async (): Promise<{ profile: any; user: Us
   if (!fbUser?.uid) return null;
   const uid = fbUser.uid;
   try {
-  const snap = await firestore().collection('profiles').doc(uid).get();
+    const snap = await firestore().collection('profiles').doc(uid).get();
     if (!snap.exists) return null;
-  const raw: any = snap.data() as any;
-  const profile: any = { uid, ...(raw || {}) };
+    const raw: any = snap.data() as any;
+    const profile: any = { uid, ...(raw || {}) };
     const user = mapProfileToUser(uid, profile, fbUser.phoneNumber || undefined);
     const store = useAuthStore.getState();
     // 1) Hydrate Zustand store
@@ -58,7 +58,7 @@ export const loadUserProfileToStore = async (): Promise<{ profile: any; user: Us
 
     // 2) Persist to AsyncStorage so global auth flow (isRoleSelected/isProfileCompleted) can read it
     try {
-  const displayName = (profile?.displayName as string) || `${user.firstName || ''} ${user.lastName || ''}`.trim();
+      const displayName = (profile?.displayName as string) || `${user.firstName || ''} ${user.lastName || ''}`.trim();
       const isProfileComplete = Boolean(
         profile?.isProfileComplete === true ||
         ((user.firstName?.trim()?.length || 0) > 0 && (user.lastName?.trim()?.length || 0) > 0) ||
@@ -74,8 +74,8 @@ export const loadUserProfileToStore = async (): Promise<{ profile: any; user: Us
         userRole: user.userType,
         profileImage: user.avatar || null,
         isProfileComplete,
-  createdAt: profile?.createdAt || new Date().toISOString(),
-  updatedAt: profile?.updatedAt || new Date().toISOString(),
+        createdAt: profile?.createdAt || new Date().toISOString(),
+        updatedAt: profile?.updatedAt || new Date().toISOString(),
         // Buyer extras if present
         ...(user.userType === 'buyer' && {
           PreferedFruits: (profile?.PreferedFruits as any) || (profile?.preferredCrops as any) || [],
@@ -92,7 +92,7 @@ export const loadUserProfileToStore = async (): Promise<{ profile: any; user: Us
       try {
         const nextStep = isProfileComplete ? 'Complete' : 'RoleSelected';
         await AsyncStorage.setItem('authStep', nextStep);
-      } catch {}
+      } catch { }
     } catch (persistErr) {
       console.warn('Failed to persist user to AsyncStorage/offline state:', persistErr);
     }

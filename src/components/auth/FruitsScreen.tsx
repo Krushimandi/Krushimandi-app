@@ -14,6 +14,7 @@ import { authFlowManager } from '../../services/authFlowManager';
 import { updateUserInFirestore, getUserFromAsyncStorage, saveUserToAsyncStorage, cleanupUnusedBuyerFields } from '../../services/firebaseService';
 import { auth } from '../../config/firebaseModular';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 
 interface FruitsScreenProps {
   navigation?: any;
@@ -21,6 +22,18 @@ interface FruitsScreenProps {
 }
 
 const FruitsScreen: React.FC<FruitsScreenProps> = ({ navigation, route }) => {
+  const { t } = useTranslation();
+
+  const categories = [
+    { type: 'Banana', labelKey: 'fruits.banana' },
+    { type: 'Orange', labelKey: 'fruits.orange' },
+    { type: 'Grape', labelKey: 'fruits.grape' },
+    { type: 'Pomegranate', labelKey: 'fruits.pomegranate' },
+    { type: 'Sweet Lemon', labelKey: 'fruits.sweetLemon' },
+    { type: 'Apple', labelKey: 'fruits.apple' },
+    { type: 'Mango', labelKey: 'fruits.mango' },
+  ];
+
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFruits, setSelectedFruits] = useState<number[]>([]);
   // Treat as onboarding when explicitly requested via route OR when user has no saved preferences yet
@@ -38,10 +51,10 @@ const FruitsScreen: React.FC<FruitsScreenProps> = ({ navigation, route }) => {
           .filter(fruit => preferredFruits.includes(fruit.name))
           .map(fruit => fruit.id);
 
-  setSelectedFruits(fruitIds);
+        setSelectedFruits(fruitIds);
 
-  // If user has no preferred fruits stored, we are in onboarding flow
-  setIsOnboarding(prev => prev || !(preferredFruits && preferredFruits.length > 0));
+        // If user has no preferred fruits stored, we are in onboarding flow
+        setIsOnboarding(prev => prev || !(preferredFruits && preferredFruits.length > 0));
       } catch (error) {
         console.error('Error loading user preferences:', error);
       }
@@ -120,14 +133,12 @@ const FruitsScreen: React.FC<FruitsScreenProps> = ({ navigation, route }) => {
             }));
           }
         } catch { }
-        
+
         // Navigate to main app
         navigation?.reset?.({ index: 0, routes: [{ name: 'Main' }] });
-        console.log('✅ Buyer fruits selection saved and navigating to home');
       } else if (navigation && navigation.canGoBack()) {
         // Editing from within the main app: just go back
         navigation.goBack();
-        console.log('✅ Buyer fruits preferences updated and returned to previous screen');
       } else {
         // Default safety: try to go to main
         await authFlowManager.updateFlowState('complete');
@@ -157,7 +168,7 @@ const FruitsScreen: React.FC<FruitsScreenProps> = ({ navigation, route }) => {
       <View style={styles.searchContainer}>
         <Ionicons name="search" size={20} color="#B0B0B0" style={styles.icon} />
         <TextInput
-          placeholder="Search"
+          placeholder={t('buyerHome.searchPlaceholder')}
           placeholderTextColor="#B0B0B0"
           style={styles.input}
           value={searchQuery}
@@ -185,7 +196,8 @@ const FruitsScreen: React.FC<FruitsScreenProps> = ({ navigation, route }) => {
                 onPress={() => handleFruitSelection(item.id)}
               >
                 <Image source={item.image} style={styles.image} />
-                <Text style={styles.name}>{item.name}</Text>
+                <Text style={styles.name}>{t(categories.find(c => c.type === item.name)?.labelKey)}</Text>
+
                 {isSelected && (
                   <View style={styles.selectedIndicator}>
                     <Ionicons name="checkmark" size={20} color="#FFF" />
@@ -220,7 +232,7 @@ const FruitsScreen: React.FC<FruitsScreenProps> = ({ navigation, route }) => {
       <View style={styles.continueContainer}>
         <TouchableOpacity style={styles.continueButton} onPress={handleContinue}>
           <Text style={styles.continueText}>
-            {navigation && navigation.canGoBack() ? 'Save Preferences' : 'Continue to Home'}
+            {navigation && navigation.canGoBack() ? t('profileEdit.saveButton') : 'Continue to Home'}
           </Text>
         </TouchableOpacity>
         {(!navigation || !navigation.canGoBack()) && (
@@ -299,7 +311,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF',
     borderRadius: 16,
     paddingHorizontal: 12,
-    height: 40,
+    height: 46,
     marginHorizontal: 24,
     marginBottom: 16,
   },
@@ -327,12 +339,13 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     width: '48%',
     height: 200,
-    // backgroundColor: item.bgColor,
   },
   image: {
-    width: 80,
-    height: 80,
+    width: '100%',
+    height: 100,
     borderRadius: 16,
+    margin: 20,
+    resizeMode: 'contain',
     marginBottom: 8,
   },
   name: {

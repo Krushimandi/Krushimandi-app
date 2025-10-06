@@ -93,18 +93,17 @@ const PhotoUploadScreen = ({ navigation, route }) => {
             );
             return compressedImage.uri;
         } catch (error) {
-            console.log('Image compression failed:', error);
+            console.error('Image compression failed:', error);
             return imageUri; // Return original if compression fails
         }
     };
 
     // Upload image to Firebase Storage
     const uploadImageToFirebase = async (imageUri, photoIndex) => {
-        console.log(`🔄 Starting upload for index: ${photoIndex}, URI: ${imageUri.substring(0, 50)}...`);
+        // Starting upload
 
         // Double-check that we should proceed with this upload
         if (pendingUploads.has(photoIndex)) {
-            console.log(`⚠️ Upload already pending for index ${photoIndex}, skipping duplicate`);
             return;
         }
 
@@ -112,15 +111,12 @@ const PhotoUploadScreen = ({ navigation, route }) => {
             // Add to pending uploads immediately
             setPendingUploads(prev => {
                 const newSet = new Set([...prev, photoIndex]);
-                console.log(`➕ Added index ${photoIndex} to pending uploads. Total pending: ${newSet.size}`);
-                console.log(`📋 All pending uploads:`, Array.from(newSet));
                 return newSet;
             });
 
             // Compress image first for faster upload and smaller file size
-            console.log(`🗜️ Compressing image for index ${photoIndex}...`);
             const compressedUri = await compressImage(imageUri);
-            console.log(`✅ Image compressed for index ${photoIndex}`);
+
 
             // Generate unique filename with timestamp to avoid conflicts
             const userId = await AsyncStorage.getItem('userData').then(data => {
@@ -161,8 +157,7 @@ const PhotoUploadScreen = ({ navigation, route }) => {
             // Get download URL
             const downloadURL = await reference.getDownloadURL();
 
-            console.log(`✅ Image uploaded successfully for index: ${photoIndex}`);
-            console.log(`🔗 Download URL: ${downloadURL.substring(0, 50)}...`);
+
 
             // Update photo state with Firebase URL (if still present)
             setUploadedPhotos(prev => {
@@ -173,7 +168,7 @@ const PhotoUploadScreen = ({ navigation, route }) => {
                         firebaseUrl: downloadURL,
                         uploading: false
                     };
-                    console.log(`📝 Updated photo at index ${photoIndex} with download URL. Upload complete!`);
+
                 } else {
                     console.warn(`⚠️ Slot ${photoIndex} no longer exists or was cleared; skipping update.`);
                 }
@@ -184,7 +179,6 @@ const PhotoUploadScreen = ({ navigation, route }) => {
             setPendingUploads(prev => {
                 const newSet = new Set(prev);
                 newSet.delete(photoIndex);
-                console.log(`➖ Removed index ${photoIndex} from pending uploads. Remaining: ${newSet.size}`);
                 return newSet;
             });
 
@@ -210,7 +204,6 @@ const PhotoUploadScreen = ({ navigation, route }) => {
 
             // Check if it was cancelled
             if (error.code === 'storage/cancelled') {
-                console.log(`🚫 Upload cancelled for index: ${photoIndex}`);
                 return null;
             }
 
@@ -223,7 +216,7 @@ const PhotoUploadScreen = ({ navigation, route }) => {
                         uploading: false,
                         uploadFailed: true
                     };
-                    console.log(`💥 Marked photo at index ${photoIndex} as failed`);
+
                 } else {
                     console.error(`❌ ERROR: Cannot mark failed - no photo at index ${photoIndex}`);
                 }
@@ -233,7 +226,6 @@ const PhotoUploadScreen = ({ navigation, route }) => {
             setPendingUploads(prev => {
                 const newSet = new Set(prev);
                 newSet.delete(photoIndex);
-                console.log(`➖ Removed failed upload index ${photoIndex} from pending. Remaining: ${newSet.size}`);
                 return newSet;
             });
 
@@ -279,20 +271,18 @@ const PhotoUploadScreen = ({ navigation, route }) => {
     };
 
     const handlePhotoUpload = (index) => {
-        console.log(`📸 handlePhotoUpload called with index: ${index}`);
+
 
         // Find the first empty slot that should be filled
         const nextSlotToFill = getNextAvailableSlot();
 
         if (nextSlotToFill === -1) {
-            console.log('✅ All photo slots filled');
             Alert.alert('All Photos Added', 'You have added the maximum number of photos.');
             return;
         }
 
         // Only allow clicking on the next slot to fill
         if (index !== nextSlotToFill) {
-            console.log(`❌ Can only fill slot ${nextSlotToFill} next, clicked: ${index}`);
             return; // Do nothing if wrong slot clicked
         }
 
@@ -321,12 +311,10 @@ const PhotoUploadScreen = ({ navigation, route }) => {
         const targetIndexCaptured = (typeof targetIndexOverride === 'number') ? targetIndexOverride : currentPhotoIndex;
         const handleImageResponse = async (response) => {
             if (response.didCancel) {
-                console.log('User cancelled image picker');
                 return;
             }
 
             if (response.errorMessage) {
-                console.log('Image picker error:', response.errorMessage);
                 Alert.alert('Error', 'Failed to select image. Please try again.');
                 return;
             }
@@ -334,12 +322,10 @@ const PhotoUploadScreen = ({ navigation, route }) => {
             if (response.assets && response.assets[0]) {
                 const imageUri = response.assets[0].uri;
                 const targetIndex = targetIndexCaptured;
-                console.log(`📷 Selected image URI: ${imageUri.substring(0, 50)}...`);
-                console.log(`🎯 Target index: ${targetIndex}`);
+
 
                 // Double-check that the slot is still empty before proceeding
                 if (uploadedPhotos[targetIndex]) {
-                    console.log(`❌ Slot ${targetIndex} is no longer empty, aborting upload`);
                     Alert.alert(
                         'Slot Already Filled',
                         'This slot already has a photo. Please delete it first if you want to replace it.',
@@ -360,7 +346,6 @@ const PhotoUploadScreen = ({ navigation, route }) => {
                 setUploadedPhotos(prev => {
                     // If the slot got filled in the meantime, abort (no replacement)
                     if (prev[targetIndex]) {
-                        console.log(`⛔ Slot ${targetIndex} filled before commit, aborting add`);
                         return prev;
                     }
                     const newPhotos = [...prev];
@@ -372,17 +357,14 @@ const PhotoUploadScreen = ({ navigation, route }) => {
 
                     // Place the photo object at the target index
                     newPhotos[targetIndex] = photoObj;
-                    console.log(`✅ Photo object placed at index: ${targetIndex}`);
-                    console.log(`📊 Updated photos array:`, newPhotos.map((p, i) => ({ index: i, hasPhoto: !!p, uploading: p?.uploading })));
+
                     return newPhotos;
                 });
 
-                console.log(`� Enqueue upload for index: ${targetIndex}`);
                 // Enqueue upload; processor handles sequential execution
                 enqueueUpload(imageUri, targetIndex);
 
             } else {
-                console.log('No image selected');
                 Alert.alert('Error', 'No image was selected. Please try again.');
             }
         };
@@ -395,14 +377,14 @@ const PhotoUploadScreen = ({ navigation, route }) => {
     };
 
     const removePhoto = (index) => {
-        console.log(`🗑️ Removing photo at index: ${index}`);
+
 
         // Cancel upload if it's still uploading
         if (pendingUploads.has(index)) {
             const uploadTask = uploadTasks[index];
             if (uploadTask) {
                 uploadTask.cancel();
-                console.log(`❌ Cancelled upload for index: ${index}`);
+
             }
         }
 
@@ -410,7 +392,6 @@ const PhotoUploadScreen = ({ navigation, route }) => {
         setPendingUploads(prev => {
             const newSet = new Set(prev);
             newSet.delete(index);
-            console.log(`➖ Removed index ${index} from pending uploads`);
             return newSet;
         });
 
@@ -436,8 +417,7 @@ const PhotoUploadScreen = ({ navigation, route }) => {
             while (newPhotos.length < maxPhotos) {
                 newPhotos.push(null);
             }
-            console.log(`🔄 Photo removed from index ${index} and array shifted. Updated array:`,
-                newPhotos.map((p, i) => ({ index: i, hasPhoto: !!p })));
+
             return newPhotos;
         });
 
@@ -537,14 +517,14 @@ const PhotoUploadScreen = ({ navigation, route }) => {
             createdBy: fruitData?.createdBy
         };
 
-        console.log('Complete product data prepared:', completeProductData);
+        // Product data prepared
 
         // Navigate to price selection screen with the complete data
         navigation.navigate('PriceSelection', { productData: completeProductData });
 
         // Optional feedback
         if (successfulUploads.length < maxPhotos) {
-            console.log(`Continuing with ${successfulUploads.length} out of ${maxPhotos} possible photos`);
+            // Proceeding with fewer than max photos
         }
     };
 

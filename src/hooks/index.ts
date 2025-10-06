@@ -2,3 +2,4 @@
 
 export { useTheme } from './useTheme.ts';
 export { useDebounce } from './useDebounce.ts';
+export { usePendingRequestsCount } from './usePendingRequestsCount';

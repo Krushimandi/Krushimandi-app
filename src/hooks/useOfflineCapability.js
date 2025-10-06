@@ -21,7 +21,7 @@ export const useOfflineCapability = () => {
           const isConnected = state.isConnected && state.isInternetReachable;
           setIsOnline(isConnected);
           
-          console.log(`📶 Network state: ${isConnected ? 'ONLINE' : 'OFFLINE'}`);
+          
         });
 
         // Get initial network state
@@ -69,10 +69,10 @@ export const useOfflineCapability = () => {
       const networkAvailable = await checkNetworkStatus();
       
       if (networkAvailable && onlineOperation) {
-        console.log(`🌐 Executing ${operationName} online`);
+        
         return await onlineOperation();
       } else if (!networkAvailable && offlineOperation) {
-        console.log(`📱 Executing ${operationName} offline`);
+        
         return await offlineOperation();
       } else {
         throw new Error(`Cannot execute ${operationName}: ${networkAvailable ? 'no online operation provided' : 'no offline operation provided'}`);
@@ -82,7 +82,7 @@ export const useOfflineCapability = () => {
       
       // Try offline operation as fallback if online operation failed
       if (onlineOperation && offlineOperation && error.message?.toLowerCase().includes('network')) {
-        console.log(`📱 Network error detected, falling back to offline ${operationName}`);
+        
         try {
           return await offlineOperation();
         } catch (offlineError) {

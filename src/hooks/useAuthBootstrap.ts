@@ -35,7 +35,7 @@ export const useAuthBootstrap = () => {
           const offlineAuth = await getOfflineAuthState();
           if (offlineAuth && (offlineAuth as any).isOfflineAuth) {
             setOfflineUser(offlineAuth as OfflineUserData);
-            console.log('📱 Using offline auth state for user data');
+            
           }
         } catch (error) {
           console.error('❌ Error loading offline user:', error);
@@ -53,13 +53,14 @@ export const useAuthBootstrap = () => {
     await executeWithOfflineFallback(
       // Online logout
       async () => {
-        await authStore.logout();
+        await clearUserData();
+        try { authStore.setUser(null as any); } catch {}
       },
       // Offline logout (clear local data only)
       async () => {
-        console.log('📱 Offline logout: clearing local data only');
-        // Clear local storage but don't attempt Firebase signout
+        // Clear local storage; clearUserData internally handles signOut errors
         await clearUserData();
+        try { authStore.setUser(null as any); } catch {}
       },
       'logout'
     );
@@ -83,8 +84,7 @@ export const useAuthBootstrap = () => {
     isOffline: !isOnline,
     usingOfflineAuth: !!offlineUser,
     
-    // Auth store functions (enhanced)
-    login: authStore.login,
+  // Auth actions
     logout: handleLogout,
     updateUser: authStore.updateUser,
     executeWithOfflineFallback,

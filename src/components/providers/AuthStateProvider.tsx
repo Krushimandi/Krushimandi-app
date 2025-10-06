@@ -40,9 +40,9 @@ export const AuthStateProvider: React.FC<AuthStateProviderProps> = ({
 
   // Listen to Firebase auth state changes
   useEffect(() => {
-    console.log('🔥 Setting up Firebase auth state listener');
+    
     const unsubscribe = auth.onAuthStateChanged(async (user: any) => {
-      console.log('🔥 Firebase auth state changed:', user ? `User logged in: ${user.uid}` : 'User logged out');
+      
       setFirebaseUser(user);
       const prevUid = previousUidRef.current;
       const newUid = user?.uid || null;
@@ -51,7 +51,7 @@ export const AuthStateProvider: React.FC<AuthStateProviderProps> = ({
       if (prevUid && newUid && prevUid !== newUid) {
         if (switchingRef.current) return; // prevent re-entrancy
         switchingRef.current = true;
-        console.log('🔄 Detected account switch. Clearing previous cached profile/state.', { prevUid, newUid });
+        
         try {
           // Clear user-specific cached data WITHOUT full logout side-effects
           const keysToRemove = [
@@ -63,24 +63,24 @@ export const AuthStateProvider: React.FC<AuthStateProviderProps> = ({
             '@krushimandi:auth_flow_state'
           ];
           try {
-            const existing = await AsyncStorage.multiGet(keysToRemove);
-            const existingKeys = existing.filter((entry) => !!entry[1]).map((entry) => entry[0]);
-            console.log('🧹 Removing cached keys for previous user:', existingKeys);
             await AsyncStorage.multiRemove(keysToRemove);
           } catch (cacheErr) {
             console.warn('⚠️ Failed removing some cache keys:', cacheErr);
           }
 
           // Reset auth store user (keep isAuthenticated true since Firebase has a user)
-            authStore.setUser(null);
+          authStore.setUser(null);
 
           // Force reload of new Firebase user to ensure displayName, photoURL fresh
           try {
             await user.reload();
-            console.log('🔄 Firebase user reloaded after switch:', {
-              displayName: user.displayName,
-              phoneNumber: user.phoneNumber,
-            });
+            // Update store user profile fields if present
+            try {
+              authStore.updateUser({
+                displayName: user.displayName ?? undefined,
+                phoneNumber: user.phoneNumber ?? undefined,
+              } as any);
+            } catch {}
           } catch (reloadErr) {
             console.warn('⚠️ Failed to reload new user after switch:', reloadErr);
           }
@@ -106,13 +106,13 @@ export const AuthStateProvider: React.FC<AuthStateProviderProps> = ({
       
       // If user is logged out in Firebase, ensure local state is also cleared
       if (!user) {
-        console.log('🔥 Firebase user logged out, clearing local auth state');
+        
         setUserRole(null);
         // Clear auth store
-  authStore.setUser(null);
+        authStore.setUser(null);
         previousUidRef.current = null;
       } else {
-        console.log('🔥 Firebase user available, auth state should be preserved');
+        // Firebase user available; preserve auth state
       }
     });
 
@@ -143,33 +143,27 @@ export const AuthStateProvider: React.FC<AuthStateProviderProps> = ({
   const refreshUserRole = async () => {
     try {
       setIsLoading(true);
-      console.log('🔄 Refreshing user role...');
       
       // First try to get role from AsyncStorage
       let role = await getUserRole();
-      console.log('📱 Role from AsyncStorage:', role);
       
       // If no role in AsyncStorage, try to get from user profile
       if (!role && firebaseUser) {
-        console.log('🔍 No local role found, checking user profile...');
         try {
           const { getCompleteUserProfile } = await import('../../services/firebaseService');
           const userProfile = await getCompleteUserProfile(true) as any; // Force refresh
-          console.log('👤 User profile:', userProfile?.userRole);
           
           if (userProfile?.userRole) {
             role = userProfile.userRole;
             // Save the role locally for future use
             const { saveUserRole } = await import('../../utils/userRoleStorage');
             await saveUserRole(role as 'farmer' | 'buyer');
-            console.log('✅ Role saved to local storage:', role);
           }
         } catch (profileError) {
           console.error('❌ Error fetching user profile:', profileError);
         }
       }
       
-      console.log('🎯 Final resolved role:', role);
       setUserRole(role);
     } catch (error) {
       console.error('❌ Error refreshing user role:', error);
@@ -199,17 +193,7 @@ export const AuthStateProvider: React.FC<AuthStateProviderProps> = ({
     refreshUserRole,
   };
 
-  console.log('🔍 AuthStateProvider context value:', {
-    firebaseUser: !!firebaseUser,
-    firebaseUid: firebaseUser?.uid,
-    bootstrapAuth: bootstrapState.isAuthenticated,
-    storeAuth: authStore.isAuthenticated,
-    finalAuth: contextValue.isAuthenticated,
-    userRole: contextValue.userRole,
-    userObject: userObject,
-    userHasUid: !!userObject?.uid,
-    userHasRole: !!userObject?.role
-  });
+  // Debug logs removed
 
   return (
     <AuthStateContext.Provider value={contextValue}>

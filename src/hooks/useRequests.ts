@@ -94,7 +94,7 @@ export const useRequests = () => {
     try {
       setLoading(true);
       setError(null);
-  console.log(uid, filters);
+  
   const farmerRequests = await requestService.getFarmerRequests(uid, filters);
       setRequests(farmerRequests);
     } catch (err) {
@@ -115,11 +115,7 @@ export const useRequests = () => {
     }
 
     try {
-      console.log('🔄 useRequests: Responding to request:', {
-  userId: uid,
-        userRole: user.role,
-        input
-      });
+      
 
       setLoading(true);
       setError(null);
@@ -161,12 +157,12 @@ export const useRequests = () => {
         // Don't fail the response if notification fails
       }
       
-      console.log('✅ useRequests: Request response successful, refreshing farmer requests...');
+      
       
       // Refresh requests after responding
   await loadFarmerRequests();
       
-      console.log('✅ useRequests: Farmer requests refreshed');
+      
       
       return true;
     } catch (err) {

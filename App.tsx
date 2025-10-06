@@ -1,5 +1,8 @@
 /**
- * KrushiMandi App - Enhanced with Comprehensive Error Handling & Performance Optimizations
+ * Krushimandi App
+ * @version 1.0.0
+ * @author Rushikesh-Satpute
+ * @date 2025-01-05
  */
 
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
@@ -8,13 +11,12 @@ import {
     getMessaging,
     onNotificationOpenedApp,
     getInitialNotification,
-    AuthorizationStatus
 } from '@react-native-firebase/messaging';
 // Modular Cloud Functions import
 import { getFunctions, httpsCallable, httpsCallableFromUrl } from '@react-native-firebase/functions';
-import { navigationRef, isNavigationReady, pendingNotificationData, handleNotificationNavigation } from './src/navigation/navigationService';
+import { handleNotificationNavigation } from './src/navigation/navigationService';
 import { notificationTabEmitter } from './src/navigation/buyer/notificationTabEmitter';
-import { StatusBar, Alert, View, Text, TouchableOpacity } from 'react-native';
+import { StatusBar, View, Text, TouchableOpacity } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import RNBootSplash from 'react-native-bootsplash';
 import { AppNavigator } from './src/navigation';
@@ -32,11 +34,31 @@ import { notificationInitService } from './src/services/notificationInitService'
 import NetworkStatusIndicator from './src/components/common/NetworkStatusIndicator';
 import { persistentAuthManager } from './src/utils/persistentAuthManager';
 import ErrorBoundary from './src/components/common/ErrorBoundary';
-
-// In App.js or index.js
+import { initRemoteConfig } from './src/services/remoteConfigService';
+import { useRemoteConfig } from './src/hooks/useRemoteConfig';
 import { LogBox, Appearance } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import i18n, { initI18n, LANGUAGE_STORAGE_KEY } from './src/i18n';
+
 const App: React.FC = () => {
     LogBox.ignoreAllLogs(true); // Hide all warnings
+
+    // Initialize i18n once on app start
+    initI18n();
+
+    // Apply saved language preference globally on boot
+    useEffect(() => {
+        (async () => {
+            try {
+                const savedLang = await AsyncStorage.getItem(LANGUAGE_STORAGE_KEY);
+                if (savedLang && typeof savedLang === 'string') {
+                    await i18n.changeLanguage(savedLang);
+                }
+            } catch (e) {
+                console.warn?.('Failed to apply saved language at startup');
+            }
+        })();
+    }, []);
 
     // const isDark = Appearance.getColorScheme() === 'dark';
     const isDark = false; // Force light mode for now
@@ -60,6 +82,10 @@ const App: React.FC = () => {
             // analytics.timing('app_initialization', initTime);
         }
     }, [isBootstrapped, isInitializing]);
+
+    // Initialize Remote Config (non-blocking)
+    useEffect(() => { (async () => { try { await initRemoteConfig(); } catch { } })(); }, []);
+    const rc = useRemoteConfig();
 
     // Memoize theme colors to prevent unnecessary recalculations
     const themeColors = useMemo(() => ({

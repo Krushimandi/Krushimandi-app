@@ -34,8 +34,7 @@ class RequestNotificationService {
         status: RequestStatus.PENDING
       };
 
-      await this.createRequestNotification(notificationData);
-      console.log('✅ Request created notification sent');
+  await this.createRequestNotification(notificationData);
     } catch (error) {
       console.error('❌ Error sending request created notification:', error);
     }
@@ -51,8 +50,7 @@ class RequestNotificationService {
         actionType: 'request_accepted'
       };
 
-      await this.createRequestNotification(notificationData);
-      console.log('✅ Request accepted notification sent');
+  await this.createRequestNotification(notificationData);
     } catch (error) {
       console.error('❌ Error sending request accepted notification:', error);
     }
@@ -68,8 +66,7 @@ class RequestNotificationService {
         actionType: 'request_rejected'
       };
 
-      await this.createRequestNotification(notificationData);
-      console.log('✅ Request rejected notification sent');
+  await this.createRequestNotification(notificationData);
     } catch (error) {
       console.error('❌ Error sending request rejected notification:', error);
     }
@@ -85,8 +82,7 @@ class RequestNotificationService {
         actionType: 'request_cancelled'
       };
 
-      await this.createRequestNotification(notificationData);
-      console.log('✅ Request cancelled notification sent');
+  await this.createRequestNotification(notificationData);
     } catch (error) {
       console.error('❌ Error sending request cancelled notification:', error);
     }
@@ -102,8 +98,7 @@ class RequestNotificationService {
         actionType: 'request_expired'
       };
 
-      await this.createRequestNotification(notificationData);
-      console.log('✅ Request expired notification sent');
+  await this.createRequestNotification(notificationData);
     } catch (error) {
       console.error('❌ Error sending request expired notification:', error);
     }
@@ -120,8 +115,7 @@ class RequestNotificationService {
         status: RequestStatus.PENDING
       };
 
-      await this.createRequestNotification(notificationData);
-      console.log('✅ Request resent notification sent');
+  await this.createRequestNotification(notificationData);
     } catch (error) {
       console.error('❌ Error sending request resent notification:', error);
     }
@@ -256,7 +250,7 @@ class RequestNotificationService {
     try {
       // This could be used to track which notifications have been processed
       // to avoid sending duplicate notifications
-      console.log(`✅ Request notification marked as processed: ${requestId} - ${actionType}`);
+      
     } catch (error) {
       console.error('❌ Error marking request notification as processed:', error);
     }

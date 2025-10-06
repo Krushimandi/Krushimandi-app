@@ -28,6 +28,7 @@ import { RootStackParamList } from '../../navigation/types';
 import { useBuyerProfile } from '../../hooks/useBuyerProfile';
 import { BuyerProfile, BuyerReview } from '../../services/buyerService';
 import { formatLocation } from '../../utils/location';
+import { useTranslation } from 'react-i18next';
 
 const { width, height } = Dimensions.get('window');
 
@@ -38,6 +39,7 @@ interface BuyerProfileScreenProps {
 
 const BuyerProfileScreen: React.FC<BuyerProfileScreenProps> = ({ route }) => {
     const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
+    const { t } = useTranslation();
     const { user } = useAuthState();
     const { buyerId, buyerName } = route.params;
 
@@ -55,6 +57,7 @@ const BuyerProfileScreen: React.FC<BuyerProfileScreenProps> = ({ route }) => {
     // State for UI interactions
     const [showAllReviews, setShowAllReviews] = useState(false);
     const [reviewModalVisible, setReviewModalVisible] = useState(false);
+    const [profilePreviewVisible, setProfilePreviewVisible] = useState(false);
     const [newReview, setNewReview] = useState({
         rating: 5,
         comment: '',
@@ -68,7 +71,7 @@ const BuyerProfileScreen: React.FC<BuyerProfileScreenProps> = ({ route }) => {
 
     const handleWriteReview = () => {
         if (isOwnProfile) {
-            Alert.alert('Info', 'You cannot review your own profile');
+            Alert.alert(t('buyerProfile.infoTitle'), t('buyerProfile.cannotReviewOwn'));
             return;
         }
         setReviewModalVisible(true);
@@ -85,7 +88,7 @@ const BuyerProfileScreen: React.FC<BuyerProfileScreenProps> = ({ route }) => {
         if (success) {
             setReviewModalVisible(false);
             setNewReview({ rating: 5, comment: '' });
-            Alert.alert('Success', 'Review submitted successfully');
+            Alert.alert(t('buyerProfile.successTitle'), t('buyerProfile.reviewSubmitSuccess'));
         }
     };
 
@@ -107,8 +110,8 @@ const BuyerProfileScreen: React.FC<BuyerProfileScreenProps> = ({ route }) => {
     const handleShare = async () => {
         try {
             await Share.share({
-                message: `Check out ${profile?.name}'s profile on KrushiMandi - ${profile?.rating}⭐ rated buyer with ${profile?.completedOrders} completed orders.`,
-                title: `${profile?.name} - KrushiMandi`,
+                message: t('buyerProfile.shareMessage', { name: profile?.name, rating: profile?.rating, orders: profile?.completedOrders }),
+                title: t('buyerProfile.shareTitle', { name: profile?.name }),
             });
         } catch (error) {
             console.error('Error sharing profile:', error);
@@ -219,15 +222,21 @@ const BuyerProfileScreen: React.FC<BuyerProfileScreenProps> = ({ route }) => {
                     <View style={styles.tabContent}>
 
                         <View style={styles.contactSection}>
-                            <Text style={styles.sectionTitle}>Contact Information</Text>
+                            <Text style={styles.sectionTitle}>{t('buyerProfile.contact.title')}</Text>
                             <View style={styles.contactItem}>
                                 <Icon name="call" size={20} color="#6B7280" />
-                                <Text style={styles.contactText}>{profile?.phone || 'Not provided'}</Text>
+                                <Text style={styles.contactText}>{profile?.phone || t('buyerProfile.contact.notProvided')}</Text>
                             </View>
                             <View style={styles.contactItem}>
                                 <Icon name="location" size={20} color="#6B7280" />
                                 <Text style={styles.contactText}>
                                     {formatLocationValue(profile?.location)}
+                                </Text>
+                            </View>
+                            <View style={styles.contactItem}>
+                                <Icon name="calendar-outline" size={20} color="#6B7280" />
+                                <Text style={styles.contactText}>
+                                    {t('buyerProfile.memberSince')} {profile?.createdAt ? new Date(profile.createdAt).getFullYear() : new Date().getFullYear()}
                                 </Text>
                             </View>
                         </View>
@@ -253,7 +262,7 @@ const BuyerProfileScreen: React.FC<BuyerProfileScreenProps> = ({ route }) => {
                     <View style={styles.tabContent}>
                         <View style={styles.reviewsHeader}>
                             <Text style={styles.sectionTitle}>
-                                Reviews ({reviews.length})
+                                {t('buyerProfile.tabs.reviews')} ({reviews.length})
                             </Text>
                             {!isOwnProfile && (
                                 <TouchableOpacity
@@ -261,7 +270,7 @@ const BuyerProfileScreen: React.FC<BuyerProfileScreenProps> = ({ route }) => {
                                     onPress={handleWriteReview}
                                 >
                                     <Icon name="create-outline" size={16} color="#6B7280" />
-                                    <Text style={styles.writeReviewText}>Write Review</Text>
+                                    <Text style={styles.writeReviewText}>{t('buyerProfile.writeReview')}</Text>
                                 </TouchableOpacity>
                             )}
                         </View>
@@ -269,9 +278,9 @@ const BuyerProfileScreen: React.FC<BuyerProfileScreenProps> = ({ route }) => {
                         {reviews.length === 0 ? (
                             <View style={styles.emptyReviews}>
                                 <Icon name="star-outline" size={48} color="#D1D5DB" />
-                                <Text style={styles.emptyReviewsText}>No reviews yet</Text>
+                                <Text style={styles.emptyReviewsText}>{t('buyerProfile.noReviewsTitle')}</Text>
                                 <Text style={styles.emptyReviewsSubtext}>
-                                    Be the first to review this buyer
+                                    {t('buyerProfile.noReviewsSubtitle')}
                                 </Text>
                             </View>
                         ) : (
@@ -290,7 +299,7 @@ const BuyerProfileScreen: React.FC<BuyerProfileScreenProps> = ({ route }) => {
                                 onPress={() => setShowAllReviews(!showAllReviews)}
                             >
                                 <Text style={styles.showMoreText}>
-                                    {showAllReviews ? 'Show Less' : `Show All ${reviews.length} Reviews`}
+                                    {showAllReviews ? t('buyerProfile.showLess') : t('buyerProfile.showAllReviews', { count: reviews.length })}
                                 </Text>
                                 <Icon
                                     name={showAllReviews ? 'chevron-up' : 'chevron-down'}
@@ -305,7 +314,7 @@ const BuyerProfileScreen: React.FC<BuyerProfileScreenProps> = ({ route }) => {
             case 'stats':
                 return (
                     <View style={styles.tabContent}>
-                        <Text style={styles.sectionTitle}>Statistics</Text>
+                        <Text style={styles.sectionTitle}>{t('buyerProfile.stats.title')}</Text>
                         <View style={styles.statsGrid}>
                             <View style={styles.statCard}>
                                 <View style={styles.statIconContainer}>
@@ -314,35 +323,35 @@ const BuyerProfileScreen: React.FC<BuyerProfileScreenProps> = ({ route }) => {
                                 <Text style={styles.statValue}>
                                     {profile?.rating === 0 ? '0.0' : profile?.rating}
                                 </Text>
-                                <Text style={styles.statLabel}>Average Rating</Text>
+                                <Text style={styles.statLabel}>{t('buyerProfile.stats.averageRating')}</Text>
                             </View>
                             <View style={styles.statCard}>
                                 <View style={styles.statIconContainer}>
                                     <Icon name="checkmark-circle" size={24} color="#22C55E" />
                                 </View>
                                 <Text style={styles.statValue}>{profile?.completedOrders}</Text>
-                                <Text style={styles.statLabel}>Completed Orders</Text>
+                                <Text style={styles.statLabel}>{t('buyerProfile.stats.completedOrders')}</Text>
                             </View>
                             <View style={styles.statCard}>
                                 <View style={styles.statIconContainer}>
                                     <Icon name="document-text" size={24} color="#3B82F6" />
                                 </View>
                                 <Text style={styles.statValue}>{profile?.totalRequests}</Text>
-                                <Text style={styles.statLabel}>Total Requests</Text>
+                                <Text style={styles.statLabel}>{t('buyerProfile.stats.totalRequests')}</Text>
                             </View>
                             <View style={styles.statCard}>
                                 <View style={styles.statIconContainer}>
                                     <Icon name="people" size={24} color="#8B5CF6" />
                                 </View>
                                 <Text style={styles.statValue}>{profile?.totalRatings}</Text>
-                                <Text style={styles.statLabel}>Reviews</Text>
+                                <Text style={styles.statLabel}>{t('buyerProfile.stats.reviews')}</Text>
                             </View>
                         </View>
 
                         <View style={styles.progressSection}>
-                            <Text style={styles.sectionTitle}>Performance</Text>
+                            <Text style={styles.sectionTitle}>{t('buyerProfile.stats.performance')}</Text>
                             <View style={styles.progressItem}>
-                                <Text style={styles.progressLabel}>Order Completion Rate</Text>
+                                <Text style={styles.progressLabel}>{t('buyerProfile.stats.orderCompletionRate')}</Text>
                                 <View style={styles.progressBar}>
                                     <View
                                         style={[
@@ -375,7 +384,7 @@ const BuyerProfileScreen: React.FC<BuyerProfileScreenProps> = ({ route }) => {
         return (
             <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color={Colors.light.primary} />
-                <Text style={styles.loadingText}>Loading profile...</Text>
+                <Text style={styles.loadingText}>{t('buyerProfile.loading')}</Text>
             </View>
         );
     }
@@ -385,13 +394,13 @@ const BuyerProfileScreen: React.FC<BuyerProfileScreenProps> = ({ route }) => {
             <View style={styles.errorContainer}>
                 <Icon name="person-circle-outline" size={64} color="#D1D5DB" />
                 <Text style={styles.errorText}>
-                    {error || 'Profile not found'}
+                    {error || t('buyerProfile.notFound')}
                 </Text>
                 <TouchableOpacity
                     style={styles.retryButton}
                     onPress={refreshProfile}
                 >
-                    <Text style={styles.retryButtonText}>Retry</Text>
+                    <Text style={styles.retryButtonText}>{t('farmerHome.retry', { defaultValue: 'Retry' })}</Text>
                 </TouchableOpacity>
             </View>
         );
@@ -399,7 +408,9 @@ const BuyerProfileScreen: React.FC<BuyerProfileScreenProps> = ({ route }) => {
 
     return (
         <View style={styles.container}>
-            <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
+            <StatusBar
+                barStyle="light-content"
+                backgroundColor="#F8FAFC" />
 
             {/* Fixed Header - Outside ScrollView */}
             <View style={styles.fixedHeaderContainer}>
@@ -410,7 +421,7 @@ const BuyerProfileScreen: React.FC<BuyerProfileScreenProps> = ({ route }) => {
                     <Icon name="arrow-back" size={24} color="#111827" />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>
-                    {'Buyer Profile'}
+                    {t('buyerProfile.headerTitle')}
                 </Text>
                 <TouchableOpacity style={styles.shareButton} onPress={handleShare}>
                     <Icon name="share-outline" size={20} color="#111827" />
@@ -446,7 +457,11 @@ const BuyerProfileScreen: React.FC<BuyerProfileScreenProps> = ({ route }) => {
                     {/* Profile Card */}
                     <View style={styles.profileCard}>
                         <View style={styles.profileImageContainer}>
-                            <View style={styles.profileImage}>
+                            <TouchableOpacity
+                                style={styles.profileImage}
+                                onPress={() => setProfilePreviewVisible(true)}
+                                activeOpacity={0.8}
+                            >
                                 {profile.profileImage ? (
                                     <Image
                                         source={{ uri: profile.profileImage }}
@@ -457,7 +472,13 @@ const BuyerProfileScreen: React.FC<BuyerProfileScreenProps> = ({ route }) => {
                                         {profile.name.charAt(0)}
                                     </Text>
                                 )}
-                            </View>
+                                {/* Subtle preview indicator */}
+                                {profile.profileImage && (
+                                    <View style={styles.profilePreviewOverlay}>
+                                        <Icon name="expand-outline" size={16} color="#FFFFFF" />
+                                    </View>
+                                )}
+                            </TouchableOpacity>
                             {profile.isVerified && (
                                 <View style={styles.verifiedBadge}>
                                     <Icon name="checkmark" size={12} color="#FFFFFF" />
@@ -478,8 +499,8 @@ const BuyerProfileScreen: React.FC<BuyerProfileScreenProps> = ({ route }) => {
                             )}
                             <Text style={styles.ratingText}>
                                 {profile.rating > 0
-                                    ? `${profile.rating} (${profile.totalRatings} reviews)`
-                                    : 'No ratings yet'
+                                    ? `${profile.rating} (${profile.totalRatings} ${t('buyerProfile.reviewsLabel')})`
+                                    : t('buyerProfile.noRatings')
                                 }
                             </Text>
                         </View>
@@ -500,7 +521,7 @@ const BuyerProfileScreen: React.FC<BuyerProfileScreenProps> = ({ route }) => {
                                     <View style={styles.callButtonInner}>
                                         <Icon name="call" size={18} color="#FFFFFF" />
                                     </View>
-                                    <Text style={styles.callButtonText}>Call</Text>
+                                    <Text style={styles.callButtonText}>{t('buyerProfile.callBtn')}</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity
                                     activeOpacity={0.8}
@@ -509,7 +530,7 @@ const BuyerProfileScreen: React.FC<BuyerProfileScreenProps> = ({ route }) => {
                                     <View style={styles.messageButtonInner}>
                                         <Icon name="chatbubble-ellipses" size={18} color="#FFFFFF" />
                                     </View>
-                                    <Text style={styles.messageButtonText}>Message</Text>
+                                    <Text style={styles.messageButtonText}>{t('buyerProfile.messageBtn')}</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity
                                     activeOpacity={0.7}
@@ -518,7 +539,7 @@ const BuyerProfileScreen: React.FC<BuyerProfileScreenProps> = ({ route }) => {
                                     <View style={styles.reviewButtonInner}>
                                         <Icon name="star" size={18} color="#FFFFFF" />
                                     </View>
-                                    <Text style={styles.reviewButtonText}>Review</Text>
+                                    <Text style={styles.reviewButtonText}>{t('buyerProfile.reviewBtn')}</Text>
                                 </TouchableOpacity>
                             </View>
                         )}
@@ -527,16 +548,17 @@ const BuyerProfileScreen: React.FC<BuyerProfileScreenProps> = ({ route }) => {
                         <View style={styles.quickStats}>
                             <View style={styles.quickStatItem}>
                                 <Text style={styles.quickStatNumber}>{profile.completedOrders}</Text>
-                                <Text style={styles.quickStatLabel}>Orders</Text>
+                                <Text style={styles.quickStatLabel}>{t('buyerProfile.stats.orders')}</Text>
                             </View>
                             <View style={styles.quickStatDivider} />
                             <View style={styles.quickStatItem}>
                                 <Text style={styles.quickStatNumber}>{profile.totalRequests}</Text>
-                                <Text style={styles.quickStatLabel}>Requests</Text>
-                            </View>                        <View style={styles.quickStatDivider} />
+                                <Text style={styles.quickStatLabel}>{t('buyerProfile.stats.requests')}</Text>
+                            </View>
+                            <View style={styles.quickStatDivider} />
                             <View style={styles.quickStatItem}>
                                 <Text style={styles.quickStatNumber}>{profile.totalRatings}</Text>
-                                <Text style={styles.quickStatLabel}>Reviews</Text>
+                                <Text style={styles.quickStatLabel}>{t('buyerProfile.stats.reviews')}</Text>
                             </View>
                         </View>
                     </View>
@@ -557,7 +579,7 @@ const BuyerProfileScreen: React.FC<BuyerProfileScreenProps> = ({ route }) => {
                         onPress={() => setSelectedTab('about')}
                     >
                         <Text style={[styles.tabText, selectedTab === 'about' && styles.activeTabText]}>
-                            About
+                            {t('buyerProfile.tabs.about')}
                         </Text>
                     </TouchableOpacity>
                     <TouchableOpacity
@@ -565,7 +587,7 @@ const BuyerProfileScreen: React.FC<BuyerProfileScreenProps> = ({ route }) => {
                         onPress={() => setSelectedTab('reviews')}
                     >
                         <Text style={[styles.tabText, selectedTab === 'reviews' && styles.activeTabText]}>
-                            Reviews
+                            {t('buyerProfile.tabs.reviews')}
                         </Text>
                     </TouchableOpacity>
                     <TouchableOpacity
@@ -573,7 +595,7 @@ const BuyerProfileScreen: React.FC<BuyerProfileScreenProps> = ({ route }) => {
                         onPress={() => setSelectedTab('stats')}
                     >
                         <Text style={[styles.tabText, selectedTab === 'stats' && styles.activeTabText]}>
-                            Stats
+                            {t('buyerProfile.tabs.stats')}
                         </Text>
                     </TouchableOpacity>
                 </View>
@@ -597,7 +619,7 @@ const BuyerProfileScreen: React.FC<BuyerProfileScreenProps> = ({ route }) => {
                         >
                             <Icon name="close" size={20} color="#6B7280" />
                         </TouchableOpacity>
-                        <Text style={styles.modalTitle}>Write Review</Text>
+                        <Text style={styles.modalTitle}>{t('buyerProfile.writeReview')}</Text>
                         <TouchableOpacity
                             style={[
                                 styles.modalSubmitButton,
@@ -609,7 +631,7 @@ const BuyerProfileScreen: React.FC<BuyerProfileScreenProps> = ({ route }) => {
                             {submittingReview ? (
                                 <ActivityIndicator size="small" color="#FFFFFF" />
                             ) : (
-                                <Text style={styles.modalSubmitText}>Submit</Text>
+                                <Text style={styles.modalSubmitText}>{t('common.submit')}</Text>
                             )}
                         </TouchableOpacity>
                     </View>
@@ -630,14 +652,14 @@ const BuyerProfileScreen: React.FC<BuyerProfileScreenProps> = ({ route }) => {
                                 )}
                             </View>
                             <View style={styles.modalProfileDetails}>
-                                <Text style={styles.modalProfileName}>{profile?.name || 'Unknown User'}</Text>
-                                <Text style={styles.modalProfileSubtitle}>You're reviewing this buyer</Text>
+                                <Text style={styles.modalProfileName}>{profile?.name || t('labels.unavailable')}</Text>
+                                <Text style={styles.modalProfileSubtitle}>{t('buyerProfile.reviewingBuyer')}</Text>
                             </View>
                         </View>
 
                         {/* Rating Section */}
                         <View style={styles.modalRatingSection}>
-                            <Text style={styles.modalSectionTitle}>How was your experience?</Text>
+                            <Text style={styles.modalSectionTitle}>{t('feedback.title')}</Text>
                             <View style={styles.modalRatingContainer}>
                                 <View style={styles.modalRatingStars}>
                                     {renderReviewStars(newReview.rating, (rating) =>
@@ -645,24 +667,24 @@ const BuyerProfileScreen: React.FC<BuyerProfileScreenProps> = ({ route }) => {
                                     )}
                                 </View>
                                 <Text style={styles.modalRatingText}>
-                                    {newReview.rating === 5 ? 'Excellent' :
-                                        newReview.rating === 4 ? 'Good' :
-                                            newReview.rating === 3 ? 'Average' :
-                                                newReview.rating === 2 ? 'Poor' : 'Very Poor'}
+                                    {newReview.rating === 5 ? t('buyerProfile.ratingWords.excellent') :
+                                        newReview.rating === 4 ? t('buyerProfile.ratingWords.good') :
+                                            newReview.rating === 3 ? t('buyerProfile.ratingWords.average') :
+                                                newReview.rating === 2 ? t('buyerProfile.ratingWords.poor') : t('buyerProfile.ratingWords.veryPoor')}
                                 </Text>
                             </View>
                         </View>
 
                         {/* Comment Section */}
                         <View style={styles.modalCommentSection}>
-                            <Text style={styles.modalSectionTitle}>Share your thoughts</Text>
+                            <Text style={styles.modalSectionTitle}>{t('buyerProfile.shareThoughtsTitle')}</Text>
                             <Text style={styles.modalCommentSubtitle}>
-                                Help other farmers by sharing your experience with this buyer
+                                {t('buyerProfile.shareThoughtsSubtitle')}
                             </Text>
                             <View style={styles.modalCommentInputContainer}>
                                 <TextInput
                                     style={styles.modalCommentInput}
-                                    placeholder="Write your review here..."
+                                    placeholder={t('buyerProfile.reviewPlaceholder')}
                                     placeholderTextColor="#9CA3AF"
                                     value={newReview.comment}
                                     onChangeText={(text) => setNewReview(prev => ({ ...prev, comment: text }))}
@@ -680,21 +702,45 @@ const BuyerProfileScreen: React.FC<BuyerProfileScreenProps> = ({ route }) => {
 
                         {/* Guidelines */}
                         <View style={styles.modalGuidelines}>
-                            <Text style={styles.modalGuidelinesTitle}>Review Guidelines</Text>
+                            <Text style={styles.modalGuidelinesTitle}>{t('buyerProfile.guidelines.title')}</Text>
                             <View style={styles.modalGuidelineItem}>
                                 <Icon name="checkmark-circle" size={16} color="#22C55E" />
-                                <Text style={styles.modalGuidelineText}>Be honest and constructive</Text>
+                                <Text style={styles.modalGuidelineText}>{t('buyerProfile.guidelines.honest')}</Text>
                             </View>
                             <View style={styles.modalGuidelineItem}>
                                 <Icon name="checkmark-circle" size={16} color="#22C55E" />
-                                <Text style={styles.modalGuidelineText}>Focus on your experience</Text>
+                                <Text style={styles.modalGuidelineText}>{t('buyerProfile.guidelines.focus')}</Text>
                             </View>
                             <View style={styles.modalGuidelineItem}>
                                 <Icon name="checkmark-circle" size={16} color="#22C55E" />
-                                <Text style={styles.modalGuidelineText}>Keep it professional</Text>
+                                <Text style={styles.modalGuidelineText}>{t('buyerProfile.guidelines.professional')}</Text>
                             </View>
                         </View>
                     </ScrollView>
+                </View>
+            </Modal>
+
+            {/* Profile Preview Modal */}
+            <Modal
+                visible={profilePreviewVisible}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setProfilePreviewVisible(false)}
+            >
+                <View style={styles.profilePreviewOverlay}>
+                    <TouchableOpacity
+                        style={styles.profilePreviewOverlay}
+                        activeOpacity={1}
+                        onPress={() => setProfilePreviewVisible(false)}
+                    >
+                        <View style={styles.profilePreviewContainer}>
+                            <Image
+                                source={profile?.profileImage ? { uri: profile.profileImage } : require('../../assets/icons/default-avatar.png')}
+                                style={styles.profilePreviewImage}
+                                resizeMode="cover"
+                            />
+                        </View>
+                    </TouchableOpacity>
                 </View>
             </Modal>
         </View>
@@ -1609,6 +1655,26 @@ const styles = StyleSheet.create({
         height: 6,
         borderRadius: 3,
         backgroundColor: '#22C55E',
+    },
+    profilePreviewOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        width: '100%',
+    },
+    profilePreviewContainer: {
+        width: '90%',
+        aspectRatio: 1,
+        // maxWidth: 350,
+        // padding: 50,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    profilePreviewImage: {
+        width: '100%',
+        height: '100%',
+        borderRadius: 12,
     },
 });
 

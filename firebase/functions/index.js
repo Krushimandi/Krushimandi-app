@@ -24,6 +24,7 @@ const {
 // Import notification service functions
 const notificationFunctions = require('./src/notificationService');
 const adminAuth = require('./src/adminAuthService');
+const chatNotificationService = require('./src/chatNotificationService');
 
 // Export all functions
 exports.expireOldRequests = expireOldRequests;
@@ -38,6 +39,7 @@ exports.getFcmTokens = getFcmTokens;
 // Export notification functions
 Object.assign(exports, notificationFunctions);
 Object.assign(exports, adminAuth);
+Object.assign(exports, chatNotificationService);
 
 // Health check function
 exports.healthCheck = onRequest((req, res) => {
@@ -50,14 +52,16 @@ exports.healthCheck = onRequest((req, res) => {
       'cleanupOldNotifications',
       'registerFcmToken',
       'removeFcmToken',
-  'getFcmTokens',
-  'onRequestCreated',
-  'sendPromotionalNotification',
-  'sendUpdateNotification',
-  'sendCustomNotification',
-  'setDashboardUserRole',
-  'syncClaimsFromUsers',
-  'whoAmI',
+      'getFcmTokens',
+      'onRequestCreated',
+      'sendPromotionalNotification',
+      'sendUpdateNotification',
+      'sendCustomNotification',
+      'onChatNotificationCreated',
+      'onUserOnlineStatusChange',
+      'setDashboardUserRole',
+      'syncClaimsFromUsers',
+      'whoAmI',
       'healthCheck'
     ]
   });

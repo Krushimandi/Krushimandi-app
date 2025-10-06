@@ -8,7 +8,7 @@ import NetInfo from '@react-native-community/netinfo';
 import BlobUtil from 'react-native-blob-util';
 import { AppState } from 'react-native';
 
-console.log('[firebase] Legacy firebase.js loaded. Prefer importing from firebaseModular.ts');
+
 
 // ----------------------------------------------------
 // Firestore Offline Persistence & Cache Configuration
@@ -18,7 +18,7 @@ try {
 	// Enable multi-tab for RN Web fallback (ignored native) + persistent cache.
 	// In react-native-firebase v22, persistence is enabled by default; we still set cache size & network toggle helpers.
 	firestore().settings({ cacheSizeBytes: 50 * 1024 * 1024 }); // 50MB cache cap
-	console.log('[firebase] Firestore cache size set to 50MB');
+
 	firestoreReadyPromise = Promise.resolve();
 } catch (e) {
 	console.warn('[firebase] Firestore settings error (safe to ignore if already initialized):', e?.message);
@@ -34,7 +34,7 @@ try {
 	// Must be called before any other RTDB usage in the app lifecycle
 	rtdbReadyPromise = rtdb.setPersistenceEnabled(true)
 		.then(() => {
-			console.log('[firebase] RTDB persistence enabled');
+
 		})
 		.catch((e) => {
 			// If already enabled or called too late, this may throw on some platforms; safe to continue.
@@ -65,7 +65,7 @@ export function keepChatThreadSynced(chatId, enable = true) {
 // Provide a ready promise to gate app screens if desired.
 const authReady = new Promise(resolve => {
 	const unsub = auth().onAuthStateChanged(user => {
-		console.log('[firebase] Auth state ready. User:', user?.uid || 'none');
+
 		unsub();
 		resolve(user);
 	});
@@ -79,7 +79,7 @@ NetInfo.addEventListener(state => {
 	const next = !!state.isConnected;
 	if (next !== isOnline) {
 		isOnline = next;
-		console.log('[firebase] Connectivity changed ->', isOnline ? 'ONLINE' : 'OFFLINE');
+
 		try {
 			if (isOnline) firestore().enableNetwork(); else firestore().disableNetwork();
 		} catch (err) {
@@ -97,11 +97,6 @@ NetInfo.addEventListener(state => {
 
 export const getOnlineStatus = () => isOnline;
 
-// --------------------------------------------------
-// Image (Storage) Caching Helper (basic, on-demand)
-// --------------------------------------------------
-// Pattern: call cacheStorageImage(storagePath) -> returns local file path (cached) or remote download URL fallback.
-// NOTE: For production, consider a lib like react-native-fast-image; this is a lightweight fallback.
 const IMAGE_CACHE_PREFIX = 'imgcache:';
 
 export async function cacheStorageImage(storagePath, maxAgeMs = 7 * 24 * 60 * 60 * 1000) { // default 7 days
@@ -163,7 +158,7 @@ export async function purgeStaleImageCache(maxAgeMs = 7 * 24 * 60 * 60 * 1000) {
 // Periodic cache clean when app returns to foreground
 AppState.addEventListener('change', state => {
 	if (state === 'active') {
-		purgeStaleImageCache().catch(() => {});
+		purgeStaleImageCache().catch(() => { });
 	}
 });
 

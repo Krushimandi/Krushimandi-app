@@ -35,7 +35,7 @@ export const addToWishlist = async (fruitId) => {
       throw new Error('User not authenticated');
     }
 
-    console.log('➕ Adding fruit to wishlist (optimized):', fruitId, 'user:', user.uid);
+    
 
     // Create batch for atomic operations
   const batch = writeBatch(firestore);
@@ -72,7 +72,7 @@ export const addToWishlist = async (fruitId) => {
     // Commit all operations atomically
     await batch.commit();
 
-    console.log('✅ Batch commit completed for adding to wishlist');
+    
     return true;
 
   } catch (error) {
@@ -94,7 +94,7 @@ export const removeFromWishlist = async (fruitId) => {
       throw new Error('User not authenticated');
     }
 
-    console.log('➖ Removing fruit from wishlist (optimized):', fruitId, 'user:', user.uid);
+    
 
     // Create batch for atomic operations
   const batch = writeBatch(firestore);
@@ -120,7 +120,7 @@ export const removeFromWishlist = async (fruitId) => {
     // Commit all operations atomically
     await batch.commit();
 
-    console.log('✅ Batch commit completed for removing from wishlist');
+    
     return true;
 
   } catch (error) {
@@ -167,7 +167,7 @@ export const getUserWishlist = async () => {
       throw new Error('User not authenticated');
     }
 
-    console.log('📋 Getting user wishlist for:', user.uid);
+    
 
   const buyersCollectionRef = collection(firestore, 'profiles'); // unified collection
     const userDocRef = doc(buyersCollectionRef, user.uid);
@@ -184,7 +184,7 @@ export const getUserWishlist = async () => {
       });
     });
 
-    console.log('✅ User wishlist retrieved:', wishlist.length, 'items');
+    
     return wishlist;
   } catch (error) {
     console.error('❌ Error getting wishlist:', error);
@@ -199,7 +199,6 @@ export const getUserWishlist = async () => {
  */
 export const getFruitLikers = async (fruitId) => {
   try {
-    console.log('👥 Getting users who liked fruit:', fruitId);
 
     const fruitsCollectionRef = collection(firestore, 'fruits');
     const fruitDocRef = doc(fruitsCollectionRef, fruitId);
@@ -215,7 +214,7 @@ export const getFruitLikers = async (fruitId) => {
       });
     });
 
-    console.log('✅ Fruit likers retrieved:', likers.length, 'users');
+    
     return likers;
   } catch (error) {
     console.error('❌ Error getting fruit likers:', error);
@@ -230,15 +229,13 @@ export const getFruitLikers = async (fruitId) => {
  */
 export const getFruitLikesCount = async (fruitId) => {
   try {
-    console.log('🔢 Getting likes count for fruit:', fruitId);
 
     const fruitsCollectionRef = collection(firestore, 'fruits');
     const fruitDocRef = doc(fruitsCollectionRef, fruitId);
     const wishlistsCollectionRef = collection(fruitDocRef, 'wishlists');
     const likersSnapshot = await getDocs(wishlistsCollectionRef);
 
-    const count = likersSnapshot.size;
-    console.log('✅ Fruit likes count:', count);
+  const count = likersSnapshot.size;
     return count;
   } catch (error) {
     console.error('❌ Error getting fruit likes count:', error);
@@ -253,21 +250,20 @@ export const getFruitLikesCount = async (fruitId) => {
  */
 export const toggleWishlist = async (fruitId) => {
   try {
-    console.log('🔄 Simple toggle for fruit:', fruitId);
     
     // Get current status
     const isCurrentlyWishlisted = await isInWishlist(fruitId);
-    console.log('🔄 Current status:', isCurrentlyWishlisted ? 'LIKED ❤️' : 'NOT_LIKED 🤍');
+    
     
     if (isCurrentlyWishlisted) {
       // Remove from wishlist
       await removeFromWishlist(fruitId);
-      console.log('✅ Removed from wishlist');
+      
       return false;
     } else {
       // Add to wishlist
       await addToWishlist(fruitId);
-      console.log('✅ Added to wishlist');
+      
       return true;
     }
   } catch (error) {
@@ -312,11 +308,10 @@ export const cleanupWishlistInconsistencies = async (fruitId) => {
   try {
     const user = auth.currentUser;
     if (!user) {
-      console.log('❌ User not authenticated for cleanup');
       return false;
     }
 
-    console.log('🧹 Cleaning up wishlist inconsistencies for fruit:', fruitId, 'user:', user.uid);
+    
 
     // Check both locations using modular API
     const fruitsCollectionRef = collection(firestore, 'fruits');
@@ -334,32 +329,30 @@ export const cleanupWishlistInconsistencies = async (fruitId) => {
     const fruitExists = fruitWishlistDoc.exists();
     const userExists = userWishlistDoc.exists();
 
-    console.log('🧹 Current state - fruit wishlist exists:', fruitExists, 'user wishlist exists:', userExists);
+    
 
     if (fruitExists && userExists) {
-      console.log('✅ Both documents exist - no cleanup needed');
       return true;
     }
 
     if (!fruitExists && !userExists) {
-      console.log('✅ Both documents don\'t exist - consistent state');
       return true;
     }
 
     // Inconsistency detected - clean up
-    console.log('⚠️ Inconsistency detected, cleaning up...');
+    
 
     if (fruitExists && !userExists) {
       // Fruit document exists but user document doesn't - remove fruit document
-      console.log('🧹 Removing orphaned fruit wishlist document');
+      
       await deleteDoc(fruitWishlistDocRef);
     } else if (!fruitExists && userExists) {
       // User document exists but fruit document doesn't - remove user document
-      console.log('🧹 Removing orphaned user wishlist document');
+      
       await deleteDoc(userWishlistDocRef);
     }
 
-    console.log('✅ Cleanup completed successfully');
+    
 
     return true;
   } catch (error) {

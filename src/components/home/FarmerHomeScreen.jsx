@@ -39,16 +39,19 @@ import Toast from 'react-native-toast-message';
 import ErrorBoundary from '../common/ErrorBoundary';
 import { getLocationWithCache, getCurrentLocation, getFastLocation } from '../../utils/permissions';
 import { initializeLocationCache } from '../../utils/locationCache';
+import { useTranslation } from 'react-i18next';
+import { NotificationBadge } from 'components/common';
+import { HapticFeedback } from 'utils/haptics';
 
 const fruitCategories = [
-  { name: 'All Fruits', type: 'all', icon: null },
-  { name: 'Banana', type: 'banana', icon: require('../../assets/fruits/banana.png') },
-  { name: 'Orange', type: 'orange', icon: require('../../assets/fruits/orange.png') },
-  { name: 'Grape', type: 'grape', icon: require('../../assets/fruits/grapes.png') },
-  { name: 'Pomegranate', type: 'pomegranate', icon: require('../../assets/fruits/pomegranate.png') },
-  { name: 'Sweet Lemon', type: 'sweet lemon', icon: require('../../assets/fruits/sweetlemon.png') },
-  { name: 'Apple', type: 'apple', icon: require('../../assets/fruits/Apple.png') },
-  { name: 'Mango', type: 'mango', icon: require('../../assets/fruits/mango.png') },
+  { name: 'All Fruits', type: 'all', icon: null, labelKey: 'fruits.all' },
+  { name: 'Banana', type: 'banana', icon: require('../../assets/fruits/banana.png'), labelKey: 'fruits.banana' },
+  { name: 'Orange', type: 'orange', icon: require('../../assets/fruits/orange.png'), labelKey: 'fruits.orange' },
+  { name: 'Grape', type: 'grape', icon: require('../../assets/fruits/grapes.png'), labelKey: 'fruits.grape' },
+  { name: 'Pomegranate', type: 'pomegranate', icon: require('../../assets/fruits/pomegranate.png'), labelKey: 'fruits.pomegranate' },
+  { name: 'Sweet Lemon', type: 'sweet lemon', icon: require('../../assets/fruits/sweetlemon.png'), labelKey: 'fruits.sweetLemon' },
+  { name: 'Apple', type: 'apple', icon: require('../../assets/fruits/Apple.png'), labelKey: 'fruits.apple' },
+  { name: 'Mango', type: 'mango', icon: require('../../assets/fruits/mango.png'), labelKey: 'fruits.mango' },
 ];
 
 // Sort options with security validation
@@ -56,50 +59,64 @@ const sortOptions = [
   {
     key: 'newest',
     label: 'Newest First',
+    labelKey: 'sortLabels.newest',
     icon: 'time-outline',
     description: 'Most recently added',
+    descriptionKey: 'sortDescriptions.newest',
     sortFn: (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)
   },
   {
     key: 'oldest',
     label: 'Oldest First',
+    labelKey: 'sortLabels.oldest',
     icon: 'hourglass-outline',
     description: 'Earliest listings first',
+    descriptionKey: 'sortDescriptions.oldest',
     sortFn: (a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0)
   },
   {
     key: 'price_high',
     label: 'Price: High to Low',
+    labelKey: 'sortLabels.price_high',
     icon: 'trending-up-outline',
     description: 'Highest price first',
+    descriptionKey: 'sortDescriptions.price_high',
     sortFn: (a, b) => (parseFloat(b.price_per_kg) || 0) - (parseFloat(a.price_per_kg) || 0)
   },
   {
     key: 'price_low',
     label: 'Price: Low to High',
+    labelKey: 'sortLabels.price_low',
     icon: 'trending-down-outline',
     description: 'Lowest price first',
+    descriptionKey: 'sortDescriptions.price_low',
     sortFn: (a, b) => (parseFloat(a.price_per_kg) || 0) - (parseFloat(b.price_per_kg) || 0)
   },
   {
     key: 'views',
     label: 'Most Viewed',
+    labelKey: 'sortLabels.views',
     icon: 'eye-outline',
     description: 'Popular listings first',
+    descriptionKey: 'sortDescriptions.views',
     sortFn: (a, b) => (parseInt(b.views) || 0) - (parseInt(a.views) || 0)
   },
   {
     key: 'likes',
     label: 'Most Liked',
+    labelKey: 'sortLabels.likes',
     icon: 'heart-outline',
     description: 'Most appreciated listings',
+    descriptionKey: 'sortDescriptions.likes',
     sortFn: (a, b) => (parseInt(b.likes) || 0) - (parseInt(a.likes) || 0)
   },
   {
     key: 'quantity',
     label: 'Most Available',
+    labelKey: 'sortLabels.quantity',
     icon: 'layers-outline',
     description: 'Largest quantity first',
+    descriptionKey: 'sortDescriptions.quantity',
     sortFn: (a, b) => {
       const qtyA = Array.isArray(a.quantity) ? Math.max(...a.quantity.filter(q => !isNaN(q))) : (parseFloat(a.quantity) || 0);
       const qtyB = Array.isArray(b.quantity) ? Math.max(...b.quantity.filter(q => !isNaN(q))) : (parseFloat(b.quantity) || 0);
@@ -109,8 +126,10 @@ const sortOptions = [
   {
     key: 'alphabetical',
     label: 'A to Z',
+    labelKey: 'sortLabels.alphabetical',
     icon: 'text-outline',
     description: 'Alphabetical order',
+    descriptionKey: 'sortDescriptions.alphabetical',
     sortFn: (a, b) => (a.name || '').toLowerCase().localeCompare((b.name || '').toLowerCase())
   },
 ];
@@ -119,6 +138,7 @@ const sortOptions = [
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 const FarmerHomeScreen = () => {
+  const { t } = useTranslation();
   const navigation = useNavigation();
   const { showTabBar } = useTabBarControl();
   const insets = useSafeAreaInsets();
@@ -160,15 +180,8 @@ const FarmerHomeScreen = () => {
     opacity: locationTapAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 0.9] })
   }), [locationTapAnim]);
 
-  // Make sure tab bar is visible when screen comes into focus
-  useFocusEffect(
-    React.useCallback(() => {
-      showTabBar();
-    }, [showTabBar])
-  );
-
   React.useEffect(() => {
-    changeNavigationBarColor('#ffffff', true);
+    changeNavigationBarColor('#ffffff', false);
     // 1st arg = color
     // 2nd arg = light/dark icons (true = light icons, false = dark icons)
   }, []);
@@ -177,15 +190,6 @@ const FarmerHomeScreen = () => {
   useEffect(() => {
     initializeLocationCache();
   }, []);
-
-  useFocusEffect(
-    useCallback(() => {
-      return () => {
-        // This event triggers when the screen is unfocused
-        // changeNavigationBarColor('#000000', false);
-      };
-    }, [])
-  );
 
   // Calculate header height and opacity based on scroll with proper constants
   const headerHeight = scrollY.interpolate({
@@ -290,10 +294,6 @@ const FarmerHomeScreen = () => {
         // Guard: avoid immediate navigation reset if offline or early mount
         const online = await isNetworkAvailable().catch(() => false);
         userValidationAttempts.current += 1;
-        console.log('⚠️ Firebase user null during profile load (FarmerHomeScreen).', {
-          attempt: userValidationAttempts.current,
-          online
-        });
         if (!online && userValidationAttempts.current <= 5) {
           // Likely offline; keep session and retry later
           setTimeout(() => loadUserProfile(forceRefresh), 600);
@@ -304,12 +304,12 @@ const FarmerHomeScreen = () => {
           setTimeout(() => loadUserProfile(forceRefresh), 400 * userValidationAttempts.current);
           return;
         }
-        console.log('❌ No authenticated user after retries – triggering validation failure');
+        // removed debug log
         handleUserValidationFailure();
         return;
       }
 
-      console.log('📱 Loading user profile for:', user.uid, forceRefresh ? '(force refresh)' : '');
+      // removed debug log
 
       // First validate if the user still exists on Firebase server
       if (!validatingUserRef.current) {
@@ -317,14 +317,14 @@ const FarmerHomeScreen = () => {
         const isValidUser = await validateCurrentUser();
         validatingUserRef.current = false;
         if (!isValidUser) {
-          console.log('❌ User validation failed (online confirmation)');
+          // removed debug log
           // Extra safeguard: only logout if online to avoid offline false negatives
           const online = await isNetworkAvailable().catch(() => false);
           if (online) {
             handleUserValidationFailure();
             return;
           } else {
-            console.log('📱 Skipping logout due to offline state despite validation failure');
+            // removed debug log
           }
         }
       }
@@ -339,19 +339,13 @@ const FarmerHomeScreen = () => {
 
       if (profile) {
         setUserProfile(profile);
-        console.log('✅ User profile loaded:', {
-          name: profile.firstName,
-          role: profile.userRole,
-          hasAvatar: !!profile.profileImage,
-          isComplete: profile.isProfileComplete
-        });
 
         // Update last login in background
         if (profile.uid && profile.userRole) {
           updateLastLogin(profile.uid, profile.userRole).catch(console.error);
         }
       } else {
-        console.log('❌ No user profile found, user may need to complete registration');
+        // removed debug log
         handleUserValidationFailure();
       }
     } catch (error) {
@@ -369,7 +363,7 @@ const FarmerHomeScreen = () => {
       routes: [{ name: 'Auth' }],
     });
 
-    console.log("Error for validation. user deleted from DB or logout.");
+    // removed debug log
   };
 
   // Get display name for greeting - memoized to prevent recalculations
@@ -421,17 +415,15 @@ const FarmerHomeScreen = () => {
 
     try {
       if (!userProfile?.uid) {
-        console.log('❌ No user profile available for loading fruits');
+        // removed debug log
         return;
       }
 
       if (isMounted) setLoadingFruits(true);
-      console.log('🔄 Loading farmer fruits for user:', userProfile.uid);
 
       // Load active fruits using optimized method
       const activeData = await getFruitsByFarmerOptimized(userProfile.uid, 'active');
       if (isMounted) {
-        console.log('✅ Loaded active fruits:', activeData.length, activeData);
         setActiveFruits(activeData || []);
       }
 
@@ -439,25 +431,18 @@ const FarmerHomeScreen = () => {
       const allFruitsData = await getFruitsByFarmerOptimized(userProfile.uid);
       const history = (allFruitsData || []).filter(fruit => fruit.status !== 'active');
       if (isMounted) {
-        console.log('✅ Loaded fruit history:', history.length, history);
         setFruitHistory(history);
-
-        console.log('✅ Farmer fruits loaded successfully:', {
-          active: activeData?.length || 0,
-          history: history?.length || 0,
-          total: allFruitsData?.length || 0
-        });
       }
     } catch (error) {
       console.error('❌ Error loading farmer fruits:', error);
       if (isMounted) {
         // Show error to user but don't fallback to dummy data
         Alert.alert(
-          'Error Loading Fruits',
-          'Unable to load your fruit listings. Please check your internet connection and try again.',
+          t('farmerHome.errorLoadingFruitsTitle'),
+          t('farmerHome.errorLoadingFruitsMessage'),
           [
-            { text: 'OK', onPress: () => { } },
-            { text: 'Retry', onPress: () => loadFarmerFruits() }
+            { text: t('farmerHome.ok'), onPress: () => { } },
+            { text: t('farmerHome.retry'), onPress: () => loadFarmerFruits() }
           ]
         );
         // Set empty arrays instead of sample data
@@ -490,8 +475,8 @@ const FarmerHomeScreen = () => {
       if (isMounted) {
         Toast.show({
           type: 'error',
-          text1: 'Refresh Failed',
-          text2: 'Please try again later',
+          text1: t('farmerHome.refreshFailedTitle'),
+          text2: t('farmerHome.refreshFailedSubtitle'),
           position: 'bottom',
         });
       }
@@ -507,7 +492,7 @@ const FarmerHomeScreen = () => {
     <View style={styles.loadingContainer}>
       <View style={styles.loadingCard}>
         <Icon name="leaf-outline" size={48} color={Colors.light.primary} />
-        <Text style={styles.loadingText}>Loading your fruits...</Text>
+        <Text style={styles.loadingText}>{t('farmerHome.loadingFruits')}</Text>
       </View>
     </View>
   );
@@ -515,38 +500,13 @@ const FarmerHomeScreen = () => {
   // Load fruits when user profile is loaded
   useEffect(() => {
     if (userProfile?.uid) {
-      console.log('👤 User profile loaded, loading fruits for:', userProfile.uid);
       loadFarmerFruits();
-    } else {
-      console.log('👤 No user profile available yet');
     }
   }, [userProfile?.uid]);
 
-  // Debug log for fruits data
-  useEffect(() => {
-    console.log('📊 Fruits state updated:', {
-      activeFruits: activeFruits.length,
-      activeData: activeFruits,
-      fruitHistory: fruitHistory.length,
-      historyData: fruitHistory,
-      loadingFruits
-    });
-  }, [activeFruits, fruitHistory, loadingFruits]);
+  // (debug logs removed)
 
-  // Debug log for category filtering
-  useEffect(() => {
-    const filteredCount = activeFruits.filter(fruit =>
-      selectedCategory === 'all' ||
-      fruit.type.toLowerCase() === selectedCategory.toLowerCase()
-    ).length;
-
-    console.log('🔍 Category Filter Debug:', {
-      selectedCategory,
-      totalActiveFruits: activeFruits.length,
-      filteredCount,
-      sampleFruitTypes: activeFruits.slice(0, 3).map(f => f.type)
-    });
-  }, [selectedCategory, activeFruits]);
+  // (debug logs removed)
 
 
 
@@ -555,7 +515,6 @@ const FarmerHomeScreen = () => {
     let isMounted = true;
 
     try {
-      console.log('🔄 Updating fruit status...', { fruitId, newStatus });
 
       // Optimistic update
       if (newStatus === 'sold' || newStatus === 'inactive') {
@@ -578,15 +537,19 @@ const FarmerHomeScreen = () => {
       if (isMounted) {
         await loadFarmerFruits();
 
-        const statusMessage = newStatus === 'sold' ? 'marked as sold' :
-          newStatus === 'inactive' ? 'deactivated' :
-            newStatus === 'active' ? 'reactivated' :
-              'updated';
+        // Localized success toast
+        const successMsg = newStatus === 'sold'
+          ? t('farmerHome.toast.statusSold')
+          : newStatus === 'inactive'
+            ? t('farmerHome.toast.statusInactive')
+            : newStatus === 'active'
+              ? t('farmerHome.toast.statusActive')
+              : t('farmerHome.toast.statusUpdated');
 
         Toast.show({
           type: 'success',
-          text1: 'Success',
-          text2: `Fruit ${statusMessage} successfully!`,
+          text1: t('farmerHome.toast.successTitle', { defaultValue: t('common.success') }),
+          text2: successMsg,
           position: 'bottom',
           visibilityTime: 1000,
         });
@@ -596,7 +559,10 @@ const FarmerHomeScreen = () => {
       if (isMounted) {
         // Revert optimistic update
         await loadFarmerFruits();
-        Alert.alert('Error', 'Failed to update fruit status: ' + error.message);
+        Alert.alert(
+          t('farmerHome.toast.errorTitle', { defaultValue: t('common.error') }),
+          t('farmerHome.toast.updateFailed', { message: error?.message || '' })
+        );
       }
     }
 
@@ -608,12 +574,12 @@ const FarmerHomeScreen = () => {
   // Handle marking a fruit as sold
   const markFruitAsSold = (fruit) => {
     Alert.alert(
-      'Mark as Sold',
-      `Are you sure you want to mark "${fruit.name}" as sold?`,
+      t('farmerHome.markAsSoldTitle'),
+      t('farmerHome.markAsSoldMessage', { name: fruit.name }),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('farmerHome.cancel'), style: 'cancel' },
         {
-          text: 'Mark as Sold',
+          text: t('farmerHome.markAsSoldConfirm'),
           style: 'destructive',
           onPress: () => handleFruitStatusUpdate(fruit.id, 'sold')
         }
@@ -624,12 +590,12 @@ const FarmerHomeScreen = () => {
   // Handle reactivating a fruit
   const reactivateFruit = (fruit) => {
     Alert.alert(
-      'Reactivate Listing',
-      `Do you want to reactivate "${fruit.name}" listing?`,
+      t('farmerHome.reactivateTitle'),
+      t('farmerHome.reactivateMessage', { name: fruit.name }),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('farmerHome.cancel'), style: 'cancel' },
         {
-          text: 'Reactivate',
+          text: t('farmerHome.reactivateConfirm'),
           onPress: () => handleFruitStatusUpdate(fruit.id, 'active')
         }
       ]
@@ -735,6 +701,17 @@ const FarmerHomeScreen = () => {
     setSearchQuery(text);
   }, []);
 
+  // Helpers for localized labels
+  const getCategoryLabel = useCallback((type) => {
+    const item = fruitCategories.find(c => c.type === type);
+    return item ? t(item.labelKey, { defaultValue: item.name }) : type;
+  }, [t]);
+
+  const getSortLabel = useCallback((key) => {
+    const opt = sortOptions.find(o => o.key === key);
+    return opt ? t(opt.labelKey || '', { defaultValue: opt.label }) : key;
+  }, [t]);
+
   return (
     <ErrorBoundary>
       <SafeAreaView
@@ -770,7 +747,7 @@ const FarmerHomeScreen = () => {
               onRefresh={handleRefresh}
               colors={[Colors.light.primary]}
               tintColor={Colors.light.primary}
-              title="Loading fruits..."
+              title={t('farmerHome.refreshTitle')}
               titleColor={Colors.light.primary}
               progressBackgroundColor="#FFFFFF"
               progressViewOffset={120}
@@ -839,7 +816,7 @@ const FarmerHomeScreen = () => {
                     hitSlop={{ top: 10, bottom: 10, left: 0, right: 10 }}
                   >
                     <Text style={styles.welcome}>
-                      Namste, {getDisplayName}!
+                      {t('farmerHome.greeting', { name: getDisplayName })}
                     </Text>
                     <TouchableOpacity activeOpacity={0.9} onPress={onLocationPress}>
                       <Animated.View style={[styles.locationContainer, styles.locationInteractive, locationAnimatedStyle]}>
@@ -850,7 +827,7 @@ const FarmerHomeScreen = () => {
                         >
                           {userProfile?.location ?
                             `${userProfile.location.city || ''}, ${userProfile.location.state || ''}`.replace(/, $/, '')
-                            : 'Set your Location'}
+                            : t('farmerHome.setYourLocation')}
                         </Text>
                         <Icon name="chevron-down" size={12} color="#505050" />
                       </Animated.View>
@@ -863,6 +840,7 @@ const FarmerHomeScreen = () => {
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
                   <Icon name="notifications-outline" size={24} color="#000" />
+                  <NotificationBadge style={{ margin: 8 }} size="small" />
                 </TouchableOpacity>
               </View>
 
@@ -871,7 +849,7 @@ const FarmerHomeScreen = () => {
                 <View style={styles.searchBox}>
                   <Icon name="search" size={20} color="#939393" style={{ marginLeft: 12 }} />
                   <TextInput
-                    placeholder="Search fruits, location..."
+                    placeholder={t('farmerHome.searchPlaceholder')}
                     placeholderTextColor="#939393"
                     style={styles.searchInput}
                     value={searchQuery}
@@ -880,8 +858,8 @@ const FarmerHomeScreen = () => {
                     autoCapitalize="none"
                     autoCorrect={false}
                     accessible={true}
-                    accessibilityLabel="Search input"
-                    accessibilityHint="Enter keywords to search for fruits"
+                    accessibilityLabel={t('farmerHome.searchInputLabel')}
+                    accessibilityHint={t('farmerHome.searchInputHint')}
                   />
                   {searchQuery.length > 0 && (
                     <TouchableOpacity
@@ -902,8 +880,8 @@ const FarmerHomeScreen = () => {
                   onPress={() => setShowSortModal(true)}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   accessible={true}
-                  accessibilityLabel="Sort listings"
-                  accessibilityHint="Tap to open sort options"
+                  accessibilityLabel={t('farmerHome.sortButtonLabel')}
+                  accessibilityHint={t('farmerHome.sortButtonHint')}
                 >
                   <Icon name="swap-vertical-outline" size={20} color={Colors.light.primaryDark} />
                   {sortBy !== 'newest' && (
@@ -917,7 +895,7 @@ const FarmerHomeScreen = () => {
           {/* Fruit Categories */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Fruit Categories</Text>
+              <Text style={styles.sectionTitle}>{t('farmerHome.sectionCategories')}</Text>
             </View>
 
             <ScrollView
@@ -935,7 +913,7 @@ const FarmerHomeScreen = () => {
                   onPress={() => setSelectedCategory(item.type)}
                 >
 
-                  {item.name === 'All Fruits' ? (
+                  {item.type === 'all' ? (
                     <Icon name="apps-outline" size={22} color={"#505050"} style={[styles.categoryIcon, {
                       marginHorizontal: 6,
                     }]} />
@@ -945,7 +923,7 @@ const FarmerHomeScreen = () => {
                   <Text style={[
                     styles.categoryText,
                     selectedCategory === item.type && styles.selectedCategoryText
-                  ]}>{item.name}</Text>
+                  ]}>{t(item.labelKey, { defaultValue: item.name })}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -955,17 +933,17 @@ const FarmerHomeScreen = () => {
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <View>
-                <Text style={styles.sectionTitle}>My Listings</Text>
+                <Text style={styles.sectionTitle}>{t('farmerHome.sectionMyListings')}</Text>
                 {(searchQuery || selectedCategory !== 'all' || sortBy !== 'newest') && (
                   <Text
                     numberOfLines={2}
                     style={styles.searchResultsText}>
                     {searchQuery && `"${searchQuery.length > 10 ? searchQuery.slice(0, 10) + '...' : searchQuery}" • `}
-                    {selectedCategory !== 'all' && `${selectedCategory} • `}
-                    {sortBy !== 'newest' && `${sortOptions.find(opt => opt.key === sortBy)?.label} • `}
-                    {!showHistory
+                    {selectedCategory !== 'all' && `${getCategoryLabel(selectedCategory)} • `}
+                    {sortBy !== 'newest' && `${getSortLabel(sortBy)} • `}
+                    {(!showHistory
                       ? filteredActiveFruits.length
-                      : filteredFruitHistory.length} results
+                      : filteredFruitHistory.length)} {t('farmerHome.resultsSuffix')}
                   </Text>
                 )}
               </View>
@@ -975,7 +953,7 @@ const FarmerHomeScreen = () => {
                   onPress={() => setShowHistory(false)}
                 >
                   <Text style={[styles.tabText, !showHistory && styles.activeTabText]}>
-                    Active ({filteredActiveFruits.length})
+                    {t('farmerHome.tabActive')} ({filteredActiveFruits.length})
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -983,7 +961,7 @@ const FarmerHomeScreen = () => {
                   onPress={() => setShowHistory(true)}
                 >
                   <Text style={[styles.tabText, showHistory && styles.activeTabText]}>
-                    History ({filteredFruitHistory.length})
+                    {t('farmerHome.tabHistory')} ({filteredFruitHistory.length})
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -997,26 +975,26 @@ const FarmerHomeScreen = () => {
                 ) : activeFruits.length === 0 ? (
                   <View style={styles.emptyState}>
                     <Icon name="leaf-outline" size={64} color="#E0E0E0" />
-                    <Text style={styles.emptyStateText}>No Active Listings</Text>
+                    <Text style={styles.emptyStateText}>{t('farmerHome.emptyActiveTitle')}</Text>
                     <Text style={styles.emptyStateSubtext}>
-                      You haven't listed any fruits yet.{'\n'}
-                      Start by adding your first fruit listing.
+                      {t('farmerHome.emptyActiveSub1')}{"\n"}
+                      {t('farmerHome.emptyActiveSub2')}
                     </Text>
                     <TouchableOpacity
                       style={styles.refreshButton}
                       onPress={handleRefresh}
                     >
                       <Icon name="refresh-outline" size={20} color='#505050' />
-                      <Text style={styles.refreshButtonText}>Refresh</Text>
+                      <Text style={styles.refreshButtonText}>{t('farmerHome.refresh')}</Text>
                     </TouchableOpacity>
                   </View>
                 ) : filteredActiveFruits.length === 0 ? (
                   <View style={styles.emptyState}>
                     <Icon name="search-outline" size={64} color="#E0E0E0" />
-                    <Text style={styles.emptyStateText}>No Results Found</Text>
+                    <Text style={styles.emptyStateText}>{t('farmerHome.noResultsTitle')}</Text>
                     <Text style={styles.emptyStateSubtext}>
-                      {searchQuery ? `No fruits match "${searchQuery}"` : `No ${selectedCategory === 'all' ? '' : selectedCategory + ' '}fruits found`}
-                      {'\n'}Try adjusting your search or filters.
+                      {searchQuery ? t('farmerHome.noFruitsMatch', { query: searchQuery }) : t('farmerHome.noCategoryFruitsFound', { category: getCategoryLabel(selectedCategory) })}
+                      {'\n'}{t('farmerHome.tryAdjusting')}
                     </Text>
                     {(searchQuery || selectedCategory !== 'all') && (
                       <TouchableOpacity
@@ -1028,7 +1006,7 @@ const FarmerHomeScreen = () => {
                         }}
                       >
                         <Icon name="refresh-outline" size={20} color='#505050' />
-                        <Text style={styles.refreshButtonText}>Clear Filters</Text>
+                        <Text style={styles.refreshButtonText}>{t('farmerHome.clearFilters')}</Text>
                       </TouchableOpacity>
                     )}
                   </View>
@@ -1049,7 +1027,10 @@ const FarmerHomeScreen = () => {
                           productId: item.id,
                           product: item
                         })}
-                        onLongPress={() => markFruitAsSold(item)}
+                        onLongPress={() => {
+                          HapticFeedback.longPress();
+                          markFruitAsSold(item);
+                        }}
                       >
                         <View style={styles.fruitImageContainer}>
                           <Image
@@ -1059,18 +1040,18 @@ const FarmerHomeScreen = () => {
                             style={styles.fruitImage}
                             defaultSource={require('../../assets/fruits/banana.png')}
                             onError={(error) => {
-                              console.log('Image load error for fruit:', item.id, error);
+                              console.warn('Image load error for fruit:', item?.id, error);
                             }}
                           />
                           <View style={styles.statusBadge}>
                             <View style={[styles.statusDot, { backgroundColor: '#4CAF50' }]} />
-                            <Text style={styles.statusText}>Live</Text>
+                            <Text style={styles.statusText}>{t('farmerHome.statusLive')}</Text>
                           </View>
                         </View>
 
                         <View style={styles.fruitDetails}>
                           <Text style={styles.fruitName} numberOfLines={1}>
-                            {item.name || 'Unnamed Fruit'}
+                            {item.name || t('farmerHome.unnamedFruit')}
                           </Text>
                           <Text style={styles.dateText}>
                             {getRelativeTime(item.created_at || new Date().toISOString())}
@@ -1110,26 +1091,26 @@ const FarmerHomeScreen = () => {
                 ) : fruitHistory.length === 0 ? (
                   <View style={styles.emptyState}>
                     <Icon name="time-outline" size={64} color="#E0E0E0" />
-                    <Text style={styles.emptyStateText}>No History Yet</Text>
+                    <Text style={styles.emptyStateText}>{t('farmerHome.historyEmptyTitle')}</Text>
                     <Text style={styles.emptyStateSubtext}>
-                      Your past listings will appear here.{'\n'}
-                      Start listing fruits to build your history.
+                      {t('farmerHome.historyEmptySub1')}{"\n"}
+                      {t('farmerHome.historyEmptySub2')}
                     </Text>
                     <TouchableOpacity
                       style={styles.refreshButton}
                       onPress={handleRefresh}
                     >
                       <Icon name="refresh-outline" size={20} color='#505050' />
-                      <Text style={styles.refreshButtonText}>Refresh</Text>
+                      <Text style={styles.refreshButtonText}>{t('farmerHome.refresh')}</Text>
                     </TouchableOpacity>
                   </View>
                 ) : filteredFruitHistory.length === 0 ? (
                   <View style={styles.emptyState}>
                     <Icon name="search-outline" size={64} color="#E0E0E0" />
-                    <Text style={styles.emptyStateText}>No Results Found</Text>
+                    <Text style={styles.emptyStateText}>{t('farmerHome.noResultsTitle')}</Text>
                     <Text style={styles.emptyStateSubtext}>
-                      {searchQuery ? `No history matches "${searchQuery}"` : `No ${selectedCategory === 'all' ? '' : selectedCategory + ' '}history found`}
-                      {'\n'}Try adjusting your search or filters.
+                      {searchQuery ? t('farmerHome.noHistoryMatch', { query: searchQuery }) : t('farmerHome.noCategoryHistoryFound', { category: getCategoryLabel(selectedCategory) })}
+                      {'\n'}{t('farmerHome.tryAdjusting')}
                     </Text>
                     {(searchQuery || selectedCategory !== 'all') && (
                       <TouchableOpacity
@@ -1141,7 +1122,7 @@ const FarmerHomeScreen = () => {
                         }}
                       >
                         <Icon name="refresh-outline" size={20} color='#505050' />
-                        <Text style={styles.refreshButtonText}>Clear Filters</Text>
+                        <Text style={styles.refreshButtonText}>{t('farmerHome.clearFilters')}</Text>
                       </TouchableOpacity>
                     )}
                   </View>
@@ -1169,19 +1150,19 @@ const FarmerHomeScreen = () => {
                           style={styles.historyImage}
                           defaultSource={require('../../assets/fruits/banana.png')}
                           onError={(error) => {
-                            console.log('History image load error for fruit:', item.id, error);
+                            console.warn('History image load error for fruit:', item?.id, error);
                           }}
                         />
                         <View style={styles.historyDetails}>
                           <View style={styles.historyHeader}>
                             <Text style={styles.historyName} numberOfLines={1}>
-                              {item.name || 'Unnamed Fruit'}
+                              {item.name || t('farmerHome.unnamedFruit')}
                             </Text>
                             <View style={[styles.historyStatusBadge,
                             item.status === 'sold' ? styles.soldOutBadge : styles.expiredBadge]}>
                               <Text style={[styles.historyStatusText,
                               item.status === 'sold' ? styles.soldOutText : styles.expiredText]}>
-                                {item.status === 'sold' ? 'Sold Out' : 'Expired'}
+                                {item.status === 'sold' ? t('farmerHome.soldOut') : t('farmerHome.expired')}
                               </Text>
                             </View>
                           </View>
@@ -1194,18 +1175,18 @@ const FarmerHomeScreen = () => {
 
                           <View style={styles.historyStats}>
                             <View style={styles.historyStat}>
-                              <Icon name="eye-outline" size={12} color="#757575" />
-                              <Text style={styles.historyStatText}>{item.views || 0} views</Text>
-                            </View>
-                            <View style={styles.historyStat}>
-                              <Icon name="heart-outline" size={12} color="#757575" />
-                              <Text style={styles.historyStatText}>{item.likes || 0} likes</Text>
-                            </View>
-                            <View style={styles.historyStat}>
                               <Icon name="location-outline" size={12} color="#757575" />
                               <Text style={styles.historyStatText}>
                                 {formatLocation(item.location || {})}
                               </Text>
+                            </View>
+                            <View style={styles.historyStat}>
+                              <Icon name="eye-outline" size={12} color="#757575" />
+                              <Text style={styles.historyStatText}>{item.views || 0} {t('farmerHome.viewsSuffix')}</Text>
+                            </View>
+                            <View style={styles.historyStat}>
+                              <Icon name="heart-outline" size={12} color="#757575" />
+                              <Text style={styles.historyStatText}>{item.likes || 0} {t('farmerHome.likesSuffix')}</Text>
                             </View>
                           </View>
                         </View>
@@ -1279,7 +1260,7 @@ const FarmerHomeScreen = () => {
           >
             <View style={styles.sortModal}>
               <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Sort By</Text>
+                <Text style={styles.modalTitle}>{t('farmerHome.sortModalTitle')}</Text>
                 <TouchableOpacity
                   style={styles.modalCloseButton}
                   onPress={() => setShowSortModal(false)}
@@ -1314,10 +1295,10 @@ const FarmerHomeScreen = () => {
                           styles.sortOptionLabel,
                           sortBy === option.key && styles.selectedSortLabel
                         ]}>
-                          {option.label}
+                          {t(option.labelKey || '', { defaultValue: option.label })}
                         </Text>
                         <Text style={styles.sortOptionDescription}>
-                          {option.description}
+                          {t(option.descriptionKey || '', { defaultValue: option.description })}
                         </Text>
                       </View>
                     </View>
@@ -1336,7 +1317,7 @@ const FarmerHomeScreen = () => {
                     setShowSortModal(false);
                   }}
                 >
-                  <Text style={styles.modalResetText}>Reset</Text>
+                  <Text style={styles.modalResetText}>{t('farmerHome.reset')}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -1355,7 +1336,7 @@ const FarmerHomeScreen = () => {
             <Pressable style={StyleSheet.absoluteFill} onPress={() => setIsLocationModalVisible(false)} />
             <View style={styles.locModalContainer}>
               <View style={styles.locModalHeader}>
-                <Text style={styles.locModalTitle}>Location</Text>
+                <Text style={styles.locModalTitle}>{t('farmerHome.locationModalTitle')}</Text>
                 <TouchableOpacity onPress={() => setIsLocationModalVisible(false)} style={styles.locCloseBtn}>
                   <Icon name="close" size={20} color="#6B7280" />
                 </TouchableOpacity>
@@ -1364,9 +1345,9 @@ const FarmerHomeScreen = () => {
               <View style={styles.locPrivacyRow}>
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                   <Icon name="lock-closed-outline" size={16} color="#10B981" />
-                  <Text style={styles.locPrivacyLabel}>Private</Text>
+                  <Text style={styles.locPrivacyLabel}>{t('farmerHome.locationPrivate')}</Text>
                 </View>
-                <Text style={styles.locSetLabel}>Set Location</Text>
+                <Text style={styles.locSetLabel}>{t('farmerHome.setLocation')}</Text>
               </View>
 
               <View style={styles.locPreviewCard}>
@@ -1388,7 +1369,7 @@ const FarmerHomeScreen = () => {
                     )}
                   </>
                 ) : (
-                  <Text style={styles.locPreviewPlaceholder}>No location set yet</Text>
+                  <Text style={styles.locPreviewPlaceholder}>{t('farmerHome.noLocation')}</Text>
                 )}
               </View>
 
@@ -1418,23 +1399,23 @@ const FarmerHomeScreen = () => {
                     const ok = await updateUserLocation(userProfile.uid, userProfile.userRole, locData);
                     if (ok) {
                       setUserProfile(prev => prev ? { ...prev, location: locData } : prev);
-                      Toast.show({ type: 'success', text1: 'Location Updated', position: 'bottom' });
+                      Toast.show({ type: 'success', text1: t('farmerHome.locationUpdated'), position: 'bottom' });
                       setIsLocationModalVisible(false);
                     } else {
-                      Toast.show({ type: 'error', text1: 'Update Failed', text2: 'Could not save location. Try again.' });
+                      Toast.show({ type: 'error', text1: t('farmerHome.updateFailedTitle'), text2: t('farmerHome.updateFailedSubtitle') });
                     }
                   } catch (e) {
                     console.error('Location update failed:', e?.message || e);
-                    Toast.show({ type: 'error', text1: 'Location Failed', text2: e?.userMessage || 'Unable to update location.' });
+                    Toast.show({ type: 'error', text1: t('farmerHome.locationFailedTitle'), text2: e?.userMessage || t('farmerHome.locationFailedSubtitle') });
                   } finally {
                     setIsGettingLocation(false);
                   }
                 }}
               >
                 {isGettingLocation ? (
-                  <Text style={styles.locActionBtnText}>Updating…</Text>
+                  <Text style={styles.locActionBtnText}>{t('farmerHome.updating')}</Text>
                 ) : (
-                  <Text style={styles.locActionBtnText}>Update Location</Text>
+                  <Text style={styles.locActionBtnText}>{t('farmerHome.updateLocation')}</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -1706,7 +1687,8 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   selectedCategoryText: {
-    fontWeight: '600',
+    fontWeight: '700',
+    color: "#111111",
   },
   tabContainer: {
     flexDirection: 'row',

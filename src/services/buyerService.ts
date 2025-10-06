@@ -90,7 +90,7 @@ class BuyerService {
      */
     async testConnection(): Promise<boolean> {
         try {
-            console.log('🔍 Testing Firestore connection...');
+            
             
             // Try to read from a collection
             const testQuery = await firestore()
@@ -99,7 +99,7 @@ class BuyerService {
                 .limit(1)
                 .get();
             
-            console.log('✅ Firestore connection successful. Found', testQuery.size, 'documents in profiles collection');
+            
             return true;
         } catch (error) {
             console.error('❌ Firestore connection failed:', error);
@@ -120,29 +120,29 @@ class BuyerService {
             // Check cache first
             const cached = buyerProfileCache.get(buyerId);
             if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-                console.log('📋 Using cached buyer profile for:', buyerId);
+                
                 return cached.profile;
             }
 
-            console.log('🔍 Fetching buyer profile (profiles collection) from Firestore:', buyerId);
+            
             const doc = await firestore().collection('profiles').doc(buyerId).get();
             
             if (!doc.exists) {
-                console.log('❌ Buyer profile not found:', buyerId);
+                
                 return null;
             }
 
             const data = doc.data();
-            console.log('📊 Raw buyer data from Firestore:', JSON.stringify(data, null, 2));
+            
             
             if (!data) {
-                console.log('❌ No data in buyer profile:', buyerId);
+                
                 return null;
             }
 
             // Get buyer stats
             const stats = await this.getBuyerStats(buyerId);
-            console.log('📈 Buyer stats:', stats);
+            
 
             // Sanitize and construct profile with validation
             const firstName = this.sanitizeString(data.firstName);
@@ -190,7 +190,7 @@ class BuyerService {
                 updatedAt: data.updatedAt || data.lastLoginAt,
             };
 
-            console.log('👤 Constructed buyer profile:', JSON.stringify(profile, null, 2));
+            
 
             // Cache the profile
             buyerProfileCache.set(buyerId, { profile, timestamp: Date.now() });
@@ -228,7 +228,7 @@ class BuyerService {
                 };
             }
 
-            console.log('📊 Calculating buyer stats for:', buyerId);
+            
 
             // Get reviews from nested structure: profiles/{buyerId}/buyerReviews
             const reviewsSnapshot = await firestore()
@@ -240,11 +240,11 @@ class BuyerService {
             let totalRating = 0;
             let totalRatings = 0;
 
-            console.log('📝 Found', reviewsSnapshot.size, 'reviews in buyer subcollection');
+            
             
             reviewsSnapshot.forEach(doc => {
                 const review = doc.data();
-                console.log('📄 Review data:', { id: doc.id, rating: review.rating, reviewText: review.reviewText?.substring(0, 50) });
+                
                 
                 const rating = this.sanitizeNumber(review.rating);
                 if (rating > 0 && rating <= 5) {
@@ -264,19 +264,12 @@ class BuyerService {
             let pendingRequests = 0;
             let rejectedRequests = 0;
 
-            console.log('📋 Found', requestsSnapshot.size, 'requests in requests collection');
+            
 
             requestsSnapshot.forEach(doc => {
                 const request = doc.data();
                 const status = this.sanitizeString(request.status, 'pending');
-                
-                console.log('📄 Request data:', { 
-                    id: doc.id, 
-                    status: status, 
-                    productName: request.productSnapshot?.name || 'Unknown',
-                    farmerName: request.productSnapshot?.farmerName || 'Unknown'
-                });
-                
+
                 totalRequests++;
                 
                 // Count different statuses
@@ -298,7 +291,7 @@ class BuyerService {
                 if (request.farmerResponse?.rating && totalRatings === 0) {
                     const fallbackRating = this.sanitizeNumber(request.farmerResponse.rating);
                     if (fallbackRating > 0 && fallbackRating <= 5) {
-                        console.log('📊 Using fallback rating from request:', fallbackRating);
+                        
                         totalRating += fallbackRating;
                         totalRatings++;
                     }
@@ -316,15 +309,6 @@ class BuyerService {
                 totalRequests,
             };
 
-            console.log('📈 Final buyer stats:', {
-                ...stats,
-                breakdown: {
-                    completed: completedOrders,
-                    pending: pendingRequests,
-                    rejected: rejectedRequests,
-                    total: totalRequests
-                }
-            });
 
             return stats;
         } catch (error) {
@@ -357,11 +341,11 @@ class BuyerService {
             // Check cache first
             const cached = buyerReviewsCache.get(buyerId);
             if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-                console.log('📋 Using cached buyer reviews for:', buyerId);
+                
                 return cached.reviews;
             }
 
-            console.log('🔍 Fetching buyer reviews from nested structure:', buyerId);
+            
             
             // Get reviews from the nested structure: profiles/{buyerId}/buyerReviews
             const reviewsSnapshot = await firestore()
@@ -373,11 +357,11 @@ class BuyerService {
 
             const reviews: BuyerReview[] = [];
             
-            console.log('📝 Found', reviewsSnapshot.size, 'reviews in buyer subcollection');
+            
             
             for (const doc of reviewsSnapshot.docs) {
                 const data = doc.data();
-                console.log('📄 Review document:', { id: doc.id, data });
+                
                 
                 // Get farmer details to enrich the review
                 let farmerName = data.farmerName || 'Anonymous Farmer';
@@ -397,7 +381,7 @@ class BuyerService {
                             farmerImage = farmerData?.profileImage || farmerData?.photoURL;
                         }
                     } catch (error) {
-                        console.log('⚠️ Could not fetch farmer details for:', data.farmerId);
+                        
                     }
                 }
                 
@@ -416,7 +400,7 @@ class BuyerService {
                 });
             }
 
-            console.log('📊 Final reviews count:', reviews.length);
+            
 
             // Cache the reviews
             buyerReviewsCache.set(buyerId, { reviews, timestamp: Date.now() });
@@ -471,7 +455,7 @@ class BuyerService {
                     farmerImage = farmerData?.profileImage || farmerData?.photoURL;
                 }
             } catch (error) {
-                console.log('⚠️ Could not fetch farmer details for review submission:', farmerId);
+                
             }
             
             // Create review document data
@@ -487,7 +471,7 @@ class BuyerService {
             };
 
             // Add review to the nested structure: profiles/{buyerId}/buyerReviews/{farmerId}
-            console.log('📝 Adding review to buyer subcollection:', buyerId, '/', farmerId);
+            
             await firestore()
                 .collection('profiles')
                 .doc(buyerId)
@@ -512,8 +496,6 @@ class BuyerService {
             // Invalidate cache to force refresh
             buyerReviewsCache.delete(buyerId);
             buyerProfileCache.delete(buyerId);
-
-            console.log('✅ Review submitted successfully for buyer:', buyerId);
             return review;
         } catch (error) {
             console.error('❌ Error submitting buyer review:', error);
@@ -531,7 +513,6 @@ class BuyerService {
         reviewText: string = 'Very good buyer, pays on time'
     ): Promise<void> {
         try {
-            console.log('📝 Adding sample review to buyer:', buyerId);
             
             const now = firestore.Timestamp.now();
             
@@ -549,7 +530,6 @@ class BuyerService {
                 .doc(farmerId)
                 .set(reviewData);
             
-            console.log('✅ Sample review added successfully');
         } catch (error) {
             console.error('❌ Error adding sample review:', error);
             throw error;
@@ -566,7 +546,6 @@ class BuyerService {
         connectionStatus: boolean;
     }> {
         try {
-            console.log('📊 Fetching database statistics...');
             
             const [buyersSnapshot, reviewsSnapshot, requestsSnapshot, connectionStatus] = await Promise.all([
                 firestore().collection('profiles').get(),
@@ -581,8 +560,6 @@ class BuyerService {
                 requestsCount: requestsSnapshot.size,
                 connectionStatus,
             };
-
-            console.log('📈 Database statistics:', stats);
             return stats;
         } catch (error) {
             console.error('❌ Error fetching database statistics:', error);

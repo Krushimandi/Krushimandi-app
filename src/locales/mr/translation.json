@@ -1,0 +1,1290 @@
+﻿{
+  "labels": {
+    "chooseLanguage": "भाषा निवडा",
+    "unavailable": "उपलब्ध नाही",
+    "home": "होम",
+    "requests": "विनंत्या",
+    "chats": "चॅट्स",
+    "profile": "प्रोफाइल",
+    "new": "नवीन",
+    "all": "सर्व"
+  },
+  "common": {
+    "cancel": "रद्द करा",
+    "confirm": "पुष्टी करा",
+    "logout": "लॉगआउट",
+    "ok": "ठीक",
+    "submit" : "जतन करा",
+    "goBack": "मागे जा"
+  },
+  "alerts": {
+    "errorTitle": "त्रुटी",
+    "profileNotLoaded": "युजर प्रोफाइल लोड झाले नाही.",
+    "switchRoleTitle": "भूमिका बदला",
+    "switchRoleConfirm": "आपण आपली भूमिका {{role}} मध्ये बदलू इच्छिता?",
+    "logoutTitle": "लॉगआउट",
+    "logoutConfirm": "आपण निश्चितपणे लॉगआउट करू इच्छिता?",
+    "logoutFailed": "लॉगआउट अयशस्वी. कृपया पुन्हा प्रयत्न करा.",
+    "navigationErrorTitle": "नेव्हिगेशन त्रुटी",
+    "navigationErrorMessage": "{{route}} वर नेव्हिगेट करू शकत नाही. ही स्क्रीन उपलब्ध नसू शकते.",
+    "userNotFound": "वापरकर्ता सापडला नाही",
+    "cannotSwitchTitle": "सक्रिय सूची आढळल्या",
+    "cannotSwitchDueToActive": "आपल्याकडे शेतकरी म्हणून सक्रिय सूची आहेत. खरेदीदाराकडे स्विच करण्यापूर्वी त्यांना विकले किंवा निष्क्रिय म्हणून चिन्हांकित करा."
+  },
+  "settings": {
+    "sectionAccount": "खाते",
+    "sectionPreferences": "ॲप प्राधान्ये",
+    "sectionSupport": "सपोर्ट आणि माहिती",
+    "sectionAccountActions": "खाते क्रिया",
+    "editProfileTitle": "प्रोफाइल संपादित करा",
+    "editProfileSubtitle": "आपली वैयक्तिक माहिती अपडेट करा",
+    "switchRoleTitle": "भूमिका बदला",
+    "switchRoleSubtitle": "खरेदीदार/शेतकरी भूमिका बदला",
+    "languageTitle": "भाषा",
+    "languageSubtitle": "आपली पसंतीची भाषा निवडा",
+    "logoutSubtitle": "आपल्या खात्यातून साइन आउट करा"
+  },
+  "toasts": {
+    "featureDisabled": "हा फिचर सध्या अक्षम आहे.",
+    "profileMissing": "प्रोफाइल सापडले नाही",
+    "switchingRole": "भूमिका बदलत आहे...",
+    "roleSwitched": "भूमिका {{role}} मध्ये बदलली",
+    "switchRoleFailed": "भूमिका बदलण्यात अयशस्वी",
+    "cannotSwitchRole": "आत्ता भूमिका बदलू शकत नाही",
+    "feedbackSent": "प्रतिक्रिया पाठवली",
+    "feedbackThanks": "तुमच्या प्रतिक्रियेबद्दल धन्यवाद!",
+    "feedbackError": "प्रतिक्रिया त्रुटी",
+    "profileUpdated": "प्रोफाइल अपडेट केले",
+    "profileUpdateFailed": "प्रोफाइल अपडेट अयशस्वी",
+    "switchRoleCheckFailed": "लिस्टिंग सत्यापित करता आले नाही",
+    "switchRoleBlocked": "भूमिका बदलू शकत नाही",
+    "activeListingsBlock": "सक्रिय शेतकरी सूची आढळल्या. प्रथम त्यांना विकले किंवा निष्क्रिय म्हणून चिन्हांकित करा."
+  },
+  "validation": {
+    "title": "सत्यापन त्रुटी",
+    "fixBeforeSave": "कृपया जतन करण्यापूर्वी त्रुटी दुरुस्त करा",
+    "phoneRequired": "फोन नंबर आवश्यक आहे",
+    "phoneInvalid": "कृपया वैध 10 अंकी फोन नंबर टाका",
+    "firstNameRequired": "पहिले नाव आवश्यक आहे",
+    "firstNameMin": "पहिले नाव किमान 2 अक्षरांचे असावे",
+    "lastNameRequired": "आडनाव आवश्यक आहे",
+    "lastNameMin": "आडनाव किमान 2 अक्षरांचे असावे"
+  },
+  "profileEdit": {
+    "changePhotoHint": "फोटो बदलण्यासाठी टॅप करा",
+    "firstNameLabel": "पहिले नाव",
+    "firstNamePlaceholder": "आपले पहिले नाव टाका",
+    "lastNameLabel": "आडनाव",
+    "lastNamePlaceholder": "आपले आडनाव टाका",
+    "phoneLabel": "फोन नंबर",
+    "phonePlaceholder": "आपला फोन नंबर टाका",
+    "saveButton": "बदल जतन करा",
+    "savingTitle": "प्रोफाइल जतन होत आहे...",
+    "savingSubtitle": "कृपया थांबा"
+  },
+  "feedback": {
+    "headerTitle": "पुनरावलोकन शेअर करा",
+    "title": "तुमचा अनुभव कसा होता?",
+    "description": "तुमचे पुनरावलोकन आम्हाला उत्पादन सुधारण्यास आणि अधिक वापरकर्त्यांसाठी उपयुक्त बनविण्यास मदत करेल.",
+    "placeholder": "अभिप्राय शेअर करा...",
+    "submit": "पुनरावलोकन सबमिट करा"
+  },
+  "units": {
+    "ton_one": "टन",
+    "ton_other": "टन",
+    "perKg": "/किलो"
+  },
+  "time": {
+    "justNow": "आत्ताच",
+    "minutesAgo_short": "{{count}} मि पूर्वी",
+    "hoursAgo_short": "{{count}} तासांपूर्वी",
+    "daysAgo_short": "{{count}} दिवसांपूर्वी",
+    "today": "आज",
+    "dayAgo": "1 दिवसांपूर्वी",
+    "daysAgo": "{{count}} दिवसांपूर्वी",
+    "weekAgo": "1 आठवड्यापूर्वी",
+    "weeksAgo": "{{count}} आठवड्यांपूर्वी",
+    "monthAgo": "1 महिन्यापूर्वी",
+    "monthsAgo": "{{count}} महिन्यांपूर्वी",
+    "yearAgo": "1 वर्षांपूर्वी",
+    "yearsAgo": "{{count}} वर्षांपूर्वी"
+  },
+  "at": "ला",
+  "lastUpdated": "शेवटचे अपडेट",
+  "requests": {
+    "sendRequestTitle": "विनंती पाठवा",
+    "toFarmer": "{{name}} यांना",
+    "availableFrom": "उपलब्ध पासून:",
+    "farmerLabel": "शेतकरी:",
+    "requestDetailsTitle": "विनंती तपशील",
+    "quantityToRequest": "विनंतीची मात्रा:",
+    "requestingFull": "आपण संपूर्ण उपलब्ध मात्रा विनंती करत आहात",
+    "messageOptional": "संदेश (ऐच्छिक)",
+    "messagePlaceholder": "कोणत्याही विशिष्ट आवश्यकता किंवा नोंदी जोडा... (कमाल 60 अक्षरे)",
+    "sendRequestButton": "विनंती पाठवा",
+    "noQuantityTitle": "अवैध उत्पादन",
+    "noQuantityMessage": "या उत्पादनामध्ये उपलब्ध मात्रा नाही",
+    "sendError": "विनंती पाठवण्यात अयशस्वी. कृपया पुन्हा प्रयत्न करा.",
+    "checkingStatus": "स्थिती तपासत आहोत...",
+    "slideToSend": "खरेदी विनंती पाठवण्यासाठी उजवीकडे स्लाइड करा.",
+    "title": {
+      "myRequests": "माझ्या विनंत्या",
+      "receivedRequests": "प्राप्त विनंत्या"
+    },
+    "subtitle": {
+      "count": "एकूण {{total}} पैकी {{filtered}} विनंत्या"
+    },
+    "search": {
+      "placeholder": "उत्पादन, शेतकरी, स्थान शोधा..."
+    },
+    "filters": {
+      "all": "सर्व",
+      "pending": "प्रलंबित",
+      "accepted": "स्वीकारले",
+      "sold": "विकले",
+      "rejected": "नाकारले",
+      "cancelled": "रद्द केले",
+      "expired": "कालबाह्य"
+    },
+    "sort": {
+      "sortBy": "याप्रमाणे क्रमवारी लावा",
+      "date": "तारीख",
+      "alphabetical": "अ-ज्ञ",
+      "quantity": "प्रमाण",
+      "price": "किंमत"
+    },
+    "statusInfo": {
+      "pending": "अपेक्षित प्रतिसाद: 24-48 तास",
+      "responseTime": "प्रतिसाद वेळ",
+      "hours": "तास",
+      "recently": "नुकतेच",
+      "cancelled": "विनंती खरेदीदाराने रद्द केली होती",
+      "reason": "कारण"
+    },
+    "actions": {
+      "call": "कॉल करा",
+      "message": "संदेश",
+      "deleteRequest": "विनंती हटवा",
+      "deleteConfirm": "आपण नक्की ही विनंती हटवू इच्छिता?",
+      "delete": "हटवा"
+    },
+    "toast": {
+      "deleted": "विनंती हटवली",
+      "deletedMessage": "तुमची विनंती यशस्वीरित्या हटवली गेली आहे.",
+      "deleteFailed": "विनंती हटवण्यात अयशस्वी. कृपया पुन्हा प्रयत्न करा.",
+      "resent": "विनंती पुन्हा पाठवली",
+      "resentMessage": "तुमची विनंती यशस्वीरित्या पुन्हा पाठवली गेली आहे.",
+      "resendFailed": "विनंती पुन्हा पाठवण्यात अयशस्वी. कृपया पुन्हा प्रयत्न करा.",
+      "numberCopied": "नंबर कॉपी केला"
+    },
+    "contact": {
+      "unavailable": "संपर्क उपलब्ध नाही",
+      "phoneNotFound": "शेतकऱ्याचा फोन सापडला नाही",
+      "invalid": "अवैध नंबर",
+      "invalidMessage": "फोन नंबर अवैध दिसत आहे.",
+      "unableToOpen": "डायलर उघडण्यात अक्षम",
+      "dialManually": "कृपया स्वतः डायल करा",
+      "copy": "कॉपी करा",
+      "callFailed": "कॉल सुरू करू शकलो नाही",
+      "farmerUnknown": "शेतकरी अज्ञात",
+      "noFarmerId": "या विनंतीसाठी शेतकरी ID सापडला नाही.",
+      "gettingInfo": "संपर्क माहिती मिळवत आहे",
+      "fetching": "शेतकऱ्याचे संपर्क तपशील मिळवत आहे...",
+      "unavailableTitle": "संपर्क माहिती उपलब्ध नाही",
+      "unavailableMessage": "{{name}} साठी फोन नंबर सापडला नाही.",
+      "farmer": "शेतकरी",
+      "yourProduct": "तुमचे उत्पादन",
+      "defaultMessage": "नमस्कार {{name}}! मला {{product}} बद्दल एक प्रश्न आहे.",
+      "composeMessage": "संदेश लिहा",
+      "pasteMessage": "तुम्ही कॉपी केलेला तयार संदेश पेस्ट करा.",
+      "unableToOpenMessages": "संदेश उघडण्यात अक्षम",
+      "phone": "फोन",
+      "copyNumber": "नंबर कॉपी करा",
+      "copyMessage": "संदेश कॉपी करा",
+      "messageFailed": "मेसेजिंग ॲप उघडू शकलो नाही"
+    },
+    "chat": {
+      "unavailable": "चॅट उपलब्ध नाही",
+      "tryAgain": "कृपया काही वेळाने पुन्हा प्रयत्न करा."
+    },
+    "item": {
+      "unknownProduct": "अज्ञात उत्पादन",
+      "unknownFarmer": "अज्ञात शेतकरी",
+      "unknownBuyer": "अज्ञात खरेदीदार",
+      "priceNotAvailable": "किंमत उपलब्ध नाही",
+      "ton": "टन"
+    },
+    "location": {
+      "unknown": "अज्ञात स्थान"
+    },
+    "empty": {
+      "noRequests": "अद्याप विनंत्या नाहीत",
+      "buyersWillSend": "खरेदीदार तुम्हाला विनंत्या पाठवतील",
+      "noMatching": "कोणतीही जुळणारी विनंत्या नाहीत",
+      "tryAdjusting": "तुमची शोध किंवा फिल्टर्स समायोजित करून पहा",
+      "startSending": "शेतकऱ्यांना विनंत्या पाठवून सुरुवात करा"
+    },
+    "farmer": {
+      "title": "खरेदीदाराच्या विनंत्या",
+      "subtitle": "एकूण {{total}} पैकी {{filtered}} विनंत्या",
+      "subtitleWithProduct": "{{productName}} साठी {{filtered}} विनंत्या",
+      "searchPlaceholder": "उत्पादन, खरेदीदार, स्थान शोधा...",
+      "loadingRequests": "विनंत्या लोड करत आहे...",
+      "manage": "व्यवस्थापन",
+      "done": "पूर्ण",
+      "selected": "{{count}} निवडले",
+      "bulkAccept": "स्वीकारा",
+      "bulkReject": "नाकारा",
+      "accept": "स्वीकारा",
+      "reject": "नाकारा",
+      "contact": "संपर्क करा",
+      "clearFilter": "{{productName}} फिल्टर साफ करा",
+      "showAllRequests": "सर्व विनंत्या दाखवा",
+      "filterBadge": "{{productName}}",
+      "requested": "विनंती केली",
+      "yourPrice": "तुमची किंमत",
+      "buyerMessage": "खरेदीदाराचा संदेश",
+      "buyerMessageLabel": "खरेदीदाराचा संदेश",
+      "noMessageProvided": "संदेश प्रदान केला नाही",
+      "requestAccepted": "विनंती स्वीकारली",
+      "requestAcceptedMessage": "तुम्ही यशस्वीरित्या विनंती स्वीकारली आहे",
+      "requestRejected": "विनंती नाकारली",
+      "requestRejectedMessage": "तुम्ही विनंती नाकारली आहे",
+      "requestsAccepted": "विनंत्या स्वीकारल्या",
+      "requestsAcceptedMessage": "{{count}} विनंत्या यशस्वीरित्या स्वीकारल्या",
+      "requestsRejected": "विनंत्या नाकारल्या",
+      "requestsRejectedMessage": "{{count}} विनंत्या नाकारल्या",
+      "errorTitle": "त्रुटी",
+      "errorAccept": "विनंती स्वीकारण्यात अयशस्वी. कृपया पुन्हा प्रयत्न करा.",
+      "errorReject": "विनंती नाकारण्यात अयशस्वी. कृपया पुन्हा प्रयत्न करा.",
+      "errorBulkAccept": "विनंत्या स्वीकारण्यात अयशस्वी. कृपया पुन्हा प्रयत्न करा.",
+      "errorBulkReject": "विनंत्या नाकारण्यात अयशस्वी. कृपया पुन्हा प्रयत्न करा.",
+      "errorLoadingTitle": "विनंत्या लोड करण्यात अयशस्वी",
+      "errorLoadingMessage": "तुमच्या विनंत्या लोड करू शकलो नाही. कृपया पुन्हा प्रयत्न करा.",
+      "emptyNoProduct": "{{productName}} साठी विनंत्या नाहीत",
+      "emptyNoProductSubtext": "या उत्पादनासाठी अद्याप खरेदीदारांनी विनंत्या पाठवल्या नाहीत",
+      "showAllButton": "सर्व विनंत्या दाखवा"
+    }
+  },
+  "roles": {
+    "farmer": "शेतकरी",
+    "buyer": "खरेदीदार"
+  },
+  "profile": {
+    "headerTitle": "प्रोफाइल",
+    "headerSubtitle": "आपले प्रोफाइल व्यवस्थापित करा"
+  },
+  "support": {
+    "helpCenterTitle": "मदत केंद्र",
+    "helpCenterSubtitle": "मदत घ्या आणि सपोर्टशी संपर्क साधा",
+    "sendFeedbackTitle": "अभिप्राय पाठवा",
+    "sendFeedbackSubtitle": "ॲप सुधारण्यास आम्हाला मदत करा",
+    "TermsConditionTitle": "गोपनीयता धोरण",
+    "TermsConditionSubtitle": "आमच्या गोपनीयता धोरण वाचा",
+    "termsSubtitle": "नियम व अटी वाचा",
+    "aboutTitle": "ॲप बद्दल"
+  },
+  "helpGuide": {
+    "headerTitle": "मदत आणि समर्थन",
+    "faqTitle": "नेहमी विचारले जाणारे प्रश्न",
+    "faqContent": "KrushiMandi वापरण्याशी संबंधित सामान्य प्रश्नांची उत्तरे शोधा.",
+    "contactTitle": "सपोर्टशी संपर्क करा",
+    "contactContent": "मदत हवी आहे? सहाय्यासाठी आमच्या सपोर्ट टीमशी संपर्क साधा.",
+    "userGuideTitle": "वापरकर्ता मार्गदर्शक",
+    "userGuideContent": "KrushiMandi ॲपमधील सर्व वैशिष्ट्ये कशी वापरायची ते शिका."
+  },
+  "about": {
+    "version": "आवृत्ती {{version}}",
+    "build": "बिल्ड {{build}}",
+    "callingVersion": "कॉलिंग आवृत्ती {{version}}",
+    "companyName": "Krushimandi Innovations PVT. LTD.",
+    "rights": "© {{year}} Krushimandi. सर्व हक्क राखीव."
+  },
+  "fruits": {
+    "all": "सर्व फळे",
+    "banana": "केळी",
+    "orange": "संत्रे",
+    "grape": "द्राक्षे",
+    "pomegranate": "डाळिंब",
+    "sweetLemon": "मोसंबी",
+    "apple": "सफरचंद",
+    "mango": "आंबा",
+    "generic": "फळे"
+  },
+  "sortLabels": {
+    "newest": "नवीन प्रथम",
+    "oldest": "जुनी प्रथम",
+    "price_high": "किंमत: जास्त ते कमी",
+    "price_low": "किंमत: कमी ते जास्त",
+    "views": "सर्वाधिक पाहिलेले",
+    "likes": "सर्वाधिक आवडलेले",
+    "quantity": "सर्वाधिक उपलब्ध",
+    "alphabetical": "A ते Z"
+  },
+  "sortDescriptions": {
+    "newest": "अलीकडेच जोडलेले",
+    "oldest": "सर्वात पूर्वीच्या सूची प्रथम",
+    "price_high": "सर्वाधिक किंमत प्रथम",
+    "price_low": "कमी किंमत प्रथम",
+    "views": "लोकप्रिय सूची प्रथम",
+    "likes": "सर्वाधिक आवडलेल्या सूची",
+    "quantity": "सर्वाधिक प्रमाण प्रथम",
+    "alphabetical": "वर्णक्रमानुसार"
+  },
+  "farmerHome": {
+    "greeting": "नमस्कार, {{name}}!",
+    "setYourLocation": "तुमचे स्थान सेट करा",
+    "searchPlaceholder": "फळे, ठिकाण शोधा...",
+    "searchInputLabel": "शोध इनपुट",
+    "searchInputHint": "फळांसाठी कीवर्ड टाका",
+    "sortButtonLabel": "सूची क्रमवारी",
+    "sortButtonHint": "क्रम पर्याय उघडण्यासाठी टॅप करा",
+    "sectionCategories": "फळांच्या श्रेण्या",
+    "sectionMyListings": "माझ्या सूची",
+    "resultsSuffix": "निकाल",
+    "tabActive": "सक्रिय",
+    "tabHistory": "इतिहास",
+    "emptyActiveTitle": "सक्रिय सूची नाहीत",
+    "emptyActiveSub1": "आपण अजून कोणतीही फळे सूचीबद्ध केली नाहीत.",
+    "emptyActiveSub2": "आपली पहिली फळ सूची जोडून सुरू करा.",
+    "refresh": "रिफ्रेश",
+    "noResultsTitle": "निकाल आढळला नाही",
+    "noFruitsMatch": "कोणतीही फळे \"{{query}}\" शी जुळत नाहीत",
+    "noCategoryFruitsFound": "{{category}} फळे सापडली नाहीत",
+    "tryAdjusting": "आपला शोध किंवा फिल्टर समायोजित करण्याचा प्रयत्न करा.",
+    "clearFilters": "फिल्टर साफ करा",
+    "statusLive": "लाइव्ह",
+    "unnamedFruit": "नाव नसलेले फळ",
+    "historyEmptyTitle": "अजून इतिहास नाही",
+    "historyEmptySub1": "आपल्या जुन्या सूची येथे दिसतील.",
+    "historyEmptySub2": "इतिहास तयार करण्यासाठी फळे सूचीबद्ध करा.",
+    "noHistoryMatch": "कोणताही इतिहास \"{{query}}\" शी जुळत नाही",
+    "noCategoryHistoryFound": "{{category}} इतिहास सापडला नाही",
+    "viewsSuffix": "दृश्ये",
+    "likesSuffix": "आवडी",
+    "sortModalTitle": "क्रमानुसार",
+    "reset": "रीसेट",
+    "loadingFruits": "आपली फळे लोड होत आहेत...",
+    "refreshTitle": "फळे लोड होत आहेत...",
+    "errorLoadingFruitsTitle": "फळे लोड करण्यात त्रुटी",
+    "errorLoadingFruitsMessage": "आपली फळांची सूची लोड करू शकलो नाही. कृपया तुमचे इंटरनेट कनेक्शन तपासा आणि पुन्हा प्रयत्न करा.",
+    "ok": "ठीक",
+    "retry": "पुन्हा प्रयत्न करा",
+    "markAsSoldTitle": "विकले म्हणून चिन्हांकित करा",
+    "markAsSoldMessage": "आपण \"{{name}}\" विकले म्हणून चिन्हांकित करू इच्छिता?",
+    "cancel": "रद्द करा",
+    "markAsSoldConfirm": "विकले म्हणून चिन्हांकित करा",
+    "reactivateTitle": "लिस्टिंग पुन्हा सक्रिय करा",
+    "reactivateMessage": "आपण \"{{name}}\" लिस्टिंग पुन्हा सक्रिय करू इच्छिता?",
+    "reactivateConfirm": "पुन्हा सक्रिय करा",
+    "soldOut": "विकले गेले",
+    "expired": "मुदत संपली",
+    "locationModalTitle": "स्थान",
+    "locationPrivate": "खाजगी",
+    "setLocation": "स्थान सेट करा",
+    "noLocation": "अजून कोणतेही स्थान सेट केलेले नाही",
+    "locationUpdated": "स्थान अपडेट केले",
+    "updateFailedTitle": "अपडेट अयशस्वी",
+    "updateFailedSubtitle": "स्थान जतन करू शकलो नाही. पुन्हा प्रयत्न करा.",
+    "locationFailedTitle": "स्थान अयशस्वी",
+    "locationFailedSubtitle": "स्थान अपडेट करण्यात अक्षम.",
+    "updating": "अपडेट होत आहे…",
+    "updateLocation": "स्थान अपडेट करा",
+    "refreshFailedTitle": "रिफ्रेश अयशस्वी",
+    "refreshFailedSubtitle": "कृपया नंतर पुन्हा प्रयत्न करा",
+    "toast": {
+      "successTitle": "यशस्वी",
+      "errorTitle": "त्रुटी",
+      "statusSold": "फळ 'विकले' म्हणून यशस्वीरित्या चिन्हांकित केले!",
+      "statusInactive": "फळ यशस्वीरित्या निष्क्रिय केले!",
+      "statusActive": "लिस्टिंग यशस्वीरित्या पुन्हा सक्रिय केली!",
+      "statusUpdated": "फळ यशस्वीरित्या अपडेट झाले!",
+      "updateFailed": "फळ स्थिती अपडेट करण्यात अयशस्वी: {{message}}"
+    }
+  },
+  "buyerHome": {
+    "greeting": "नमस्कार, {{name}}!",
+    "setYourLocation": "तुमचे स्थान सेट करा",
+    "searchPlaceholder": "फळे शोधा...",
+    "sectionCategories": "श्रेण्या",
+    "edit": "संपादन",
+    "setPreferences": "प्राधान्ये सेट करा",
+    "sectionAvailable": "उपलब्ध फळे",
+    "loadingTitle": "फळे लोड होत आहेत...",
+    "loadingSubtitle": "कृपया थांबा, आम्ही शेतकऱ्यांकडून ताजी फळे आणत आहोत",
+    "emptyTitleNoMatch": "जुळणारी फळे नाहीत",
+    "emptyTitleNoPreferred": "पसंतीची फळे उपलब्ध नाहीत",
+    "emptyTitleNoFruits": "कोणतीही फळे उपलब्ध नाहीत",
+    "emptySubNoMatch": "तुमचा शोध किंवा श्रेणी फिल्टर समायोजित करण्याचा प्रयत्न करा",
+    "emptySubNoPreferred": "तुमच्या पसंतीशी जुळणारी फळे सध्या उपलब्ध नाहीत. कृपया तुमची पसंती अपडेट करा.",
+    "emptySubNoFruits": "शेतकरी फळे सूचीबद्ध करतील तेव्हा येथे दिसतील",
+    "filtersTitle": "फिल्टर्स",
+    "refreshTitle": "ताजी फळे लोड होत आहेत...",
+    "fromLocation": "पासून",
+    "availableQuantity": "उपलब्ध प्रमाण"
+  },
+  "filterModal": {
+    "title": "फिल्टर्स",
+    "clear": "साफ करा",
+    "priceRange": "किंमत श्रेणी",
+    "freshProduce": "ताजे उत्पादन",
+    "sort": "क्रमवारी",
+    "byLocation": "स्थानानुसार",
+    "customerRating": "ग्राहक रेटिंग",
+    "features": {
+      "freshStock": "ताजा स्टॉक",
+      "withImages": "चित्रांसह",
+      "availableNow": "आता उपलब्ध"
+    },
+    "freshProduceOptions": {
+      "today": "आज",
+      "last2Days": "गेले 2 दिवस",
+      "lastWeek": "गेला आठवडा",
+      "lastMonth": "गेला महिना"
+    },
+    "sortOptions": {
+      "newestFirst": "नवीनतम पहिले"
+    },
+    "locationOptions": {
+      "sameCity": "समान शहर",
+      "sameDistrict": "समान जिल्हा",
+      "sameState": "समान राज्य"
+    },
+    "ratingOptions": {
+      "all": "सर्व",
+      "fourPlus": "4+ स्टार",
+      "threePlus": "3+ स्टार",
+      "twoPlus": "2+ स्टार",
+      "onePlus": "1+ स्टार"
+    },
+    "filtersInfo": {
+      "applied": "{{count}} फिल्टर लागू",
+      "appliedPlural": "{{count}} फिल्टर्स लागू",
+      "noFilters": "कोणतेही फिल्टर लागू नाहीत"
+    },
+    "applyButton": "फिल्टर्स लागू करा"
+  },
+  "buyerProfile": {
+    "headerTitle": "खरेदीदार प्रोफाइल",
+    "loading": "प्रोफाइल लोड होत आहे...",
+    "notFound": "प्रोफाइल सापडले नाही",
+    "infoTitle": "माहिती",
+    "cannotReviewOwn": "आपण स्वतःच्या प्रोफाइलची समीक्षा करू शकत नाही",
+    "successTitle": "यशस्वी",
+    "reviewSubmitSuccess": "पुनरावलोकन यशस्वीरित्या सबमिट झाले",
+    "shareTitle": "{{name}} - KrushiMandi",
+    "shareMessage": "{{name}} यांची प्रोफाइल पहा - KrushiMandi वर {{rating}}⭐ रेट केलेले खरेदीदार, {{orders}} पूर्ण ऑर्डर्ससह.",
+    "reviewsLabel": "पुनरावलोकने",
+    "noRatings": "अजून रेटिंग नाही",
+    "callBtn": "कॉल",
+    "messageBtn": "संदेश",
+    "reviewBtn": "रिव्ह्यू",
+    "tabs": {
+      "about": "माहिती",
+      "reviews": "पुनरावलोकने",
+      "stats": "आकडेवारी"
+    },
+    "contact": {
+      "title": "संपर्क माहिती",
+      "notProvided": "उपलब्ध नाही"
+    },
+    "memberSince": "पासून सदस्य",
+    "noReviewsTitle": "अजून कोणतीही समीक्षा नाही",
+    "noReviewsSubtitle": "या खरेदीदाराची पहिली समीक्षा तुम्ही करा",
+    "writeReview": "रिव्ह्यू लिहा",
+    "showLess": "कमी दाखवा",
+    "showAllReviews": "सर्व {{count}} पुनरावलोकने दाखवा",
+    "stats": {
+      "title": "आकडेवारी",
+      "averageRating": "सरासरी रेटिंग",
+      "completedOrders": "पूर्ण ऑर्डर्स",
+      "totalRequests": "एकूण विनंत्या",
+      "reviews": "पुनरावलोकने",
+      "performance": "कामगिरी",
+      "orderCompletionRate": "ऑर्डर पूर्णता दर",
+      "orders": "ऑर्डर्स",
+      "requests": "विनंत्या"
+    },
+    "reviewingBuyer": "तुम्ही या खरेदीदाराचा आढावा घेत आहात",
+    "ratingWords": {
+      "excellent": "उत्कृष्ट",
+      "good": "चांगले",
+      "average": "सरासरी",
+      "poor": "कमकुवत",
+      "veryPoor": "अतिशय खराब"
+    },
+    "shareThoughtsTitle": "तुमचे विचार शेअर करा",
+    "shareThoughtsSubtitle": "या खरेदीदारासोबतचा अनुभव शेअर करून इतर शेतकऱ्यांना मदत करा",
+    "reviewPlaceholder": "तुमचा रिव्ह्यू येथे लिहा...",
+    "guidelines": {
+      "title": "पुनरावलोकन मार्गदर्शक तत्त्वे",
+      "honest": "प्रामाणिक आणि रचनात्मक रहा",
+      "focus": "तुमच्या अनुभवावर लक्ष केंद्रित करा",
+      "professional": "व्यावसायिक आणि आदरपूर्ण ठेवा"
+    }
+  },
+  "product": {
+    "add": {
+      "headerTitle": "फळ सूची जोडा",
+      "stepOfTotal": "पायरी {{step}} पैकी {{total}}",
+      "complete": "पूर्ण",
+      "labels": {
+        "fruitName": "फळाचे नाव",
+        "category": "श्रेणी",
+        "availableQuantity": "उपलब्ध प्रमाण",
+        "availabilityDate": "उपलब्धता दिनांक",
+        "farmLocation": "शेतीचे ठिकाण",
+        "cityVillage": "शहर/गाव",
+        "district": "जिल्हा",
+        "state": "राज्य",
+        "pincode": "पिनकोड",
+        "description": "वर्णन"
+      },
+      "placeholders": {
+        "fruitName": "उदा. अल्फोन्सो आंबा, फुजी सफरचंद",
+        "city": "शहराचे नाव",
+        "district": "जिल्हा",
+        "state": "राज्य",
+        "pincode": "123456",
+        "description": "तुमच्या फळाची गुणवत्ता, चव, काढणी तपशील वर्णन करा...",
+        "availabilityDate": "उपलब्धता दिनांक निवडा"
+      },
+      "actions": {
+        "getLocation": "ठिकाण मिळवा",
+        "getting": "मिळवत आहोत...",
+        "continue": "फोटोंकडे पुढे चला",
+        "processing": "प्रक्रिया सुरू...",
+        "formIncomplete": "फॉर्म अपूर्ण आहे"
+      },
+      "help": {
+        "allGoodAddPhotos": "सर्व तपशील योग्य आहेत! चला काही फोटो जोडूया"
+      },
+      "a11y": {
+        "selectFruitCategory": "फळांची श्रेणी निवडा",
+        "opensCategoryModal": "श्रेणी निवडीचा मोडल उघडतो",
+        "selectAvailableQuantity": "उपलब्ध प्रमाण निवडा",
+        "opensQuantityModal": "प्रमाण निवडीचा मोडल उघडतो",
+        "selectAvailabilityDate": "उपलब्धता दिनांक निवडा",
+        "opensDatePicker": "दिनांक निवडकर्ता उघडतो",
+        "getCurrentLocation": "चालू ठिकाण मिळवा",
+        "getLocationHint": "GPS वापरून ठिकाण फील्ड आपोआप भरले जातील",
+        "continueHint": "फोटो अपलोड स्क्रीनवर जाते",
+        "incompleteHint": "प्रथम सर्व आवश्यक फील्ड भरा",
+        "closeModal": "मोडल बंद करा",
+        "selectCategoryOption": "{{name}} निवडा",
+        "selectQuantityOption": "{{name}} - {{desc}} निवडा"
+      },
+      "validation": {
+        "fruitNameRequired": "फळाचे नाव आवश्यक आहे",
+        "fruitNameMin": "फळाचे नाव किमान 2 अक्षरे असावे",
+        "availabilityDateRequired": "उपलब्धता दिनांक आवश्यक आहे",
+        "cityRequired": "शहर आवश्यक आहे",
+        "districtRequired": "जिल्हा आवश्यक आहे",
+        "stateRequired": "राज्य आवश्यक आहे",
+        "pincodeRequired": "पिनकोड आवश्यक आहे",
+        "pincodeInvalid": "कृपया वैध 6 अंकी पिनकोड प्रविष्ट करा",
+        "descriptionRequired": "वर्णन आवश्यक आहे",
+        "descriptionMin": "कृपया अधिक सविस्तर वर्णन द्या (किमान 20 अक्षरे)"
+      },
+      "alerts": {
+        "completeFormTitle": "कृपया फॉर्म पूर्ण करा",
+        "ok": "ठीक",
+        "authErrorTitle": "प्रमाणीकरण त्रुटी",
+        "loginToContinue": "कृपया पुढे जाण्यासाठी लॉगिन करा"
+      },
+      "fields": {
+        "fruitName": "फळाचे नाव",
+        "description": "वर्णन",
+        "cityVillage": "शहर/गाव",
+        "district": "जिल्हा",
+        "state": "राज्य",
+        "pincode": "पिनकोड"
+      },
+      "quantity": {
+        "desc": {
+          "small": "लहान बॅच",
+          "medium": "मध्यम बॅच",
+          "large": "मोठा बॅच",
+          "veryLarge": "फार मोठा",
+          "bulk": "घाऊक ऑर्डर",
+          "commercial": "व्यावसायिक",
+          "industrial": "औद्योगिक"
+        }
+      },
+      "characters": {
+        "minCharsLabel": "({{count}}/20 अक्षरे)",
+        "remaining": "{{remaining}} अक्षरे शिल्लक"
+      },
+      "modals": {
+        "selectCategory": "श्रेणी निवडा",
+        "selectQuantity": "प्रमाण निवडा"
+      },
+      "location": {
+        "addressLookupFailed": "पत्त्याचा शोध अयशस्वी - कृपया हाताने भरा",
+        "gpsOffTitle": "GPS बंद आहे",
+        "gpsOffMessage": "कृपया आपल्या डिव्हाइस सेटिंग्जमध्ये GPS/लोकेशन सेवा सक्षम करा.",
+        "permissionRequiredTitle": "स्थान परवानगी आवश्यक",
+        "permissionRequiredMessage": "कृपया आपल्या डिव्हाइस सेटिंग्जमध्ये स्थान परवानगी द्या.",
+        "genericErrorTitle": "स्थान त्रुटी",
+        "genericErrorMessage": "आम्हाला तुमचे ठिकाण मिळवता आले नाही. कृपया स्थान तपशील हाताने भरा.",
+        "fillManually": "हाताने भरा",
+        "openSettings": "सेटिंग्ज उघडा",
+        "tryAgain": "पुन्हा प्रयत्न करा"
+      }
+    },
+    "card": {
+      "categoryLabel": "श्रेणी"
+    },
+    "detail": {
+      "headerTitle": "उत्पादन तपशील",
+      "errors": {
+        "noProduct": "उत्पादनाची माहिती सापडली नाही. कृपया पुन्हा प्रयत्न करा."
+      },
+      "fallback": {
+        "loading": "उत्पादनाची माहिती लोड होत आहे...",
+        "somethingWrong": "उत्पादनाचे तपशील लोड करताना काहीतरी चूक झाली."
+      },
+      "placeholder": {
+        "available": "उपलब्ध"
+      },
+      "pricePerKg": "प्रति किलो किंमत",
+      "bestPrice": "सर्वोत्तम किंमत",
+      "stats": {
+        "views": "व्ह्यूज",
+        "likes": "लाईक्स",
+        "requests": "विनंत्या"
+      },
+      "section": {
+        "description": "वर्णन",
+        "details": "उत्पादनाचे तपशील"
+      },
+      "labels": {
+        "fruitType": "फळ प्रकार",
+        "availabilityStatus": "उपलब्धता स्थिती",
+        "availableQuantity": "उपलब्ध प्रमाण",
+        "location": "स्थान",
+        "availabilityDate": "उपलब्धता दिनांक",
+        "listedDate": "सूचीबद्ध दिनांक"
+      },
+      "placeholders": {
+        "locationNA": "स्थान उपलब्ध नाही",
+        "notSpecified": "निर्दिष्ट नाही",
+        "availableNow": "आत्ता उपलब्ध",
+        "unknown": "अज्ञात",
+        "exactLocationNote": "अचूक ठिकाण ऑर्डरची पुष्टी झाल्यानंतर शेअर केले जाईल"
+      },
+      "alerts": {
+        "loginRequiredTitle": "लॉगिन आवश्यक",
+        "loginRequiredMessage": "कृपया शेतकऱ्यांना विनंती पाठवण्यासाठी लॉगिन करा.",
+        "accessDeniedTitle": "प्रवेश नाकारला",
+        "accessDeniedMessage": "फक्त खरेदीदार शेतकऱ्यांना विनंती पाठवू शकतात.",
+        "invalidRequestTitle": "अवैध विनंती",
+        "invalidRequestMessage": "आपण आपल्या स्वतःच्या उत्पादनासाठी विनंती पाठवू शकत नाही.",
+        "alreadySentTitle": "विनंती आधीच पाठवली",
+        "alreadySentMessage": "आपण या उत्पादनासाठी आधीच विनंती पाठवली आहे. कृपया ऑर्डर्स विभागात आपल्या विनंत्या तपासा.",
+        "checkErrorMessage": "विद्यमान विनंत्या तपासू शकलो नाही. कृपया पुन्हा प्रयत्न करा."
+      },
+      "toast": {
+        "requestSentTitle": "विनंती पाठवली!",
+        "requestSentMessage": "आपली विनंती {{name}} यांना पाठवली आहे.",
+        "wishlistUpdateFailed": "विशलिस्ट अद्यतनित करता आले नाही. कृपया पुन्हा प्रयत्न करा."
+      },
+      "chat": {
+        "intro": "मला तुमच्या {{name}} मध्ये स्वारस्य आहे. आपण संपर्क करू शकतो का?"
+      }
+    },
+    "farmerDetail": {
+      "headerTitle": "उत्पादन अवलोकन",
+      "actions": {
+        "goBack": "मागे जा",
+        "viewRequests": "विनंत्या पहा",
+        "sold": "विकले",
+        "relist": "उत्पादन पुन्हा सूचीबद्ध करा",
+        "saveChanges": "बदल जतन करा"
+      },
+      "stats": {
+        "views": "व्ह्यूज",
+        "requests": "विनंत्या",
+        "daysAgo": "दिवसांपूर्वी"
+      },
+      "section": {
+        "details": "उत्पादनाचे तपशील",
+        "description": "वर्णन"
+      },
+      "labels": {
+        "location": "स्थान",
+        "availableQuantity": "उपलब्ध प्रमाण",
+        "fruitType": "फळ प्रकार",
+        "availabilityDate": "उपलब्धता दिनांक",
+        "listedDate": "सूचीबद्ध दिनांक",
+        "status": "स्थिती",
+        "name": "नाव",
+        "description": "वर्णन",
+        "quantity": "प्रमाण",
+        "pricePerKg": "किंमत (प्रति किलो)"
+      },
+      "placeholders": {
+        "locationNA": "स्थान उपलब्ध नाही",
+        "notSpecified": "निर्दिष्ट नाही",
+        "selectAvailability": "उपलब्धता दिनांक निवडा",
+        "productDescription": "उत्पादनाचे वर्णन",
+        "selectQuantity": "प्रमाण निवडा",
+        "enterPrice": "किंमत टाका"
+      },
+      "modals": {
+        "editTitle": "उत्पादन संपादित करा"
+      },
+      "toast": {
+        "updated": "उत्पादन यशस्वीरित्या अपडेट झाले!",
+        "markedSold": "उत्पादन 'विकले' म्हणून यशस्वीरित्या चिन्हांकित केले!",
+        "deactivated": "उत्पादन निष्क्रिय केले!",
+        "updatedGeneric": "उत्पादन अपडेट झाले"
+      },
+      "share": {
+        "title": "{{name}} - {{tagline}}",
+        "tagline": "फार्ममधून ताजे",
+        "forSale": "{{name}} विक्रीसाठी!",
+        "location": "स्थान: {{location}}",
+        "price": "किंमत: {{price}} {{perKg}}",
+        "quantity": "प्रमाण: {{quantity}}",
+        "type": "प्रकार: {{type}}",
+        "description": "वर्णन: {{description}}",
+        "available": "उपलब्ध: {{date}}",
+        "availableNow": "आत्ता",
+        "contact": "अधिक माहितीसाठी आणि थोक ऑर्डरसाठी संपर्क करा!",
+        "errorTitle": "शेअर त्रुटी",
+        "errorMessage": "सध्या उत्पादन शेअर करता येत नाही. कृपया नंतर पुन्हा प्रयत्न करा."
+      },
+      "alerts": {
+        "markAsSoldTitle": "विकले म्हणून चिन्हांकित करा",
+        "markAsSoldMessage": "हे तुमचे उत्पादन सार्वजनिक दृश्यातून लपवेल आणि इतिहासात हलवेल.",
+        "cancel": "रद्द करा",
+        "markAsSold": "विकले म्हणून चिन्हांकित करा",
+        "provideDetails": "तपशील द्या",
+        "saleCompletedTitle": "विक्री पूर्ण!",
+        "saleCompletedMessage": "तुमच्या यशस्वीरित्या विक्रीबद्दल अभिनंदन! कृपया ही विक्री कशी झाली ते सांगा, जेणेकरून आम्ही आमचा प्लॅटफॉर्म सुधारू शकू:",
+        "soldViaApp": "ॲप चौकशीद्वारे विकले",
+        "soldDirect": "थेट/ऑफलाइन विकले",
+        "soldLocalMarket": "स्थानिक बाजारात विकले",
+        "back": "मागे",
+        "saleDetailsTitle": "विक्री तपशील",
+        "saleQuantityTitle": "विक्री प्रमाण",
+        "saleQuantityMessage": "तुमच्या {{available}} पैकी किती टक्के विकले गेले?\n\nहे आम्हाला चांगली बाजार माहिती देण्यास मदत करते.",
+        "saleRecordedTitle": "विक्री यशस्वीरित्या नोंदवली!",
+        "saleRecordedMessage": "तपशीलांसाठी धन्यवाद!",
+        "done": "पूर्ण",
+        "partialSale": "आंशिक विक्री",
+        "completeSale": "पूर्ण विक्री"
+      },
+      "errors": {
+        "notFound": "उत्पादन मिळाले नाही",
+        "updateFailed": "उत्पादन अपडेट करण्यात अयशस्वी. कृपया पुन्हा प्रयत्न करा."
+      },
+      "validation": {
+        "nameQuantityRequired": "कृपया नाव आणि प्रमाण द्या."
+      }
+    }
+  },
+  "chat": {
+    "input": {
+      "placeholder": "तुमचा संदेश टाइप करा...",
+      "accessibility": {
+        "inputLabel": "संदेश इनपुट फील्ड",
+        "inputHint": "टायपिंग सुरू करण्यासाठी डबल टॅप करा",
+        "send": "संदेश पाठवा",
+        "sendDisabled": "पाठवण्यासाठी संदेश टाइप करा"
+      }
+    },
+    "list": {
+      "title": "चॅट्स",
+      "subtitle": "तुमच्या खरेदीदारांशी जोडलेले रहा",
+      "searchPlaceholder": "चॅट शोधा",
+      "emptyTitle": "कोणत्याही चॅट नाहीत",
+      "emptySubtitle": "इथे चॅट दिसण्यासाठी खरेदीदारांशी संवाद सुरू करा.",
+      "startChat": "चॅट सुरू करा",
+      "typing": "टायपिंग…",
+      "menu": {
+        "startNew": "नवीन चॅट सुरू करा",
+        "refresh": "रिफ्रेश",
+        "showAll": "सर्व चॅट दाखवा",
+        "showUnread": "फक्त न वाचलेले दाखवा",
+        "sortByName": "नावानुसार क्रमबद्ध करा",
+        "sortByRecent": "अलिकडच्या क्रमाने",
+        "markAllRead": "सर्वांना वाचलेले चिन्हांकित करा",
+        "help": "हेल्प सेंटर"
+      },
+      "toast": {
+        "startWithRequestTitle": "विनंतीने सुरू करा",
+        "startWithRequestMessage": "प्रथम शेतकऱ्याला विनंती पाठवा आणि मग चॅट करा.",
+        "allMarkedRead": "सर्व चॅट वाचलेले चिन्हांकित",
+        "markAllReadFailed": "सर्वांना वाचलेले चिन्हांकित करण्यात अपयश"
+      }
+    },
+    "detail": {
+      "unknownUser": "अज्ञात",
+      "typing": "टायपिंग…",
+      "activeNow": "आत्ता सक्रिय",
+      "lastSeenRecently": "अलिकडे पाहिले",
+      "lastSeenJustNow": "आत्ताच पाहिले",
+      "lastSeenMinutesAgo": "{{minutes}}मि आधी पाहिले",
+      "lastSeenHoursAgo": "{{hours}}ता आधी पाहिले",
+      "lastSeenToday": "आज {{time}} वाजता पाहिले",
+      "lastSeenYesterday": "काल {{time}} वाजता पाहिले",
+      "lastSeenDay": "{{day}} रोजी {{time}} वाजता पाहिले",
+      "lastSeenDate": "{{month}} {{day}} रोजी {{time}} वाजता पाहिले",
+      "lastSeenDateYear": "{{month}} {{day}}, {{year}} रोजी {{time}} वाजता पाहिले",
+      "sharingBlockedTitle": "परवानगी नाही",
+      "sharingBlockedBody": "फोन नंबर, ईमेल पत्ते, सोशल हँडल (उदा. Instagram), WhatsApp लिंक किंवा कोणत्याही लिंकचे शेअरिंग चॅटमध्ये परवानगी नाही.",
+      "noPhoneTitle": "फोन नंबर नाही",
+      "noPhoneBody": "या वापरकर्त्याकडे फोन नंबर उपलब्ध नाही.",
+      "requestNotAcceptedTitle": "विनंती स्वीकारलेली नाही",
+      "requestNotAcceptedBody": "शेतकरी तुमची ताजी विनंती स्वीकारल्यानंतरच तुम्ही कॉल करू शकता.",
+      "cannotCallTitle": "कॉल सुरू करू शकत नाही",
+      "cannotCallBody": "तुमचे डिव्हाइस फोन डायलर उघडू शकत नाही.",
+      "callFailedTitle": "कॉल अयशस्वी",
+      "callFailedBody": "कॉल सुरू करण्यात अक्षम.",
+      "a11y": {
+        "goBack": "मागील स्क्रीनवर जा",
+        "call": "व्हॉइस कॉल करा"
+      }
+    }
+  },
+  "terms": {
+    "headerTitle": "नियम आणि अटी",
+    "effectiveDateLabel": "प्रभावी दिनांक: {{date}}",
+    "lastUpdatedLabel": "शेवटचे अद्यतन: {{date}}",
+    "intro": "Krushimandi Innovation (\"Krushimandi\", \"आम्ही\") मध्ये आपले स्वागत आहे. आमचे मोबाइल अ‍ॅप आणि संबंधित सेवा (\"प्लॅटफॉर्म\" किंवा \"अ‍ॅप\") वापरताना आपण (\"वापरकर्ता\", \"शेतकरी\", \"खरेदीदार\") या नियम आणि अटींना (\"अटी\") सहमती देता. कृपया प्लॅटफॉर्म वापरण्यापूर्वी काळजीपूर्वक वाचा.",
+    "sections": {
+      "definitions": {
+        "title": "1. व्याख्या",
+        "items": [
+          {
+            "term": "प्लॅटफॉर्म / अ‍ॅप",
+            "desc": "Krushimandi Innovation मोबाइल अ‍ॅप आणि संबंधित वेब सेवा."
+          },
+          {
+            "term": "वापरकर्ता",
+            "desc": "प्लॅटफॉर्मवर नोंदणी करणारी किंवा वापरणारी कोणतीही व्यक्ती, ज्यात शेतकरी आणि खरेदीदार समाविष्ट आहेत."
+          },
+          {
+            "term": "शेतकरी उत्पादन",
+            "desc": "प्लॅटफॉर्मवर शेतकऱ्यांनी सूचीबद्ध केलेली कृषी उत्पादने."
+          },
+          {
+            "term": "डील / व्यवहार",
+            "desc": "प्लॅटफॉर्मद्वारे सुरू झालेली कोणतीही चर्चा, संवाद किंवा करार."
+          }
+        ]
+      },
+      "msme": {
+        "title": "2. MSME नोंदणी आणि अधिकृत स्थिती",
+        "points": [
+          "Krushimandi Innovation सध्या भारतीय कायद्यानुसार MSME म्हणून नोंदणीकृत आहे.",
+          "प्लॅटफॉर्मची सर्व कामे लागू MSME नियमांचे पालन करतात."
+        ]
+      },
+      "roleDisclaimer": {
+        "title": "3. प्लॅटफॉर्मची भूमिका आणि अस्वीकरण",
+        "points": [
+          "प्लॅटफॉर्म फक्त शेतकरी आणि खरेदीदार यांचा मेळ घालण्यासाठी जबाबदार आहे.",
+          "Krushimandi कोणतेही शेतकरी उत्पादन विकत घेत नाही, विकत नाही, मालकी ठेवत नाही किंवा साठवणूक करत नाही.",
+          "सर्व डील, पेमेंट, लॉजिस्टिक्स आणि गुणवत्ता तपासणी पूर्णपणे खरेदीदार आणि शेतकरी यांच्यात असतात.",
+          "वापरकर्ता व्यवहारांमधून उद्भवणाऱ्या कोणत्याही चुकीच्या सादरीकरण, फसवणूक किंवा वादासाठी प्लॅटफॉर्म जबाबदार नाही.",
+          "Krushimandi वापरकर्त्यांना जोडण्यासाठी/संवादासाठी मार्गदर्शन/सूचना/सपोर्ट देऊ शकतो, परंतु कोणत्याही व्यवहाराची पूर्तता किंवा यशाची हमी देत नाही."
+        ]
+      },
+      "userResponsibilities": {
+        "title": "4. वापरकर्त्याच्या जबाबदाऱ्या",
+        "points": [
+          "नोंदणी दरम्यान आणि उत्पादन सूचीकरण/विनंती पाठवताना अचूक आणि सत्य माहिती द्या.",
+          "डील फायनल करण्यापूर्वी किंमत, गुणवत्ता आणि लॉजिस्टिक्स जबाबदारीने पडताळा करा.",
+          "चॅट फीचरचा वापर केवळ वैध कृषी व्यावसायिक उद्देशांसाठी करा.",
+          "कायदेशीर गरज वगळता प्लॅटफॉर्मच्या बाहेर संवेदनशील वैयक्तिक माहिती (मोबाइल नंबर, बँक माहिती इ.) शेअर करणे टाळा.",
+          "स्थानिक, राज्य आणि केंद्र सरकारचे सर्व कायदे/नियमांचे पालन करा."
+        ]
+      },
+      "paymentFraud": {
+        "title": "5. पेमेंट आणि फसवणूक नियम",
+        "points": [
+          "पेमेंटसाठी वापरकर्ते स्वतः जबाबदार आहेत.",
+          "Krushimandi पेमेंट ठेवत नाही, प्रक्रिया करत नाही किंवा मध्यस्थी करत नाही.",
+          "पेमेंटशी संबंधित कोणतीही फसवणूक, डिफॉल्ट किंवा वाद संबंधित वापरकर्त्यांची जबाबदारी आहे.",
+          "खरेदीदार/शेतकऱ्यांची साख पडताळणे, पारदर्शकतेने चर्चा करणे आणि डीलचे योग्य डॉक्युमेंटेशन ठेवणे याची शिफारस केली जाते.",
+          "आवश्यक असल्यास Krushimandi फसवणूक किंवा गुन्हेगारी क्रियाकलापाची माहिती अधिकाऱ्यांना देऊ शकतो."
+        ],
+        "riskAdvisoryTitle": "जोखीम सल्ला:",
+        "riskPoints": [
+          "प्लॅटफॉर्मवरील व्यवहारांमध्ये प्रत्यक्ष पैसे आणि आर्थिक जोखीम असते.",
+          "वापरकर्त्यांनी जबाबदारीने आणि स्वतःच्या जोखमीवर कृती करावी अशी अपेक्षा आहे.",
+          "प्लॅटफॉर्म आर्थिक तोट्यापासून संरक्षणाची हमी देत नाही."
+        ]
+      },
+      "ownershipIP": {
+        "title": "6. मालकी आणि बौद्धिक संपदा",
+        "points": [
+          "शेतकरी प्लॅटफॉर्मवर सूचीबद्ध त्यांच्या उत्पादनांचे पूर्ण मालक राहतात.",
+          "Krushimandi शेतकरी उत्पादनावर कोणताही हक्क/मालकी दावा करत नाही.",
+          "प्लॅटफॉर्म, त्याची रचना, लोगो आणि सामग्री Krushimandi Innovation ची बौद्धिक संपदा आहे."
+        ]
+      },
+      "prohibitedActivities": {
+        "title": "7. प्रतिबंधित क्रियाकलाप",
+        "points": [
+          "उत्पादन, किंमत किंवा ओळख याबद्दल खोटी/भ्रामक/फसवी माहिती देणे.",
+          "कनेक्ट झाल्यानंतर अनुचित फायद्यासाठी प्लॅटफॉर्मला बायपास करून थेट बाहेर चर्चा करणे.",
+          "इतर वापरकर्त्यांना स्पॅम, अपमानास्पद किंवा आक्षेपार्ह संदेश पाठवणे.",
+          "प्लॅटफॉर्म हॅक/बाधित/दुरुपयोग करण्याचा प्रयत्न करणे."
+        ]
+      },
+      "riskAcknowledgment": {
+        "title": "8. जोखीम मान्य करणे",
+        "points": [
+          "प्लॅटफॉर्म वापरून, वापरकर्ते मान्य करतात की व्यवहारांमध्ये अंतर्निहित आर्थिक आणि लॉजिस्टिक जोखीम आहे.",
+          "प्लॅटफॉर्म कोणताही नफा, किंमत किंवा डिलिव्हरीची हमी देत नाही.",
+          "वापरकर्ते स्वतःच्या विवेकाने आणि जोखमीवर प्लॅटफॉर्मचा वापर करतात."
+        ]
+      },
+      "legalCompliance": {
+        "title": "9. कायदेशीर पालन आणि अधिकारक्षेत्र",
+        "points": [
+          "प्लॅटफॉर्मद्वारे केलेल्या व्यवहारांमधून उद्भवणाऱ्या सर्व वादांवर एकमेव अधिकारक्षेत्र औरंगाबाद जिल्हा न्यायालय, महाराष्ट्र असेल.",
+          "वापरकर्ते सर्व लागू भारतीय कायद्यांचे पालन करण्यास सहमत आहेत, ज्यामध्ये MSME कायदा, APMC नियम आणि भारतीय करार कायद्याचे तरतुदी समाविष्ट आहेत."
+        ]
+      },
+      "termination": {
+        "title": "10. प्रवेश समाप्ती",
+        "points": [
+          "या अटींचे उल्लंघन करणाऱ्या, फसवणूक/बेकायदेशीर क्रियाकलाप करणाऱ्या किंवा प्लॅटफॉर्मचा गैरवापर करणाऱ्या वापरकर्त्यांना Krushimandi निलंबित किंवा कायमस्वरूपी ब्लॉक करू शकतो."
+        ]
+      },
+      "amendments": {
+        "title": "11. सुधारणा",
+        "points": [
+          "Krushimandi हे नियम वेळोवेळी अपडेट करू शकतो.",
+          "वापरकर्त्यांना अ‍ॅप सूचना किंवा ईमेलद्वारे कळवले जाईल.",
+          "बदलांनंतर प्लॅटफॉर्मचा सतत वापर अद्ययावत अटींची स्वीकृती मानला जाईल."
+        ]
+      },
+      "limitation": {
+        "title": "12. दायित्वाची मर्यादा",
+        "points": [
+          "व्यवहारांमधून उद्भवणाऱ्या आर्थिक तोटा, वाद किंवा नुकसानीसाठी Krushimandi जबाबदार नाही.",
+          "Krushimandi डिलिव्हरी, पेमेंट किंवा शेतकरी उत्पादनाच्या गुणवत्तेची हमी देत नाही.",
+          "सर्व सेवा 'जैसीच्या तैसी' (as is) तत्त्वावर, कोणतीही हमी न देता प्रदान केल्या जातात."
+        ]
+      },
+      "acknowledgment": {
+        "title": "13. स्वीकार",
+        "points": [
+          "Krushimandi प्लॅटफॉर्म वापरून, वापरकर्ते स्पष्टपणे मान्य करतात की ते पैशांचा आणि फसवणुकीचा धोका समजतात, सर्व व्यवहारांची पूर्ण जबाबदारी स्वीकारतात आणि प्लॅटफॉर्म हा फक्त एक मॅचमेकिंग सेवा आहे जी मालकी किंवा पेमेंटमध्ये हस्तक्षेप करत नाही."
+        ]
+      }
+    }
+  },
+  "privacy": {
+    "headerTitle": "गोपनीयता धोरण",
+    "title": "गोपनीयता धोरण – Krushimandi Innovation",
+    "effectiveDate": "प्रभावी तारीख: {{date}}",
+    "intro": "Krushimandi Innovation (\"Krushimandi\") तुमच्या विश्वासाची कदर करते आणि तुमची वैयक्तिक माहिती संरक्षित करण्यासाठी वचनबद्ध आहे. हे गोपनीयता धोरण स्पष्ट करते की आम्ही कोणता डेटा गोळा करतो, त्याचा कसा वापर करतो आणि Krushimandi मोबाइल अ‍ॅप्लिकेशन (\"अ‍ॅप\" किंवा \"प्लॅटफॉर्म\") वापरताना तुमचे कोणते अधिकार आहेत. Krushimandi वापरून, तुम्ही या धोरणाशी सहमत आहात.",
+    "sections": {
+      "infoCollect": {
+        "title": "1. आम्ही गोळा करत असलेली माहिती",
+        "intro": "शेतकरी आणि खरेदीदारांना प्रभावीपणे जोडण्यासाठी आणि प्लॅटफॉर्म सुरक्षित ठेवण्यासाठी आम्ही माहिती गोळा करतो. डेटाच्या प्रकारांमध्ये हे समाविष्ट आहे:",
+        "items": [
+          { "term": "खाते माहिती", "desc": "नाव, मोबाइल नंबर, पासवर्ड, प्रोफाइल तपशील (शेतकरी किंवा खरेदीदार)।" },
+          { "term": "शेतकरी डेटा", "desc": "पीक तपशील, गुणवत्ता, प्रमाण आणि उत्पादनाची उपलब्धता।" },
+          { "term": "खरेदीदार डेटा", "desc": "खरेदी आवश्यकता, वाटाघाटी प्राधान्ये आणि सौद्याची आवड।" },
+          { "term": "डिव्हाइस माहिती", "desc": "मोबाइल मॉडेल, ऑपरेटिंग सिस्टम, IP पत्ता, अ‍ॅप आवृत्ती आणि क्रॅश लॉग।" },
+          { "term": "वापर माहिती", "desc": "तुम्ही भेट दिलेली पृष्ठे, खर्च केलेला वेळ, संवाद क्रियाकलाप आणि नेव्हिगेशन वर्तन।" }
+        ]
+      },
+      "howWeUse": {
+        "title": "2. आम्ही तुमची माहिती कशी वापरतो",
+        "intro": "प्लॅटफॉर्म सुधारण्यासाठी आणि तुम्हाला योग्य पक्षांशी जुळवण्यासाठी तुमचा डेटा वापरला जातो. विशेषतः:",
+        "points": [
+          "वापरकर्ता खाते तयार करण्यासाठी आणि व्यवस्थापित करण्यासाठी।",
+          "संभाव्य सौद्यांसाठी शेतकऱ्यांना खरेदीदारांशी जोडण्यासाठी।",
+          "शिफारशी वैयक्तिकृत करण्यासाठी आणि वापरकर्ता अनुभव सुधारण्यासाठी।",
+          "अ‍ॅप सुरक्षिततेचे निरीक्षण करण्यासाठी, संशयास्पद क्रियाकलाप शोधण्यासाठी आणि फसवणूक रोखण्यासाठी।",
+          "ट्रेंडचे विश्लेषण करण्यासाठी आणि चांगल्या मॅचमेकिंगसाठी अल्गोरिदममध्ये सुधारणा करण्यासाठी।",
+          "अद्यतने, अलर्ट किंवा धोरण बदल संप्रेषित करण्यासाठी।"
+        ]
+      },
+      "ourRole": {
+        "title": "3. व्यवहारांमध्ये आमची भूमिका",
+        "points": [
+          "Krushimandi उत्पादन खरेदी किंवा विक्री करत नाही आणि सूचीबद्ध वस्तूंवर कोणत्याही मालकीचा दावा करत नाही।",
+          "प्लॅटफॉर्म फक्त शेतकरी आणि खरेदीदारांमधील कनेक्टर म्हणून कार्य करतो।",
+          "सर्व वाटाघाटी, किंमत निश्चिती, पेमेंट आणि लॉजिस्टिक्स थेट वापरकर्त्यांमध्ये हाताळले जातात।",
+          "Krushimandi फसवणूक, विलंबित पेमेंट, खराब गुणवत्तेची उत्पादने किंवा वादांसाठी जबाबदार नाही।"
+        ]
+      },
+      "fraudDisclaimer": {
+        "title": "4. फसवणूक आणि पेमेंट अस्वीकरण",
+        "points": [
+          "ज्या पक्षांशी ते व्यवहार करतात त्यांची सत्यता सत्यापित करण्याची जबाबदारी वापरकर्त्यांची आहे।",
+          "अज्ञात वापरकर्त्यांसह अनावश्यक आर्थिक किंवा वैयक्तिक तपशील शेअर करू नका।",
+          "कोणतीही फसवणूक, चुकीचे सादरीकरण किंवा पेमेंट डीफॉल्ट पूर्णपणे शेतकरी आणि खरेदीदार यांच्यात आहे।",
+          "Krushimandi संशयास्पद किंवा बेकायदेशीर क्रियाकलापांमध्ये सामील असलेली खाती निलंबित किंवा प्रतिबंधित करू शकते।",
+          "गंभीर फसवणूक प्रकरणे आवश्यकतेनुसार कायद्याच्या अंमलबजावणीला नोंदवली जाऊ शकतात।"
+        ]
+      },
+      "dataSecurity": {
+        "title": "5. डेटा स्टोरेज आणि सुरक्षा",
+        "points": [
+          "डेटा सुरक्षित, उद्योग-मानक पद्धती वापरून संग्रहित केला जातो।",
+          "आम्ही तुमचा डेटा सुरक्षित ठेवण्यासाठी उपाययोजना करतो, तरीही कोणतीही ऑनलाइन सिस्टम 100% सुरक्षित नाही।",
+          "वापरकर्त्यांनी लॉगिन तपशील गोपनीय ठेवणे आणि अ‍ॅपचा जबाबदारीने वापर करणे आवश्यक आहे।",
+          "तुम्हाला अनधिकृत प्रवेशाचा संशय असल्यास, ताबडतोब अहवाल द्या।"
+        ]
+      },
+      "dataRetention": {
+        "title": "6. डेटा धारणा",
+        "points": [
+          "तुमचे खाते सक्रिय असेपर्यंत किंवा सेवा आवश्यक असेपर्यंत तुमचा डेटा ठेवला जाईल।",
+          "खाते हटवल्यानंतरही काही माहिती कायदेशीर किंवा अनुपालन कारणांसाठी ठेवली जाऊ शकते।",
+          "एकदा आवश्यकता नाही, तर डेटा निनावी किंवा सुरक्षितपणे हटवला जाईल।"
+        ]
+      },
+      "jurisdiction": {
+        "title": "7. कायदेशीर अधिकार क्षेत्र",
+        "points": [
+          "Krushimandi संबंधित सर्व वाद किंवा कायदेशीर प्रकरणे औरंगाबाद जिल्हा न्यायालय, महाराष्ट्र अंतर्गत येतील।",
+          "अ‍ॅप वापरून, तुम्ही या अधिकार क्षेत्राला सबमिट करण्यास सहमत आहात।"
+        ]
+      },
+      "changes": {
+        "title": "8. या धोरणातील बदल",
+        "points": [
+          "कायदे बदलतात किंवा नवीन वैशिष्ट्ये जोडली जातात तेव्हा आम्ही हे गोपनीयता धोरण अद्यतनित करू शकतो।",
+          "महत्त्वाच्या अद्यतनांची अ‍ॅप किंवा इतर संवाद पद्धतींद्वारे सूचना दिली जाईल।",
+          "अद्यतनानंतर Krushimandi चा सतत वापर म्हणजे तुम्ही नवीन धोरण स्वीकारता।"
+        ]
+      },
+      "contact": {
+        "title": "9. आमच्याशी संपर्क साधा",
+        "text": "या गोपनीयता धोरणाबद्दल कोणत्याही चिंता, अभिप्राय किंवा प्रश्नांसाठी, कृपया Krushimandi अ‍ॅप्लिकेशनमध्ये प्रदान केलेल्या समर्थन तपशीलांद्वारे संपर्क साधा।"
+      }
+    }
+  },
+  "auth": {
+    "mobile": {
+      "title": "आपला फोन नंबर सत्यापित करा",
+      "subtitle": "आपली ओळख पुष्टी करण्यासाठी आम्ही 6-अंकी कोड पाठवू",
+      "label": "मोबाइल नंबर",
+      "placeholder": "मोबाइल नंबर टाका",
+      "continue": "पुढे जा",
+      "digits": "अंक",
+      "help": {
+        "title": "मदत हवी आहे?",
+        "tipsTitle": "मोबाइल नंबर टाकण्यासाठी टिप्स:",
+        "tip1": "10-अंकी भारतीय मोबाइल नंबर टाका",
+        "tip2": "तुमचा नंबर सुरक्षित आणि सत्यापित आहे",
+        "tip3": "तुम्हाला SMS द्वारे सत्यापन कोड मिळेल"
+      },
+      "errors": {
+        "empty": "कृपया आपला मोबाइल नंबर टाका",
+        "invalid": "कृपया वैध 10 अंकी मोबाइल नंबर टाका",
+        "network": "OTP पाठवण्यात अयशस्वी. नेटवर्क तपासा आणि पुन्हा प्रयत्न करा",
+        "tooMany": "खूप प्रयत्न झाले. कृपया थांबा आणि पुन्हा प्रयत्न करा",
+        "invalidPhone": "अवैध मोबाइल नंबर. कृपया तपासा आणि पुन्हा प्रयत्न करा",
+        "quota": "OTP कोटा संपला. नंतर प्रयत्न करा",
+        "missingPhone": "कृपया वैध फोन नंबर टाका",
+        "notAllowed": "फोन ऑथेंटिकेशन सक्षम नाही. कृपया सपोर्टशी संपर्क साधा",
+        "invalidCode": "अवैध सत्यापन कोड. कृपया पुन्हा प्रयत्न करा",
+        "invalidId": "सत्यापन कालबाह्य. कृपया नवीन कोड मागा",
+        "generic": "OTP पाठवण्यात अयशस्वी. कृपया पुन्हा प्रयत्न करा"
+      }
+    },
+    "otp": {
+      "title": "आम्ही आत्ताच SMS पाठवला आहे",
+      "subtitle": "आम्ही पाठवलेला 6-अंकी कोड टाका",
+      "consent": "पुढे जाताना, आपण आमच्या अटी व शर्ती आणि गोपनीयता धोरणास सहमती देता.",
+      "consentA11y": "अटी व शर्ती आणि गोपनीयता धोरण पहा",
+      "resendPrompt": "कोड मिळाला नाही?",
+      "resendNow": "कोड पुन्हा पाठवा",
+      "resendIn": "{{time}} मध्ये पुन्हा पाठवा",
+      "autoVerifying": "स्वयंचलित पडताळणी...",
+      "verifyButton": "कोड सत्यापित करा",
+      "wait": "थांबा {{time}}",
+      "editPhone": "फोन संपादित करा",
+      "errors": {
+        "networkResend": "OTP पुन्हा पाठवण्यात अयशस्वी. नेटवर्क तपासा",
+        "networkVerify": "कोड सत्यापित करण्यात अयशस्वी. नेटवर्क तपासा",
+        "invalidCode": "अवैध कोड. कृपया तपासा",
+        "expired": "OTP कालबाह्य झाला आहे. कृपया नवीन मागा",
+        "tooMany": "खूप प्रयत्न झाले. नंतर प्रयत्न करा",
+        "sessionExpired": "सेशन कालबाह्य. कृपया नवीन OTP मागा",
+        "quota": "OTP कोटा संपला. नंतर प्रयत्न करा",
+        "notAllowed": "फोन ऑथेंटिकेशन सक्षम नाही",
+        "genericResend": "OTP पुन्हा पाठवण्यात अयशस्वी",
+        "generic": "अवैध OTP. कृपया पुन्हा प्रयत्न करा",
+        "incomplete": "कृपया संपूर्ण 6-अंकी OTP कोड टाका"
+      },
+      "help": {
+        "title": "मदत हवी आहे?",
+        "subtitle": "कोडमध्ये समस्या येत आहे का?"
+      },
+      "toast": {
+        "welcomeBack": "परत स्वागत आहे!",
+        "signedIn": "साइन इन झाले",
+        "continueSetup": "आपले प्रोफाईल सेटअप सुरू ठेवा",
+        "otpSentTitle": "OTP पाठवला",
+        "otpSentSub": "आपल्या फोनवर नवीन OTP पाठवला आहे."
+      }
+    },
+    "role": {
+      "title": "आपली भूमिका निवडा",
+      "selectLine1": {
+        "prefix": "निवडा",
+        "suffix": "जर तुम्हाला फळे विकायची असतील"
+      },
+      "selectLine2": {
+        "prefix": "किंवा",
+        "suffix": "जर तुम्हाला खरेदी करायचे असेल"
+      },
+      "getStarted": "सुरू करा"
+    },
+    "intro": {
+      "title": "स्वतःची ओळख करून द्या",
+      "titleWithRole": "{{role}} म्हणून स्वतःची ओळख करून द्या",
+      "subtitle": "आपले नाव शेअर करून अनुभव वैयक्तिक करा",
+      "addPhoto": "प्रोफाईल फोटो जोडा",
+      "changePhoto": "प्रोफाईल फोटो बदला",
+      "personalInfo": "वैयक्तिक माहिती",
+      "firstName": "पहिले नाव",
+      "lastName": "आडनाव",
+      "businessType": "व्यवसाय प्रकार",
+      "selectBusinessType": "व्यवसाय प्रकार निवडा",
+      "businessTypes": {
+        "wholesaler": "घाऊक व्यापारी",
+        "exporter": "निर्यातदार",
+        "commission_agent": "कमिशन एजंट",
+        "retailer": "किरकोळ विक्रेता",
+        "transporter": "वाहतूकदार"
+      },
+      "camera": "कॅमेरा",
+      "gallery": "गॅलरी",
+      "takeNew": "नवीन फोटो घ्या",
+      "chooseExisting": "अस्तित्वात असलेला निवडा",
+      "removePhoto": "फोटो काढा",
+      "help": {
+        "title": "मदत हवी आहे?",
+        "text": "आपले पहिले आणि आडनाव टाका. आपण हे नंतर सेटिंग्जमध्ये बदलू शकता."
+      },
+      "authErrorTitle": "प्रमाणीकरण त्रुटी",
+      "authErrorSubtitle": "आपले सत्र संपले आहे. कृपया पुन्हा साइन इन करा.",
+      "roleMissing": "वापरकर्ता भूमिका सापडली नाही. कृपया पुन्हा भूमिका निवडा.",
+      "syncErrorTitle": "सिंक त्रुटी",
+      "saveFailed": "वापरकर्ता माहिती जतन करण्यात अयशस्वी. कृपया पुन्हा प्रयत्न करा.",
+      "status": {
+        "uploadingPhoto": "फोटो अपलोड होत आहे...",
+        "photoUploaded": "फोटो अपलोड झाला!",
+        "updatingProfile": "प्रोफाईल अपडेट होत आहे...",
+        "savingCloud": "क्लाउडवर जतन करत आहे...",
+        "savingLocal": "लोकलवर जतन करत आहे...",
+        "complete": "पूर्ण!",
+        "uploadingGeneric": "अपलोड करत आहे",
+        "finalizing": "अंतिम टप्पा..."
+      }
+    },
+    "welcome": {
+      "welcomeTo": "स्वागत आहे",
+      "description": "शेतकऱ्यांना थेट खरेदीदारांशी जोडा — पारदर्शक किंमत तयार करा, मध्यस्थांचा खर्च कमी करा आणि अधिक नफ्यासाठी शाश्वत कृषी भागीदारी तयार करा.",
+      "getStarted": "सुरू करा"
+    }
+  },
+  "notifications": {
+    "title": "सूचना",
+    "subtitle": "{{count}} सूचना • {{unread}} न वाचलेल्या",
+    "loading": "सूचना लोड होत आहेत...",
+    "filters": {
+      "all": "सर्व",
+      "unread": "न वाचलेल्या",
+      "transaction": "व्यवहार",
+      "promotion": "प्रमोशन्स",
+      "update": "अपडेट्स",
+      "alert": "अलर्ट्स",
+      "request": "विनंत्या",
+      "message": "संदेश"
+    },
+    "offer": {
+      "coupon": "कूपन",
+      "valid": "वैध",
+      "version": "आवृत्ती",
+      "request": "विनंती",
+      "status": "स्थिती"
+    },
+    "section": {
+      "today": "आज",
+      "yesterday": "काल",
+      "earlier": "पूर्वी"
+    },
+    "emptyTitleAll": "सूचना नाहीत",
+    "emptyTitleFilter": "{{filter}} सूचना नाहीत",
+    "emptyMessageAll": "सध्या तुमच्याकडे कोणत्याही सूचना नाहीत.",
+    "emptyMessageFilter": "सध्या तुमच्याकडे {{filter}} सूचना नाहीत.",
+    "buttons": {
+      "markAllAsRead": "सर्व वाचले म्हणून चिन्हांकित करा",
+      "clearFilter": "फिल्टर साफ करा",
+      "refresh": "रिफ्रेश",
+      "saveChanges": "बदल जतन करा",
+      "signIn": "साइन इन"
+    },
+    "settings": {
+      "title": "सूचना सेटिंग्ज",
+      "pushTitle": "पुश सूचना",
+      "pushDesc": "तुमच्या डिव्हाइसवर सूचना मिळवा",
+      "emailTitle": "ईमेल सूचना",
+      "emailDesc": "अपडेट्स ईमेलद्वारे मिळवा",
+      "transactionTitle": "व्यवहार अलर्ट",
+      "transactionDesc": "पेमेंट आणि ऑर्डरसाठी सूचना",
+      "promotionsTitle": "प्रमोशन्स",
+      "promotionsDesc": "डील्स, ऑफर्स आणि डिस्काउंट",
+      "updatesTitle": "अपडेट्स",
+      "updatesDesc": "ॲप अपडेट्स आणि नवीन वैशिष्ट्ये"
+    },
+    "toast": {
+      "successTitle": "यशस्वी",
+      "allMarkedRead": "सर्व सूचना वाचलेल्या म्हणून मार्क केल्या"
+    },
+    "errors": {
+      "generic": "सूचनांमध्ये काहीतरी चूक झाली",
+      "authRequiredTitle": "प्रमाणीकरण आवश्यक",
+      "authRequiredMessage": "सूचना पाहण्यासाठी कृपया साइन इन करा"
+    }
+  },
+  "notificationsDetail": {
+    "labels": {
+      "coupon": "कूपन",
+      "description": "वर्णन",
+      "validity": "वैधता",
+      "version": "आवृत्ती",
+      "tip": "टीप",
+      "requestId": "विनंती आयडी",
+      "date": "तारीख",
+      "status": "स्थिती"
+    },
+    "actions": {
+      "viewOrder": "ऑर्डर पहा",
+      "claimOffer": "ऑफर घ्या",
+      "updateNow": "आत्ता अपडेट करा",
+      "viewRequest": "विनंती पहा",
+      "openChat": "चॅट उघडा",
+      "viewDetails": "तपशील पहा",
+      "dismiss": "बंद करा",
+      "viewCompleteOrder": "संपूर्ण ऑर्डर पहा"
+    },
+    "order": {
+      "title": "ऑर्डर तपशील",
+      "orderId": "ऑर्डर आयडी",
+      "date": "तारीख",
+      "status": "स्थिती",
+      "confirmed": "निश्चित"
+    },
+    "toast": {
+      "navigatingToRequest": "विनंती तपशील उघडत आहे...",
+      "couldNotOpenLink": "लिंक उघडू शकलो नाही"
+    }
+  }
+}

@@ -3,31 +3,48 @@ import {
   View,
   Text,
   TouchableOpacity,
-  Image,
   StyleSheet,
   StatusBar,
   Animated,
   Dimensions,
   Platform,
   FlatList,
-  Keyboard,
   KeyboardAvoidingView,
+  Linking,
+  Alert,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Feather from 'react-native-vector-icons/Feather';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { BlurView } from '@react-native-community/blur';
+import FastImage from 'react-native-fast-image';
+import { useFocusEffect } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
 import { auth } from '../../config/firebaseModular';
-import { subscribeMessages, sendMessage, markChatRead, buildChatId, fetchUserProfile, ensureChatExists, backfillChatParticipants, setTyping, subscribeTyping } from '../../services/chatService';
+import { requestService } from '../../services/requestService';
+import {
+  subscribeMessages,
+  sendMessage,
+  markChatRead,
+  buildChatId,
+  fetchUserProfile,
+  ensureChatExists,
+  backfillChatParticipants,
+  setTyping,
+  subscribeTyping,
+  subscribeUserOnlineStatus,
+  setUserOnlineStatus,
+} from '../../services/chatService';
 import useKeyboardHeight from '../../hooks/useKeyboardHeight';
 import useKeyboardLayoutMode from '../../hooks/useKeyboardLayoutMode';
 import ChatInputBar from './ChatInputBar';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Colors } from '../../constants';
+import LoadingOverlay from 'utils/LoadingOverlay';
 
 // Constants
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const MESSAGE_AVATAR_SIZE = 32;
 const HEADER_HEIGHT = Platform.OS === 'ios' ? 100 : 80;
+const BOTTOM_GUTTER = 12;
 
 const COLORS = {
   primary: '#10B981',
@@ -81,19 +98,19 @@ const TypingIndicator = React.memo(() => {
   const dot3 = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    const animate = () => {
-      const animations = [dot1, dot2, dot3].map((dot, index) =>
-        Animated.loop(
-          Animated.sequence([
-            Animated.delay(index * 200),
-            Animated.timing(dot, { toValue: 1, duration: 400, useNativeDriver: true }),
-            Animated.timing(dot, { toValue: 0, duration: 400, useNativeDriver: true }),
-          ])
-        )
-      );
-      Animated.parallel(animations).start();
-    };
-    animate();
+    const loops = [dot1, dot2, dot3].map((dot, index) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(index * 200),
+          Animated.timing(dot, { toValue: 1, duration: 400, useNativeDriver: true }),
+          Animated.timing(dot, { toValue: 0, duration: 400, useNativeDriver: true }),
+        ])
+      )
+    );
+    // Start loops
+    loops.forEach(l => l.start());
+    // Cleanup to stop loops on unmount
+    return () => loops.forEach(l => l.stop());
   }, [dot1, dot2, dot3]);
 
   return (
@@ -116,110 +133,263 @@ const TypingIndicator = React.memo(() => {
 });
 
 const ChatDetailScreen = ({ route, navigation }) => {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
+  const isMountedRef = useRef(true);
   const inputRef = useRef(null);
   const flatListRef = useRef(null);
   const headerOpacity = useRef(new Animated.Value(0)).current;
-  const { keyboardHeightAnimated, keyboardHeight, keyboardVisible } = useKeyboardHeight();
-  const [inputBarHeight, setInputBarHeight] = useState(0);
-  const { layoutMode, handleRootLayout, isResizeLike } = useKeyboardLayoutMode({ debounceMs: 100 });
+  const typingTimerRef = useRef(null);
+  const lastTypingSentRef = useRef(false);
+  const initialScrollDone = useRef(false);
 
-  // Safe fallback for chat and avatar
+  const { keyboardHeightAnimated, keyboardHeight, keyboardVisible } = useKeyboardHeight();
+  const { handleRootLayout, isResizeLike } = useKeyboardLayoutMode({ debounceMs: 100 });
+
+  // Constants
   const defaultAvatar = require('../../../assets/logo.png');
   const currentUid = auth.currentUser?.uid || '';
   const paramChatId = route?.params?.chatId;
   const otherUid = route?.params?.otherUid;
-  const initialName = route?.params?.name || 'Unknown';
+  const initialName = route?.params?.name || t('chat.detail.unknownUser', { defaultValue: 'Unknown' });
+  const initialPhone = route?.params?.phoneNumber || null;
   const initialAvatarUri = route?.params?.avatarUri || null;
   const chatId = paramChatId || (otherUid && currentUid ? buildChatId(currentUid, otherUid) : undefined);
+
+  // State
   const [contact, setContact] = useState({
     name: initialName,
     avatar: initialAvatarUri ? { uri: initialAvatarUri } : defaultAvatar,
     online: false,
+    phone: initialPhone,
+    lastSeen: null,
   });
-
-  // State
   const [messageText, setMessageText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-  const [showMenu, setShowMenu] = useState(false);
-  const [isNearBottom, setIsNearBottom] = useState(true);
-  const initialScrollDone = useRef(false);
   const [messages, setMessages] = useState([]);
+  const [clippingEnabled, setClippingEnabled] = useState(false);
+  const [myRole, setMyRole] = useState(null);
+  const [otherRole, setOtherRole] = useState(null);
+  const [isRoleSwitching, setIsRoleSwitching] = useState(false);
+  const [inputBarHeight, setInputBarHeight] = useState(0);
 
-
-  const windowHeight = Dimensions.get("window").height;
-
+  // Track mounted state
   useEffect(() => {
-    console.log("chat Window height:", windowHeight);
-  }, [windowHeight]);
-  // Auto-scroll when keyboard appears if near bottom
+    isMountedRef.current = true;
+    return () => { isMountedRef.current = false; };
+  }, []);
+
+  const getAndroidVersionName = () => {
+    if (Platform.OS !== 'android') return null;
+    const sdk = Platform.Version;
+    if (sdk >= 35) return true;
+    if (sdk >= 34) return true;
+    return false;
+  }
+
+  // Subscribe to other user's online status (read-only, doesn't set our own status)
   useEffect(() => {
-    if (keyboardVisible && isNearBottom) {
-      requestAnimationFrame(() => {
-        flatListRef.current?.scrollToEnd({ animated: true });
-      });
-    }
-  }, [keyboardVisible, isNearBottom]);
+    if (!otherUid) return;
+
+    const unsubscribe = subscribeUserOnlineStatus(otherUid, (isOnline, lastSeen) => {
+      if (isMountedRef.current) {
+        setContact(prev => ({
+          ...prev,
+          online: isOnline,
+          lastSeen: lastSeen || null,
+        }));
+      }
+    });
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [otherUid]);
+
+  // Set current user online when ChatDetailScreen is focused, offline when unfocused
+  useFocusEffect(
+    useCallback(() => {
+      const uid = auth.currentUser?.uid;
+      if (!uid) return;
+
+      // Set online when screen gains focus
+      setUserOnlineStatus(uid, true);
+
+      // Set offline when screen loses focus
+      return () => {
+        setUserOnlineStatus(uid, false);
+      };
+    }, [])
+  );
 
   // Utility functions
   const formatTime = (date) => date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
+  // Format last seen time in a compact way
+  const formatLastSeen = useCallback((lastSeenISO) => {
+    if (!lastSeenISO) return t('chat.detail.lastSeenRecently', { defaultValue: 'Last seen recently' });
+    // If lastSeen is the string "online", don't format it (handled by online status check in UI)
+    if (lastSeenISO === "online") return t('chat.detail.activeNow', { defaultValue: 'Active now' });
+    const lastSeenDate = new Date(lastSeenISO);
+    // Check if the date is valid
+    if (isNaN(lastSeenDate.getTime())) return t('chat.detail.lastSeenRecently', { defaultValue: 'Last seen recently' });
+    const now = new Date();
+    const diffMs = now - lastSeenDate;
+    const diffMinutes = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    // < 1 min
+    if (diffMinutes < 1) {
+      return t('chat.detail.lastSeenJustNow', { defaultValue: 'Last seen just now' });
+    }
+
+    // < 60 min
+    if (diffMinutes < 60) {
+      return t('chat.detail.lastSeenMinutesAgo', { defaultValue: 'Last seen {{minutes}}m ago', minutes: diffMinutes });
+    }
+
+    // Today
+    const isToday = lastSeenDate.toDateString() === now.toDateString();
+    if (isToday) {
+      const timeStr = lastSeenDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+      return t('chat.detail.lastSeenToday', { defaultValue: 'Last seen today at {{time}}', time: timeStr });
+    }
+
+    // Yesterday
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const isYesterday = lastSeenDate.toDateString() === yesterday.toDateString();
+    if (isYesterday) {
+      const timeStr = lastSeenDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+      return t('chat.detail.lastSeenYesterday', { defaultValue: 'Last seen yesterday at {{time}}', time: timeStr });
+    }
+
+    // < 24h (but not today/yesterday) → fallback hours
+    if (diffHours < 24) {
+      return t('chat.detail.lastSeenHoursAgo', { defaultValue: 'Last seen {{hours}}h ago', hours: diffHours });
+    }
+
+    // < 7 days
+    if (diffDays < 7) {
+      const dayName = lastSeenDate.toLocaleDateString('en-US', { weekday: 'short' });
+      const timeStr = lastSeenDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+      return t('chat.detail.lastSeenDay', { defaultValue: 'Last seen {{day}} at {{time}}', day: dayName, time: timeStr });
+    }
+
+    // Same year
+    const isSameYear = lastSeenDate.getFullYear() === now.getFullYear();
+    if (isSameYear) {
+      const monthShort = lastSeenDate.toLocaleDateString('en-US', { month: 'short' });
+      const day = lastSeenDate.getDate();
+      const timeStr = lastSeenDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+      return t('chat.detail.lastSeenDate', { defaultValue: 'Last seen {{month}} {{day}} at {{time}}', month: monthShort, day, time: timeStr });
+    }
+
+    // Different year
+    const monthShort = lastSeenDate.toLocaleDateString('en-US', { month: 'short' });
+    const day = lastSeenDate.getDate();
+    const year = lastSeenDate.getFullYear();
+    const timeStr = lastSeenDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+    return t('chat.detail.lastSeenDateYear', { defaultValue: 'Last seen {{month}} {{day}}, {{year}} at {{time}}', month: monthShort, day, year, time: timeStr });
+  }, [t]);
+
+  // Memoize the formatted last seen text to avoid recalculating on every render
+  const formattedLastSeen = useMemo(() => {
+    return formatLastSeen(contact.lastSeen);
+  }, [contact.lastSeen, formatLastSeen]);
+
+
   const handleSend = useCallback(async () => {
     if (!messageText.trim() || !chatId || !currentUid || !otherUid) return;
     const text = messageText.trim();
+
+    // Guard: prevent sharing phone numbers, emails, Instagram handles/links, or any links
+    const containsEmail = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i.test(text);
+    // Strip non-digits to detect long digit sequences (10+)
+    const digitsOnly = text.replace(/[^0-9]/g, '');
+    const containsPhoneLike = digitsOnly.length >= 10; // generic phone detection
+    const containsUrl = /(https?:\/\/|www\.)\S+/i.test(text);
+    const containsWhatsAppLink = /(wa\.me\/|(?:api\.)?whatsapp\.com\/|chat\.whatsapp\.com\/)/i.test(text);
+    const containsInstagramLink = /(instagram\.com\/|ig\.me\/)/i.test(text);
+    // Detect @handle not part of an email
+    const textWithoutEmails = text.replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/ig, '');
+    const containsAtHandle = /(^|\s)@[a-z0-9._]{3,}/i.test(textWithoutEmails);
+    const mentionsIG = /(\big\b|\binsta\b|\binstagram\b)/i.test(text);
+    const containsInstagramHandle = containsAtHandle && mentionsIG;
+
+    if (containsEmail || containsPhoneLike || containsUrl || containsInstagramLink || containsInstagramHandle || containsWhatsAppLink) {
+      Alert.alert(
+        t('chat.detail.sharingBlockedTitle', { defaultValue: 'Not allowed' }),
+        t('chat.detail.sharingBlockedBody', { defaultValue: 'Sharing phone numbers, email addresses, social handles (e.g., Instagram), WhatsApp links, or any links is not allowed in chat.' })
+      );
+      return;
+    }
+
     setMessageText('');
-    // ChatInputBar manages its own height; just refocus after send optionally
     requestAnimationFrame(() => inputRef.current?.focus?.());
     try {
       await ensureChatExists(chatId, [currentUid, otherUid]);
       await sendMessage(chatId, currentUid, otherUid, text);
       try { await setTyping(chatId, currentUid, false); } catch (_) { }
     } catch (e) {
-      console.log('sendMessage error', e?.message || e);
+      console.error('Failed to send message:', e);
     }
-    setTimeout(() => {
-      flatListRef.current?.scrollToEnd({ animated: true });
-    }, 80);
-  }, [messageText, chatId, currentUid, otherUid]);
+  }, [messageText, chatId, currentUid, otherUid, t]);
 
-  const toggleMenu = useCallback(() => {
-    setShowMenu(prev => !prev);
-  }, []);
-
-  const handleMenuAction = useCallback((action) => {
-    setShowMenu(false);
-    switch (action) {
-      case 'block':
-        console.log('Block user');
-        break;
-      case 'report':
-        console.log('Report user');
-        break;
-      case 'clear':
-        setMessages([]);
-        break;
-      case 'info':
-        console.log('User info');
-        break;
-      default:
-        break;
+  // Place a phone call using the device dialer
+  const handleCall = useCallback(async () => {
+    const phone = contact?.phone;
+    if (!phone) {
+      Alert.alert(t('chat.detail.noPhoneTitle', { defaultValue: 'No phone number' }), t('chat.detail.noPhoneBody', { defaultValue: 'This user has no phone number available.' }));
+      return;
     }
-  }, []);
 
-  const dismissKeyboard = useCallback(() => {
-    Keyboard.dismiss();
-    setShowMenu(false);
-  }, []);
+    try {
+      // If current user is a buyer and other party is a farmer (or unknown), ensure the latest request is accepted
+      const buyerId = auth.currentUser?.uid;
+      const farmerId = otherUid;
+      if (buyerId && farmerId && (myRole?.toLowerCase?.() === 'buyer')) {
+        // Only strictly require farmer on the other side; if unknown, fail-closed and still check
+        const shouldCheck = !otherRole || otherRole?.toLowerCase?.() === 'farmer';
+        if (shouldCheck) {
+          setIsRoleSwitching(true);
+          const ok = await requestService.isLatestRequestAccepted(buyerId, farmerId);
+          setIsRoleSwitching(false);
+          if (!ok) {
+            Alert.alert(t('chat.detail.requestNotAcceptedTitle', { defaultValue: 'Request not accepted' }), t('chat.detail.requestNotAcceptedBody', { defaultValue: 'You can call once the farmer accepts your latest request.' }));
+            return;
+          }
+        }
+      }
+    } catch (_) {
+      // If we can’t verify, fail closed
+      Alert.alert(t('chat.detail.requestNotAcceptedTitle', { defaultValue: 'Request not accepted' }), t('chat.detail.requestNotAcceptedBody', { defaultValue: 'You can call once the farmer accepts your latest request.' }));
+      return;
+    }
 
-  // input height logic handled internally by ChatInputBar
+    // Sanitize to digits and plus, then open dialer
+    const cleaned = String(phone).replace(/[^0-9+]/g, '');
+    const url = `tel:${cleaned}`;
+    try {
+      await Linking.openURL(url);
+    } catch (e) {
+      Alert.alert(t('chat.detail.callFailedTitle', { defaultValue: 'Call failed' }), t('chat.detail.callFailedBody', { defaultValue: 'Unable to initiate the call.' }));
+    }
+  }, [contact?.phone, otherUid, myRole, otherRole, t]);
 
   // Header animation effect
   useEffect(() => {
-    Animated.timing(headerOpacity, {
+    const anim = Animated.timing(headerOpacity, {
       toValue: 1,
       duration: 300,
       useNativeDriver: true,
-    }).start();
+    });
+    anim.start();
+    return () => {
+      // Stop animation on unmount to avoid leaks
+      anim.stop();
+    };
   }, [headerOpacity]);
 
   // Subscribe to other user's typing state (realtime)
@@ -230,15 +400,25 @@ const ChatDetailScreen = ({ route, navigation }) => {
   }, [chatId, otherUid]);
 
   // Update my typing state with debounce while composing
-  const typingTimerRef = useRef(null);
   useEffect(() => {
     if (!chatId || !currentUid) return;
     const hasText = messageText.trim().length > 0;
-    setTyping(chatId, currentUid, hasText).catch(() => { });
+
+    // Send "typing: true" only on transition to avoid spamming writes
+    if (hasText && !lastTypingSentRef.current) {
+      setTyping(chatId, currentUid, true).catch(() => { });
+      lastTypingSentRef.current = true;
+    }
+
+    // Debounce clearing the typing state
     if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
     typingTimerRef.current = setTimeout(() => {
-      setTyping(chatId, currentUid, false).catch(() => { });
+      if (lastTypingSentRef.current) {
+        setTyping(chatId, currentUid, false).catch(() => { });
+        lastTypingSentRef.current = false;
+      }
     }, 1500);
+
     return () => { if (typingTimerRef.current) clearTimeout(typingTimerRef.current); };
   }, [messageText, chatId, currentUid]);
 
@@ -250,6 +430,7 @@ const ChatDetailScreen = ({ route, navigation }) => {
       // Best-effort backfill for legacy chats missing participants
       try { await backfillChatParticipants(chatId); } catch (_) { }
       unsub = subscribeMessages(chatId, (list) => {
+        if (!isMountedRef.current) return;
         const mapped = list.map((m) => ({
           id: m.id,
           type: 'text',
@@ -266,48 +447,87 @@ const ChatDetailScreen = ({ route, navigation }) => {
     return () => { if (unsub) unsub(); };
   }, [chatId, currentUid]);
 
-  // Load contact profile if missing
+  // Ensure initial position starts at bottom once messages and input height are ready
   useEffect(() => {
-    (async () => {
-      if (!otherUid) return;
-      if (contact.name && contact.avatar !== defaultAvatar) return;
-      const fetched = await fetchUserProfile(otherUid);
-      console.log('Fetched chat profile:', fetched);
-      if (fetched) {
+    if (!messages.length || initialScrollDone.current || !inputBarHeight) return;
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: false });
+        initialScrollDone.current = true;
+        if (Platform.OS === 'android') setClippingEnabled(true);
+      }, 0);
+    });
+  }, [messages.length, inputBarHeight]);
+
+  // Load contact profile and roles
+  useEffect(() => {
+    if (!otherUid) return;
+
+    const loadProfile = async () => {
+      try {
+        const fetched = await fetchUserProfile(otherUid);
+        if (!fetched || !isMountedRef.current) return;
+
         const uri = fetched.profileImage || null;
+        const phone = fetched.phoneNumber || null;
+        const role = (fetched.userRole || fetched.role || fetched.userType || '').toLowerCase();
+
         setContact((prev) => ({
           ...prev,
           name: fetched.displayName || prev.name,
           avatar: uri ? { uri } : prev.avatar,
+          phone: phone || prev.phone,
+          lastSeen: fetched.lastSeen,
         }));
+
+        if (role) setOtherRole(role);
+      } catch (error) {
+        console.error('Failed to load contact profile:', error);
       }
-    })();
+    };
+
+    loadProfile();
   }, [otherUid]);
 
-  // Track if user is near bottom to avoid fighting user scroll
-  const handleScroll = useCallback((e) => {
-    const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
-    const threshold = 80; // px tolerance
-    const atBottom = contentOffset.y + layoutMeasurement.height >= (contentSize.height - threshold);
-    setIsNearBottom(atBottom);
-  }, []);
+  // Load my profile role for call gating
+  useEffect(() => {
+    const uid = auth.currentUser?.uid;
+    if (!uid || myRole) return;
 
-  // Focus input programmatically (used when tapping messages or blank space if needed)
+    const loadMyRole = async () => {
+      try {
+        const mine = await fetchUserProfile(uid);
+        const role = (mine?.userRole || '').toLowerCase();
+        if (role && isMountedRef.current) setMyRole(role);
+      } catch (error) {
+        console.error('Failed to load user role:', error);
+      }
+    };
+
+    loadMyRole();
+  }, [myRole]);
+
+  // Focus input programmatically
   const focusInput = useCallback(() => {
     inputRef.current?.focus?.();
   }, []);
 
   // Memoize contentContainerStyle to avoid prop churn on FlatList
   const messagesContentStyle = useMemo(() => {
-    const kbExtra = isResizeLike ? 0 : keyboardHeight;
+    // In Android adjustPan-like mode, we add keyboardHeight as bottom inset
+    // so messages stay above the keyboard; the input bar is absolute.
+    const extraKeyboardPad = (Platform.OS === 'android' && !isResizeLike && keyboardVisible)
+      ? keyboardHeight
+      : 0;
     return [
       styles.messagesContent,
       {
         paddingTop: HEADER_HEIGHT + insets.top + 20,
-        paddingBottom: kbExtra + inputBarHeight + Math.max(insets.bottom, 8) + 12,
+        // Ensure last messages sit above input + keyboard (in pan mode) while keeping a small gutter
+        paddingBottom: inputBarHeight + extraKeyboardPad + Math.max(insets.bottom, 8) + BOTTOM_GUTTER,
       }
     ];
-  }, [insets.top, insets.bottom, keyboardHeight, inputBarHeight, isResizeLike]);
+  }, [insets.top, insets.bottom, inputBarHeight, isResizeLike, keyboardVisible, keyboardHeight]);
 
   // Memoized renderItem to avoid re-creating per render
   const renderItem = useCallback(({ item }) => (
@@ -348,7 +568,7 @@ const ChatDetailScreen = ({ route, navigation }) => {
               onPress={() => navigation.goBack()}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               accessible={true}
-              accessibilityLabel="Go back to previous screen"
+              accessibilityLabel={t('chat.detail.a11y.goBack', { defaultValue: 'Go back to previous screen' })}
               accessibilityRole="button"
             >
               <Feather name="arrow-left" size={24} color={COLORS.text} />
@@ -356,19 +576,28 @@ const ChatDetailScreen = ({ route, navigation }) => {
 
             <TouchableOpacity style={styles.userInfo} activeOpacity={0.8}>
               <View style={styles.avatarContainer}>
-                <Image
-                  source={contact.avatar}
+                <FastImage
+                  source={
+                    contact?.avatar?.uri
+                      ? { uri: contact.avatar.uri, cache: FastImage.cacheControl.immutable, priority: FastImage.priority.normal }
+                      : contact.avatar
+                  }
                   style={styles.headerAvatar}
                   onError={() => {
-                    setContact((prev) => ({ ...prev, avatar: defaultAvatar }));
+                    if (isMountedRef.current) setContact((prev) => ({ ...prev, avatar: defaultAvatar }));
                   }}
+                  resizeMode={FastImage.resizeMode.cover}
                 />
                 {contact.online && <View style={styles.onlineIndicator} />}
               </View>
               <View style={styles.headerTextContainer}>
                 <Text style={styles.headerName} numberOfLines={1}>{contact.name}</Text>
                 <Text style={styles.headerStatus}>
-                  {isTyping ? 'typing...' : contact.online ? 'Active now' : 'Last seen recently'}
+                  {isTyping
+                    ? t('chat.detail.typing', { defaultValue: 'typing...' })
+                    : contact.online
+                      ? t('chat.detail.activeNow', { defaultValue: 'Active now' })
+                      : formattedLastSeen}
                 </Text>
               </View>
             </TouchableOpacity>
@@ -377,43 +606,13 @@ const ChatDetailScreen = ({ route, navigation }) => {
               <TouchableOpacity
                 style={styles.headerActionBtn}
                 hitSlop={{ top: 5, bottom: 5, left: 5, right: 5 }}
+                onPress={handleCall}
                 accessible={true}
-                accessibilityLabel="Make voice call"
+                accessibilityLabel={t('chat.detail.a11y.call', { defaultValue: 'Make voice call' })}
                 accessibilityRole="button"
               >
                 <Feather name="phone" size={20} color={COLORS.primary} />
               </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.headerActionBtn}
-                hitSlop={{ top: 5, bottom: 5, left: 5, right: 5 }}
-                onPress={toggleMenu}
-                accessible={true}
-                accessibilityLabel="More options menu"
-                accessibilityRole="button"
-              >
-                <Feather name="more-vertical" size={20} color={COLORS.text} />
-              </TouchableOpacity>
-
-              {showMenu && (
-                <View style={styles.dropdownMenu}>
-                  <TouchableOpacity style={styles.menuItem} onPress={() => handleMenuAction('info')}>
-                    <Feather name="user" size={16} color={COLORS.text} />
-                    <Text style={styles.menuText}>Profile Info</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.menuItem} onPress={() => handleMenuAction('clear')}>
-                    <Feather name="trash-2" size={16} color={COLORS.text} />
-                    <Text style={styles.menuText}>Clear Chat</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.menuItem} onPress={() => handleMenuAction('report')}>
-                    <Feather name="flag" size={16} color={COLORS.price} />
-                    <Text style={[styles.menuText, { color: COLORS.price }]}>Report</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.menuItem} onPress={() => handleMenuAction('block')}>
-                    <Feather name="slash" size={16} color={COLORS.price} />
-                    <Text style={[styles.menuText, { color: COLORS.price }]}>Block User</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
             </View>
           </View>
         </SafeAreaView>
@@ -429,26 +628,10 @@ const ChatDetailScreen = ({ route, navigation }) => {
           contentContainerStyle={messagesContentStyle}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
-          removeClippedSubviews={Platform.OS === 'android'}
-          onScroll={handleScroll}
+          removeClippedSubviews={Platform.OS === 'android' && clippingEnabled}
           scrollEventThrottle={16}
-          onLayout={() => {
-            // Auto-scroll to bottom on initial load
-            if (!initialScrollDone.current) {
-              initialScrollDone.current = true;
-              setTimeout(() => {
-                flatListRef.current?.scrollToEnd({ animated: false });
-              }, 100);
-            }
-          }}
-          onContentSizeChange={() => {
-            // Auto-scroll to bottom when new messages are added
-            if (isNearBottom) {
-              setTimeout(() => {
-                flatListRef.current?.scrollToEnd({ animated: true });
-              }, 100);
-            }
-          }}
+          onLayout={() => { /* initial scroll handled in effect once input height known */ }}
+          onContentSizeChange={() => { /* no-op to avoid premature flagging */ }}
           ListFooterComponent={ListFooter}
           initialNumToRender={8}
           maxToRenderPerBatch={8}
@@ -461,7 +644,7 @@ const ChatDetailScreen = ({ route, navigation }) => {
         style={[
           styles.inputContainer,
           (Platform.OS === 'android' && !isResizeLike)
-            ? { bottom: keyboardHeightAnimated }
+            ? { bottom: getAndroidVersionName() ? keyboardHeightAnimated : 0 }
             : { bottom: 0 }
         ]}
       >
@@ -472,10 +655,15 @@ const ChatDetailScreen = ({ route, navigation }) => {
           onSend={handleSend}
           onHeightChange={setInputBarHeight}
           maxLength={1000}
-          onFocus={() => setShowMenu(false)}
         />
       </Animated.View>
-    </KeyboardAvoidingView>
+
+      <LoadingOverlay
+        visible={isRoleSwitching}
+        message={t('common.loading', { defaultValue: 'Loading...' })}
+        spinnerColor="#43B86C"
+      />
+    </KeyboardAvoidingView >
   );
 };
 
@@ -571,34 +759,6 @@ const styles = StyleSheet.create(
       borderRadius: 16,
       backgroundColor: 'rgba(16, 185, 129, 0.1)',
     },
-    dropdownMenu: {
-      position: 'absolute',
-      top: 45,
-      right: 0,
-      backgroundColor: COLORS.surface,
-      borderRadius: 12,
-      borderWidth: 1,
-      borderColor: COLORS.border,
-      shadowColor: COLORS.shadow,
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.15,
-      shadowRadius: 8,
-      elevation: 8,
-      minWidth: 150,
-      zIndex: 1000,
-    },
-    menuItem: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: 16,
-      paddingVertical: 12,
-      gap: 12,
-    },
-    menuText: {
-      fontSize: 14,
-      fontWeight: '500',
-      color: COLORS.text,
-    },
 
     // Messages Styles with FlatList
     messagesContainer: {
@@ -606,7 +766,9 @@ const styles = StyleSheet.create(
     },
     messagesContent: {
       paddingHorizontal: 16,
-      // Avoid flexGrow which can cause ScrollView content to fill height and disrupt scrolling
+      // Make content fill available height and align to bottom so short chats stick to bottom
+      flexGrow: 1,
+      justifyContent: 'flex-end'
     },
     messageContainer: {
       maxWidth: SCREEN_WIDTH * 0.75,
@@ -622,16 +784,12 @@ const styles = StyleSheet.create(
       paddingHorizontal: 16,
       paddingVertical: 12,
       borderRadius: 20,
-      // Remove shadows/elevation for better scroll performance, especially on Android
-      // shadowColor: COLORS.shadow,
-      // shadowOffset: { width: 0, height: 1 },
-      // shadowOpacity: 0.05,
-      // shadowRadius: 2,
-      // elevation: 1,
     },
     myBubble: {
       backgroundColor: COLORS.messageMe,
       borderBottomRightRadius: 6,
+      borderWidth: 1,
+      borderColor: Colors.light.primary,
     },
     otherBubble: {
       backgroundColor: COLORS.surface,
@@ -709,7 +867,6 @@ const styles = StyleSheet.create(
       borderTopColor: COLORS.border,
       zIndex: 100,
     },
-    // old input-related styles removed (handled by ChatInputBar)
   }
 );
 

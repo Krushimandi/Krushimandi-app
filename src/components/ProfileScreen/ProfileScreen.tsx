@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { BlurView } from '@react-native-community/blur';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useFocusEffect, useNavigationState, useNavigation, useIsFocused } from '@react-navigation/native';
 import FeedbackModal, { FeedbackData } from '@ui/FeedbackModal';
 import { requestService } from '../../services/requestService';
+import LoadingOverlay from '../../utils/LoadingOverlay';
 
 import {
   View,
@@ -20,6 +22,7 @@ import {
   Linking,
   Dimensions,
   Modal,
+  Platform,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
@@ -32,6 +35,12 @@ import { clearUserRole } from '../../utils/userRoleStorage';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../../navigation';
 import Toast from 'react-native-toast-message';
+import { useRemoteConfig } from '../../hooks/useRemoteConfig';
+import { pushNotificationService } from '../../services/pushNotificationService';
+import { functions, httpsCallable } from '../../config/firebaseModular';
+import { setUserOnlineStatus } from '../../services/chatService';
+import useOfflineCapability from 'hooks/useOfflineCapability';
+// import { useIsConnected } from 'hooks/useNetworkStatus';
 
 const { width } = Dimensions.get('window');
 
@@ -49,14 +58,19 @@ interface SettingItem {
 }
 
 const ProfileScreen: React.FC = () => {
-
+  const { t } = useTranslation();
   type ProfileScreenNavigationProp = StackNavigationProp<RootStackParamList, 'ProfileScreen'>;
 
+
+  const { isOnline } = useOfflineCapability();
   const [isModalVisible, setIsModalVisible] = useState<boolean>(false);
   const navigation = useNavigation<ProfileScreenNavigationProp>();
   const [userProfile, setUserProfile] = useState<any>(null);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [darkModeEnabled, setDarkModeEnabled] = useState(false);
+  const [isRoleSwitching, setIsRoleSwitching] = useState(false);
+  const rc = useRemoteConfig();
+  const currentYear = new Date().getFullYear();
 
   // Modal state for profile image
   const [modalVisible, setModalVisible] = useState(false);
@@ -64,18 +78,23 @@ const ProfileScreen: React.FC = () => {
   const navigationState = useNavigationState(state => state);
   const isInsideTab = navigationState?.type === 'tab';
 
+  // const isOnline = useIsConnected();
+
+  useFocusEffect(
+    React.useCallback(() => {
+      return () => {
+        StatusBar.setBackgroundColor('#ffffff'); // Android only
+        StatusBar.setBarStyle('dark-content');
+        console.log("Activity closed");
+
+      };
+    }, [])
+  );
 
   useEffect(() => {
     loadUserProfile();
     loadSettings();
   }, []);
-
-  // Always fetch fresh profile on screen focus
-  useFocusEffect(
-    React.useCallback(() => {
-      loadUserProfile();
-    }, [])
-  );
 
   const openFeedbackModal = (): void => setIsModalVisible(true);
   const closeFeedbackModal = (): void => setIsModalVisible(false);
@@ -83,7 +102,7 @@ const ProfileScreen: React.FC = () => {
   const handleFeedbackSubmit = (feedbackData: FeedbackData): void => {
     // Send feedback to backend
     if (!userProfile) {
-      Alert.alert('Error', 'User profile not loaded.');
+      Alert.alert(t('alerts.errorTitle'), t('alerts.profileNotLoaded'));
       return;
     }
     const uuid = userProfile.id || userProfile.uid || userProfile.userId || userProfile.phoneNumber || 'unknown';
@@ -97,18 +116,18 @@ const ProfileScreen: React.FC = () => {
       .then(() => {
         Toast.show({
           type: 'success',
-          text1: 'Feedback Sent',
-          text2: 'Thank you for your feedback!',
+          text1: t('toasts.feedbackSent'),
+          text2: t('toasts.feedbackThanks'),
           position: 'bottom',
           visibilityTime: 1000,
         });
         closeFeedbackModal();
       })
       .catch((error: any) => {
-        console.log('Failed to send feedback: ' + error.message);
+        console.error('Failed to send feedback: ' + error.message);
         Toast.show({
           type: 'error',
-          text1: 'Feedback Error',
+          text1: t('toasts.feedbackError'),
           // text2: 'Failed to send feedback: ' + error.message,
           position: 'bottom',
           visibilityTime: 1000,
@@ -123,7 +142,7 @@ const ProfileScreen: React.FC = () => {
         // If not found, force refresh from Firestore
         profile = await updateUserProfile();
       }
-      console.log("Profile", profile);
+      // Profile loaded
       setUserProfile(profile);
     } catch (error) {
       console.error('Error loading user profile:', error);
@@ -164,18 +183,53 @@ const ProfileScreen: React.FC = () => {
 
   const handleLogout = () => {
     Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
+      t('alerts.logoutTitle'),
+      t('alerts.logoutConfirm'),
       [
         {
-          text: 'Cancel',
+          text: t('common.cancel'),
           style: 'cancel',
         },
         {
-          text: 'Logout',
+          text: t('common.logout'),
           style: 'destructive',
           onPress: async () => {
             try {
+              const currentUser = auth().currentUser;
+              const uid = currentUser?.uid;
+
+              // Get current FCM token before clearing
+              const fcmToken = pushNotificationService.getFCMTokenSync();
+
+              // Set user offline before logout
+              if (uid) {
+                try {
+                  if (isOnline) {
+                    await setUserOnlineStatus(uid, false);
+                  } else {
+                    // Skip setting offline status manually
+                    // Server automatically sets user to offline after 10 minutes of inactivity
+                  }
+                  console.log('✅ User status set to offline');
+                } catch (error) {
+                  console.error('⚠️ Failed to set offline status:', error);
+                }
+              }
+
+              // Remove FCM token from backend
+              if (uid && fcmToken) {
+                try {
+                  console.log('🗑️ Removing FCM token from backend...');
+                  const removeFcmToken = httpsCallable(functions, 'removeFcmToken');
+                  await removeFcmToken({ uid, token: fcmToken });
+                  console.log('✅ FCM token removed successfully');
+                } catch (error) {
+                  console.error('⚠️ Failed to remove FCM token:', error);
+                  // Continue with logout even if token removal fails
+                }
+              }
+
+              // Clear local storage
               await AsyncStorage.multiRemove([
                 'userData',
                 'user_role',
@@ -190,13 +244,13 @@ const ProfileScreen: React.FC = () => {
               await clearUserRole();
               await auth().signOut();
 
-              console.log('✅ User logged out successfully');
+              // User logged out successfully
               import('../../utils/navigationUtils').then(
                 ({ navigateToAuth }) => navigateToAuth()
               );
             } catch (error) {
               console.error('❌ Error during logout:', error);
-              Alert.alert('Error', 'Failed to logout. Please try again.');
+              Alert.alert(t('alerts.errorTitle'), t('alerts.logoutFailed'));
             }
           },
         },
@@ -207,12 +261,12 @@ const ProfileScreen: React.FC = () => {
   const settingsGroups = [
     // grey color : #6B7280
     {
-      title: 'Account',
+      title: t('settings.sectionAccount'),
       items: [
         {
           id: 'profile',
-          title: 'Edit Profile',
-          subtitle: 'Update your personal information',
+          title: t('settings.editProfileTitle'),
+          subtitle: t('settings.editProfileSubtitle'),
           icon: 'create-outline',
           type: 'navigation' as const,
           action: () => (navigation as any).navigate('EditProfile'),
@@ -220,31 +274,80 @@ const ProfileScreen: React.FC = () => {
         },
         {
           id: 'changeRole',
-          title: 'Switch Role',
-          subtitle: 'Switch role to buyer/farmer',
+          title: t('settings.switchRoleTitle'),
+          subtitle: t('settings.switchRoleSubtitle'),
           icon: 'arrow-switch',
           type: 'navigation' as const,
           action: async () => {
+            if (!rc.RoleSwitchEnabled) {
+              Toast.show({ type: 'info', text1: t('toasts.featureDisabled'), position: 'bottom', visibilityTime: 1600 });
+              return;
+            }
             if (!userProfile?.uid && !userProfile?.id) {
-              Toast.show({ type: 'error', text1: 'Profile missing', position: 'bottom' });
+              Toast.show({ type: 'error', text1: t('toasts.profileMissing'), position: 'bottom' });
               return;
             }
             try {
               const currentRole = userProfile.userRole === 'farmer' ? 'farmer' : 'buyer';
               const nextRole = currentRole === 'farmer' ? 'buyer' : 'farmer';
+              const uid = userProfile.uid || userProfile.id;
+              const roleLabel = nextRole === 'farmer' ? t('roles.farmer') : t('roles.buyer');
+
+              // Business rule: You cannot switch TO Buyer if there are any ACTIVE farmer listings
+              if (nextRole === 'buyer') {
+                try {
+                  const { getFruitsByFarmerOptimized } = await import('../../services/fruitService');
+                  const activeListings = await getFruitsByFarmerOptimized(uid, 'active');
+                  if (Array.isArray(activeListings) && activeListings.length > 0) {
+                    Alert.alert(
+                      t('alerts.cannotSwitchTitle', { defaultValue: 'Active Listings Found' }),
+                      t('alerts.cannotSwitchDueToActive', { defaultValue: 'You have active listings as a Farmer. Please mark them as sold or inactive before switching to Buyer.' }),
+                      [{ text: t('common.ok', { defaultValue: 'OK' }) }]
+                    );
+                    return;
+                  }
+                } catch (checkErr) {
+                  console.error('Failed to check active listings before role switch', checkErr);
+                  Toast.show({ type: 'error', text1: t('toasts.switchRoleCheckFailed') || 'Could not verify listings', position: 'bottom' });
+                  return;
+                }
+              }
 
               Alert.alert(
-                'Switch Role',
-                `Are you sure you want to switch your role to ${nextRole.toUpperCase()}?`,
+                t('alerts.switchRoleTitle'),
+                t('alerts.switchRoleConfirm', { role: roleLabel }),
                 [
-                  { text: 'Cancel', style: 'cancel' },
+                  { text: t('common.cancel'), style: 'cancel' },
                   {
-                    text: 'Confirm',
+                    text: t('common.confirm'),
                     style: 'destructive',
                     onPress: async () => {
+                      setIsRoleSwitching(true);
                       try {
-                        Toast.show({ type: 'info', text1: 'Switching role...', position: 'bottom' });
                         const uid = userProfile.uid || userProfile.id;
+
+                        // Safety re-check: block switching to Buyer if active listings appeared meanwhile
+                        if (nextRole === 'buyer') {
+                          try {
+                            const { getFruitsByFarmerOptimized } = await import('../../services/fruitService');
+                            const activeListingsNow = await getFruitsByFarmerOptimized(uid, 'active');
+                            if (Array.isArray(activeListingsNow) && activeListingsNow.length > 0) {
+                              setIsRoleSwitching(false);
+                              Toast.show({
+                                type: 'info',
+                                text1: t('toasts.switchRoleBlocked') || 'Cannot switch role',
+                                text2: t('toasts.activeListingsBlock') || 'Active farmer listings found. Mark them as sold or inactive first.',
+                                position: 'bottom',
+                              });
+                              return;
+                            }
+                          } catch (checkErr) {
+                            console.error('Failed to re-check active listings during role switch', checkErr);
+                            setIsRoleSwitching(false);
+                            Toast.show({ type: 'error', text1: t('toasts.switchRoleCheckFailed') || 'Could not verify listings', position: 'bottom' });
+                            return;
+                          }
+                        }
 
                         // 1. Update Firestore profile (unified collection)
                         const { updateUserInFirestore } = await import('../../services/firebaseService');
@@ -276,21 +379,26 @@ const ProfileScreen: React.FC = () => {
                         // 5. Force refresh local profile
                         await loadUserProfile();
 
-                        Toast.show({ type: 'success', text1: `Role switched to ${nextRole}`, position: 'bottom' });
+                        setIsRoleSwitching(false);
+                        Toast.show({ type: 'success', text1: t('toasts.roleSwitched', { role: roleLabel }), position: 'bottom' });
+                        if (navigation.canGoBack()) {
+                          navigation.goBack();
+                        }
                       } catch (err) {
-                        console.log('Role switch error', err);
-                        Toast.show({ type: 'error', text1: 'Failed to switch role', position: 'bottom' });
+                        console.error('Role switch error', err);
+                        setIsRoleSwitching(false);
+                        Toast.show({ type: 'error', text1: t('toasts.switchRoleFailed'), position: 'bottom' });
                       }
                     }
                   }
                 ]
               );
             } catch (e) {
-              Toast.show({ type: 'error', text1: 'Cannot switch role now', position: 'bottom' });
+              Toast.show({ type: 'error', text1: t('toasts.cannotSwitchRole'), position: 'bottom' });
             }
           },
           color: '#3B82F6',
-          badge: 'New',
+          badge: t('labels.new'),
         },
         // {
         //   id: 'verification',
@@ -313,48 +421,13 @@ const ProfileScreen: React.FC = () => {
         // },
       ],
     },
-    // {
-    //   title: 'App Preferences',
-    //   items: [
-    //     {
-    //       id: 'notifications',
-    //       title: 'Push Notifications',
-    //       subtitle: 'Get notified about new deals and updates',
-    //       icon: 'notifications-outline',
-    //       type: 'toggle' as const,
-    //       value: notificationsEnabled,
-    //       onToggle: handleNotificationToggle,
-    //       color: '#43B86C',
-    //     },
-    //     {
-    //       id: 'darkmode',
-    //       title: 'Dark Mode',
-    //       subtitle: 'Switch between light and dark theme',
-    //       icon: 'moon-outline',
-    //       type: 'toggle' as const,
-    //       value: darkModeEnabled,
-    //       onToggle: handleDarkModeToggle,
-    //       color: '#43B86C',
-    //     },
-    //     // {
-    //     //   id: 'location',
-    //     //   title: 'Location Services',
-    //     //   subtitle: 'Find nearby farmers and buyers',
-    //     //   icon: 'location-outline',
-    //     //   type: 'toggle' as const,
-    //     //   value: locationEnabled,
-    //     //   onToggle: handleLocationToggle,
-    //     //   color: '#43B86C',
-    //     // },
-    //   ],
-    // },
     {
-      title: 'Support & Info',
+      title: t('settings.sectionSupport'),
       items: [
         {
           id: 'help',
-          title: 'Help Center',
-          subtitle: 'Get help and contact support',
+          title: t('support.helpCenterTitle'),
+          subtitle: t('support.helpCenterSubtitle'),
           icon: 'help-circle-outline',
           type: 'navigation' as const,
           action: () => navigation.navigate('HelpScreen'),
@@ -362,8 +435,8 @@ const ProfileScreen: React.FC = () => {
         },
         {
           id: 'feedback',
-          title: 'Send Feedback',
-          subtitle: 'Help us improve the app',
+          title: t('support.sendFeedbackTitle'),
+          subtitle: t('support.sendFeedbackSubtitle'),
           icon: 'chatbubble-outline',
           type: 'navigation' as const,
           action: () => { openFeedbackModal() },
@@ -371,17 +444,26 @@ const ProfileScreen: React.FC = () => {
         },
         {
           id: 'terms',
-          title: 'Privacy Policy',
-          subtitle: 'Read our terms and conditions and privacy policy',
+          title: t('support.TermsConditionTitle'),
+          subtitle: t('support.TermsConditionSubtitle'),
           icon: 'document-text-outline',
           type: 'navigation' as const,
-          action: () => navigation.navigate('PrivacyPolicy'),
+          action: () => navigation.navigate('PrivacyOnly'),
+          color: '#43B86C',
+        },
+        {
+          id: 'termsConditions',
+          title: t('terms.headerTitle'),
+          subtitle: t('support.termsSubtitle', { defaultValue: 'Read Terms & Conditions' }),
+          icon: 'documents-outline',
+          type: 'navigation' as const,
+          action: () => navigation.navigate('TermsCondition'),
           color: '#43B86C',
         },
         {
           id: 'about',
-          title: 'About App',
-          subtitle: 'Version 1.0.0',
+          title: t('support.aboutTitle'),
+          subtitle: t('about.version', { version: rc.app_version }),
           icon: 'information-circle-outline',
           type: 'navigation' as const,
           action: () => navigation.navigate('About'),
@@ -390,12 +472,56 @@ const ProfileScreen: React.FC = () => {
       ],
     },
     {
-      title: 'Account Actions',
+      title: t('settings.sectionPreferences'),
+      items: [
+        {
+          id: 'language',
+          title: t('settings.languageTitle'),
+          subtitle: t('settings.languageSubtitle'),
+          icon: 'language-outline',
+          type: 'navigation' as const,
+          action: () => navigation.navigate('Languages'),
+          color: '#43B86C',
+        },
+        // {
+        //   id: 'notifications',
+        //   title: 'Push Notifications',
+        //   subtitle: 'Get notified about new deals and updates',
+        //   icon: 'notifications-outline',
+        //   type: 'toggle' as const,
+        //   value: notificationsEnabled,
+        //   onToggle: handleNotificationToggle,
+        //   color: '#43B86C',
+        // },
+        // {
+        //   id: 'darkmode',
+        //   title: 'Dark Mode',
+        //   subtitle: 'Switch between light and dark theme',
+        //   icon: 'moon-outline',
+        //   type: 'toggle' as const,
+        //   value: darkModeEnabled,
+        //   onToggle: handleDarkModeToggle,
+        //   color: '#43B86C',
+        // },
+        // {
+        //   id: 'location',
+        //   title: 'Location Services',
+        //   subtitle: 'Find nearby farmers and buyers',
+        //   icon: 'location-outline',
+        //   type: 'toggle' as const,
+        //   value: locationEnabled,
+        //   onToggle: handleLocationToggle,
+        //   color: '#43B86C',
+        // },
+      ],
+    },
+    {
+      title: t('settings.sectionAccountActions'),
       items: [
         {
           id: 'logout',
-          title: 'Sign Out',
-          subtitle: 'Sign out of your account',
+          title: t('common.logout'),
+          subtitle: t('settings.logoutSubtitle'),
           icon: 'log-out-outline',
           type: 'action' as const,
           action: handleLogout,
@@ -482,8 +608,9 @@ const ProfileScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={[styles.container, isInsideTab && isFocused ? {paddingBottom: 80} : null]}>
-      <StatusBar barStyle="light-content"
+    <SafeAreaView style={[styles.container, isInsideTab && isFocused ? { paddingBottom: 80 } : null]}>
+      <StatusBar
+        barStyle="light-content"
         backgroundColor="#43B86C"
       />
 
@@ -503,8 +630,8 @@ const ProfileScreen: React.FC = () => {
           </TouchableOpacity>
 
           <View style={styles.headerTitleContainer}>
-            <Text style={styles.headerTitle}>Profile</Text>
-            <Text style={styles.headerSubtitle}>Manage your profile</Text>
+            <Text style={styles.headerTitle}>{t('profile.headerTitle')}</Text>
+            <Text style={styles.headerSubtitle}>{t('profile.headerSubtitle')}</Text>
           </View>
 
           {/* <TouchableOpacity
@@ -526,7 +653,7 @@ const ProfileScreen: React.FC = () => {
             <View style={{ alignItems: 'center', padding: 24 }}>
               <Icon name="person-circle-outline" size={64} color="#BDBDBD" />
               <Text style={{ color: '#888', fontSize: 16, marginTop: 12, textAlign: 'center' }}>
-                User profile not found
+                {t('alerts.profileNotLoaded')}
               </Text>
             </View>
           ) : (
@@ -559,7 +686,7 @@ const ProfileScreen: React.FC = () => {
                       {userProfile.userRole === 'farmer' ? '🌾' : '🛒'}
                     </Text>
                     <Text style={styles.userRole}>
-                      {userProfile.userRole === 'farmer' ? 'Farmer' : 'Buyer'}
+                      {userProfile.userRole === 'farmer' ? t('roles.farmer') : t('roles.buyer')}
                     </Text>
                   </View>
                   <Text style={styles.userPhone}>{userProfile.phoneNumber}</Text>
@@ -640,8 +767,8 @@ const ProfileScreen: React.FC = () => {
         {/* App Info */}
         <View style={styles.appInfo}>
           <Text style={styles.appName}>Krushimandi</Text>
-          <Text style={styles.appVersion}>Version 1.0.0</Text>
-          <Text style={styles.appCopyright}>© 2025 Krushimandi. All rights reserved.</Text>
+          <Text style={styles.appVersion}>{t('about.version', { version: rc.app_version })}</Text>
+          <Text style={styles.appCopyright}>{t('about.rights', { year: currentYear })}</Text>
         </View>
         <FeedbackModal
           isVisible={isModalVisible}
@@ -649,6 +776,13 @@ const ProfileScreen: React.FC = () => {
           onSubmit={handleFeedbackSubmit}
         />
       </ScrollView>
+
+      {/* Loading Overlay for Role Switch */}
+      <LoadingOverlay
+        visible={isRoleSwitching}
+        message={t('common.loading', { defaultValue: 'Switching role...' })}
+        spinnerColor="#43B86C"
+      />
     </SafeAreaView>
   );
 };

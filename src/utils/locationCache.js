@@ -58,7 +58,6 @@ class LocationCacheManager {
     // Check if cache has expired
     const now = Date.now();
     if (now - cachedData.timestamp > CACHE_EXPIRY) {
-      console.log('📅 Location cache expired');
       return false;
     }
 
@@ -70,14 +69,13 @@ class LocationCacheManager {
       currentLng
     );
 
-    console.log(`📏 Distance from cached location: ${distance.toFixed(1)}m`);
+    
 
     if (distance <= DISTANCE_THRESHOLD) {
-      console.log('✅ Using cached location (within distance threshold)');
       return true;
     }
 
-    console.log('🚶 User moved significantly, cache invalid');
+    
     return false;
   }
 
@@ -88,8 +86,7 @@ class LocationCacheManager {
     try {
       const cached = await AsyncStorage.getItem(CACHE_KEY);
       if (cached) {
-        this.cache = JSON.parse(cached);
-        console.log('📱 Loaded location cache from storage');
+  this.cache = JSON.parse(cached);
       }
     } catch (error) {
       console.warn('⚠️ Failed to load location cache:', error);
@@ -102,8 +99,7 @@ class LocationCacheManager {
    */
   async saveCacheToStorage(cacheData) {
     try {
-      await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(cacheData));
-      console.log('💾 Saved location cache to storage');
+  await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(cacheData));
     } catch (error) {
       console.warn('⚠️ Failed to save location cache:', error);
     }
@@ -130,7 +126,7 @@ class LocationCacheManager {
 
   async _performInitialization() {
     try {
-      console.log('🚀 Initializing location cache...');
+      
       
       // Load existing cache first
       await this.loadCacheFromStorage();
@@ -138,18 +134,17 @@ class LocationCacheManager {
       // Get current location in background
       const location = await getCurrentLocation();
       if (!location) {
-        console.log('❌ Failed to get initial location');
         return;
       }
 
-      console.log('📍 Got initial location:', location);
+      
 
       // Check if we should update cache
       const shouldUpdate = !this.cache || 
         !this.isCacheValid(this.cache, location.latitude, location.longitude);
 
       if (shouldUpdate) {
-        console.log('🔄 Updating location cache...');
+        
         
         // Get address for the location
         const address = await reverseGeocode(location.latitude, location.longitude);
@@ -168,13 +163,11 @@ class LocationCacheManager {
 
           this.cache = newCache;
           await this.saveCacheToStorage(newCache);
-          
-          console.log('✅ Location cache updated successfully');
         } else {
-          console.log('⚠️ Failed to get address for initial location');
+          
         }
       } else {
-        console.log('✅ Existing cache is still valid');
+        
       }
 
     } catch (error) {
@@ -200,7 +193,7 @@ class LocationCacheManager {
       }
     }
 
-    console.log('⚡ Returning cached location data');
+    
     return {
       location: this.cache.location,
       address: this.cache.address,
@@ -227,8 +220,7 @@ class LocationCacheManager {
     };
 
     this.cache = newCache;
-    await this.saveCacheToStorage(newCache);
-    console.log('🔄 Location cache updated');
+  await this.saveCacheToStorage(newCache);
   }
 
   /**
@@ -237,8 +229,7 @@ class LocationCacheManager {
   async clearCache() {
     this.cache = null;
     try {
-      await AsyncStorage.removeItem(CACHE_KEY);
-      console.log('🗑️ Location cache cleared');
+  await AsyncStorage.removeItem(CACHE_KEY);
     } catch (error) {
       console.warn('⚠️ Failed to clear cache:', error);
     }
@@ -287,13 +278,11 @@ export const getFastCachedLocation = async (options = {}) => {
   const { forceRefresh = false } = options;
   
   try {
-    console.log('⚡ Getting fast cached location...');
 
     if (!forceRefresh) {
       // Try to get cached data first
       const cached = locationCache.getCachedLocation();
       if (cached) {
-        console.log(`✅ Using cached location (${Math.floor(cached.cacheAge / 1000)}s old)`);
         return {
           location: cached.location,
           address: cached.address,
@@ -303,7 +292,7 @@ export const getFastCachedLocation = async (options = {}) => {
       }
     }
 
-    console.log('🔄 Getting fresh location data...');
+    
 
     // Get current location
     const location = await getCurrentLocation();
@@ -315,7 +304,6 @@ export const getFastCachedLocation = async (options = {}) => {
     if (!forceRefresh) {
       const cached = locationCache.getCachedLocation(location.latitude, location.longitude);
       if (cached) {
-        console.log('✅ Using cached address for current location');
         return {
           location: location,
           address: cached.address,
@@ -325,9 +313,8 @@ export const getFastCachedLocation = async (options = {}) => {
       }
     }
 
-    // Get fresh address
-    console.log('🌐 Getting fresh address data...');
-    const address = await reverseGeocode(location.latitude, location.longitude);
+  // Get fresh address
+  const address = await reverseGeocode(location.latitude, location.longitude);
     
     if (address) {
       // Update cache
@@ -348,7 +335,6 @@ export const getFastCachedLocation = async (options = {}) => {
     // Try to return any cached data as fallback
     const cached = locationCache.getCachedLocation();
     if (cached) {
-      console.log('⚠️ Returning cached data as fallback');
       return {
         location: cached.location,
         address: cached.address,

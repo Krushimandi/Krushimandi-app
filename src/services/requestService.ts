@@ -32,7 +32,6 @@ class RequestService {
     async sendFeedback(uuid: string, input: CreateFeedbackInput): Promise<string> {
         try {
             // Check for existing requests from this buyer for this product
-            console.log('🔍 Sending feedback for UUID:', uuid, 'with input:', input);
 
             const feedbackRef = collection(this.db, 'feedbacks');
             const docRef = await addDoc(feedbackRef, {
@@ -56,7 +55,6 @@ class RequestService {
     async createRequest(buyerId: string, input: CreateRequestInput, options?: { includeMeta?: boolean }): Promise<string | { requestId: string; fruitData: any; farmerData: any; buyerData: any; }> {
         try {
             // Check for existing requests from this buyer for this product
-            console.log('🔍 Checking for existing requests from buyer:', buyerId, 'for product:', input.productId);
 
             const existingRequestsQuery = await this.db
                 .collection('requests')
@@ -67,16 +65,11 @@ class RequestService {
 
             if (!existingRequestsQuery.empty) {
                 const existingRequest = existingRequestsQuery.docs[0].data();
-                console.log('❌ Duplicate request found:', {
-                    requestId: existingRequestsQuery.docs[0].id,
-                    status: existingRequest.status,
-                    createdAt: existingRequest.createdAt
-                });
 
                 throw new Error('You have already sent a request for this product. Please wait for the farmer to respond.');
             }
 
-            console.log('✅ No existing requests found, proceeding with creation...');
+            
 
             // First get the fruit details from fruits collection
             const fruitDoc = await this.db.collection('fruits').doc(input.productId).get();
@@ -85,8 +78,6 @@ class RequestService {
             }
 
             const fruitData = fruitDoc.data();
-            console.log('🍎 Fruit data from Firestore:', JSON.stringify(fruitData, null, 2));
-            console.log('🍎 Fruit data keys:', Object.keys(fruitData || {}));
 
             // Get buyer details
             const buyerDoc = await this.db.collection('profiles').doc(buyerId).get();
@@ -95,8 +86,6 @@ class RequestService {
             }
 
             const buyerData = buyerDoc.data();
-            console.log('👤 Buyer data from Firestore:', JSON.stringify(buyerData, null, 2));
-            console.log('👤 Buyer data keys:', Object.keys(buyerData || {}));
 
             // Get farmer details
             const farmerDoc = await this.db.collection('profiles').doc(fruitData!.farmer_id).get();
@@ -105,8 +94,6 @@ class RequestService {
             }
 
             const farmerData = farmerDoc.data();
-            console.log('🚜 Farmer data from Firestore:', JSON.stringify(farmerData, null, 2));
-            console.log('🚜 Farmer data keys:', Object.keys(farmerData || {}));
 
             // Normalize buyer location (can be object or string)
             const rawBuyerLocation: any = buyerData!.location;
@@ -158,24 +145,10 @@ class RequestService {
 
             // Validate request object - remove any undefined fields
             const cleanedRequest = this.cleanObjectForFirestore(request);
-            console.log('📝 Cleaned request object:', {
-                ...cleanedRequest,
-                // Convert timestamps to readable format for logging
-                createdAt: cleanedRequest.createdAt?.toString() || 'serverTimestamp()',
-                updatedAt: cleanedRequest.updatedAt?.toString() || 'serverTimestamp()',
-                expiresAt: cleanedRequest.expiresAt?.toDate?.() || cleanedRequest.expiresAt
-            });
-            console.log('📝 Request timestamps:', {
-                createdAt: cleanedRequest.createdAt,
-                updatedAt: cleanedRequest.updatedAt,
-                expiresAt: cleanedRequest.expiresAt,
-                createdAtType: typeof cleanedRequest.createdAt,
-                expiresAtType: typeof cleanedRequest.expiresAt
-            });
+            
 
             // Add request to database
             const docRef = await this.db.collection('requests').add(cleanedRequest);
-            console.log('✅ Request created with ID:', docRef.id);
 
             // Update fruit request count
             await this.updateProductRequestCount(input.productId, 1);
@@ -206,18 +179,6 @@ class RequestService {
             const querySnapshot = await query.get();
             const requests = querySnapshot.docs.map(doc => {
                 const data = doc.data();
-                console.log('📋 Buyer request data from Firestore:', {
-                    id: doc.id,
-                    productSnapshot: data.productSnapshot,
-                    buyerDetails: data.buyerDetails,
-                    quantity: data.quantity,
-                    quantityUnit: data.quantityUnit,
-                    status: data.status,
-                    createdAt: data.createdAt?.toDate?.() || data.createdAt,
-                    createdAtType: typeof data.createdAt,
-                    hasToDate: data.createdAt && typeof data.createdAt.toDate === 'function',
-                    createdAtString: data.createdAt?.toDate?.()?.toISOString() || 'No date'
-                });
                 return {
                     id: doc.id,
                     ...data
@@ -256,12 +217,7 @@ class RequestService {
     // Respond to a request (farmer action)
     async respondToRequest(farmerId: string, input: RequestResponseInput): Promise<void> {
         try {
-            console.log('🚜 Farmer responding to request:', {
-                farmerId,
-                requestId: input.requestId,
-                status: input.status,
-                input
-            });
+            
 
             const requestDoc = await this.db.collection('requests').doc(input.requestId).get();
 
@@ -271,11 +227,6 @@ class RequestService {
             }
 
             const requestData = requestDoc.data();
-            console.log('📄 Current request data:', {
-                farmerId: requestData!.farmerId,
-                status: requestData!.status,
-                buyerId: requestData!.buyerId
-            });
 
             // Verify farmer owns this request
             if (requestData!.farmerId !== farmerId) {
@@ -286,7 +237,7 @@ class RequestService {
                 throw new Error('Unauthorized: You can only respond to your own requests');
             }
 
-            console.log('✅ Farmer authorization verified, updating request...');
+            
 
             // Build farmerResponse object with only defined fields
             const farmerResponse: any = {
@@ -314,10 +265,7 @@ class RequestService {
                 farmerResponse: farmerResponse
             });
 
-            console.log('✅ Request updated successfully:', {
-                requestId: input.requestId,
-                newStatus: input.status
-            });
+            
         } catch (error) {
             console.error('❌ Error responding to request:', error);
             throw error;
@@ -380,7 +328,7 @@ class RequestService {
                 farmerResponse: null
             });
 
-            console.log('✅ Request resent with ID:', requestId);
+            
 
             // Update fruit request count (only if it was cancelled/rejected before)
             if (requestData.status === RequestStatus.CANCELLED ||
@@ -453,6 +401,27 @@ class RequestService {
         } catch (error) {
             console.error('Error fetching request:', error);
             throw error;
+        }
+    }
+
+    // Efficiently check if the latest request from a buyer to a specific farmer is accepted
+    async isLatestRequestAccepted(buyerId: string, farmerId: string): Promise<boolean> {
+        try {
+            const querySnapshot = await this.db.collection('requests')
+                .where('buyerId', '==', buyerId)
+                .where('farmerId', '==', farmerId)
+                .orderBy('createdAt', 'desc')
+                .limit(1)
+                .get();
+            
+            if (querySnapshot.empty) return false;
+            const status = (querySnapshot.docs[0].data() as any)?.status;
+            
+            return status === RequestStatus.ACCEPTED;
+        } catch (error) {
+            console.error('Error checking latest request status:', error);
+            // Fail closed: if we cannot verify acceptance, do not allow call
+            return false;
         }
     }
 

@@ -4,8 +4,6 @@
  */
 
 export interface Config {
-  API_BASE_URL: string;
-  API_TIMEOUT: number;
   APP_NAME: string;
   APP_VERSION: string;
   ENVIRONMENT: 'development' | 'staging' | 'production';
@@ -31,8 +29,6 @@ export interface Config {
 }
 
 const development: Config = {
-  API_BASE_URL: 'https://dev-api.krushimandi.com/v1',
-  API_TIMEOUT: 30000,
   APP_NAME: 'Krushimandi',
   APP_VERSION: '1.0.0-dev',
   ENVIRONMENT: 'development',
@@ -57,8 +53,6 @@ const development: Config = {
 };
 
 const production: Config = {
-  API_BASE_URL: 'https://api.krushimandi.com/v1',
-  API_TIMEOUT: 30000,
   APP_NAME: 'Krushiandi',
   APP_VERSION: '1.0.0',
   ENVIRONMENT: 'production',
@@ -75,7 +69,7 @@ const production: Config = {
   GOOGLE_MAPS_API_KEY: 'AIzaSyA7N1JXTOsM60RFRrCohYhm_2ZZp4Q0B3o',
 
   FEATURES: {
-    DARK_MODE: true,
+    DARK_MODE: false,
     OFFLINE_MODE: true,
     ANALYTICS: true,
     CRASHLYTICS: true,
@@ -87,9 +81,6 @@ const getConfig = (): Config => {
   if (__DEV__) {
     return development;
   }
-
-  // You can add logic here to switch between staging and production
-  // based on build variants or environment variables
   return production;
 };
 

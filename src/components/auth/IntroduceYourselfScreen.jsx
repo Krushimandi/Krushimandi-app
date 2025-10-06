@@ -32,18 +32,20 @@ import { syncUserProfile } from '../../services/firebaseService';
 import { saveUserRole } from '../../utils/userRoleStorage';
 import { useAuthStore } from '../../store';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 
 // Business type options for buyer role
 const BUSINESS_TYPE_OPTIONS = [
-  { label: 'Wholesaler', value: 'wholesaler' },
-  { label: 'Exporter', value: 'exporter' },
-  { label: 'Commission Agent', value: 'commission_agent' },
-  { label: 'Retailer', value: 'retailer' },
-  { label: 'Transporter', value: 'transporter' }
+  { labelKey: 'wholesaler', value: 'wholesaler' },
+  { labelKey: 'exporter', value: 'exporter' },
+  { labelKey: 'commission_agent', value: 'commission_agent' },
+  { labelKey: 'retailer', value: 'retailer' },
+  { labelKey: 'transporter', value: 'transporter' }
 ];
 
 const IntroduceYourselfScreen = ({ navigation, route }) => {
   const { userRole = null } = route?.params || {};
+  const { t } = useTranslation();
   const authStore = useAuthStore();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -88,8 +90,8 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
       if (!user) {
         Toast.show({
           type: 'error',
-          text1: 'Authentication Error',
-          text2: 'Your session has expired. Please sign in again.',
+          text1: t('auth.intro.authErrorTitle'),
+          text2: t('auth.intro.authErrorSubtitle'),
           position: 'bottom',
           visibilityTime: 1000,
         });
@@ -128,27 +130,14 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
       try {
         // Check Firebase user with more detailed logging
         const user = auth().currentUser;
-        console.log('🔍 Starting handleNext - Firebase User Check:', {
-          userExists: !!user,
-          uid: user?.uid,
-          phoneNumber: user?.phoneNumber,
-          displayName: user?.displayName,
-          isAnonymous: user?.isAnonymous,
-          emailVerified: user?.emailVerified
-        });
 
         if (!user) {
-          console.error('❌ No authenticated user found in handleNext');
-
-          // Try to wait a moment and check again (Firebase might be updating)
           await new Promise(resolve => setTimeout(resolve, 1000));
           const userRetry = auth().currentUser;
 
           if (!userRetry) {
             throw new Error('No authenticated user found. Please sign in again.');
           }
-
-          console.log('✅ Found user on retry:', userRetry.uid);
         }
 
         const currentUser = user || auth().currentUser;
@@ -166,11 +155,11 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
         if (!selectedUserRole) {
           console.error('❌ No user role found');
           Alert.alert(
-            'Error',
-            'User role not found. Please select your role again.',
+            t('alerts.errorTitle'),
+            t('auth.intro.roleMissing'),
             [
               {
-                text: 'Go Back',
+                text: t('common.goBack'),
                 onPress: () => navigation.navigate('RoleSelection')
               }
             ]
@@ -201,22 +190,22 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
           if (progress.error) {
             setUploadStatus('Upload failed');
             setUploadProgress(0);
-            Alert.alert('Sync Error', progress.error);
+            Alert.alert(t('auth.intro.syncErrorTitle'), progress.error);
             return;
           }
           // More granular status updates for each backend step
-          if (progress.step === 'uploading_avatar') setUploadStatus('Uploading photo...');
-          else if (progress.step === 'avatar_complete') setUploadStatus('Photo uploaded!');
-          else if (progress.step === 'updating_auth') setUploadStatus('Updating profile...');
-          else if (progress.step === 'saving_firestore') setUploadStatus('Saving to cloud...');
-          else if (progress.step === 'saving_local') setUploadStatus('Saving locally...');
-          else if (progress.step === 'complete') setUploadStatus('Complete!');
+          if (progress.step === 'uploading_avatar') setUploadStatus(t('auth.intro.status.uploadingPhoto'));
+          else if (progress.step === 'avatar_complete') setUploadStatus(t('auth.intro.status.photoUploaded'));
+          else if (progress.step === 'updating_auth') setUploadStatus(t('auth.intro.status.updatingProfile'));
+          else if (progress.step === 'saving_firestore') setUploadStatus(t('auth.intro.status.savingCloud'));
+          else if (progress.step === 'saving_local') setUploadStatus(t('auth.intro.status.savingLocal'));
+          else if (progress.step === 'complete') setUploadStatus(t('auth.intro.status.complete'));
           else if (progress.progress !== undefined) {
             const percentage = Math.round(progress.progress);
             setUploadProgress(percentage);
             // if (percentage < 100) setUploadStatus(`Uploading ${percentage}%`);
-            if (percentage < 100) setUploadStatus(`Uploading`);
-            else setUploadStatus('Finalizing...');
+            if (percentage < 100) setUploadStatus(t('auth.intro.status.uploadingGeneric'));
+            else setUploadStatus(t('auth.intro.status.finalizing'));
           }
         };
 
@@ -287,7 +276,7 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
         if (selectedUserRole === 'buyer') {
           // For buyers, check if they need fruit selection
           const route = await authFlowManager.resumeAuthFlow();
-          
+
           if (route.screen === 'FruitsScreen') {
             setUploadStatus('Complete!');
             setIsLoading(false);
@@ -320,9 +309,9 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
         setUploadProgress(0);
 
         Alert.alert(
-          'Error',
-          error.message || 'Failed to save user information. Please try again.',
-          [{ text: 'OK' }]
+          t('alerts.errorTitle'),
+          error.message || t('auth.intro.saveFailed'),
+          [{ text: t('common.ok') }]
         );
       } finally {
         setIsLoading(false);
@@ -489,10 +478,10 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
               style={[styles.content, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}
             >
               <Text style={styles.heading}>
-                {userRole && typeof userRole === 'string' ? `Introduce yourself as a ${userRole}` : 'Introduce yourself'}
+                {userRole && typeof userRole === 'string' ? t('auth.intro.titleWithRole', { role: t(`roles.${userRole}`) }) : t('auth.intro.title')}
               </Text>
               <Text style={styles.subtext}>
-                Help us personalize your experience by sharing your name
+                {t('auth.intro.subtitle')}
               </Text>
               {/* Profile Avatar Section */}
               <TouchableOpacity style={styles.avatarContainer} onPress={handleImagePicker} activeOpacity={0.7}>
@@ -523,19 +512,19 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
                   </View>
                 )}
                 <Text style={styles.avatarText}>
-                  {profileImage ? 'Change Profile Photo' : 'Add Profile Photo'}
+                  {profileImage ? t('auth.intro.changePhoto') : t('auth.intro.addPhoto')}
                 </Text>
               </TouchableOpacity>
               {/* Input Fields */}
               <View style={styles.inputSection}>
-                <Text style={styles.inputLabel}>Personal Information</Text>
+                <Text style={styles.inputLabel}>{t('auth.intro.personalInfo')}</Text>
                 {/* First Name Input */}
                 <View
                   ref={firstNameBlockRef}
                   style={[styles.inputWrapper, errors.firstName && styles.inputWrapperError]}
                 >
                   <View style={[styles.inputContainer, { minHeight: dynamicStyles.inputHeight }]}>
-                    <Text style={[styles.floatingLabel, firstName && styles.floatingLabelActive]}>First Name</Text>
+                    <Text style={[styles.floatingLabel, firstName && styles.floatingLabelActive]}>{t('auth.intro.firstName')}</Text>
                     <TextInput
                       style={[
                         styles.input,
@@ -553,7 +542,7 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
                       autoCorrect={false}
                       blurOnSubmit={false}
                       enablesReturnKeyAutomatically
-                      accessibilityLabel="First Name"
+                      accessibilityLabel={t('auth.intro.firstName')}
                     />
                   </View>
                 </View>
@@ -563,7 +552,7 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
                   style={[styles.inputWrapper, errors.lastName && styles.inputWrapperError]}
                 >
                   <View style={[styles.inputContainer, { minHeight: dynamicStyles.inputHeight }]}>
-                    <Text style={[styles.floatingLabel, lastName && styles.floatingLabelActive]}>Last Name</Text>
+                    <Text style={[styles.floatingLabel, lastName && styles.floatingLabelActive]}>{t('auth.intro.lastName')}</Text>
                     <TextInput
                       ref={lastNameRef}
                       style={[
@@ -581,7 +570,7 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
                       autoCapitalize="words"
                       autoCorrect={false}
                       enablesReturnKeyAutomatically
-                      accessibilityLabel="Last Name"
+                      accessibilityLabel={t('auth.intro.lastName')}
                     />
                   </View>
                 </View>
@@ -598,14 +587,14 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
                       accessibilityLabel="Business Type"
                     >
                       <View style={[styles.inputContainer, { minHeight: dynamicStyles.inputHeight }]}>
-                        <Text style={[styles.floatingLabel, businessType && styles.floatingLabelActive]}>Business Type</Text>
+                        <Text style={[styles.floatingLabel, businessType && styles.floatingLabelActive]}>{t('auth.intro.businessType')}</Text>
                         <View style={[
                           styles.dropdownDisplay,
                           businessType && styles.inputWithLabel,
                           { minHeight: dynamicStyles.inputHeight }
                         ]}>
                           <Text style={styles.dropdownText}>
-                            {businessType ? BUSINESS_TYPE_OPTIONS.find(option => option.value === businessType)?.label : ''}
+                            {businessType ? t(`auth.intro.businessTypes.${BUSINESS_TYPE_OPTIONS.find(option => option.value === businessType)?.labelKey}`) : ''}
                           </Text>
                           <Ionicons name="chevron-down" size={16} color="#666" />
                         </View>
@@ -628,11 +617,11 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
               {isLoading ? (
                 <View style={styles.loadingContainer}>
                   <ActivityIndicator size="small" color="#FFFFFF" />
-                  <Text style={styles.loadingText}>{uploadStatus || 'Processing...'}</Text>
+                  <Text style={styles.loadingText}>{uploadStatus || t('common.loading')}</Text>
                 </View>
               ) : (
                 <>
-                  <Text style={styles.nextText}>Continue</Text>
+                  <Text style={styles.nextText}>{t('common.next')}</Text>
                   <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
                 </>
               )}
@@ -649,15 +638,15 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
         <Pressable style={styles.modalOverlay}
           onPress={() => setModalVisible(false)}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Need Help?</Text>
+            <Text style={styles.modalTitle}>{t('auth.intro.help.title')}</Text>
             <Text style={styles.modalText}>
-              Enter your first and last name as you'd like them to appear in your profile. You can change this later in settings.
+              {t('auth.intro.help.text')}
             </Text>
             <TouchableOpacity
               style={styles.modalButton}
               onPress={() => setModalVisible(false)}
             >
-              <Text style={styles.modalButtonText}>Got it</Text>
+              <Text style={styles.modalButtonText}>{t('common.ok')}</Text>
             </TouchableOpacity>
           </View>
         </Pressable>
@@ -676,7 +665,7 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
               marginBottom: 20,
             }]}>
               <Text style={styles.modalTitle}>
-                {profileImage ? 'Change Profile Photo' : 'Add Profile Photo'}
+                {profileImage ? t('auth.intro.changePhoto') : t('auth.intro.addPhoto')}
               </Text>
               <TouchableOpacity
                 onPress={() => setImagePickerModalVisible(false)}
@@ -694,8 +683,8 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
                 <View style={styles.modalOptionIcon}>
                   <Ionicons name="camera" size={28} color="#4CAF50" />
                 </View>
-                <Text style={styles.modalOptionText}>Camera</Text>
-                <Text style={styles.modalOptionSubtext}>Take a new photo</Text>
+                <Text style={styles.modalOptionText}>{t('auth.intro.camera')}</Text>
+                <Text style={styles.modalOptionSubtext}>{t('auth.intro.takeNew')}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -705,8 +694,8 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
                 <View style={styles.modalOptionIcon}>
                   <Ionicons name="images" size={25} color="#2196F3" />
                 </View>
-                <Text style={styles.modalOptionText}>Gallery</Text>
-                <Text style={styles.modalOptionSubtext}>Choose existing</Text>
+                <Text style={styles.modalOptionText}>{t('auth.intro.gallery')}</Text>
+                <Text style={styles.modalOptionSubtext}>{t('auth.intro.chooseExisting')}</Text>
               </TouchableOpacity>
             </View>
 
@@ -719,7 +708,7 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
                 }}
               >
                 <Ionicons name="trash-outline" size={20} color="#F44336" />
-                <Text style={styles.removePhotoText}>Remove Photo</Text>
+                <Text style={styles.removePhotoText}>{t('auth.intro.removePhoto')}</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -739,7 +728,7 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
               paddingTop: 20,
               paddingHorizontal: 16,
             }]}>
-              <Text style={styles.modalTitle}>Select Business Type</Text>
+              <Text style={styles.modalTitle}>{t('auth.intro.selectBusinessType')}</Text>
               <TouchableOpacity onPress={closeBusinessTypeModal}>
                 <Ionicons name="close" size={24} color="#333" />
               </TouchableOpacity>
@@ -760,7 +749,7 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
                     styles.businessTypeOptionText,
                     businessType === item.value && styles.businessTypeOptionTextSelected
                   ]}>
-                    {item.label}
+                    {t(`auth.intro.businessTypes.${item.labelKey}`)}
                   </Text>
                   {businessType === item.value && (
                     <Ionicons name="checkmark" size={20} color="#007E2F" />

@@ -148,13 +148,10 @@ export const checkImagePickerPermissions = async () => {
  */
 export const requestImagePickerPermissions = async () => {
   try {
-    console.log('Requesting image picker permissions...');
 
     const cameraGranted = await requestCameraPermission();
-    console.log('Camera permission granted:', cameraGranted);
 
     const storageGranted = await requestStoragePermission();
-    console.log('Storage permission granted:', storageGranted);
 
     if (!cameraGranted || !storageGranted) {
       Alert.alert(
@@ -166,7 +163,6 @@ export const requestImagePickerPermissions = async () => {
             text: 'Open Settings',
             onPress: () => {
               // You can add logic to open app settings here
-              console.log('Opening app settings...');
             }
           }
         ]
@@ -193,11 +189,9 @@ export const requestImagePickerPermissions = async () => {
 export const ensureImagePickerPermissions = async () => {
   const hasPermissions = await checkImagePickerPermissions();
   if (hasPermissions) {
-    console.log('Image picker permissions already granted');
     return true;
   }
 
-  console.log('Requesting image picker permissions...');
   return await requestImagePickerPermissions();
 };
 
@@ -210,9 +204,7 @@ export const checkAndPromptGPSSettings = async () => {
     // Quick test to see if location services are working with high accuracy
     Geolocation.getCurrentPosition(
       (position) => {
-        // GPS is working - check accuracy quality
-        console.log('GPS is enabled and working. Accuracy:', position.coords.accuracy, 'meters');
-        
+        // GPS is working - check accuracy quality  
         // If accuracy is poor, suggest settings improvement
         if (position.coords.accuracy > 100) {
           Alert.alert(
@@ -220,8 +212,8 @@ export const checkAndPromptGPSSettings = async () => {
             'Your GPS is working but accuracy can be improved.\n\nFor better results:\n• Move outdoors with clear sky view\n• Enable "High Accuracy" GPS mode\n• Turn off battery optimization for this app',
             [
               { text: 'Continue Anyway', onPress: () => resolve(true) },
-              { 
-                text: 'GPS Settings', 
+              {
+                text: 'GPS Settings',
                 onPress: () => {
                   if (Platform.OS === 'android') {
                     Linking.sendIntent('android.settings.LOCATION_SOURCE_SETTINGS')
@@ -230,7 +222,7 @@ export const checkAndPromptGPSSettings = async () => {
                     Linking.openSettings();
                   }
                   resolve(true); // Continue after they check settings
-                } 
+                }
               }
             ]
           );
@@ -239,8 +231,6 @@ export const checkAndPromptGPSSettings = async () => {
         }
       },
       (error) => {
-        console.log('GPS check error:', error);
-        
         if (error.code === 2) {
           // Location services are disabled
           Alert.alert(
@@ -248,8 +238,8 @@ export const checkAndPromptGPSSettings = async () => {
             'Turn ON Location Services.',
             [
               { text: 'Fill Manually', style: 'cancel', onPress: () => resolve(false) },
-              { 
-                text: 'GPS Settings', 
+              {
+                text: 'GPS Settings',
                 onPress: () => {
                   if (Platform.OS === 'android') {
                     Linking.sendIntent('android.settings.LOCATION_SOURCE_SETTINGS')
@@ -261,7 +251,7 @@ export const checkAndPromptGPSSettings = async () => {
                     Linking.openSettings();
                   }
                   resolve(false);
-                } 
+                }
               }
             ]
           );
@@ -317,7 +307,7 @@ export const requestLocationPermission = async () => {
         }
       );
 
-      console.log('Location permission result:', granted);
+
 
       if (granted === PermissionsAndroid.RESULTS.GRANTED) {
         return true;
@@ -414,12 +404,12 @@ export const getCurrentLocation = async (options = {}) => {
         return;
       }
 
-      console.log('Permission granted, getting high-accuracy GPS location...');
+
 
       // First attempt: High-accuracy GPS location (best accuracy)
       Geolocation.getCurrentPosition(
         (position) => {
-          console.log('High-accuracy GPS location obtained:', position.coords);
+
           resolve({
             latitude: position.coords.latitude,
             longitude: position.coords.longitude,
@@ -433,7 +423,7 @@ export const getCurrentLocation = async (options = {}) => {
           // Second attempt: Network/WiFi/Cell Tower location (faster fallback)
           Geolocation.getCurrentPosition(
             (position) => {
-              console.log('Network location obtained:', position.coords);
+
               resolve({
                 latitude: position.coords.latitude,
                 longitude: position.coords.longitude,
@@ -447,7 +437,7 @@ export const getCurrentLocation = async (options = {}) => {
               // Third attempt: Permissive GPS (any available location)
               Geolocation.getCurrentPosition(
                 (position) => {
-                  console.log('Permissive location obtained:', position.coords);
+
                   resolve({
                     latitude: position.coords.latitude,
                     longitude: position.coords.longitude,
@@ -470,6 +460,12 @@ export const getCurrentLocation = async (options = {}) => {
                     case 2: // POSITION_UNAVAILABLE
                       errorMessage = 'GPS is turned off or location services are disabled.';
                       userFriendlyMessage = 'Please turn on GPS/Location Services in your device settings. For best accuracy, enable "High Accuracy" mode.';
+                      if (Platform.OS === 'android') {
+                        Linking.sendIntent('android.settings.LOCATION_SOURCE_SETTINGS')
+                          .catch(() => Linking.openSettings());
+                      } else {
+                        Linking.openSettings();
+                      }
                       break;
                     case 3: // TIMEOUT
                       errorMessage = 'Location request timed out. Poor GPS signal.';
@@ -523,7 +519,7 @@ export const getCurrentLocation = async (options = {}) => {
  */
 export const reverseGeocode = async (latitude, longitude) => {
   try {
-    console.log(`🗺️ Getting accurate address for coordinates: ${latitude}, ${longitude}`);
+
 
     if (!config.GOOGLE_MAPS_API_KEY) {
       console.error('❌ Google Maps API key not found');
@@ -537,22 +533,22 @@ export const reverseGeocode = async (latitude, longitude) => {
 
     // Enhanced API call with specific parameters for Indian addresses
     const apiUrl = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${config.GOOGLE_MAPS_API_KEY}&language=en&region=IN&result_type=street_address|route|intersection|political|country|administrative_area_level_1|administrative_area_level_2|administrative_area_level_3|colloquial_area|locality|sublocality|neighborhood|premise|subpremise|postal_code`;
-    
-    console.log('🌐 Calling Google Geocoding API...');
+
+
     const googlePromise = fetch(apiUrl);
 
     const googleResponse = await Promise.race([googlePromise, timeoutPromise]);
-    
+
     if (!googleResponse.ok) {
       throw new Error(`Google API HTTP error: ${googleResponse.status} - ${googleResponse.statusText}`);
     }
 
     const googleData = await googleResponse.json();
-    console.log('🌐 Google Geocoding response status:', googleData.status);
+
 
     if (googleData.status === 'OK' && googleData.results && googleData.results.length > 0) {
-      console.log('✅ Google API returned', googleData.results.length, 'results');
-      
+
+
       // Process multiple results to get the most accurate data
       let bestResult = null;
       let city = '';
@@ -568,14 +564,14 @@ export const reverseGeocode = async (latitude, longitude) => {
         let tempState = '';
         let tempPincode = '';
 
-        console.log('📍 Processing result:', result.formatted_address);
+
 
         components.forEach(component => {
           const types = component.types || [];
           const longName = component.long_name;
           const shortName = component.short_name;
 
-          console.log(`  - ${longName} (${types.join(', ')})`);
+
 
           // Enhanced city/village detection with priority system
           if (types.includes('sublocality_level_3') || types.includes('sublocality_level_2')) {
@@ -626,7 +622,7 @@ export const reverseGeocode = async (latitude, longitude) => {
           }
         });
 
-        console.log(`📋 Extracted - City: ${tempCity}, District: ${tempDistrict}, State: ${tempState}, Pincode: ${tempPincode}`);
+
 
         // Use this result if it has more complete information
         if (tempState && (tempCity || tempDistrict)) {
@@ -635,7 +631,7 @@ export const reverseGeocode = async (latitude, longitude) => {
           state = tempState;
           pincode = tempPincode;
           bestResult = result;
-          
+
           // If we have good data, break early
           if (tempCity && tempDistrict && tempPincode) {
             break;
@@ -671,12 +667,12 @@ export const reverseGeocode = async (latitude, longitude) => {
         accuracy: 'high'
       };
 
-      console.log('✅ Final address data:', locationData);
+
 
       // Validate that we have essential information
       if (locationData.state && (locationData.city || locationData.district)) {
-        return { 
-          ...locationData, 
+        return {
+          ...locationData,
           source: 'google',
           confidence: 'high',
           timestamp: Date.now()
@@ -685,10 +681,10 @@ export const reverseGeocode = async (latitude, longitude) => {
         console.warn('⚠️ Incomplete address data:', locationData);
         throw new Error('Incomplete address information received');
       }
-      
+
     } else {
       console.warn('❌ Google Geocoding API error:', googleData.status, googleData.error_message);
-      
+
       if (googleData.status === 'OVER_QUERY_LIMIT') {
         throw new Error('Location service temporarily unavailable. Please try again later.');
       } else if (googleData.status === 'REQUEST_DENIED') {
@@ -714,8 +710,8 @@ export const reverseGeocode = async (latitude, longitude) => {
  */
 export const getFastLocation = async (latitude, longitude) => {
   try {
-    console.log('⚡ Getting address from coordinates with enhanced accuracy...');
-    
+
+
     // Try enhanced Google API with longer timeout for better results
     const result = await Promise.race([
       reverseGeocode(latitude, longitude),
@@ -723,9 +719,9 @@ export const getFastLocation = async (latitude, longitude) => {
         setTimeout(() => reject(new Error('Address lookup timeout')), 10000); // 10 second timeout
       })
     ]);
-    
+
     if (result && result.city && result.state) {
-      console.log('✅ Address lookup successful:', result);
+
       return result;
     }
 
@@ -733,11 +729,11 @@ export const getFastLocation = async (latitude, longitude) => {
 
   } catch (error) {
     console.warn('🚨 Address lookup failed:', error.message);
-    
+
     // Provide informative fallback based on coordinates
     let areaName = 'Your Location';
     let regionInfo = 'Unknown Area';
-    
+
     // Enhanced coordinate-based region detection for India
     if (latitude >= 8.0 && latitude <= 37.0 && longitude >= 68.0 && longitude <= 97.0) {
       // Indian coordinate bounds - provide regional context
@@ -772,7 +768,7 @@ export const getFastLocation = async (latitude, longitude) => {
       regionInfo = `Location ${latitude.toFixed(2)}°N, ${longitude.toFixed(2)}°E`;
       areaName = 'Current Location';
     }
-    
+
     const fallbackData = {
       city: areaName,
       district: regionInfo,
@@ -786,7 +782,7 @@ export const getFastLocation = async (latitude, longitude) => {
       note: 'Please verify and correct the address manually'
     };
 
-    console.log('📍 Using coordinate-based fallback:', fallbackData);
+
     return fallbackData;
   }
 };
@@ -810,50 +806,50 @@ export const getDetailedLocation = async (latitude, longitude) => {
  * @returns {Promise<object>} Complete test results
  */
 export const testReverseGeocode = async (latitude, longitude) => {
-  console.log('🧪 Testing reverse geocoding for coordinates:', latitude, longitude);
-  
+
+
   const results = {
     coordinates: { latitude, longitude },
     timestamp: new Date().toISOString(),
     tests: {}
   };
-  
+
   try {
     // Test Google API configuration
-    console.log('🔑 API Key available:', !!config.GOOGLE_MAPS_API_KEY);
+
     results.tests.apiKeyAvailable = !!config.GOOGLE_MAPS_API_KEY;
-    
+
     if (!config.GOOGLE_MAPS_API_KEY) {
       results.error = 'Google Maps API key not configured';
       return results;
     }
-    
+
     // Test reverse geocoding
-    console.log('🌐 Testing reverse geocoding...');
+
     const reverseGeocodeResult = await reverseGeocode(latitude, longitude);
     results.tests.reverseGeocode = {
       success: true,
       data: reverseGeocodeResult
     };
-    
+
     // Test fast location
-    console.log('⚡ Testing fast location...');
+
     const fastLocationResult = await getFastLocation(latitude, longitude);
     results.tests.fastLocation = {
       success: true,
       data: fastLocationResult
     };
-    
-    console.log('✅ All tests completed successfully');
+
+
     results.success = true;
-    
+
   } catch (error) {
     console.error('❌ Test failed:', error.message);
     results.error = error.message;
     results.success = false;
   }
-  
-  console.log('📋 Test Results:', JSON.stringify(results, null, 2));
+
+
   return results;
 };
 
@@ -865,10 +861,10 @@ export const testReverseGeocode = async (latitude, longitude) => {
  */
 export const getLocationWithCache = async (options = {}) => {
   try {
-    console.log('⚡ Getting location with caching...');
-    
+
+
     const result = await getFastCachedLocation(options);
-    
+
     // Return in the format expected by existing components
     return {
       location: {
@@ -887,10 +883,10 @@ export const getLocationWithCache = async (options = {}) => {
         cacheAge: result.cacheAge
       }
     };
-    
+
   } catch (error) {
     console.error('❌ Cached location failed, falling back to regular method:', error);
-    
+
     // Fallback to original method
     const location = await getCurrentLocation();
     if (location) {
@@ -900,7 +896,7 @@ export const getLocationWithCache = async (options = {}) => {
         locationData: locationData
       };
     }
-    
+
     throw error;
   }
 };
