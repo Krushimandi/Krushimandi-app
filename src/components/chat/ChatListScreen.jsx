@@ -155,7 +155,7 @@ const ChatListScreen = ({ navigation }) => {
           lastMessage: c.lastMessage || '',
           time: formatTime(c.updatedAt),
           updatedAt: c.updatedAt || 0,
-          avatar: avatarUri ? { uri: avatarUri } : require('../../assets/fruits/profile.jpg'),
+          avatar: avatarUri ? { uri: avatarUri } : require('../../assets/icons/default-avatar.png'),
           unread: (c.unreadCount && c.unreadCount[uid]) || 0,
           online: false,
         };

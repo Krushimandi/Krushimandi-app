@@ -372,12 +372,7 @@ const ChatDetailScreen = ({ route, navigation }) => {
     const cleaned = String(phone).replace(/[^0-9+]/g, '');
     const url = `tel:${cleaned}`;
     try {
-      const supported = await Linking.canOpenURL(url);
-      if (supported) {
-        await Linking.openURL(url);
-      } else {
-        Alert.alert(t('chat.detail.cannotCallTitle', { defaultValue: 'Cannot start call' }), t('chat.detail.cannotCallBody', { defaultValue: 'Your device cannot open the phone dialer.' }));
-      }
+      await Linking.openURL(url);
     } catch (e) {
       Alert.alert(t('chat.detail.callFailedTitle', { defaultValue: 'Call failed' }), t('chat.detail.callFailedBody', { defaultValue: 'Unable to initiate the call.' }));
     }

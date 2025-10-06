@@ -49,14 +49,14 @@ const WelcomeScreen = ({ navigation }) => {
   useEffect(() => {
     if (!langReady) return;
     console.log('🔍 WelcomeScreen - useEffect triggered');
-    
+
     const checkAuthAndNavigate = async () => {
       try {
         // Get the next route from auth flow manager
         const route = await authFlowManager.resumeAuthFlow();
-        
+
         console.log('🔍 WelcomeScreen - Auth flow route:', route);
-        
+
         // If user should be elsewhere, navigate
         if (route.screen !== 'Welcome') {
           if (route.screen === 'Main') {

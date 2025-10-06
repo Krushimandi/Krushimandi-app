@@ -122,7 +122,7 @@ const EditProfileScreen = () => {
     launchImageLibrary(
       {
         mediaType: 'photo',
-        quality: 0.7, // Compress to 70% quality
+        quality: 0.8, // Compress to 80% quality
         maxWidth: 500,
         maxHeight: 500,
       },

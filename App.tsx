@@ -1,8 +1,8 @@
 /**
- * KrushiMandi App - Production-Ready with Advanced Error Handling & Performance
- * @version 2.0.0
+ * Krushimandi App
+ * @version 1.0.0
  * @author Rushikesh-Satpute
- * @date 2025-01-04
+ * @date 2025-01-05
  */
 
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
@@ -12,16 +12,11 @@ import {
     onNotificationOpenedApp,
     getInitialNotification,
 } from '@react-native-firebase/messaging';
+// Modular Cloud Functions import
+import { getFunctions, httpsCallable, httpsCallableFromUrl } from '@react-native-firebase/functions';
 import { handleNotificationNavigation } from './src/navigation/navigationService';
 import { notificationTabEmitter } from './src/navigation/buyer/notificationTabEmitter';
-import {
-    StatusBar,
-    View,
-    Text,
-    TouchableOpacity,
-    AppState as RNAppState,
-    AppStateStatus
-} from 'react-native';
+import { StatusBar, View, Text, TouchableOpacity } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import RNBootSplash from 'react-native-bootsplash';
 import { AppNavigator } from './src/navigation';
@@ -45,124 +40,71 @@ import { LogBox, Appearance } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import i18n, { initI18n, LANGUAGE_STORAGE_KEY } from './src/i18n';
 
-// ==================== CONSTANTS ====================
-const INIT_TIMEOUT = 5000; // 5 seconds max for critical init
-const SPLASH_MIN_DURATION = 1000; // Minimum splash screen time
-const MAX_RETRY_ATTEMPTS = 3;
-const RETRY_DELAY = 1000;
-
-// Development mode detection
-const __DEV__ = process.env.NODE_ENV === 'development';
-
-// ==================== TYPES ====================
-interface AppInitState {  // ✅ Renamed from AppState to AppInitState
-    isBootstrapped: boolean;
-    bootstrapState: AuthBootstrapState | null;
-    isInitializing: boolean;
-    initializationError: string | null;
-    retryCount: number;
-}
-
-interface InitializationResult {
-    success: boolean;
-    error?: Error;
-    duration: number;
-}
-
-// ==================== MAIN COMPONENT ====================
 const App: React.FC = () => {
-    // ==================== CONFIGURATION ====================
-    if (!__DEV__) {
-        LogBox.ignoreAllLogs(true);
-    }
+    LogBox.ignoreAllLogs(true); // Hide all warnings
 
-    // ==================== STATE MANAGEMENT ====================
-    const [appState, setAppState] = useState<AppInitState>({  // ✅ Updated type
-        isBootstrapped: false,
-        bootstrapState: null,
-        isInitializing: true,
-        initializationError: null,
-        retryCount: 0,
-    });
+    // Initialize i18n once on app start
+    initI18n();
 
-    const isDark = false; // Force light mode (can be made dynamic later)
+    // Apply saved language preference globally on boot
+    useEffect(() => {
+        (async () => {
+            try {
+                const savedLang = await AsyncStorage.getItem(LANGUAGE_STORAGE_KEY);
+                if (savedLang && typeof savedLang === 'string') {
+                    await i18n.changeLanguage(savedLang);
+                }
+            } catch (e) {
+                console.warn?.('Failed to apply saved language at startup');
+            }
+        })();
+    }, []);
 
-    // ==================== REFS ====================
+    // const isDark = Appearance.getColorScheme() === 'dark';
+    const isDark = false; // Force light mode for now
+    const [isBootstrapped, setIsBootstrapped] = useState(false);
+    const [bootstrapState, setBootstrapState] = useState<AuthBootstrapState | null>(null);
+    const [isInitializing, setIsInitializing] = useState(true);
+    const [initializationError, setInitializationError] = useState<string | null>(null);
+
+    // Refs for cleanup tracking
     const isMounted = useRef(true);
-    const cleanupFunctions = useRef<Map<string, () => void>>(new Map());
+    const cleanupFunctions = useRef<Array<() => void>>([]);
     const appStartTime = useRef(Date.now());
-    const initializationAttempts = useRef(0);
-    const appStateRef = useRef<AppStateStatus>(RNAppState.currentState);  // ✅ Updated
-    const splashHidden = useRef(false);
 
-    // ==================== MEMOIZED VALUES ====================
+    // Performance monitoring
+    useEffect(() => {
+        if (isBootstrapped && !isInitializing) {
+            const initTime = Date.now() - appStartTime.current;
+            console.log(`🚀 App fully initialized in ${initTime}ms`);
+
+            // Report to analytics if available
+            // analytics.timing('app_initialization', initTime);
+        }
+    }, [isBootstrapped, isInitializing]);
+
+    // Initialize Remote Config (non-blocking)
+    useEffect(() => { (async () => { try { await initRemoteConfig(); } catch { } })(); }, []);
+    const rc = useRemoteConfig();
+
+    // Memoize theme colors to prevent unnecessary recalculations
     const themeColors = useMemo(() => ({
-        statusBarStyle: isDark ? ('light-content' as const) : ('dark-content' as const),
+        statusBarStyle: isDark ? 'light-content' as const : 'dark-content' as const,
         backgroundColor: isDark ? Colors.dark.background : Colors.light.background,
         textColor: isDark ? Colors.dark.text : Colors.light.text,
         textSecondary: isDark ? Colors.dark.textSecondary : Colors.light.textSecondary,
     }), [isDark]);
 
-    // ==================== HOOKS ====================
+    // Initialize push notifications with error boundary
     const pushNotificationHook = usePushNotifications();
     const {
         isInitialized: isPushInitialized,
         fcmToken,
         permissionStatus,
-        requestPermission: requestPushPermission,
+        requestPermission: requestPushPermission
     } = pushNotificationHook || {};
 
-    const remoteConfig = useRemoteConfig();
-
-    // ==================== HELPER FUNCTIONS ====================
-
-    /**
-     * Safely updates app state with validation
-     */
-    const updateAppState = useCallback((updates: Partial<AppInitState>) => {  // ✅ Updated type
-        if (isMounted.current) {
-            setAppState(prev => ({ ...prev, ...updates }));
-        }
-    }, []);
-
-    /**
-     * Adds a cleanup function with unique identifier
-     */
-    const addCleanupFunction = useCallback((id: string, cleanupFn: () => void) => {
-        if (cleanupFunctions.current) {
-            cleanupFunctions.current.set(id, cleanupFn);
-        }
-    }, []);
-
-    /**
-     * Removes a specific cleanup function
-     */
-    const removeCleanupFunction = useCallback((id: string) => {
-        if (cleanupFunctions.current) {
-            cleanupFunctions.current.delete(id);
-        }
-    }, []);
-
-    /**
-     * Executes all cleanup functions safely
-     */
-    const cleanup = useCallback(() => {
-        if (cleanupFunctions.current) {
-            cleanupFunctions.current.forEach((cleanupFn, id) => {
-                try {
-                    cleanupFn();
-                    if (__DEV__) console.log(`✅ Cleanup executed: ${id}`);
-                } catch (error) {
-                    console.error(`❌ Cleanup failed for ${id}:`, error);
-                }
-            });
-            cleanupFunctions.current.clear();
-        }
-    }, []);
-
-    /**
-     * Sets appearance mode with error handling
-     */
+    // Safe appearance setter with error handling
     const setAppearanceMode = useCallback((mode: 'light' | 'dark') => {
         try {
             Appearance.setColorScheme(mode);
@@ -171,474 +113,475 @@ const App: React.FC = () => {
         }
     }, []);
 
-    /**
-     * Safely hides splash screen with fallback
-     */
-    const hideSplashScreen = useCallback(async () => {
-        if (splashHidden.current) return;
-
-        try {
-            const initDuration = Date.now() - appStartTime.current;
-            const remainingTime = Math.max(0, SPLASH_MIN_DURATION - initDuration);
-
-            // Ensure minimum splash duration for better UX
-            if (remainingTime > 0) {
-                await new Promise(resolve => setTimeout(resolve, remainingTime));
-            }
-
-            await RNBootSplash.hide({ fade: true });
-            splashHidden.current = true;
-            if (__DEV__) console.log('✅ Splash screen hidden successfully');
-        } catch (error) {
-            console.warn('⚠️ Failed to hide splash screen with fade:', error);
-
-            // Fallback: hide without animation
-            try {
-                await RNBootSplash.hide();
-                splashHidden.current = true;
-            } catch (fallbackError) {
-                console.error('❌ Complete splash screen failure:', fallbackError);
-                splashHidden.current = true; // Mark as hidden to prevent infinite retries
-            }
+    // Set appearance mode based on preference
+    useMemo(() => {
+        if (!isDark) {
+            setAppearanceMode('light');
+        } else {
+            setAppearanceMode('dark');
         }
-    }, []);
+    }, [isDark, setAppearanceMode]);
 
-    /**
-     * Handles notification with comprehensive error handling
-     */
-    const handleNotificationSafely = useCallback((remoteMessage: any, source: string) => {
-        try {
-            if (!remoteMessage?.data) {
-                if (__DEV__) console.warn(`⚠️ Invalid notification data from ${source}`);
-                return;
-            }
-
-            if (__DEV__) console.log(`🔔 Handling notification from ${source}:`, remoteMessage.data);
-            handleNotificationNavigation(remoteMessage.data, notificationTabEmitter);
-        } catch (error) {
-            console.error(`❌ Notification handling failed from ${source}:`, error);
-
-            Toast.show({
-                type: 'error',
-                text1: 'Notification Error',
-                text2: 'Unable to open notification content',
-                position: 'bottom',
-                visibilityTime: 3000,
-            });
-        }
-    }, []);
-
-    /**
-     * Initializes i18n with saved language preference
-     */
-    const initializeI18n = useCallback(async (): Promise<InitializationResult> => {
-        const startTime = Date.now();
-        try {
-            initI18n();
-
-            const savedLang = await AsyncStorage.getItem(LANGUAGE_STORAGE_KEY);
-            if (savedLang && typeof savedLang === 'string') {
-                await i18n.changeLanguage(savedLang);
-            }
-
-            return {
-                success: true,
-                duration: Date.now() - startTime,
-            };
-        } catch (error) {
-            console.warn('⚠️ Failed to initialize i18n:', error);
-            return {
-                success: false,
-                error: error instanceof Error ? error : new Error('i18n initialization failed'),
-                duration: Date.now() - startTime,
-            };
-        }
-    }, []);
-
-    /**
-     * Initializes network monitoring
-     */
-    const initializeNetwork = useCallback(async (): Promise<InitializationResult> => {
-        const startTime = Date.now();
-        try {
-            await initializeNetworkMonitoring();
-            return {
-                success: true,
-                duration: Date.now() - startTime,
-            };
-        } catch (error) {
-            console.warn('⚠️ Network monitoring failed:', error);
-            return {
-                success: false,
-                error: error instanceof Error ? error : new Error('Network init failed'),
-                duration: Date.now() - startTime,
-            };
-        }
-    }, []);
-
-    /**
-     * Initializes authentication
-     */
-    const initializeAuth = useCallback(async (): Promise<InitializationResult> => {
-        const startTime = Date.now();
-        try {
-            await Promise.race([
-                persistentAuthManager.initialize(),
-                new Promise((_, reject) =>
-                    setTimeout(() => reject(new Error('Auth timeout')), INIT_TIMEOUT)
-                ),
-            ]);
-
-            return {
-                success: true,
-                duration: Date.now() - startTime,
-            };
-        } catch (error) {
-            console.error('❌ Auth initialization failed:', error);
-            return {
-                success: false,
-                error: error instanceof Error ? error : new Error('Auth init failed'),
-                duration: Date.now() - startTime,
-            };
-        }
-    }, []);
-
-    /**
-     * Initializes notifications
-     */
-    const initializeNotifications = useCallback(async (): Promise<InitializationResult> => {
-        const startTime = Date.now();
-        try {
-            const cleanupNotifications = await notificationInitService.initialize();
-
-            if (cleanupNotifications && typeof cleanupNotifications === 'function') {
-                addCleanupFunction('notifications', cleanupNotifications);
-            }
-
-            return {
-                success: true,
-                duration: Date.now() - startTime,
-            };
-        } catch (error) {
-            console.warn('⚠️ Notification initialization failed:', error);
-            return {
-                success: false,
-                error: error instanceof Error ? error : new Error('Notification init failed'),
-                duration: Date.now() - startTime,
-            };
-        }
-    }, [addCleanupFunction]);
-
-    /**
-     * Initializes remote config
-     */
-    const initializeRemoteConfig = useCallback(async (): Promise<InitializationResult> => {
-        const startTime = Date.now();
-        try {
-            await initRemoteConfig();
-            return {
-                success: true,
-                duration: Date.now() - startTime,
-            };
-        } catch (error) {
-            console.warn('⚠️ Remote config initialization failed:', error);
-            return {
-                success: false,
-                error: error instanceof Error ? error : new Error('Remote config init failed'),
-                duration: Date.now() - startTime,
-            };
-        }
-    }, []);
-
-    /**
-     * Main initialization orchestrator with retry logic
-     */
-    const initializeApp = useCallback(async () => {
-        if (initializationAttempts.current >= MAX_RETRY_ATTEMPTS) {
-            updateAppState({
-                initializationError: 'Maximum retry attempts reached',
-                isInitializing: false,
-            });
-            return;
-        }
-
-        initializationAttempts.current++;
-
-        try {
-            if (!isMounted.current) return;
-
-            updateAppState({
-                isInitializing: true,
-                initializationError: null,
-            });
-
-            if (__DEV__) console.log(`🚀 Starting app initialization (attempt ${initializationAttempts.current})...`);
-
-            // Critical initializations (sequential)
-            const criticalInits = [
-                { name: 'i18n', fn: initializeI18n },
-                { name: 'auth', fn: initializeAuth },
-            ];
-
-            // Non-critical initializations (parallel)
-            const nonCriticalInits = [
-                { name: 'network', fn: initializeNetwork },
-                { name: 'notifications', fn: initializeNotifications },
-                { name: 'remoteConfig', fn: initializeRemoteConfig },
-            ];
-
-            // Run critical inits sequentially
-            for (const init of criticalInits) {
-                const result = await init.fn();
-                if (__DEV__) {
-                    console.log(`${result.success ? '✅' : '⚠️'} ${init.name} initialized in ${result.duration}ms`);
-                }
-
-                if (!result.success && init.name === 'auth') {
-                    throw result.error || new Error(`${init.name} initialization failed`);
-                }
-            }
-
-            // Run non-critical inits in parallel
-            const nonCriticalResults = await Promise.allSettled(
-                nonCriticalInits.map(init => init.fn())
-            );
-
-            nonCriticalResults.forEach((result, index) => {
-                const initName = nonCriticalInits[index].name;
-                if (result.status === 'fulfilled' && __DEV__) {
-                    console.log(`${result.value.success ? '✅' : '⚠️'} ${initName} initialized in ${result.value.duration}ms`);
+    // Cleanup function to safely remove all listeners
+    const cleanup = useCallback(() => {
+        if (cleanupFunctions.current) {
+            cleanupFunctions.current.forEach(cleanupFn => {
+                try {
+                    cleanupFn();
+                } catch (error) {
+                    console.warn('⚠️ Cleanup function failed:', error);
                 }
             });
-
-            const totalDuration = Date.now() - appStartTime.current;
-            if (__DEV__) console.log(`🎉 App initialization completed in ${totalDuration}ms`);
-
-            if (isMounted.current) {
-                updateAppState({
-                    isInitializing: false,
-                    initializationError: null,
-                });
-            }
-
-        } catch (error) {
-            console.error('❌ App initialization failed:', error);
-
-            const errorMessage = error instanceof Error ? error.message : 'Initialization failed';
-
-            if (isMounted.current) {
-                updateAppState({
-                    initializationError: errorMessage,
-                    isInitializing: false,
-                    retryCount: initializationAttempts.current,
-                });
-            }
-
-            // Auto-retry with exponential backoff
-            if (initializationAttempts.current < MAX_RETRY_ATTEMPTS) {
-                const retryDelay = RETRY_DELAY * Math.pow(2, initializationAttempts.current - 1);
-                if (__DEV__) console.log(`🔄 Retrying initialization in ${retryDelay}ms...`);
-
-                setTimeout(() => {
-                    if (isMounted.current) {
-                        initializeApp();
-                    }
-                }, retryDelay);
-            }
+            cleanupFunctions.current = [];
         }
-    }, [
-        updateAppState,
-        initializeI18n,
-        initializeAuth,
-        initializeNetwork,
-        initializeNotifications,
-        initializeRemoteConfig,
-    ]);
+    }, []);
 
-    /**
-     * Retry initialization manually
-     */
-    const retryInitialization = useCallback(() => {
-        initializationAttempts.current = 0;
-        initializeApp();
-    }, [initializeApp]);
+    // Add cleanup function to tracked list
+    const addCleanupFunction = useCallback((cleanupFn: () => void) => {
+        if (cleanupFunctions.current) {
+            cleanupFunctions.current.push(cleanupFn);
+        }
+    }, []);
 
-    // ==================== EFFECTS ====================
-
-    /**
-     * Component mount/unmount lifecycle
-     */
+    // Component unmount cleanup
     useEffect(() => {
-        isMounted.current = true;
-
         return () => {
             isMounted.current = false;
             cleanup();
         };
     }, [cleanup]);
 
-    /**
-     * Set appearance mode
-     */
-    useEffect(() => {
-        setAppearanceMode(isDark ? 'dark' : 'light');
-    }, [isDark, setAppearanceMode]);
-
-    /**
-     * Initialize app on mount
-     */
-    useEffect(() => {
-        initializeApp();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []); // ✅ Empty deps - only run once on mount
-
-    /**
-     * Hide splash screen when ready
-     */
-    useEffect(() => {
-        if (appState.isBootstrapped && !appState.isInitializing) {
-            hideSplashScreen();
-        }
-    }, [appState.isBootstrapped, appState.isInitializing, hideSplashScreen]);
-
-    /**
-     * Setup notification handlers
-     */
+    // Initialize network monitoring on app start with comprehensive error handling
     useEffect(() => {
         let isEffectMounted = true;
 
-        try {
-            const messagingInstance = getMessaging(getApp());
+        const initializeApp = async () => {
+            try {
+                if (!isMounted.current || !isEffectMounted) return;
 
-            // Handle background/foreground notifications
-            const unsubscribeOpenedApp = onNotificationOpenedApp(
-                messagingInstance,
-                (remoteMessage: any) => {
-                    if (isEffectMounted && isMounted.current) {
-                        handleNotificationSafely(remoteMessage, 'background');
+                setIsInitializing(true);
+                setInitializationError(null);
+
+                // Start all initializations concurrently for better performance
+                const initPromises = [];
+
+                // Network monitoring (non-blocking)
+                console.log('📶 Initializing network monitoring...');
+                initPromises.push(
+                    new Promise<void>((resolve) => {
+                        try {
+                            initializeNetworkMonitoring();
+                            console.log('✅ Network monitoring initialized');
+                            resolve();
+                        } catch (networkError) {
+                            console.warn('⚠️ Network monitoring failed to initialize:', networkError);
+                            resolve(); // Don't block other initializations
+                        }
+                    })
+                );
+
+                // Initialize persistent auth manager with shorter timeout
+                console.log('🔒 Initializing persistent authentication...');
+                const authPromise = Promise.race([
+                    persistentAuthManager.initialize(),
+                    new Promise((_, reject) =>
+                        setTimeout(() => reject(new Error('Auth initialization timeout')), 3000) // Reduced from 10s to 3s
+                    )
+                ]);
+                initPromises.push(authPromise);
+
+                // Initialize notification system (non-blocking)
+                console.log('🔔 Initializing notification system...');
+                initPromises.push(
+                    new Promise<void>((resolve) => {
+                        try {
+                            const cleanupNotifications = notificationInitService.initialize();
+                            if (cleanupNotifications && typeof cleanupNotifications === 'function') {
+                                addCleanupFunction(cleanupNotifications);
+                            }
+                            resolve();
+                        } catch (notificationError) {
+                            console.warn('⚠️ Notification initialization failed:', notificationError);
+                            resolve(); // Don't block app startup
+                        }
+                    })
+                );
+
+                // Wait for critical operations only (auth is critical, others are not)
+                await Promise.allSettled(initPromises);
+
+                if (isMounted.current && isEffectMounted) {
+                    setIsInitializing(false);
+                }
+            } catch (error) {
+                console.error('❌ App initialization failed:', error);
+                if (isMounted.current && isEffectMounted) {
+                    setInitializationError(error instanceof Error ? error.message : 'Initialization failed');
+                    setIsInitializing(false);
+                }
+            }
+        };
+
+        initializeApp();
+
+        // Return cleanup function
+        return () => {
+            isEffectMounted = false;
+        };
+    }, [addCleanupFunction]);
+
+    // Safe splash screen hiding with error handling
+    useEffect(() => {
+        if (isBootstrapped && !isInitializing) {
+            const hideSplash = async () => {
+                try {
+                    await RNBootSplash.hide({ fade: true });
+                    console.log('✅ Splash screen hidden successfully');
+                } catch (error) {
+                    console.warn('⚠️ Failed to hide splash screen:', error);
+                    // Fallback: try hiding without fade
+                    try {
+                        await RNBootSplash.hide();
+                    } catch (fallbackError) {
+                        console.error('❌ Complete splash screen failure:', fallbackError);
                     }
                 }
-            );
+            };
 
-            addCleanupFunction('notificationOpenedApp', unsubscribeOpenedApp);
-
-            // Handle quit state notifications
-            getInitialNotification(messagingInstance)
-                .then((remoteMessage: any) => {
-                    if (isEffectMounted && isMounted.current && remoteMessage) {
-                        handleNotificationSafely(remoteMessage, 'quit state');
-                    }
-                })
-                .catch((error) => {
-                    console.error('❌ Failed to get initial notification:', error);
-                });
-
-        } catch (error) {
-            console.error('❌ Failed to setup notification handlers:', error);
+            // No delay - hide immediately when ready
+            hideSplash();
         }
+    }, [isBootstrapped, isInitializing]);
+
+    // Safe notification handling with comprehensive error boundaries
+    useEffect(() => {
+        let isEffectMounted = true;
+
+        const handleNotificationSafely = (remoteMessage: any, source: string) => {
+            try {
+                if (!remoteMessage?.data) {
+                    console.warn('⚠️ Invalid notification data from', source);
+                    return;
+                }
+
+                console.log('🔔 Handling notification from', source, remoteMessage.data);
+                handleNotificationNavigation(remoteMessage.data, notificationTabEmitter);
+            } catch (error) {
+                console.error('❌ Notification handling failed from', source, error);
+                // Show user-friendly error
+                Toast.show({
+                    type: 'error',
+                    text1: 'Notification Error',
+                    text2: 'Unable to open notification content',
+                    position: 'bottom',
+                    visibilityTime: 3000,
+                });
+            }
+        };
+
+        // Handle foreground and background notifications
+        const messagingInstance = getMessaging(getApp());
+        const unsubscribeOpenedApp = onNotificationOpenedApp(messagingInstance, (remoteMessage: any) => {
+            if (isEffectMounted) {
+                handleNotificationSafely(remoteMessage, 'background');
+            }
+        });
+
+        // Handle quit state notifications
+        getInitialNotification(messagingInstance)
+            .then((remoteMessage: any) => {
+                if (isEffectMounted && remoteMessage) {
+                    handleNotificationSafely(remoteMessage, 'quit state');
+                }
+            })
+            .catch(error => {
+                console.error('  Failed to get initial notification:', error);
+            });
+
+        // Track cleanup functions
+        addCleanupFunction(unsubscribeOpenedApp);
 
         return () => {
             isEffectMounted = false;
-            removeCleanupFunction('notificationOpenedApp');
+            unsubscribeOpenedApp();
         };
-    }, [handleNotificationSafely, addCleanupFunction, removeCleanupFunction]);
-
-    /**
-     * App state change handler (background/foreground)
-     */
+    }, [addCleanupFunction]);
+    // Safe FCM token handling with validation + backend registration
+    const lastRegisteredTokenRef = useRef<string | null>(null);
     useEffect(() => {
-        const subscription = RNAppState.addEventListener('change', (nextAppState: AppStateStatus) => {  // ✅ Updated
-            if (
-                appStateRef.current.match(/inactive|background/) &&
-                nextAppState === 'active'
-            ) {
-                if (__DEV__) console.log('📱 App has come to foreground');
-                // Refresh critical data if needed
-            } else if (nextAppState.match(/inactive|background/)) {
-                if (__DEV__) console.log('📱 App has gone to background');
-                // Cleanup or pause operations if needed
+        const registerToken = async () => {
+            // Ensure authentication/bootstrap is fully completed before attempting registration
+            if (!isBootstrapped || !bootstrapState) return;
+            if (!fcmToken || typeof fcmToken !== 'string' || fcmToken.length === 0) return;
+
+            console.log('🔔 FCM Token received:', fcmToken.substring(0, 20) + '...');
+
+            if (fcmToken.length < 50) {
+                console.warn('⚠️ FCM Token seems short, double-check device registration');
             }
 
-            appStateRef.current = nextAppState;
-        });
+            const uid = bootstrapState?.user?.uid || bootstrapState?.user?.id;
+            const rawRole = (bootstrapState?.user?.userRole || bootstrapState?.user?.role || '').toString().toLowerCase();
+            if (!uid || !rawRole) {
+                console.log('⏳ Skipping FCM token registration: user not ready');
+                return;
+            }
+
+            const sig = `${uid}:${fcmToken}`;
+            if (lastRegisteredTokenRef.current === sig) return;
+
+            const role = (rawRole.includes('farmer') || rawRole.includes('seller')) ? 'farmer' : 'buyer';
+
+            // Build callable endpoints explicitly for region (asia-south1)
+            // Use modular functions instance (defaults to region defined in backend; we explicitly target a region when building URLs)
+            const functionsInstance = getFunctions();
+            const projectId = functionsInstance.app?.options?.projectId;
+            const region = 'asia-south1';
+            const makeCallable = (name: string) => {
+                if (projectId) {
+                    const url = `https://${region}-${projectId}.cloudfunctions.net/${name}`;
+                    // Use modular API for callable functions
+                    // Prefer httpsCallableFromURL when available, else fallback to httpsCallable with name (should exist in all modern versions)
+                    return httpsCallableFromUrl
+                        ? httpsCallableFromUrl(functionsInstance, url)
+                        : httpsCallable(functionsInstance, name);
+                }
+                return httpsCallable(functionsInstance, name);
+            };
+
+            try {
+                console.log('🌐 Checking existing tokens (region asia-south1)...');
+                const getRes: any = await makeCallable('getFcmTokens')({ uid, role });
+                const existing = Array.isArray(getRes?.data?.tokens) ? (getRes.data.tokens as string[]) : [];
+                console.log('📦 Existing tokens from backend:', existing);
+                if (existing.includes(fcmToken)) {
+                    lastRegisteredTokenRef.current = sig;
+                    console.log('ℹ️ FCM token already registered (no action)');
+                    return;
+                }
+
+                console.log('📝 Registering new FCM token to backend...');
+                await makeCallable('registerFcmToken')({ uid, role, token: fcmToken });
+                lastRegisteredTokenRef.current = sig;
+                console.log('✅ FCM token registered with backend (asia-south1)');
+            } catch (e: any) {
+                const msg = e?.message || e?.toString?.() || 'unknown error';
+                console.error('❌ Failed (asia-south1) callable:', msg);
+
+                // Fallback: try default region us-central1 in case of region mismatch
+                try {
+                    console.log('🔁 Fallback attempt in default region (us-central1)...');
+                    const defaultGet: any = await httpsCallable(functionsInstance, 'getFcmTokens')({ uid, role });
+                    const existing2 = Array.isArray(defaultGet?.data?.tokens) ? defaultGet.data.tokens : [];
+                    if (existing2.includes(fcmToken)) {
+                        lastRegisteredTokenRef.current = sig;
+                        console.log('ℹ️ Token already registered in fallback region');
+                        return;
+                    }
+                    await httpsCallable(functionsInstance, 'registerFcmToken')({ uid, role, token: fcmToken });
+                    lastRegisteredTokenRef.current = sig;
+                    console.log('✅ Token registered via fallback region (us-central1)');
+                } catch (fallbackErr: any) {
+                    console.error('❌ Fallback registration failed:', fallbackErr?.message || fallbackErr);
+                }
+            }
+        };
+
+        registerToken();
+    }, [isBootstrapped, fcmToken, bootstrapState?.user?.uid, bootstrapState?.user?.userRole]);
+
+    // Enhanced push notification initialization - NON-BLOCKING
+    useEffect(() => {
+        let isEffectMounted = true;
+
+        const initializePushNotifications = async () => {
+            try {
+                if (isPushInitialized && isEffectMounted) {
+                    console.log('🔔 Push notifications initialized successfully');
+                    console.log('🔔 Permission status:', permissionStatus);
+
+                    // Delay permission request to not block splash screen
+                    if (permissionStatus === 'unknown' &&
+                        typeof requestPushPermission === 'function') {
+
+                        // Request permission after app is fully loaded
+                        setTimeout(async () => {
+                            if (!isEffectMounted) return;
+
+                            try {
+                                const granted = await requestPushPermission();
+                                if (isEffectMounted) {
+                                    console.log('🔔 Push permission requested:', granted ? 'granted' : 'denied');
+
+                                    if (!granted) {
+                                        // Show user-friendly message about notification benefits
+                                        Toast.show({
+                                            type: 'info',
+                                            text1: 'Notifications Disabled',
+                                            text2: 'You may miss important updates about your orders',
+                                            position: 'bottom',
+                                            visibilityTime: 4000,
+                                        });
+                                    }
+                                }
+                            } catch (permissionError) {
+                                console.error('❌ Permission request failed:', permissionError);
+                                if (isEffectMounted) {
+                                    Toast.show({
+                                        type: 'error',
+                                        text1: 'Notification Setup Failed',
+                                        text2: 'You can enable notifications later in settings',
+                                        position: 'bottom',
+                                        visibilityTime: 3000,
+                                    });
+                                }
+                            }
+                        }, 1000); // Delay by 1 second after app loads
+                    }
+                }
+            } catch (error) {
+                console.error('❌ Push notification initialization error:', error);
+            }
+        };
+
+        initializePushNotifications();
 
         return () => {
-            subscription.remove();
+            isEffectMounted = false;
         };
-    }, []);
+    }, [isPushInitialized, permissionStatus, requestPushPermission]); // Removed isBootstrapped dependency
 
-    /**
-     * Performance monitoring
-     */
-    useEffect(() => {
-        if (appState.isBootstrapped && !appState.isInitializing) {
-            const totalTime = Date.now() - appStartTime.current;
+    // Safe bootstrap completion handler with validation
+    const handleBootstrapComplete = useCallback((state: AuthBootstrapState) => {
+        try {
+            if (!isMounted.current) return;
 
-            if (__DEV__) {
-                console.log(`📊 Performance Metrics:`);
-                console.log(`   Total initialization: ${totalTime}ms`);
-                console.log(`   Retry attempts: ${initializationAttempts.current}`);
+            // Validate bootstrap state
+            if (!state || typeof state !== 'object') {
+                console.error('❌ Invalid bootstrap state received:', state);
+                setInitializationError('Invalid authentication state');
+                return;
             }
 
-            // Report to analytics service
-            // analytics().logEvent('app_startup_complete', { duration: totalTime });
-        }
-    }, [appState.isBootstrapped, appState.isInitializing]);
+            console.log('🚀 Bootstrap completed:', {
+                hasUser: !!state.user,
+                userRole: state.user?.userRole || 'unknown',
+                timestamp: new Date().toISOString()
+            });
 
-    // ==================== ERROR UI ====================
-    if (appState.initializationError && appState.retryCount >= MAX_RETRY_ATTEMPTS) {
+            setBootstrapState(state);
+            setIsBootstrapped(true);
+            setInitializationError(null);
+        } catch (error) {
+            console.error('❌ Bootstrap completion failed:', error);
+            setInitializationError('Authentication setup failed');
+        }
+    }, []);
+
+    // Error recovery handler
+    const handleInitializationRetry = useCallback(() => {
+        setInitializationError(null);
+        setIsBootstrapped(false);
+        setBootstrapState(null);
+        setIsInitializing(true);
+
+        // Restart initialization process
+        console.log('🔄 Restarting app initialization...');
+    }, []);
+
+    // Show initialization error screen
+    if (initializationError && !isBootstrapped) {
         return (
-            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20, backgroundColor: themeColors.backgroundColor }}>
-                <Text style={{ fontSize: 24, marginBottom: 10, color: themeColors.textColor }}>
-                    ⚠️ Initialization Failed
-                </Text>
-                <Text style={{ fontSize: 16, marginBottom: 20, color: themeColors.textSecondary, textAlign: 'center' }}>
-                    {appState.initializationError}
-                </Text>
-                <TouchableOpacity
-                    onPress={retryInitialization}
-                    style={{
-                        backgroundColor: Colors.light.primary,
-                        paddingHorizontal: 24,
-                        paddingVertical: 12,
-                        borderRadius: 8,
-                    }}
-                >
-                    <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>
-                        Retry
-                    </Text>
-                </TouchableOpacity>
-            </View>
+            <ErrorBoundary>
+                <GestureHandlerRootView style={{ flex: 1 }}>
+                    <StatusBar
+                        barStyle={isDark ? 'light-content' : 'dark-content'}
+                        backgroundColor={isDark ? Colors.dark.background : Colors.light.background}
+                        translucent
+                    />
+                    <View style={{
+                        flex: 1,
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        backgroundColor: themeColors.backgroundColor,
+                        paddingHorizontal: 20
+                    }}>
+                        <Text style={{
+                            fontSize: 18,
+                            fontWeight: '600',
+                            color: themeColors.textColor,
+                            marginBottom: 12,
+                            textAlign: 'center'
+                        }}>
+                            Initialization Failed
+                        </Text>
+                        <Text style={{
+                            fontSize: 14,
+                            color: themeColors.textSecondary,
+                            marginBottom: 24,
+                            textAlign: 'center',
+                            lineHeight: 20
+                        }}>
+                            {initializationError}
+                        </Text>
+                        <TouchableOpacity
+                            style={{
+                                backgroundColor: Colors.light.primary,
+                                paddingHorizontal: 24,
+                                paddingVertical: 12,
+                                borderRadius: 8
+                            }}
+                            onPress={handleInitializationRetry}
+                        >
+                            <Text style={{
+                                color: '#FFFFFF',
+                                fontSize: 16,
+                                fontWeight: '600'
+                            }}>
+                                Try Again
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+                </GestureHandlerRootView>
+            </ErrorBoundary>
         );
     }
 
-    // ==================== RENDER ====================
+    // Show bootstrap screen while initializing
+    if (!isBootstrapped || !bootstrapState || isInitializing) {
+        return (
+            <ErrorBoundary>
+                <GestureHandlerRootView style={{ flex: 1 }}>
+                    <StatusBar
+                        barStyle={isDark ? 'light-content' : 'dark-content'}
+                        backgroundColor={isDark ? Colors.dark.background : Colors.light.background}
+                        translucent
+                    />
+                    <AppBootstrapScreen
+                        onBootstrapComplete={handleBootstrapComplete}
+                        minimumSplashTime={300} // Reduced from 800ms to 300ms
+                    />
+                </GestureHandlerRootView>
+            </ErrorBoundary>
+        );
+    }
+
+    // App is bootstrapped, show main navigation
     return (
         <ErrorBoundary>
-            <GestureHandlerRootView style={{ flex: 1 }}>
+            <GestureHandlerRootView style={{
+                flex: 1,
+            }} onLayout={() => { }}>
                 <StatusBar
-                    barStyle={themeColors.statusBarStyle}
-                    backgroundColor={themeColors.backgroundColor}
+                    barStyle={isDark ? 'light-content' : 'dark-content'}
+                    backgroundColor={isDark ? Colors.dark.background : Colors.light.background}
+                    translucent
                 />
-
-                {appState.isBootstrapped && appState.bootstrapState ? (
-                    <AuthStateProvider bootstrapState={appState.bootstrapState}>
-                        <NetworkStatusIndicator />
-                        <AppNavigator />
-                        <Toast />
-                    </AuthStateProvider>
-                ) : (
-                    <AppBootstrapScreen
-                        onBootstrapComplete={(state) => {
-                            if (isMounted.current) {
-                                updateAppState({
-                                    isBootstrapped: true,
-                                    bootstrapState: state,
-                                });
-                            }
-                        }}
-                    />
-                )}
+                <NetworkStatusIndicator />
+                <AuthStateProvider bootstrapState={bootstrapState}>
+                    <AppNavigator bootstrapState={bootstrapState} />
+                </AuthStateProvider>
+                <Toast />
             </GestureHandlerRootView>
         </ErrorBoundary>
     );

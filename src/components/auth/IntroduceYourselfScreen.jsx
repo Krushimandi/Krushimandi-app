@@ -194,12 +194,12 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
             return;
           }
           // More granular status updates for each backend step
-            if (progress.step === 'uploading_avatar') setUploadStatus(t('auth.intro.status.uploadingPhoto'));
-            else if (progress.step === 'avatar_complete') setUploadStatus(t('auth.intro.status.photoUploaded'));
-            else if (progress.step === 'updating_auth') setUploadStatus(t('auth.intro.status.updatingProfile'));
-            else if (progress.step === 'saving_firestore') setUploadStatus(t('auth.intro.status.savingCloud'));
-            else if (progress.step === 'saving_local') setUploadStatus(t('auth.intro.status.savingLocal'));
-            else if (progress.step === 'complete') setUploadStatus(t('auth.intro.status.complete'));
+          if (progress.step === 'uploading_avatar') setUploadStatus(t('auth.intro.status.uploadingPhoto'));
+          else if (progress.step === 'avatar_complete') setUploadStatus(t('auth.intro.status.photoUploaded'));
+          else if (progress.step === 'updating_auth') setUploadStatus(t('auth.intro.status.updatingProfile'));
+          else if (progress.step === 'saving_firestore') setUploadStatus(t('auth.intro.status.savingCloud'));
+          else if (progress.step === 'saving_local') setUploadStatus(t('auth.intro.status.savingLocal'));
+          else if (progress.step === 'complete') setUploadStatus(t('auth.intro.status.complete'));
           else if (progress.progress !== undefined) {
             const percentage = Math.round(progress.progress);
             setUploadProgress(percentage);

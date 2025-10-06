@@ -162,7 +162,7 @@ const AddFruitScreen = ({ navigation }) => {
 
         const scrollPosition = scrollPositions[inputKey] || 450;
 
-        
+
 
         scrollViewRef.current?.scrollTo({
           y: scrollPosition,
@@ -178,7 +178,7 @@ const AddFruitScreen = ({ navigation }) => {
           const keyboardAdjustment = keyboardHeight > 0 ? keyboardHeight + 50 : 0; // More aggressive adjustment
           const finalScrollPosition = baseDescriptionPosition + keyboardAdjustment;
 
-          
+
 
           scrollViewRef.current?.scrollTo({
             y: finalScrollPosition,
@@ -263,10 +263,10 @@ const AddFruitScreen = ({ navigation }) => {
       shakeForm();
 
       // Show focused alert with only the current error
-  const currentError = Object.values(validationErrors)[0];
+      const currentError = Object.values(validationErrors)[0];
       const currentField = Object.keys(validationErrors)[0];
 
-  let fieldName = currentField;
+      let fieldName = currentField;
       switch (currentField) {
         case 'fruitName':
           fieldName = t('product.add.fields.fruitName');
@@ -327,7 +327,7 @@ const AddFruitScreen = ({ navigation }) => {
         // grade,
         quantity: quantityParts,
         description: description.trim(),
-  availability_date: availabilityDate || null,
+        availability_date: availabilityDate || null,
         location: {
           city: city.trim(),
           district: district.trim(),
@@ -349,18 +349,10 @@ const AddFruitScreen = ({ navigation }) => {
         }
       };
 
-      
-      Keyboard.dismiss();
 
-      // Success animation
-      Animated.timing(fadeAnim, {
-        toValue: 0.8,
-        duration: 200,
-        useNativeDriver: true,
-      }).start(() => {
-        // Navigate to PhotoUpload screen with the fruit data
-        navigation.navigate('PhotoUpload', { fruitData });
-      });
+      Keyboard.dismiss();
+      // Navigate to PhotoUpload screen with the fruit data
+      navigation.navigate('PhotoUpload', { fruitData });
 
     } catch (error) {
       Alert.alert(t('alerts.errorTitle'), t('farmerHome.refreshFailedSubtitle'));
@@ -390,7 +382,7 @@ const AddFruitScreen = ({ navigation }) => {
         return; // User chose to fill manually or went to settings
       }
 
-      
+
 
       // Use cached location method for faster response
       const result = await getLocationWithCache();
@@ -401,11 +393,11 @@ const AddFruitScreen = ({ navigation }) => {
         setCurrentLocation({ lat: location.latitude, lng: location.longitude });
 
         // Always fill city (fallback to district if city is empty)
-  const cityToFill = locationData.city || locationData.district || '';
+        const cityToFill = locationData.city || locationData.district || '';
 
         setCity(cityToFill);
         setDistrict(locationData.district || cityToFill);
-  setState(locationData.state || '');
+        setState(locationData.state || '');
         setPincode(locationData.pincode || '');
 
         // Clear any location errors
@@ -453,7 +445,7 @@ const AddFruitScreen = ({ navigation }) => {
         }
 
         // Show location quality and tips for improvement
-  let message = `Auto-filled: ${cityToFill}, ${locationData.district}, ${locationData.state}${locationData.pincode ? ' - ' + locationData.pincode : ''}${locationSource}${accuracyInfo}${dataQuality}`;
+        let message = `Auto-filled: ${cityToFill}, ${locationData.district}, ${locationData.state}${locationData.pincode ? ' - ' + locationData.pincode : ''}${locationSource}${accuracyInfo}${dataQuality}`;
 
         // Add specific advice based on data quality
         if (locationData.source === 'coordinate-fallback' || locationData.source === 'gps-fallback') {
@@ -473,7 +465,7 @@ const AddFruitScreen = ({ navigation }) => {
         //     { text: 'OK' }]
         // );
       } else {
-  setLocationError(t('product.add.location.addressLookupFailed'));
+        setLocationError(t('product.add.location.addressLookupFailed'));
         // Alert.alert(
         //   'Location Found',
         //   'GPS coordinates obtained but address details unavailable. Please fill manually.',
@@ -481,7 +473,7 @@ const AddFruitScreen = ({ navigation }) => {
         // );
       }
     } catch (error) {
-  const message = error.userMessage || error.message || t('product.add.location.genericErrorMessage');
+      const message = error.userMessage || error.message || t('product.add.location.genericErrorMessage');
       setLocationError(message);
 
       // Enhanced error handling for different location error types
@@ -679,9 +671,9 @@ const AddFruitScreen = ({ navigation }) => {
     const initializeCache = async () => {
       try {
         await initializeLocationCache();
-        
+
       } catch (error) {
-        
+
       }
     };
 
@@ -700,7 +692,7 @@ const AddFruitScreen = ({ navigation }) => {
         if (focusedInput === 'description') {
           setTimeout(() => {
             const scrollPosition = 700 + keyboardHeight + 50;
-            
+
             scrollViewRef.current?.scrollTo({
               y: scrollPosition,
               animated: true
@@ -708,16 +700,12 @@ const AddFruitScreen = ({ navigation }) => {
           }, 100);
         }
 
-        // IMPORTANT:
-        // Android uses windowSoftInputMode=adjustResize (see AndroidManifest)
-        // and this screen also wraps content in KeyboardAvoidingView.
-        // Moving the fixed bottom button by -keyboardHeight causes a double adjustment
-        // which pushes the button to the top. So we keep Android offset at 0.
-        // On iOS, apply a tiny lift for visual comfort only.
-        const offset = Platform.OS === 'ios' ? -30 : 0;
+        // Move button above keyboard for both platforms
+        // Use the actual keyboard height to position button correctly
+        const buttonOffset = Platform.OS === 'ios' ? -keyboardHeight + 50 : -keyboardHeight + 20;
         Animated.timing(buttonAnimY, {
-          toValue: offset,
-          duration: 200,
+          toValue: buttonOffset,
+          duration: 250,
           useNativeDriver: true,
         }).start();
       }
@@ -729,7 +717,7 @@ const AddFruitScreen = ({ navigation }) => {
         // Animate button back to original position
         Animated.timing(buttonAnimY, {
           toValue: 0,
-          duration: 200,
+          duration: 250,
           useNativeDriver: true,
         }).start();
       }
@@ -753,6 +741,8 @@ const AddFruitScreen = ({ navigation }) => {
   //     }
   //   }
   // }, [category, description]);
+
+  const androidVersion = Platform.Version;
 
   // Hardware back button handler
   useEffect(() => {
@@ -868,10 +858,16 @@ const AddFruitScreen = ({ navigation }) => {
           </Text>
         </View>
 
-        <Animated.View style={[styles.contentContainer, { opacity: fadeAnim, transform: [{ translateX: shakeAnim }] }]}>
+        <Animated.View style={[styles.contentContainer, { transform: [{ translateX: shakeAnim }] }]}>
           <KeyboardAvoidingView
             style={{ flex: 1 }}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            behavior={
+              Platform.OS === 'ios'
+                ? 'padding'
+                : androidVersion >= 30
+                  ? undefined
+                  : 'padding'
+            }
             keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
           >
             <ScrollView
@@ -879,7 +875,9 @@ const AddFruitScreen = ({ navigation }) => {
               style={styles.scrollView}
               contentContainerStyle={[
                 styles.scrollContent,
-                { paddingBottom: keyboardHeight > 0 ? keyboardHeight - 100 : 120 }
+                {
+                  paddingBottom: keyboardHeight > 0 ? keyboardHeight + 50 : 100
+                }
               ]}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
@@ -1208,7 +1206,11 @@ const AddFruitScreen = ({ navigation }) => {
         <Animated.View style={[
           styles.modernButtonContainer,
           {
-            transform: [{ translateY: buttonAnimY }]
+            transform: [{
+              translateY: androidVersion >= 30
+                ? buttonAnimY
+                : 0
+            }]
           }
         ]}>
           <TouchableOpacity
@@ -1557,11 +1559,11 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    paddingBottom: 60, // Minimal padding since tab bar is hidden
+    paddingBottom: 80, // Base padding for button container
   },
   content: {
-    paddingHorizontal: 16,
-    paddingTop: 20,
+    paddingHorizontal: 20,
+    paddingTop: 24,
   },
 
   // Modern Input Styles
@@ -1806,30 +1808,31 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     backgroundColor: '#FFFFFF',
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 20, // Will be dynamically adjusted
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: Platform.OS === 'ios' ? 10 : 0, // Safe area bottom padding
     borderTopWidth: 1,
     borderTopColor: '#E5E7EB',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 10,
+    shadowOffset: { width: 0, height: -3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 12,
   },
   modernContinueButton: {
     backgroundColor: '#10B981',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 14,
+    paddingVertical: 18,
+    paddingHorizontal: 24,
+    borderRadius: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    minHeight: 56,
     shadowColor: '#10B981',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 8,
   },
   modernButtonDisabled: {
     backgroundColor: '#D1D5DB',
@@ -1837,19 +1840,21 @@ const styles = StyleSheet.create({
     elevation: 0,
   },
   buttonIcon: {
-    marginRight: 8,
+    marginRight: 10,
   },
   modernButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '700',
+    letterSpacing: 0.5,
   },
   buttonHelpText: {
     textAlign: 'center',
-    fontSize: 14,
+    fontSize: 13,
     color: '#6B7280',
-    marginTop: 6,
+    marginTop: 8,
     fontWeight: '500',
+    lineHeight: 18,
   },
 
   // Modern Modal Styles

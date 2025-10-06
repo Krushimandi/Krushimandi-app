@@ -57,7 +57,7 @@ let networkListener = null;
 export const initializeNetworkMonitoring = () => {
   // Prevent duplicate listeners
   if (networkListener) {
-    
+
     return;
   }
 
@@ -65,7 +65,7 @@ export const initializeNetworkMonitoring = () => {
     const wasOffline = isOffline;
     isOffline = !state.isConnected;
 
-    
+
 
     // If coming back online, process offline queue
     if (wasOffline && !isOffline) {
@@ -142,7 +142,7 @@ const addToOfflineQueue = (operation, data) => {
   AsyncStorage.setItem('offlineQueue', JSON.stringify(offlineQueue))
     .catch(err => console.error('❌ Failed to save offline queue:', err));
 
-  
+
 };
 
 /**
@@ -151,14 +151,14 @@ const addToOfflineQueue = (operation, data) => {
 const processOfflineQueue = async () => {
   // Prevent concurrent processing
   if (isProcessingQueue) {
-    
+
     return;
   }
 
   isProcessingQueue = true;
 
   try {
-    
+
 
     // Load queue from storage in case app was restarted
     const storedQueue = await AsyncStorage.getItem('offlineQueue');
@@ -184,11 +184,11 @@ const processOfflineQueue = async () => {
             await updateUserInFirestore(item.data.userId, item.data.userRole, item.data.updateData);
             break;
           default:
-            
+
         }
 
         processedItems.push(item.id);
-        
+
       } catch (error) {
         console.error('❌ Failed to process offline item:', item.operation, error);
         // Keep failed items in queue for retry
@@ -201,7 +201,7 @@ const processOfflineQueue = async () => {
     // Update stored queue
     await AsyncStorage.setItem('offlineQueue', JSON.stringify(offlineQueue));
 
-    
+
   } catch (error) {
     console.error('❌ Error processing offline queue:', error);
   } finally {
@@ -219,7 +219,7 @@ const processOfflineQueue = async () => {
 const handleNetworkError = async (error, operation, fallbackData = null) => {
   const errorMessage = error.message?.toLowerCase() || '';
   const errorCode = error.code?.toLowerCase() || '';
-  
+
   const isNetworkError =
     errorMessage.includes('network') ||
     errorMessage.includes('timeout') ||
@@ -268,7 +268,7 @@ export const saveOfflineAuthState = async (authData) => {
     };
 
     await AsyncStorage.setItem('offlineAuthState', JSON.stringify(offlineAuthData));
-    
+
   } catch (error) {
     console.error('❌ Failed to save offline auth state:', error);
   }
@@ -283,7 +283,7 @@ export const getOfflineAuthState = async () => {
     const offlineAuthData = await AsyncStorage.getItem('offlineAuthState');
     if (offlineAuthData) {
       const parsed = JSON.parse(offlineAuthData);
-      
+
       return parsed;
     }
     return null;
@@ -299,7 +299,7 @@ export const getOfflineAuthState = async () => {
 export const clearOfflineAuthState = async () => {
   try {
     await AsyncStorage.removeItem('offlineAuthState');
-    
+
   } catch (error) {
     console.error('❌ Failed to clear offline auth state:', error);
   }
@@ -353,7 +353,7 @@ export const clearAuthData = async () => {
     // Clear any other app-specific storage
     // Add any other storage keys your app uses
 
-    
+
   } catch (error) {
     console.error('❌ Error clearing auth data:', error);
     throw error;
@@ -363,7 +363,7 @@ export const clearAuthData = async () => {
 
 export const uploadProfileAvatar = async (imageUri, userId, userRole, onProgress = null) => {
   try {
-    
+
 
     const storagePaths = getStoragePaths(userRole);
     const fileName = `${userId}_${Date.now()}.jpg`;
@@ -379,7 +379,7 @@ export const uploadProfileAvatar = async (imageUri, userId, userRole, onProgress
         const bytesTransferred = taskSnapshot.bytesTransferred;
         const totalBytes = taskSnapshot.totalBytes;
 
-        
+
 
         // Call progress callback if provided
         if (onProgress && typeof onProgress === 'function') {
@@ -404,7 +404,7 @@ export const uploadProfileAvatar = async (imageUri, userId, userRole, onProgress
 
     // Get download URL
     const downloadURL = await reference.getDownloadURL();
-    
+
 
     return downloadURL;
   } catch (error) {
@@ -449,7 +449,7 @@ export const saveUserToFirestore = async (userData) => {
     };
     const ref = doc(firebaseFirestore, collectionName, userData.uid);
     await setDoc(ref, userDoc, { merge: true });
-    
+
   } catch (error) {
     console.error('❌ Failed to save user to unified profiles collection:', error);
     throw new Error('Failed to save user data');
@@ -464,7 +464,7 @@ export const saveUserToFirestore = async (userData) => {
  */
 export const getUserFromFirestore = async (userId, userRole) => {
   try {
-    
+
 
     const collectionName = getCollectionName(userRole);
     const userDocRef = doc(firebaseFirestore, collectionName, userId);
@@ -472,10 +472,10 @@ export const getUserFromFirestore = async (userId, userRole) => {
 
     if (userDoc.exists) {
       const userData = userDoc.data();
-      
+
       return userData;
     } else {
-      
+
       return null;
     }
   } catch (error) {
@@ -493,7 +493,7 @@ export const getUserFromFirestore = async (userId, userRole) => {
  */
 export const updateUserInFirestore = async (userId, userRole, updateData) => {
   try {
-    
+
 
     const collectionName = getCollectionName(userRole);
     const updates = {
@@ -504,7 +504,7 @@ export const updateUserInFirestore = async (userId, userRole, updateData) => {
     const userDocRef = doc(firebaseFirestore, collectionName, userId);
     await updateDoc(userDocRef, updates);
 
-    
+
   } catch (error) {
     console.error('❌ Failed to update user in Firestore:', error);
     throw new Error('Failed to update user data');
@@ -516,7 +516,7 @@ export const cleanupUnusedBuyerFields = async (userId) => {
     const del = firestoreFieldValue.FieldValue.delete();
     const ref = doc(firebaseFirestore, COLLECTIONS.PROFILES, userId);
     await updateDoc(ref, { preferredCrops: del, businessDetails: del });
-    
+
   } catch (error) {
     console.warn('⚠️ Cleanup (legacy buyer fields) failed (non-blocking):', error?.message || error);
   }
@@ -529,7 +529,7 @@ export const cleanupUnusedBuyerFields = async (userId) => {
  */
 export const saveUserToAsyncStorage = async (userData) => {
   try {
-    
+
 
     const storageData = {
       uid: userData.uid,
@@ -559,7 +559,7 @@ export const saveUserToAsyncStorage = async (userData) => {
       await AsyncStorage.setItem('authStep', 'Complete');
     }
 
-    
+
   } catch (error) {
     console.error('❌ Failed to save user to AsyncStorage:', error);
   }
@@ -611,7 +611,7 @@ export const updateUserLocation = async (userId, userRole, location) => {
       await saveOfflineAuthState({ ...offlineAuth, location: normalizedLocation });
     }
 
-    
+
     return true;
   } catch (error) {
     console.error('❌ Failed to update user location:', error);
@@ -654,7 +654,7 @@ export const syncUserProfile = async (profileData, onProgress = null) => {
 
     // Check network connectivity first
     const isOnline = await isNetworkAvailable();
-    
+
 
     // Validate required fields
     if (!profileData.firstName || !profileData.lastName) {
@@ -669,7 +669,7 @@ export const syncUserProfile = async (profileData, onProgress = null) => {
 
     // 1. Upload avatar to Firebase Storage if provided (only if online)
     if (profileData.avatar && profileData.avatar.startsWith('file://')) {
-      
+
 
       if (onProgress) onProgress({ step: 'uploading_avatar', message: 'Uploading profile photo...' });
 
@@ -682,7 +682,7 @@ export const syncUserProfile = async (profileData, onProgress = null) => {
             onProgress
           );
           updatedData.profileImage = avatarURL;
-      
+
 
           if (onProgress) onProgress({ step: 'avatar_complete', message: 'Photo uploaded successfully' });
         } catch (error) {
@@ -722,7 +722,7 @@ export const syncUserProfile = async (profileData, onProgress = null) => {
 
     // 2. Update Firebase Auth profile (skip if offline)
     if (isOnline) {
-      
+
       if (onProgress) onProgress({ step: 'updating_auth', message: 'Updating authentication profile...' });
 
       try {
@@ -735,14 +735,14 @@ export const syncUserProfile = async (profileData, onProgress = null) => {
         if (!errorResult.isNetworkError) {
           throw error; // Re-throw non-network errors
         }
-        
+
       }
     } else {
       if (onProgress) onProgress({ step: 'auth_offline', message: 'Auth update queued for when online' });
     }
 
     // 3. Save/Update in Firestore (with offline handling)
-    
+
     if (onProgress) onProgress({ step: 'saving_firestore', message: 'Saving user data...' });
 
     const completeUserData = {
@@ -778,7 +778,7 @@ export const syncUserProfile = async (profileData, onProgress = null) => {
     }
 
     // 4. Update AsyncStorage (always works offline)
-    
+
     if (onProgress) onProgress({ step: 'saving_local', message: 'Saving locally...' });
 
     await saveUserToAsyncStorage(completeUserData);
@@ -786,7 +786,7 @@ export const syncUserProfile = async (profileData, onProgress = null) => {
     // 5. Save offline auth state for persistence
     await saveOfflineAuthState(completeUserData);
 
-    
+
     if (onProgress) onProgress({
       step: 'complete',
       message: isOnline ? 'Profile saved successfully!' : 'Profile saved locally and will sync when online!'
@@ -827,15 +827,15 @@ export const syncUserProfile = async (profileData, onProgress = null) => {
  */
 export const getCompleteUserProfile = async (forceRefresh = false) => {
   try {
-    
+
 
     const user = firebaseAuth.currentUser;
     if (!user) {
-      
+
       // Check if we have offline auth state
       const offlineAuth = await getOfflineAuthState();
       if (offlineAuth && offlineAuth.isOfflineAuth) {
-        
+
         return offlineAuth;
       }
 
@@ -844,17 +844,17 @@ export const getCompleteUserProfile = async (forceRefresh = false) => {
 
     // Check network connectivity
     const isOnline = await isNetworkAvailable();
-    
+
 
     // Try AsyncStorage first for speed (and offline scenarios)
     if (!forceRefresh || !isOnline) {
       const localData = await getUserFromAsyncStorage();
       if (localData && localData.uid === user.uid) {
-        
+
 
         // If offline, this is our only option
         if (!isOnline) {
-          
+
           return localData;
         }
 
@@ -867,14 +867,14 @@ export const getCompleteUserProfile = async (forceRefresh = false) => {
 
     // If offline and no local data, try offline auth state
     if (!isOnline) {
-      
+
       const offlineAuth = await getOfflineAuthState();
       if (offlineAuth && offlineAuth.isOfflineAuth) {
-        
+
         return offlineAuth;
       }
 
-      
+
       return null;
     }
 
@@ -882,10 +882,10 @@ export const getCompleteUserProfile = async (forceRefresh = false) => {
     const authStep = await AsyncStorage.getItem('authStep');
     const localData = await getUserFromAsyncStorage();
     const userRole = localData?.userRole;
-    
-    
 
-  if (userRole) {
+
+
+    if (userRole) {
       try {
         // Get from Firestore and update AsyncStorage
         const firestoreData = await getUserFromFirestore(user.uid, userRole);
@@ -895,13 +895,13 @@ export const getCompleteUserProfile = async (forceRefresh = false) => {
           // Update offline auth state as backup
           await saveOfflineAuthState(firestoreData);
 
-          
+
           return firestoreData;
         }
       } catch (error) {
         const errorResult = await handleNetworkError(error, 'get_user_profile');
         if (errorResult.isNetworkError) {
-          
+
 
           // Fall back to local data if available
           if (localData) {
@@ -925,7 +925,7 @@ export const getCompleteUserProfile = async (forceRefresh = false) => {
       const unifiedSnap = await getDoc(unifiedRef);
       if (unifiedSnap.exists()) {
         const unifiedData = { uid: user.uid, ...unifiedSnap.data() };
-        
+
         await saveUserToAsyncStorage(unifiedData);
         // Also update offline auth state for resilience
         await saveOfflineAuthState(unifiedData);
@@ -935,7 +935,7 @@ export const getCompleteUserProfile = async (forceRefresh = false) => {
       console.warn('⚠️ Unified profiles fallback failed:', unifiedErr?.message || unifiedErr);
     }
 
-    
+
     return null;
 
   } catch (error) {
@@ -945,13 +945,13 @@ export const getCompleteUserProfile = async (forceRefresh = false) => {
     try {
       const localData = await getUserFromAsyncStorage();
       if (localData) {
-        
+
         return localData;
       }
 
       const offlineAuth = await getOfflineAuthState();
       if (offlineAuth) {
-        
+
         return offlineAuth;
       }
     } catch (fallbackError) {
@@ -977,18 +977,18 @@ export const updateLastLogin = async (userId, userRole) => {
       await updateUserInFirestore(userId, userRole, {
         lastLoginAt: firestoreServerTimestamp(),
       });
-      
+
     } else {
       // Queue for later when online
       addToOfflineQueue('updateLastLogin', { userId, userRole });
-      
+
     }
   } catch (error) {
     const errorResult = await handleNetworkError(error, 'update_last_login');
     if (errorResult.isNetworkError) {
       // Add to offline queue
       addToOfflineQueue('updateLastLogin', { userId, userRole });
-      
+
     } else {
       console.error('❌ Failed to update last login:', error);
     }
@@ -1001,13 +1001,13 @@ export const updateLastLogin = async (userId, userRole) => {
  */
 export const clearUserData = async () => {
   try {
-    
+
 
     await AsyncStorage.multiRemove(['userData', 'authStep', 'offlineAuthState', 'offlineQueue', 'pendingAvatarUpload']);
     await clearOfflineAuthState();
     await firebaseAuth.signOut();
 
-    
+
   } catch (error) {
     console.error('❌ Failed to clear user data:', error);
   }
@@ -1020,7 +1020,7 @@ export const clearUserData = async () => {
  */
 export const validateUserProfileCompleteness = async (userId) => {
   try {
-    
+
 
     const user = firebaseAuth.currentUser;
     if (!user || user.uid !== userId) {
@@ -1095,27 +1095,27 @@ export const validateCurrentUser = async () => {
   try {
     const user = firebaseAuth.currentUser;
     if (!user) {
-      
+
 
       // Check offline auth state
       const offlineAuth = await getOfflineAuthState();
       if (offlineAuth && offlineAuth.isOfflineAuth) {
-        
+
         return true; // Allow offline access
       }
 
       return false;
     }
 
-    
+
 
     // Check network connectivity
     const isOnline = await isNetworkAvailable();
-    
+
 
     // If offline, allow user to stay logged in using cached data
     if (!isOnline) {
-      
+
 
       // Check if we have local user data
       const localData = await getUserFromAsyncStorage();
@@ -1159,7 +1159,7 @@ export const validateCurrentUser = async () => {
           const firestoreCheck = await checkUserExistsInFirestore(userData.phoneNumber);
 
           if (firestoreCheck.exists && firestoreCheck.userData) {
-            
+
 
             // Update offline auth state with fresh data
             await saveOfflineAuthState(firestoreCheck.userData);
@@ -1198,13 +1198,13 @@ export const validateCurrentUser = async () => {
           } catch (graceErr) {
             console.warn('Grace period check failed:', graceErr);
           }
-          
+
           await clearUserData();
           await clearOfflineAuthState();
           return false;
         }
 
-        
+
         return true;
       } catch (profileError) {
         const errorResult = await handleNetworkError(profileError, 'profile_validation');
@@ -1222,7 +1222,7 @@ export const validateCurrentUser = async () => {
       // Check for network-related errors more comprehensively
       const errorMessage = reloadError.message?.toLowerCase() || '';
       const errorCode = reloadError.code?.toLowerCase() || '';
-      
+
       const isNetworkError =
         errorMessage.includes('network') ||
         errorMessage.includes('timeout') ||
@@ -1267,7 +1267,7 @@ export const validateCurrentUser = async () => {
     // Check for network errors more comprehensively
     const errorMessage = error.message?.toLowerCase() || '';
     const errorCode = error.code?.toLowerCase() || '';
-    
+
     const isNetworkError =
       errorMessage.includes('network') ||
       errorMessage.includes('timeout') ||
@@ -1314,16 +1314,16 @@ export const validateCurrentUser = async () => {
  */
 export const checkUserExistsInFirestore = async (phoneNumber) => {
   try {
-    
+
     const profilesRef = collection(firebaseFirestore, COLLECTIONS.PROFILES);
     const q = query(profilesRef, where('phoneNumber', '==', phoneNumber), limit(1));
     const snapshot = await getDocs(q);
     if (!snapshot.empty) {
       const userData = snapshot.docs[0].data();
-      
+
       return { exists: true, userData, collection: COLLECTIONS.PROFILES };
     }
-    
+
     return { exists: false, userData: null, collection: null };
   } catch (error) {
     console.error('❌ Error checking if user exists in unified profiles collection:', error);
@@ -1345,7 +1345,7 @@ const ensureCollectionExists = async () => {
     if (snapshot.empty) {
       const initRef = doc(firebaseFirestore, collectionName, '.__init__');
       await setDoc(initRef, { createdAt: firestoreServerTimestamp(), note: 'init placeholder - safe to delete' });
-      
+
     }
   } catch (error) {
     console.error('❌ Error ensuring profiles collection exists:', error);

@@ -57,6 +57,7 @@ const BuyerProfileScreen: React.FC<BuyerProfileScreenProps> = ({ route }) => {
     // State for UI interactions
     const [showAllReviews, setShowAllReviews] = useState(false);
     const [reviewModalVisible, setReviewModalVisible] = useState(false);
+    const [profilePreviewVisible, setProfilePreviewVisible] = useState(false);
     const [newReview, setNewReview] = useState({
         rating: 5,
         comment: '',
@@ -230,6 +231,12 @@ const BuyerProfileScreen: React.FC<BuyerProfileScreenProps> = ({ route }) => {
                                 <Icon name="location" size={20} color="#6B7280" />
                                 <Text style={styles.contactText}>
                                     {formatLocationValue(profile?.location)}
+                                </Text>
+                            </View>
+                            <View style={styles.contactItem}>
+                                <Icon name="calendar-outline" size={20} color="#6B7280" />
+                                <Text style={styles.contactText}>
+                                    {t('buyerProfile.memberSince')} {profile?.createdAt ? new Date(profile.createdAt).getFullYear() : new Date().getFullYear()}
                                 </Text>
                             </View>
                         </View>
@@ -450,7 +457,11 @@ const BuyerProfileScreen: React.FC<BuyerProfileScreenProps> = ({ route }) => {
                     {/* Profile Card */}
                     <View style={styles.profileCard}>
                         <View style={styles.profileImageContainer}>
-                            <View style={styles.profileImage}>
+                            <TouchableOpacity
+                                style={styles.profileImage}
+                                onPress={() => setProfilePreviewVisible(true)}
+                                activeOpacity={0.8}
+                            >
                                 {profile.profileImage ? (
                                     <Image
                                         source={{ uri: profile.profileImage }}
@@ -461,7 +472,13 @@ const BuyerProfileScreen: React.FC<BuyerProfileScreenProps> = ({ route }) => {
                                         {profile.name.charAt(0)}
                                     </Text>
                                 )}
-                            </View>
+                                {/* Subtle preview indicator */}
+                                {profile.profileImage && (
+                                    <View style={styles.profilePreviewOverlay}>
+                                        <Icon name="expand-outline" size={16} color="#FFFFFF" />
+                                    </View>
+                                )}
+                            </TouchableOpacity>
                             {profile.isVerified && (
                                 <View style={styles.verifiedBadge}>
                                     <Icon name="checkmark" size={12} color="#FFFFFF" />
@@ -700,6 +717,30 @@ const BuyerProfileScreen: React.FC<BuyerProfileScreenProps> = ({ route }) => {
                             </View>
                         </View>
                     </ScrollView>
+                </View>
+            </Modal>
+
+            {/* Profile Preview Modal */}
+            <Modal
+                visible={profilePreviewVisible}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setProfilePreviewVisible(false)}
+            >
+                <View style={styles.profilePreviewOverlay}>
+                    <TouchableOpacity
+                        style={styles.profilePreviewOverlay}
+                        activeOpacity={1}
+                        onPress={() => setProfilePreviewVisible(false)}
+                    >
+                        <View style={styles.profilePreviewContainer}>
+                            <Image
+                                source={profile?.profileImage ? { uri: profile.profileImage } : require('../../assets/icons/default-avatar.png')}
+                                style={styles.profilePreviewImage}
+                                resizeMode="cover"
+                            />
+                        </View>
+                    </TouchableOpacity>
                 </View>
             </Modal>
         </View>
@@ -1614,6 +1655,26 @@ const styles = StyleSheet.create({
         height: 6,
         borderRadius: 3,
         backgroundColor: '#22C55E',
+    },
+    profilePreviewOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        width: '100%',
+    },
+    profilePreviewContainer: {
+        width: '90%',
+        aspectRatio: 1,
+        // maxWidth: 350,
+        // padding: 50,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    profilePreviewImage: {
+        width: '100%',
+        height: '100%',
+        borderRadius: 12,
     },
 });
 

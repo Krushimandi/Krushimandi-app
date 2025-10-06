@@ -100,7 +100,7 @@ const PhotoUploadScreen = ({ navigation, route }) => {
 
     // Upload image to Firebase Storage
     const uploadImageToFirebase = async (imageUri, photoIndex) => {
-    // Starting upload
+        // Starting upload
 
         // Double-check that we should proceed with this upload
         if (pendingUploads.has(photoIndex)) {
@@ -116,7 +116,7 @@ const PhotoUploadScreen = ({ navigation, route }) => {
 
             // Compress image first for faster upload and smaller file size
             const compressedUri = await compressImage(imageUri);
-            
+
 
             // Generate unique filename with timestamp to avoid conflicts
             const userId = await AsyncStorage.getItem('userData').then(data => {
@@ -157,7 +157,7 @@ const PhotoUploadScreen = ({ navigation, route }) => {
             // Get download URL
             const downloadURL = await reference.getDownloadURL();
 
-            
+
 
             // Update photo state with Firebase URL (if still present)
             setUploadedPhotos(prev => {
@@ -168,7 +168,7 @@ const PhotoUploadScreen = ({ navigation, route }) => {
                         firebaseUrl: downloadURL,
                         uploading: false
                     };
-                    
+
                 } else {
                     console.warn(`⚠️ Slot ${photoIndex} no longer exists or was cleared; skipping update.`);
                 }
@@ -216,7 +216,7 @@ const PhotoUploadScreen = ({ navigation, route }) => {
                         uploading: false,
                         uploadFailed: true
                     };
-                    
+
                 } else {
                     console.error(`❌ ERROR: Cannot mark failed - no photo at index ${photoIndex}`);
                 }
@@ -271,7 +271,7 @@ const PhotoUploadScreen = ({ navigation, route }) => {
     };
 
     const handlePhotoUpload = (index) => {
-        
+
 
         // Find the first empty slot that should be filled
         const nextSlotToFill = getNextAvailableSlot();
@@ -322,7 +322,7 @@ const PhotoUploadScreen = ({ navigation, route }) => {
             if (response.assets && response.assets[0]) {
                 const imageUri = response.assets[0].uri;
                 const targetIndex = targetIndexCaptured;
-                
+
 
                 // Double-check that the slot is still empty before proceeding
                 if (uploadedPhotos[targetIndex]) {
@@ -357,7 +357,7 @@ const PhotoUploadScreen = ({ navigation, route }) => {
 
                     // Place the photo object at the target index
                     newPhotos[targetIndex] = photoObj;
-                    
+
                     return newPhotos;
                 });
 
@@ -377,14 +377,14 @@ const PhotoUploadScreen = ({ navigation, route }) => {
     };
 
     const removePhoto = (index) => {
-        
+
 
         // Cancel upload if it's still uploading
         if (pendingUploads.has(index)) {
             const uploadTask = uploadTasks[index];
             if (uploadTask) {
                 uploadTask.cancel();
-                
+
             }
         }
 
@@ -417,7 +417,7 @@ const PhotoUploadScreen = ({ navigation, route }) => {
             while (newPhotos.length < maxPhotos) {
                 newPhotos.push(null);
             }
-            
+
             return newPhotos;
         });
 
@@ -517,7 +517,7 @@ const PhotoUploadScreen = ({ navigation, route }) => {
             createdBy: fruitData?.createdBy
         };
 
-    // Product data prepared
+        // Product data prepared
 
         // Navigate to price selection screen with the complete data
         navigation.navigate('PriceSelection', { productData: completeProductData });
