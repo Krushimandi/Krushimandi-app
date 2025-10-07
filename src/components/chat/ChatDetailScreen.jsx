@@ -9,7 +9,6 @@ import {
   Dimensions,
   Platform,
   FlatList,
-  KeyboardAvoidingView,
   Linking,
   Alert,
 } from 'react-native';
@@ -20,6 +19,7 @@ import { BlurView } from '@react-native-community/blur';
 import FastImage from 'react-native-fast-image';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
+import ReAnimated, { useAnimatedStyle } from 'react-native-reanimated';
 import { auth } from '../../config/firebaseModular';
 import { requestService } from '../../services/requestService';
 import {
@@ -35,14 +35,12 @@ import {
   subscribeUserOnlineStatus,
   setUserOnlineStatus,
 } from '../../services/chatService';
-import useKeyboardHeight from '../../hooks/useKeyboardHeight';
-import useKeyboardLayoutMode from '../../hooks/useKeyboardLayoutMode';
 import ChatInputBar from './ChatInputBar';
 import { Colors } from '../../constants';
 import LoadingOverlay from 'utils/LoadingOverlay';
 
 // Constants
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const HEADER_HEIGHT = Platform.OS === 'ios' ? 100 : 80;
 const BOTTOM_GUTTER = 12;
 
@@ -143,9 +141,6 @@ const ChatDetailScreen = ({ route, navigation }) => {
   const lastTypingSentRef = useRef(false);
   const initialScrollDone = useRef(false);
 
-  const { keyboardHeightAnimated, keyboardHeight, keyboardVisible } = useKeyboardHeight();
-  const { handleRootLayout, isResizeLike } = useKeyboardLayoutMode({ debounceMs: 100 });
-
   // Constants
   const defaultAvatar = require('../../../assets/logo.png');
   const currentUid = auth.currentUser?.uid || '';
@@ -179,13 +174,7 @@ const ChatDetailScreen = ({ route, navigation }) => {
     return () => { isMountedRef.current = false; };
   }, []);
 
-  const getAndroidVersionName = () => {
-    if (Platform.OS !== 'android') return null;
-    const sdk = Platform.Version;
-    if (sdk >= 35) return true;
-    if (sdk >= 34) return true;
-    return false;
-  }
+
 
   // Subscribe to other user's online status (read-only, doesn't set our own status)
   useEffect(() => {
@@ -514,20 +503,15 @@ const ChatDetailScreen = ({ route, navigation }) => {
 
   // Memoize contentContainerStyle to avoid prop churn on FlatList
   const messagesContentStyle = useMemo(() => {
-    // In Android adjustPan-like mode, we add keyboardHeight as bottom inset
-    // so messages stay above the keyboard; the input bar is absolute.
-    const extraKeyboardPad = (Platform.OS === 'android' && !isResizeLike && keyboardVisible)
-      ? keyboardHeight
-      : 0;
     return [
       styles.messagesContent,
       {
         paddingTop: HEADER_HEIGHT + insets.top + 20,
-        // Ensure last messages sit above input + keyboard (in pan mode) while keeping a small gutter
-        paddingBottom: inputBarHeight + extraKeyboardPad + Math.max(insets.bottom, 8) + BOTTOM_GUTTER,
+        // Ensure last messages sit above input while keeping a small gutter
+        paddingBottom: inputBarHeight + Math.max(insets.bottom, 8) + BOTTOM_GUTTER,
       }
     ];
-  }, [insets.top, insets.bottom, inputBarHeight, isResizeLike, keyboardVisible, keyboardHeight]);
+  }, [insets.top, insets.bottom, inputBarHeight]);
 
   // Memoized renderItem to avoid re-creating per render
   const renderItem = useCallback(({ item }) => (
@@ -537,13 +521,10 @@ const ChatDetailScreen = ({ route, navigation }) => {
   // Memoized footer to avoid unnecessary recalculations
   const ListFooter = useCallback(() => (isTyping ? <TypingIndicator /> : null), [isTyping]);
 
+
+
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? HEADER_HEIGHT : 0}
-      onLayout={handleRootLayout}
-    >
+    <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
 
       {/* Header */}
@@ -640,30 +621,23 @@ const ChatDetailScreen = ({ route, navigation }) => {
         />
       </View>
 
-      <Animated.View
-        style={[
-          styles.inputContainer,
-          (Platform.OS === 'android' && !isResizeLike)
-            ? { bottom: getAndroidVersionName() ? keyboardHeightAnimated : 0 }
-            : { bottom: 0 }
-        ]}
-      >
-        <ChatInputBar
-          ref={inputRef}
-          value={messageText}
-          onChangeText={setMessageText}
-          onSend={handleSend}
-          onHeightChange={setInputBarHeight}
-          maxLength={1000}
-        />
-      </Animated.View>
+        <View style={styles.inputContainer}>
+          <ChatInputBar
+            ref={inputRef}
+            value={messageText}
+            onChangeText={setMessageText}
+            onSend={handleSend}
+            onHeightChange={setInputBarHeight}
+            maxLength={1000}
+          />
+        </View>
 
-      <LoadingOverlay
-        visible={isRoleSwitching}
-        message={t('common.loading', { defaultValue: 'Loading...' })}
-        spinnerColor="#43B86C"
-      />
-    </KeyboardAvoidingView >
+        <LoadingOverlay
+          visible={isRoleSwitching}
+          message={t('common.loading', { defaultValue: 'Loading...' })}
+          spinnerColor="#43B86C"
+        />
+    </View>
   );
 };
 
