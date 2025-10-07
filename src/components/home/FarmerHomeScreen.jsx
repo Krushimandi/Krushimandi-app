@@ -390,17 +390,23 @@ const FarmerHomeScreen = () => {
   const getDynamicFontSize = useMemo(() => {
     const nameLength = getDisplayName.length;
     
-    // Base font size is 22, minimum is 20
-    // Reduce font size based on name length to fit names up to 11 characters
+    // Base font size is 22, minimum is 18
+    // More granular font size reduction based on character count
     const baseFontSize = 22;
-    const minFontSize = 20;
+    const minFontSize = 18;
     
-    if (nameLength <= 8) {
-      // Short names: use full font size
+    if (nameLength <= 6) {
+      // Very short names: use full font size
       return baseFontSize;
+    } else if (nameLength <= 8) {
+      // Short names: slight reduction
+      return 21;
+    } else if (nameLength <= 10) {
+      // Medium names: more reduction
+      return 20;
     } else if (nameLength <= 11) {
-      // Medium/Long names: reduce to minimum to fit
-      return minFontSize;
+      // Long names: further reduction
+      return 19;
     } else {
       // Very long names (truncated): use minimum
       return minFontSize;
