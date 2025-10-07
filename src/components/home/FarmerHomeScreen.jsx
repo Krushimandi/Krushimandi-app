@@ -368,14 +368,44 @@ const FarmerHomeScreen = () => {
 
   // Get display name for greeting - memoized to prevent recalculations
   const getDisplayName = useMemo(() => {
+    let name;
     if (userProfile?.firstName) {
-      return userProfile.firstName;
+      name = userProfile.firstName;
+    } else if (userProfile?.displayName) {
+      name = userProfile.displayName.split(' ')[0];
+    } else {
+      name = 'there';
     }
-    if (userProfile?.displayName) {
-      return userProfile.displayName.split(' ')[0];
+    
+    // Allow names up to 11 characters, truncate with "..." if longer
+    // When truncating, show only 11 characters + "..."
+    // Font size will be reduced for longer names (handled in getDynamicFontSize)
+    if (name.length > 11) {
+      return name.substring(0, 11) + '...';
     }
-    return 'there';
+    return name;
   }, [userProfile?.firstName, userProfile?.displayName]);
+
+  // Calculate dynamic font size based on name length
+  const getDynamicFontSize = useMemo(() => {
+    const nameLength = getDisplayName.length;
+    
+    // Base font size is 22, minimum is 20
+    // Reduce font size based on name length to fit names up to 11 characters
+    const baseFontSize = 22;
+    const minFontSize = 20;
+    
+    if (nameLength <= 8) {
+      // Short names: use full font size
+      return baseFontSize;
+    } else if (nameLength <= 11) {
+      // Medium/Long names: reduce to minimum to fit
+      return minFontSize;
+    } else {
+      // Very long names (truncated): use minimum
+      return minFontSize;
+    }
+  }, [getDisplayName]);
 
   // Toggle product in watchlist
   const toggleWatchlist = (productId) => {
@@ -815,7 +845,7 @@ const FarmerHomeScreen = () => {
                     activeOpacity={0.8}
                     hitSlop={{ top: 10, bottom: 10, left: 0, right: 10 }}
                   >
-                    <Text style={styles.welcome}>
+                    <Text style={[styles.welcome, { fontSize: getDynamicFontSize }]}>
                       {t('farmerHome.greeting', { name: getDisplayName })}
                     </Text>
                     <TouchableOpacity activeOpacity={0.9} onPress={onLocationPress}>

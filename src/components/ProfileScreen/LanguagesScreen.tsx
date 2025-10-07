@@ -13,6 +13,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTranslation } from 'react-i18next';
 import i18n from '../../i18n';
 
+interface NavigationProp {
+  goBack: () => void;
+}
+
+interface LanguagesScreenProps {
+  navigation?: NavigationProp;
+}
+
 type LanguageItem = { code: string; name: string; enabled: boolean };
 
 // Only enable English (en), Hindi (hi), and Marathi (mr) for now
@@ -33,9 +41,10 @@ const ENABLED_LANGUAGE_CODES = availableLanguages
   .filter(l => l.enabled)
   .map(l => l.code);
 
-const LanguagesScreen = () => {
-  const { t } = useTranslation();
+const LanguagesScreen: React.FC<LanguagesScreenProps> = ({ navigation }) => {
+  const { t, i18n: i18nInstance } = useTranslation();
   const [selectedLanguage, setSelectedLanguage] = useState('en');
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // Load saved language on mount
   useEffect(() => {
@@ -72,6 +81,25 @@ const LanguagesScreen = () => {
     })();
   }, [selectedLanguage]);
 
+  // Listen for language changes from i18n and force re-render
+  useEffect(() => {
+    const handleLanguageChanged = () => {
+      setRefreshKey(prev => prev + 1);
+    };
+    
+    i18nInstance.on('languageChanged', handleLanguageChanged);
+    
+    return () => {
+      i18nInstance.off('languageChanged', handleLanguageChanged);
+    };
+  }, [i18nInstance]);
+
+  const handleBackPress = (): void => {
+    if (navigation) {
+      navigation.goBack();
+    }
+  };
+
   const renderItem = ({ item }: { item: LanguageItem }) => {
     const isSelected = item.code === selectedLanguage && item.enabled;
     const isDisabled = !item.enabled;
@@ -84,10 +112,16 @@ const LanguagesScreen = () => {
           styles.languageOption,
           isSelected && styles.selectedOption,
         ]}
-        onPress={() => {
+        onPress={async () => {
           if (!item.enabled) return;
           setSelectedLanguage(item.code);
-          try { i18n.changeLanguage(item.code); } catch { }
+          try { 
+            await i18n.changeLanguage(item.code);
+            // Force component re-render to pick up new translations
+            setRefreshKey(prev => prev + 1);
+          } catch (error) {
+            console.warn('Failed to change language:', error);
+          }
         }}
       >
         <Text
@@ -112,17 +146,33 @@ const LanguagesScreen = () => {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
-      <StatusBar barStyle="dark-content" />
-      <View style={styles.container}>
-        <Text style={styles.heading}>{t('labels.chooseLanguage')}</Text>
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#F2F2F7" />
+
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={handleBackPress}
+        >
+          <Ionicons name="chevron-back" size={24} color="#000" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>{t('labels.chooseLanguage')}</Text>
+        <View style={styles.headerRight} />
+      </View>
+
+      <View style={styles.content}>
         <FlatList
+          key={refreshKey}
           data={availableLanguages}
           keyExtractor={(item) => item.code}
           renderItem={renderItem}
           contentContainerStyle={styles.list}
         />
       </View>
+
+      {/* Bottom indicator */}
+      <View style={styles.bottomIndicator} />
     </SafeAreaView>
   );
 };
@@ -132,7 +182,31 @@ export default LanguagesScreen;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingVertical: 20,
+    backgroundColor: '#F5F5F5',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 10,
+    paddingTop: (StatusBar.currentHeight ?? 0) + 16,
+    paddingVertical: 12,
+    backgroundColor: '#F5F5F5',
+  },
+  backButton: {
+    padding: 8,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#000',
+  },
+  headerRight: {
+    width: 40,
+  },
+  content: {
+    flex: 1,
+    paddingHorizontal: 16,
   },
   heading: {
     fontSize: 24,
@@ -144,7 +218,7 @@ const styles = StyleSheet.create({
   },
   list: {
     paddingBottom: 20,
-    paddingHorizontal: 20,
+    paddingHorizontal: 4,
   },
   languageOption: {
     backgroundColor: '#fff',
@@ -185,5 +259,13 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     fontSize: 12,
     fontWeight: '500',
+  },
+  bottomIndicator: {
+    width: 134,
+    height: 5,
+    backgroundColor: '#000',
+    borderRadius: 2.5,
+    alignSelf: 'center',
+    marginBottom: 8,
   },
 });
