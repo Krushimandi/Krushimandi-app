@@ -26,8 +26,16 @@
     "clear": "साफ़ करें",
     "submit": "सबमिट करें",
     "ok": "ठीक",
+    "error": "त्रुटि",
+    "success": "सफलता",
+    "next": "अगला",
+    "back": "वापस",
+    "wait": "प्रतीक्षा करें",
+    "loading": "लोड हो रहा है...",
+    "remove": "हटाएं",
     "locationNotAvailable": "स्थान उपलब्ध नहीं",
-    "goBack": "वापस जाएँ"
+    "goBack": "वापस जाएँ",
+    "loginRequired": "कृपया जारी रखने के लिए लॉगिन करें"
   },
   "alerts": {
     "errorTitle": "त्रुटि",
@@ -144,7 +152,8 @@
       "receivedRequests": "प्राप्त अनुरोध"
     },
     "subtitle": {
-      "count": "कुल {{total}} में से {{filtered}} अनुरोध"
+      "count": "कुल {{total}} में से {{filtered}} अनुरोध",
+      "noRequests": "कोई अनुरोध नहीं मिला"
     },
     "search": {
       "placeholder": "उत्पाद, किसान, स्थान खोजें..."
@@ -481,6 +490,9 @@
     "notFound": "प्रोफ़ाइल नहीं मिली",
     "infoTitle": "जानकारी",
     "cannotReviewOwn": "आप अपनी प्रोफ़ाइल की समीक्षा नहीं कर सकते",
+    "cannotMessageOwn": "आप अपनी प्रोफ़ाइल को संदेश नहीं भेज सकते",
+    "profileNotFound": "प्रोफ़ाइल नहीं मिली या उपलब्ध नहीं है",
+    "chatError": "चैट शुरू करने में असमर्थ। कृपया पुनः प्रयास करें।",
     "successTitle": "सफलता",
     "reviewSubmitSuccess": "समीक्षा सफलतापूर्वक सबमिट की गई",
     "shareTitle": "{{name}} - KrushiMandi",
@@ -532,6 +544,22 @@
       "honest": "ईमानदार और रचनात्मक रहें",
       "focus": "अपने अनुभव पर ध्यान दें",
       "professional": "इसे पेशेवर और सम्मानजनक रखें"
+    },
+    "share": {
+      "title": "विश्वसनीय कृषिमंडी खरीदार",
+      "defaultBuyerName": "कृषिमंडी खरीदार",
+      "newBuyer": "नया खरीदार",
+      "reviews": "समीक्षाएं",
+      "memberSince": "सदस्य बने",
+      "buyingStats": "खरीदारी आंकड़े",
+      "completedOrders": "पूर्ण आर्डर",
+      "totalRequests": "खरीद अनुरोध",
+      "verifiedBuyer": "सत्यापित खरीदार",
+      "shareTitle": "{{name}} - कृषिमंडी खरीदार प्रोफ़ाइल",
+      "downloadApp": "🚀 कृषिमंडी में शामिल हों - किसानों और खरीदारों से सीधे जुड़ें!"
+    },
+    "location": {
+      "unknown": "स्थान निर्दिष्ट नहीं"
     }
   },
   "product": {

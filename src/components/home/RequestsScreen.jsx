@@ -149,12 +149,12 @@ const RequestsScreen = () => {
     useCallback(() => {
       // Reset scroll position to show search/filter header when returning to screen
       scrollY.setValue(0);
-      
+
       // Scroll FlatList to top smoothly
       if (flatListRef.current) {
         flatListRef.current.scrollToOffset({ offset: 0, animated: false });
       }
-      
+
       loadRequests();
     }, [loadRequests, scrollY])
   );
@@ -173,13 +173,13 @@ const RequestsScreen = () => {
         .filter(r => r.status === RequestStatus.ACCEPTED)
         .map(r => r.id)
         .filter(Boolean);
-      
+
       if (acceptedIds.length > 0) {
         // Use a timeout to ensure the badge is visible briefly before clearing
         const timeoutId = setTimeout(() => {
           markSeen(acceptedIds);
         }, 500);
-        
+
         return () => clearTimeout(timeoutId);
       }
     }, [requests, markSeen])
@@ -216,7 +216,7 @@ const RequestsScreen = () => {
       return matchesSearch && matchesFilter;
     });
 
-  // Sort requests (stable, multi-mode)
+    // Sort requests (stable, multi-mode)
     filtered.sort((a, b) => {
       // Helpers kept inside to avoid polluting outer scope; cheap relative to list size
       const normString = (v) => (v || '').toString().trim().toLowerCase();
@@ -403,25 +403,25 @@ const RequestsScreen = () => {
   const getFarmerPhoneNumber = React.useCallback(async (farmerId) => {
     try {
       if (!farmerId) return null;
-      
+
       // Check cache first using ref (always has latest value)
       if (phoneCache.current[farmerId]) {
         return phoneCache.current[farmerId];
       }
-      
+
       // Check if already fetching to prevent duplicate requests
       if (fetchingPhones.current.has(farmerId)) {
         console.log('⏳ Already fetching phone for', farmerId);
         return null;
       }
-      
+
       // Mark as fetching
       fetchingPhones.current.add(farmerId);
-      
+
       console.log('🔍 (RequestsScreen) Fetching farmer phone for', farmerId);
       const ref = doc(firestore, 'profiles', farmerId);
       const snap = await getDoc(ref);
-      
+
       // Remove from fetching set
       fetchingPhones.current.delete(farmerId);
 
@@ -431,11 +431,11 @@ const RequestsScreen = () => {
         if (phone) {
           const masked = phone.replace(/(\+?\d{3})\d{4}(\d{2,})/, '$1****$2');
           console.log('📱 Farmer phone (masked):', masked);
-          
+
           // Update cache and trigger re-render
           phoneCache.current[farmerId] = phone;
           setPhoneCacheVersion(prev => prev + 1); // Force re-render for UI updates
-          
+
           return phone;
         }
       } else {
@@ -464,16 +464,16 @@ const RequestsScreen = () => {
   // Prefetch phone numbers ONLY when requests actually change
   React.useEffect(() => {
     if (!requestsChanged) return; // Don't run if requests haven't changed
-    
+
     const acceptedFarmerIds = requests
       .filter(r => r.status === RequestStatus.ACCEPTED && r.farmerId)
       .map(r => r.farmerId);
-    
+
     // Get unique IDs that aren't cached and aren't being fetched
-    const unique = [...new Set(acceptedFarmerIds)].filter(id => 
+    const unique = [...new Set(acceptedFarmerIds)].filter(id =>
       !phoneCache.current[id] && !fetchingPhones.current.has(id)
     );
-    
+
     if (unique.length > 0) {
       console.log('📞 Prefetching phone numbers for', unique.length, 'farmers');
       // Prefetch in background without blocking
@@ -744,7 +744,7 @@ const RequestsScreen = () => {
           </View>
         </View>
         <Text style={styles.headerSubtitle}>
-          {stats.total > 0 
+          {stats.total > 0
             ? t('requests.subtitle.count', { filtered: filteredAndSortedRequests.length, total: stats.total })
             : t('requests.subtitle.noRequests', { count: 0 })
           }

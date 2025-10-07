@@ -33,7 +33,8 @@
     "loading": "Loading...",
     "remove": "Remove",
     "submit": "Submit Review",
-    "goBack": "Go Back"
+    "goBack": "Go Back",
+    "loginRequired": "Please login to continue"
   },
   "alerts": {
     "errorTitle": "Error",
@@ -333,6 +334,9 @@
     "notFound": "Profile not found",
     "infoTitle": "Info",
     "cannotReviewOwn": "You cannot review your own profile",
+    "cannotMessageOwn": "You cannot message your own profile",
+    "profileNotFound": "Profile not found or unavailable",
+    "chatError": "Unable to start chat. Please try again.",
     "successTitle": "Success",
     "reviewSubmitSuccess": "Review submitted successfully",
     "shareTitle": "{{name}} - KrushiMandi",
@@ -384,6 +388,22 @@
       "honest": "Be honest and constructive",
       "focus": "Focus on your experience",
       "professional": "Keep it professional and respectful"
+    },
+    "share": {
+      "title": "Trusted KrushiMandi Buyer",
+      "defaultBuyerName": "KrushiMandi Buyer",
+      "newBuyer": "New Buyer",
+      "reviews": "reviews",
+      "memberSince": "Member since",
+      "buyingStats": "Buying Statistics",
+      "completedOrders": "completed orders",
+      "totalRequests": "purchase requests",
+      "verifiedBuyer": "Verified Buyer",
+      "shareTitle": "{{name}} - KrushiMandi Buyer Profile",
+      "downloadApp": "🚀 Join KrushiMandi - Connect directly with farmers and buyers!"
+    },
+    "location": {
+      "unknown": "Location not specified"
     }
   },
   "product": {
@@ -1232,7 +1252,8 @@
         "receivedRequests": "Received Requests"
       },
       "subtitle": {
-        "count": "{{filtered}} of {{total}} requests"
+        "count": "{{filtered}} of {{total}} requests",
+        "noRequests": "No requests found"
       },
       "search": {
         "placeholder": "Search products, farmers, locations..."

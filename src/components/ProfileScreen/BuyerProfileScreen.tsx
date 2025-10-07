@@ -29,6 +29,8 @@ import { useBuyerProfile } from '../../hooks/useBuyerProfile';
 import { BuyerProfile, BuyerReview } from '../../services/buyerService';
 import { formatLocation } from '../../utils/location';
 import { useTranslation } from 'react-i18next';
+import { buildChatId, ensureChatExists, fetchUserProfile } from '../../services/chatService';
+import Toast from 'react-native-toast-message';
 
 const { width, height } = Dimensions.get('window');
 
@@ -98,9 +100,71 @@ const BuyerProfileScreen: React.FC<BuyerProfileScreenProps> = ({ route }) => {
         }
     };
 
-    const handleMessage = () => {
-        if (profile?.phone) {
-            Linking.openURL(`sms:${profile.phone}`);
+    const handleMessage = async () => {
+        if (!user?.id) {
+            Toast.show({ 
+                type: 'error', 
+                text1: t('common.error'), 
+                text2: t('common.loginRequired'), 
+                position: 'bottom' 
+            });
+            return;
+        }
+
+        if (isOwnProfile) {
+            Toast.show({ 
+                type: 'info', 
+                text1: t('buyerProfile.infoTitle'), 
+                text2: t('buyerProfile.cannotMessageOwn'), 
+                position: 'bottom' 
+            });
+            return;
+        }
+
+        try {
+            const currentUid = user.id;
+            const chatId = buildChatId(currentUid, buyerId);
+            
+            // Fetch buyer profile for chat metadata
+            const buyerProfile = await fetchUserProfile(buyerId);
+            
+            if (!buyerProfile) {
+                Toast.show({ 
+                    type: 'error', 
+                    text1: t('common.error'), 
+                    text2: t('buyerProfile.profileNotFound'), 
+                    position: 'bottom' 
+                });
+                return;
+            }
+
+            const buyerDisplayName = buyerProfile.displayName || buyerName || t('buyerProfile.share.defaultBuyerName');
+            const buyerMeta = {
+                displayName: buyerDisplayName,
+                avatar: buyerProfile.profileImage || null,
+                phoneNumber: buyerProfile.phoneNumber || null,
+            };
+
+            const participantsMeta = { [buyerId]: buyerMeta };
+
+            // Ensure chat document exists
+            await ensureChatExists(chatId, [currentUid, buyerId], participantsMeta);
+
+            // Navigate to ChatDetail with proper params
+            (navigation as any).navigate('ChatDetail', {
+                chatId,
+                otherUid: buyerId,
+                name: buyerDisplayName,
+                avatarUri: buyerProfile.profileImage || null,
+            });
+        } catch (error: any) {
+            console.warn('Failed to start chat:', error?.message || error);
+            Toast.show({ 
+                type: 'error', 
+                text1: t('common.error'), 
+                text2: t('buyerProfile.chatError'), 
+                position: 'bottom' 
+            });
         }
     };
 
@@ -109,9 +173,40 @@ const BuyerProfileScreen: React.FC<BuyerProfileScreenProps> = ({ route }) => {
 
     const handleShare = async () => {
         try {
+            // Create professional sharing message
+            const formatStarRating = (rating: number) => {
+                const fullStars = Math.floor(rating);
+                const hasHalfStar = rating % 1 >= 0.5;
+                return '⭐'.repeat(fullStars) + (hasHalfStar ? '✨' : '');
+            };
+
+            const memberSinceYear = profile?.createdAt?.toDate?.()?.getFullYear() || new Date().getFullYear();
+            const rating = profile?.rating || 0;
+            const totalRatings = profile?.totalRatings || 0;
+            const ratingStars = rating > 0 ? formatStarRating(rating) : '';
+            const location = formatLocationValue(profile?.location) || t('buyerProfile.location.unknown');
+
+            // Build beautiful message with emojis and proper formatting
+            const shareMessage = `🛒 ${t('buyerProfile.share.title')}
+
+👤 ${profile?.name || t('buyerProfile.share.defaultBuyerName')}
+${ratingStars} ${rating > 0 ? `${rating}/5` : t('buyerProfile.share.newBuyer')} ${totalRatings > 0 ? `(${totalRatings} ${t('buyerProfile.share.reviews')})` : ''}
+
+📍 ${location}
+📅 ${t('buyerProfile.share.memberSince')} ${memberSinceYear}
+
+📊 ${t('buyerProfile.share.buyingStats')}:
+• ${profile?.completedOrders || 0} ${t('buyerProfile.share.completedOrders')}
+• ${profile?.totalRequests || 0} ${t('buyerProfile.share.totalRequests')}
+
+${profile?.isVerified ? '✅ ' + t('buyerProfile.share.verifiedBuyer') : ''}
+
+${t('buyerProfile.share.downloadApp')}
+#KrushiMandi #TrustedBuyer #Agriculture`;
+
             await Share.share({
-                message: t('buyerProfile.shareMessage', { name: profile?.name, rating: profile?.rating, orders: profile?.completedOrders }),
-                title: t('buyerProfile.shareTitle', { name: profile?.name }),
+                message: shareMessage,
+                title: t('buyerProfile.share.shareTitle', { name: profile?.name || t('buyerProfile.share.defaultBuyerName') }),
             });
         } catch (error) {
             console.error('Error sharing profile:', error);
@@ -236,7 +331,7 @@ const BuyerProfileScreen: React.FC<BuyerProfileScreenProps> = ({ route }) => {
                             <View style={styles.contactItem}>
                                 <Icon name="calendar-outline" size={20} color="#6B7280" />
                                 <Text style={styles.contactText}>
-                                    {t('buyerProfile.memberSince')} {profile?.createdAt ? new Date(profile.createdAt).getFullYear() : new Date().getFullYear()}
+                                    {t('buyerProfile.memberSince')} {profile?.createdAt?.toDate?.()?.toLocaleDateString('en-IN', { year: 'numeric', month: 'long' }) || new Date().toLocaleDateString('en-IN', { year: 'numeric', month: 'long' })}
                                 </Text>
                             </View>
                         </View>
