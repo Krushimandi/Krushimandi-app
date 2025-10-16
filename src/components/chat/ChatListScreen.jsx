@@ -274,9 +274,7 @@ const ChatListScreen = ({ navigation }) => {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar
         barStyle="dark-content"
-        backgroundColor="#FFFFFF"
-        translucent={true}
-      />
+        backgroundColor="#FFFFFF" />
 
       {/* Fixed Header */}
       <Animated.View style={[styles.headerWrapper, { height: headerHeight }]}>

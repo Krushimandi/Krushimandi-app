@@ -121,7 +121,7 @@ const CustomFarmerTabIcon = ({ focused, color, size, route }: any) => {
   switch (route.name) {
     case 'Home':
       iconComponent = focused ? (
-        <MaterialIcons name="home-filled" size={size + 2} color={color} />
+        <MaterialIcons name="home-filled" size={size} color={color} />
       ) : (
         <Octicons name="home" size={size} color={color} />
       );
@@ -130,7 +130,7 @@ const CustomFarmerTabIcon = ({ focused, color, size, route }: any) => {
       iconComponent = (
         <View style={{ position: 'relative' }}>
           {focused ? (
-            <Feather name="users" size={size - 2} color={color} />
+            <Feather name="users" size={size} color={color} />
           ) : (
             <Feather name="users" size={size} color={color} />
           )}
@@ -339,9 +339,9 @@ const farmerStyles = StyleSheet.create({
   },
   activeTabBackground: {
     position: 'absolute',
-    width: 36,
+    width: 48,
     height: 36,
-    borderRadius: 19,
+    borderRadius: 30,
     backgroundColor: Colors.light.primaryDark + '15',
     justifyContent: 'center',
     alignItems: 'center',

@@ -313,9 +313,9 @@ const styles = StyleSheet.create({
   },
   activeTabBackground: {
     position: 'absolute',
-    width: 42,
-    height: 42,
-    borderRadius: 22.5,
+    width: 48,
+    height: 38,
+    borderRadius: 30,
     backgroundColor: Colors.light.primaryDark + '15', // 15% opacity
     justifyContent: 'center',
     alignItems: 'center',
