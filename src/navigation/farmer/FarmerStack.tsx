@@ -148,7 +148,7 @@ const CustomFarmerTabIcon = ({ focused, color, size, route }: any) => {
       break;
     case 'Profiles':
       iconComponent = focused ? (
-        <Icon name="person" size={size} color={color} />
+        <Feather name="user" size={size} color={color} />
       ) : (
         <Feather name="user" size={size} color={color} />
       );

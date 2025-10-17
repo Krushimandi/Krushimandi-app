@@ -8,7 +8,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
-  KeyboardAvoidingView,
   Modal,
   Pressable,
   Platform,
@@ -18,10 +17,10 @@ import {
   Alert,
   ActivityIndicator,
   Animated,
-  Dimensions,
-  BackHandler,
-  Linking
+  BackHandler
 } from 'react-native';
+import ReAnimated, { useAnimatedStyle, withTiming, useSharedValue } from 'react-native-reanimated';
+import { useKeyboardHandler } from 'react-native-keyboard-controller';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { Colors } from '../../constants';
@@ -54,13 +53,11 @@ const debounce = (func, wait) => {
 
 const AddFruitScreen = ({ navigation }) => {
   const { t } = useTranslation();
-  const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
   const { hideTabBar, showTabBar } = useTabBarControl();
 
   // Form state
   const [fruitName, setFruitName] = useState('');
   const [category, setCategory] = useState('banana');
-  // const [grade, setGrade] = useState('A');
   const [quantity, setQuantity] = useState('10-12');
   const [description, setDescription] = useState('');
   const [city, setCity] = useState('');
@@ -70,9 +67,7 @@ const AddFruitScreen = ({ navigation }) => {
 
   // Modal states
   const [showCategoryModal, setShowCategoryModal] = useState(false);
-  // const [showGradeModal, setShowGradeModal] = useState(false);
   const [showQuantityModal, setShowQuantityModal] = useState(false);
-  const [showDescriptionTooltip, setShowDescriptionTooltip] = useState(false);
 
   // Form validation and UI states
   const [isFormValid, setIsFormValid] = useState(false);
@@ -81,7 +76,6 @@ const AddFruitScreen = ({ navigation }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showValidationErrors, setShowValidationErrors] = useState(false);
   const [touchedFields, setTouchedFields] = useState({});
-  const [isValidating, setIsValidating] = useState(false);
 
   // Availability date state
   const [availabilityDate, setAvailabilityDate] = useState(null);
@@ -89,16 +83,10 @@ const AddFruitScreen = ({ navigation }) => {
 
   // Location states
   const [isGettingLocation, setIsGettingLocation] = useState(false);
-  const [locationPermission, setLocationPermission] = useState(null);
   const [currentLocation, setCurrentLocation] = useState(null);
   const [locationError, setLocationError] = useState('');
 
-  // UI states
-  const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
-
   // Refs
-  const infoIconRef = useRef(null);
   const scrollViewRef = useRef(null);
   const inputRefs = useRef({
     fruitName: null,
@@ -112,9 +100,26 @@ const AddFruitScreen = ({ navigation }) => {
   // Animations
   const [progress, setProgress] = useState(0);
   const slideAnim = useRef(new Animated.Value(0)).current;
-  const fadeAnim = useRef(new Animated.Value(1)).current;
   const shakeAnim = useRef(new Animated.Value(0)).current;
-  const buttonAnimY = useRef(new Animated.Value(0)).current;
+
+  // Keyboard height as shared value for reanimated
+  const keyboardHeightAnimated = useSharedValue(0);
+
+  // Keyboard handler
+  useKeyboardHandler({
+    onStart: (e) => {
+      'worklet';
+      keyboardHeightAnimated.value = e.height;
+    },
+    onMove: (e) => {
+      'worklet';
+      keyboardHeightAnimated.value = e.height;
+    },
+    onEnd: (e) => {
+      'worklet';
+      keyboardHeightAnimated.value = e.height;
+    },
+  });
 
   const categories = [
     { id: 'banana', name: t('fruits.banana') },
@@ -125,12 +130,6 @@ const AddFruitScreen = ({ navigation }) => {
     { id: 'apple', name: t('fruits.apple') },
     { id: 'mango', name: t('fruits.mango') }
   ];
-
-  // const grades = [
-  //   { id: 'A', name: 'Grade A', desc: 'Premium Quality', color: '#00C851' },
-  //   { id: 'B', name: 'Grade B', desc: 'Good Quality', color: '#FF8800' },
-  //   { id: 'C', name: 'Grade C', desc: 'Standard Quality', color: '#FF4444' }
-  // ];
 
   const quantities = [
     { id: '1-2', name: `1-2 ${t('units.ton_other')}`, desc: t('product.add.quantity.desc.small') },
@@ -150,9 +149,9 @@ const AddFruitScreen = ({ navigation }) => {
     const locationInputs = ['city', 'district', 'state', 'pincode'];
     const isLocationInput = locationInputs.includes(inputKey);
 
-    if (isLocationInput) {
-      // For location inputs, calculate position based on form structure
-      setTimeout(() => {
+    setTimeout(() => {
+      if (isLocationInput) {
+        // For location inputs, calculate position based on form structure
         const scrollPositions = {
           city: 450,
           district: 450,
@@ -162,38 +161,25 @@ const AddFruitScreen = ({ navigation }) => {
 
         const scrollPosition = scrollPositions[inputKey] || 450;
 
-
-
         scrollViewRef.current?.scrollTo({
           y: scrollPosition,
           animated: true
         });
-      }, 250); // Wait for keyboard animation
-    } else {
-      // For other inputs like description, use measure
-      setTimeout(() => {
-        if (inputKey === 'description') {
-          // Description is at the bottom, calculate position to ensure it's visible above keyboard
-          const baseDescriptionPosition = 650; // Increased base position
-          const keyboardAdjustment = keyboardHeight > 0 ? keyboardHeight + 50 : 0; // More aggressive adjustment
-          const finalScrollPosition = baseDescriptionPosition + keyboardAdjustment;
-
-
-
-          scrollViewRef.current?.scrollTo({
-            y: finalScrollPosition,
-            animated: true
-          });
-        } else {
-          // For top inputs, minimal scroll
-          scrollViewRef.current?.scrollTo({
-            y: 50,
-            animated: true
-          });
-        }
-      }, 250);
-    }
-  }, [keyboardHeight]);
+      } else if (inputKey === 'description') {
+        // Description is at the bottom
+        scrollViewRef.current?.scrollTo({
+          y: 650,
+          animated: true
+        });
+      } else {
+        // For top inputs, minimal scroll
+        scrollViewRef.current?.scrollTo({
+          y: 50,
+          animated: true
+        });
+      }
+    }, 250); // Wait for keyboard animation
+  }, []);
 
   // Enhanced input handlers with validation
   const handleInputChange = useCallback((field, value) => {
@@ -319,12 +305,10 @@ const AddFruitScreen = ({ navigation }) => {
 
       // Get selected category object
       const selectedCategory = categories.find(cat => cat.id === category);
-      // const selectedGrade = grades.find(g => g.id === grade);
 
       const fruitData = {
         name: fruitName.trim(),
         type: category,
-        // grade,
         quantity: quantityParts,
         description: description.trim(),
         availability_date: availabilityDate || null,
@@ -342,7 +326,6 @@ const AddFruitScreen = ({ navigation }) => {
         likes: 0,
         // Additional metadata for better UX
         categoryInfo: selectedCategory,
-        // gradeInfo: selectedGrade,
         createdBy: {
           name: user.firstName || 'Farmer',
           uid: user.uid
@@ -379,10 +362,9 @@ const AddFruitScreen = ({ navigation }) => {
       // First check if GPS is enabled and prompt user if not
       const gpsEnabled = await checkAndPromptGPSSettings();
       if (!gpsEnabled) {
+        setIsGettingLocation(false);
         return; // User chose to fill manually or went to settings
       }
-
-
 
       // Use cached location method for faster response
       const result = await getLocationWithCache();
@@ -402,75 +384,8 @@ const AddFruitScreen = ({ navigation }) => {
 
         // Clear any location errors
         setLocationError('');
-
-        // Enhanced success message with cache and accuracy info
-        const locationSource = location.source ? ` (${location.source})` : '';
-        let accuracyInfo = '';
-        let dataQuality = '';
-        let cacheInfo = '';
-
-        // Add cache information
-        if (locationData.source === 'cache' || locationData.source === 'cache-address') {
-          const ageMinutes = Math.floor((locationData.cacheAge || 0) / (1000 * 60));
-          cacheInfo = ageMinutes < 1 ? ' ⚡ Instant' : ` ⚡ Cached (${ageMinutes}m old)`;
-        } else {
-          cacheInfo = ' 🔄 Fresh data';
-        }
-
-        // Determine accuracy feedback
-        if (location.accuracy) {
-          if (location.accuracy < 10) {
-            accuracyInfo = ' 📍 Excellent accuracy';
-          } else if (location.accuracy < 50) {
-            accuracyInfo = ' 📍 Good accuracy';
-          } else if (location.accuracy < 100) {
-            accuracyInfo = ' 📍 Fair accuracy';
-          } else {
-            accuracyInfo = ' 📍 Basic accuracy';
-          }
-        }
-
-        switch (locationData.source) {
-          case 'google':
-            dataQuality = ' 🌐 Verified address';
-            break;
-          case 'coordinate-fallback':
-            dataQuality = ' 🗺️ Regional area';
-            break;
-          case 'gps-fallback':
-            dataQuality = ' 📡 GPS coordinates only';
-            break;
-          default:
-            dataQuality = '';
-        }
-
-        // Show location quality and tips for improvement
-        let message = `Auto-filled: ${cityToFill}, ${locationData.district}, ${locationData.state}${locationData.pincode ? ' - ' + locationData.pincode : ''}${locationSource}${accuracyInfo}${dataQuality}`;
-
-        // Add specific advice based on data quality
-        if (locationData.source === 'coordinate-fallback' || locationData.source === 'gps-fallback') {
-          message += '\n\n⚠️ Address lookup failed - showing approximate location. Please verify and correct the address details manually.';
-
-          if (locationData.note) {
-            message += `\n\n💡 ${locationData.note}`;
-          }
-        } else if (location.source === 'Network' || (location.accuracy && location.accuracy > 50)) {
-          message += '\n\n💡 For better accuracy: Move outdoors with clear sky view and enable "High Accuracy" GPS mode in settings.';
-        }
-
-        // Alert.alert(
-        //   locationData.source === 'google' ? 'Address Found!' : 'Location Found!',
-        //   message,
-        //   [
-        //     { text: 'OK' }]
-        // );
       } else {
         setLocationError(t('product.add.location.addressLookupFailed'));
-        // Alert.alert(
-        //   'Location Found',
-        //   'GPS coordinates obtained but address details unavailable. Please fill manually.',
-        //   [{ text: 'OK' }]
-        // );
       }
     } catch (error) {
       const message = error.userMessage || error.message || t('product.add.location.genericErrorMessage');
@@ -600,10 +515,8 @@ const AddFruitScreen = ({ navigation }) => {
   // Debounced validation to prevent continuous updates while typing
   const debouncedValidation = useCallback(
     debounce(() => {
-      setIsValidating(true);
       validateForm();
-      setIsValidating(false);
-    }, 300), // Reduced to 300ms for better responsiveness
+    }, 300),
     [validateForm]
   );
 
@@ -614,7 +527,6 @@ const AddFruitScreen = ({ navigation }) => {
 
     if (fruitName.trim()) filled++;
     if (category) filled++;
-    // if (grade) filled++;
     if (quantity) filled++;
     if (description.trim() && description.trim().length >= 20) filled++;
     if (availabilityDate) filled++;
@@ -624,9 +536,7 @@ const AddFruitScreen = ({ navigation }) => {
     if (pincode.trim() && /^\d{6}$/.test(pincode.trim())) filled++;
 
     return (filled / totalFields) * 0.33; // 33% of total journey
-  }, [fruitName, category, availabilityDate,
-    // grade,
-    quantity, description, city, district, state, pincode]);
+  }, [fruitName, category, availabilityDate, quantity, description, city, district, state, pincode]);
 
   // Form validation effect - use debounced validation to prevent continuous updates
   useEffect(() => {
@@ -671,108 +581,35 @@ const AddFruitScreen = ({ navigation }) => {
     const initializeCache = async () => {
       try {
         await initializeLocationCache();
-
       } catch (error) {
-
+        // Silent fail - cache initialization is not critical
       }
     };
 
     initializeCache();
   }, []);
 
-  // Keyboard handling with improved logic
-  useEffect(() => {
-    const keyboardDidShowListener = Keyboard.addListener(
-      'keyboardDidShow',
-      (e) => {
-        const keyboardHeight = e.endCoordinates.height;
-        setKeyboardHeight(keyboardHeight);
-
-        // If description is focused, automatically scroll to show it above keyboard
-        if (focusedInput === 'description') {
-          setTimeout(() => {
-            const scrollPosition = 700 + keyboardHeight + 50;
-
-            scrollViewRef.current?.scrollTo({
-              y: scrollPosition,
-              animated: true
-            });
-          }, 100);
-        }
-
-        // Move button above keyboard for both platforms
-        // Use the actual keyboard height to position button correctly
-        const buttonOffset = Platform.OS === 'ios' ? -keyboardHeight + 50 : -keyboardHeight + 20;
-        Animated.timing(buttonAnimY, {
-          toValue: buttonOffset,
-          duration: 250,
-          useNativeDriver: true,
-        }).start();
-      }
-    );
-    const keyboardDidHideListener = Keyboard.addListener(
-      'keyboardDidHide',
-      () => {
-        setKeyboardHeight(0);
-        // Animate button back to original position
-        Animated.timing(buttonAnimY, {
-          toValue: 0,
-          duration: 250,
-          useNativeDriver: true,
-        }).start();
-      }
-    );
-
-    return () => {
-      keyboardDidShowListener?.remove();
-      keyboardDidHideListener?.remove();
+  // Animated style for the fake view at bottom
+  const fakeViewAnimatedStyle = useAnimatedStyle(() => {
+    'worklet';
+    return {
+      height: withTiming(keyboardHeightAnimated.value, { duration: 10 }),
     };
-  }, [buttonAnimY, focusedInput]);
-
-  // Auto-suggest description based on category
-
-  // ## Temperary Disabled But may be it need in future
-
-  // useEffect(() => {
-  //   if (category && !description.trim()) {
-  //     const suggestion = getDescriptionSuggestion(category);
-  //     if (suggestion) {
-  //       setDescription(suggestion);
-  //     }
-  //   }
-  // }, [category, description]);
-
-  const androidVersion = Platform.Version;
+  });
 
   // Hardware back button handler
   useEffect(() => {
     const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (showCategoryModal
-        // || showGradeModal
-        || showQuantityModal || showDescriptionTooltip) {
+      if (showCategoryModal || showQuantityModal) {
         setShowCategoryModal(false);
-        // setShowGradeModal(false);
         setShowQuantityModal(false);
-        setShowDescriptionTooltip(false);
         return true;
       }
       return false;
     });
 
     return () => backHandler.remove();
-  }, [showCategoryModal,
-    // showGradeModal, 
-    showQuantityModal, showDescriptionTooltip]);
-
-  // Enhanced tooltip handler with better positioning
-  const handleTooltipPress = useCallback(() => {
-    infoIconRef.current?.measure((fx, fy, width, height, px, py) => {
-      const tooltipX = Math.max(20, Math.min(px - 140, screenWidth - 300));
-      const tooltipY = Math.max(100, py - 80);
-      setTooltipPosition({ x: tooltipX, y: tooltipY });
-      setShowDescriptionTooltip(true);
-    });
-  }, [screenWidth]);
+  }, [showCategoryModal, showQuantityModal]);
 
   // Enhanced modal close handlers
   const closeModal = useCallback((modalType) => {
@@ -780,14 +617,8 @@ const AddFruitScreen = ({ navigation }) => {
       case 'category':
         setShowCategoryModal(false);
         break;
-      // case 'grade':
-      //   setShowGradeModal(false);
-      //   break;
       case 'quantity':
         setShowQuantityModal(false);
-        break;
-      case 'tooltip':
-        setShowDescriptionTooltip(false);
         break;
     }
   }, []);
@@ -823,19 +654,7 @@ const AddFruitScreen = ({ navigation }) => {
             <Text style={styles.headerSubtitle}>{t('product.add.stepOfTotal', { step: 1, total: 3 })}</Text>
           </View>
 
-          <View style={styles.headerActions}>
-            {/* <TouchableOpacity
-              style={styles.locationButton}
-              onPress={handleGetLocation}
-              disabled={isGettingLocation}
-            >
-              {isGettingLocation ? (
-                <ActivityIndicator size="small" color="#00C851" />
-              ) : (
-                <MaterialIcons name="my-location" size={20} color="#00C851" />
-              )}
-            </TouchableOpacity> */}
-          </View>
+          <View style={styles.headerActions} />
         </View>
 
         {/* Modern Progress Bar */}
@@ -859,31 +678,15 @@ const AddFruitScreen = ({ navigation }) => {
         </View>
 
         <Animated.View style={[styles.contentContainer, { transform: [{ translateX: shakeAnim }] }]}>
-          <KeyboardAvoidingView
-            style={{ flex: 1 }}
-            behavior={
-              Platform.OS === 'ios'
-                ? 'padding'
-                : androidVersion >= 30
-                  ? undefined
-                  : 'padding'
-            }
-            keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
+          <ScrollView
+            ref={scrollViewRef}
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            bounces={true}
           >
-            <ScrollView
-              ref={scrollViewRef}
-              style={styles.scrollView}
-              contentContainerStyle={[
-                styles.scrollContent,
-                {
-                  paddingBottom: keyboardHeight > 0 ? keyboardHeight + 50 : 100
-                }
-              ]}
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-              bounces={true}
-            >
-              <View style={styles.content}>
+            <View style={styles.content}>
                 {/* Fruit Name Input */}
                 <View style={styles.modernInputContainer}>
                   <Text style={styles.modernLabel}>
@@ -1050,9 +853,6 @@ const AddFruitScreen = ({ navigation }) => {
                     </TouchableOpacity>
                   </View>
 
-                  {/* <Text style={styles.locationHelpText}>
-                    📍 Auto-fill your farm location using high-accuracy GPS and Google Maps
-                  </Text> */}
                   {locationError ? (
                     <Text style={styles.locationErrorText}>
                       ⚠️ {locationError}
@@ -1199,20 +999,10 @@ const AddFruitScreen = ({ navigation }) => {
                 </View>
               </View>
             </ScrollView>
-          </KeyboardAvoidingView>
         </Animated.View>
 
         {/* Modern Continue Button */}
-        <Animated.View style={[
-          styles.modernButtonContainer,
-          {
-            transform: [{
-              translateY: androidVersion >= 30
-                ? buttonAnimY
-                : 0
-            }]
-          }
-        ]}>
+        <View style={styles.modernButtonContainer}>
           <TouchableOpacity
             style={[
               styles.modernContinueButton,
@@ -1224,25 +1014,19 @@ const AddFruitScreen = ({ navigation }) => {
             accessibilityLabel={isFormValid ? t('product.add.actions.continue') : t('product.add.actions.formIncomplete')}
             accessibilityHint={isFormValid ? t('product.add.a11y.continueHint') : t('product.add.a11y.incompleteHint')}
           >
-            {isSubmitting ? (
-              <ActivityIndicator size="small" color="#FFFFFF" style={styles.buttonIcon} />
-            ) : (
-              <Ionicons
-                name="arrow-forward"
-                size={20}
-                color="#FFFFFF"
-                style={styles.buttonIcon}
-              />
-            )}
             <Text style={styles.modernButtonText}>
               {isSubmitting ? t('product.add.actions.processing') : t('product.add.actions.continue')}
             </Text>
+            {isSubmitting && <ActivityIndicator size="small" color="#FFFFFF" style={styles.buttonIcon} />}
           </TouchableOpacity>
 
           <Text style={styles.buttonHelpText}>
             {isFormValid && t('product.add.help.allGoodAddPhotos')}
           </Text>
-        </Animated.View>
+        </View>
+
+        {/* Fake animated view at bottom to push content up when keyboard opens */}
+        <ReAnimated.View style={fakeViewAnimatedStyle} />
 
         {/* Modern Category Modal */}
         <Modal
@@ -1302,69 +1086,6 @@ const AddFruitScreen = ({ navigation }) => {
           </Pressable>
         </Modal>
 
-        {/* Modern Grade Modal */}
-        {/* <Modal
-          transparent={true}
-          animationType="slide"
-          visible={showGradeModal}
-          onRequestClose={() => closeModal('grade')}
-        >
-          <Pressable
-            style={styles.modernModalOverlay}
-            onPress={() => closeModal('grade')}
-          >
-            <View style={styles.modernModalContent}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modernModalTitle}>Select Quality Grade</Text>
-                <TouchableOpacity
-                  style={styles.modalCloseIcon}
-                  onPress={() => closeModal('grade')}
-                  accessible={true}
-                  accessibilityLabel={t('product.add.a11y.closeModal')}
-                >
-                  <Ionicons name="close" size={24} color="#64748B" />
-                </TouchableOpacity>
-              </View>
-
-              <ScrollView style={styles.modalScrollView}>
-                {grades.map((gradeOption, index) => (
-                  <TouchableOpacity
-                    key={gradeOption.id}
-                    style={[
-                      styles.modernModalOption,
-                      grade === gradeOption.id && styles.modernSelectedOption
-                    ]}
-                    onPress={() => {
-                      setGrade(gradeOption.id);
-                      closeModal('grade');
-                    }}
-                    accessible={true}
-                    accessibilityLabel={`Select ${gradeOption.name} - ${gradeOption.desc}`}
-                    accessibilityRole="button"
-                  >
-                    <View style={[
-                      styles.gradeIndicatorLarge,
-                      { backgroundColor: gradeOption.color }
-                    ]} />
-                    <View style={styles.optionTextContainer}>
-                      <Text style={[
-                        styles.modernOptionText,
-                        grade === gradeOption.id && styles.modernSelectedText
-                      ]}>
-                        {gradeOption.name}
-                      </Text>
-                      <Text style={styles.optionSubText}>{gradeOption.desc}</Text>
-                    </View>
-                    {grade === gradeOption.id && (
-                      <Ionicons name="checkmark-circle" size={24} color="#00C851" />
-                    )}
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-          </Pressable>
-        </Modal> */}
-
         {/* Modern Quantity Modal */}
         <Modal
           transparent={true}
@@ -1423,37 +1144,6 @@ const AddFruitScreen = ({ navigation }) => {
               </ScrollView>
             </View>
           </Pressable>
-        </Modal>
-
-        {/* Modern Description Tooltip */}
-        <Modal
-          transparent
-          animationType="fade"
-          visible={showDescriptionTooltip}
-          onRequestClose={() => closeModal('tooltip')}
-        >
-          <TouchableOpacity
-            style={styles.modernTooltipOverlay}
-            onPress={() => closeModal('tooltip')}
-            activeOpacity={1}
-            accessible={true}
-            accessibilityLabel={t('product.add.a11y.closeModal')}
-          >
-            <View
-              style={[
-                styles.modernTooltipBox,
-                {
-                  position: 'absolute',
-                  top: tooltipPosition.y,
-                  left: tooltipPosition.x,
-                }
-              ]}
-            >
-              <Text style={styles.modernTooltipText}>
-                💡 {t('product.add.help.allGoodAddPhotos')}
-              </Text>
-            </View>
-          </TouchableOpacity>
         </Modal>
 
       </View>
@@ -1516,14 +1206,6 @@ const styles = StyleSheet.create({
     width: 36,
     alignItems: 'center',
   },
-  locationButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#DCFCE7',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
 
   // Modern Progress Styles
   progressContainer: {
@@ -1575,8 +1257,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#374151',
     marginBottom: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
   },
   modernInput: {
     backgroundColor: '#FFFFFF',
@@ -1613,9 +1293,6 @@ const styles = StyleSheet.create({
   modernInputError: {
     borderColor: '#EF4444',
     backgroundColor: '#FEF2F2',
-    borderWidth: 2,
-    textAlign: 'left',
-    textAlignVertical: 'center',
   },
   errorText: {
     color: '#EF4444',
@@ -1652,9 +1329,6 @@ const styles = StyleSheet.create({
   },
 
   // Modern Dropdown Styles
-  modernDropdownContainer: {
-    marginBottom: 24,
-  },
   modernDropdown: {
     backgroundColor: '#FFFFFF',
     borderWidth: 2,
@@ -1676,17 +1350,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
   },
-  modernDropdownIcon: {
-    marginRight: 12,
-  },
   modernDropdownText: {
     fontSize: 16,
     color: '#111827',
     fontWeight: '500',
     flex: 1,
-  },
-  modernDropdownChevron: {
-    marginLeft: 8,
   },
 
   // Location Section
@@ -1703,17 +1371,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#1F2937',
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  refreshLocationButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#F3F4F6',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 8,
   },
   singleLocationButton: {
     flexDirection: 'row',
@@ -1734,12 +1391,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginLeft: 6,
   },
-  locationHelpText: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginBottom: 4,
-    fontStyle: 'italic',
-  },
   locationGrid: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1756,60 +1407,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
   },
-  categoryEmoji: {
-    fontSize: 20,
-    marginRight: 12,
-  },
-  gradeIndicator: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    marginRight: 12,
-  },
   quantityIcon: {
     fontSize: 18,
     marginRight: 12,
   },
 
-  // Description Header Styles
-  descriptionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  infoButton: {
-    padding: 4,
-  },
-  modernDescriptionContainer: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 2,
-    borderColor: '#E5E7EB',
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  modernDescriptionInput: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    fontSize: 16,
-    color: '#111827',
-    minHeight: 120,
-    textAlignVertical: 'top',
-  },
-
   // Modern Button Styles
   modernButtonContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
     backgroundColor: '#FFFFFF',
-    paddingHorizontal: 20,
-    paddingTop: 16,
+    paddingHorizontal: 24,
+    paddingTop: 10,
     paddingBottom: Platform.OS === 'ios' ? 10 : 0, // Safe area bottom padding
     borderTopWidth: 1,
     borderTopColor: '#E5E7EB',
@@ -1821,13 +1428,11 @@ const styles = StyleSheet.create({
   },
   modernContinueButton: {
     backgroundColor: '#10B981',
-    paddingVertical: 18,
-    paddingHorizontal: 24,
     borderRadius: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 56,
+    minHeight: 52,
     shadowColor: '#10B981',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.25,
@@ -1912,16 +1517,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#ECFDF5',
     borderColor: '#10B981',
   },
-  categoryEmojiLarge: {
-    fontSize: 20,
-    marginRight: 16,
-  },
-  // gradeIndicatorLarge: {
-  //   width: 24,
-  //   height: 24,
-  //   borderRadius: 12,
-  //   marginRight: 16,
-  // },
   quantityIconLarge: {
     fontSize: 20,
     marginRight: 16,
@@ -1941,153 +1536,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6B7280',
     marginTop: 2,
-  },
-
-  // Modern Tooltip Styles
-  modernTooltipOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-  },
-  modernTooltipBox: {
-    backgroundColor: '#1F2937',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
-    maxWidth: 280,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 10,
-  },
-  modernTooltipText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: '500',
-  },
-
-  // Description Preview Styles
-  descriptionPreview: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    minHeight: 120,
-    justifyContent: 'space-between',
-  },
-  descriptionPreviewText: {
-    fontSize: 16,
-    color: '#111827',
-    lineHeight: 22,
-    flex: 1,
-    textAlignVertical: 'top',
-  },
-  placeholderText: {
-    color: '#94A3B8',
-    fontStyle: 'italic',
-  },
-  fullScreenIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    marginTop: 8,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-  },
-  fullScreenText: {
-    fontSize: 12,
-    color: '#64748B',
-    marginLeft: 4,
-    fontWeight: '500',
-  },
-
-  // Simple Description Editor Styles
-  descriptionModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  descriptionModalContent: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '90%',
-    minHeight: '80%',
-    paddingBottom: Platform.OS === 'ios' ? 40 : 20,
-  },
-  descriptionModalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  descriptionModalTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1F2937',
-  },
-  descriptionCloseButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#F3F4F6',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  characterCounterContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    backgroundColor: '#F9FAFB',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  characterCounterText: {
-    fontSize: 12,
-    color: '#6B7280',
-    textAlign: 'center',
-    fontWeight: '500',
-  },
-  descriptionEditorContainer: {
-    flex: 1,
-    margin: 20,
-    backgroundColor: '#F9FAFB',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    minHeight: 200,
-  },
-  descriptionTextInput: {
-    flex: 1,
-    padding: 16,
-    fontSize: 16,
-    color: '#111827',
-    lineHeight: 24,
-    textAlignVertical: 'top',
-    textAlign: 'left',
-    minHeight: 200,
-    backgroundColor: '#FFFFFF',
-  },
-  descriptionSaveButton: {
-    marginHorizontal: 20,
-    marginVertical: 16,
-    paddingVertical: 14,
-    borderRadius: 12,
-    backgroundColor: '#E5E7EB',
-    alignItems: 'center',
-  },
-  descriptionSaveButtonActive: {
-    backgroundColor: '#10B981',
-  },
-  descriptionSaveText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#9CA3AF',
-  },
-  descriptionSaveTextActive: {
-    color: '#FFFFFF',
   },
 });
 

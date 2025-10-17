@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 	<color name="splash_background_color">#FFFFFF</color>
-	<color name="bootsplash_background">#ffffff</color>
+	<color name="bootsplash_background">#FFFFFF</color>
+	<color name="navigation_bar_color">#FFFFFF</color>
 </resources>

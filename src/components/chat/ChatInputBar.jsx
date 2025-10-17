@@ -18,7 +18,7 @@ export const ChatInputBar = forwardRef(({
     onChangeText,
     onSend,
     onHeightChange,
-    maxLength = 1000,
+    maxLength = 400,
     placeholder,
     onFocus,
 }, ref) => {
@@ -69,7 +69,7 @@ export const ChatInputBar = forwardRef(({
 
     return (
         <View style={styles.container}>
-            <View style={[styles.inputWrapper, { paddingBottom: Math.max(insets.bottom * 0.65, 16) }]}>
+            <View style={[styles.inputWrapper, { paddingBottom: Math.max(insets.bottom * 0.65, 10) }]}>
                 <View style={styles.row}>
                     <View style={[styles.textInputContainer, { minHeight: 56 }]}>
                         <TextInput
@@ -87,7 +87,7 @@ export const ChatInputBar = forwardRef(({
                             accessibilityLabel={t('chat.input.accessibility.inputLabel', { defaultValue: 'Message input field' })}
                             accessibilityHint={t('chat.input.accessibility.inputHint', { defaultValue: 'Double tap to start typing' })}
                         />
-                        {value.length > maxLength - 200 && (
+                        {value.length > maxLength - 350 && (
                             <View style={styles.counter}><Text style={styles.counterText}>{maxLength - value.length}</Text></View>
                         )}
                     </View>
@@ -118,7 +118,7 @@ const styles = StyleSheet.create({
         backgroundColor: COLORS.surface,
         borderTopWidth: 1,
         borderTopColor: COLORS.border,
-        paddingTop: 12,
+        paddingTop: 10,
         paddingHorizontal: 12,
     },
     row: {
@@ -147,14 +147,18 @@ const styles = StyleSheet.create({
     },
     counter: {
         position: 'absolute',
-        bottom: 4,
-        right: 8,
+        bottom: 6,
+        right: 10,
         backgroundColor: 'rgba(107,114,128,0.15)',
         borderRadius: 8,
         paddingHorizontal: 6,
         paddingVertical: 2,
     },
-    counterText: { fontSize: 10, color: COLORS.textSecondary, fontWeight: '500' },
+    counterText: {
+        fontSize: 10,
+        color: COLORS.textSecondary,
+        fontWeight: '500'
+    },
     sendBtn: {
         width: 48,
         height: 48,
@@ -162,10 +166,11 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(229,231,235,0.8)',
         alignItems: 'center',
         justifyContent: 'center',
-        bottom: 7,
+        bottom: 6,
     },
-    sendBtnActive: { backgroundColor: COLORS.primary },
-    // attachment/actions styles removed
+    sendBtnActive: {
+        backgroundColor: COLORS.primary
+    },
 });
 
 export default ChatInputBar;

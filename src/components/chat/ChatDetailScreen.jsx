@@ -19,7 +19,8 @@ import { BlurView } from '@react-native-community/blur';
 import FastImage from 'react-native-fast-image';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
-import ReAnimated, { useAnimatedStyle } from 'react-native-reanimated';
+import ReAnimated, { useAnimatedStyle, withTiming, useSharedValue, runOnJS } from 'react-native-reanimated';
+import { useKeyboardHandler } from 'react-native-keyboard-controller';
 import { auth } from '../../config/firebaseModular';
 import { requestService } from '../../services/requestService';
 import {
@@ -140,6 +141,32 @@ const ChatDetailScreen = ({ route, navigation }) => {
   const typingTimerRef = useRef(null);
   const lastTypingSentRef = useRef(false);
   const initialScrollDone = useRef(false);
+  
+  // Keyboard height as shared value
+  const keyboardHeight = useSharedValue(0);
+
+  // Keyboard handler
+  useKeyboardHandler({
+    onStart: (e) => {
+      'worklet';
+      console.log('Keyboard start:', e.height);
+      keyboardHeight.value = e.height;
+    },
+    onMove: (e) => {
+      'worklet';
+      keyboardHeight.value = e.height;
+    },
+    onEnd: (e) => {
+      'worklet';
+      console.log('Keyboard end:', e.height);
+      keyboardHeight.value = e.height;
+    },
+  });
+
+  // Debug keyboard height
+  useEffect(() => {
+    console.log('chat Keyboard height shared value created');
+  }, []);
 
   // Constants
   const defaultAvatar = require('../../../assets/logo.png');
@@ -521,7 +548,16 @@ const ChatDetailScreen = ({ route, navigation }) => {
   // Memoized footer to avoid unnecessary recalculations
   const ListFooter = useCallback(() => (isTyping ? <TypingIndicator /> : null), [isTyping]);
 
-
+  // Animated style for the fake view at bottom
+  const fakeViewAnimatedStyle = useAnimatedStyle(() => {
+    'worklet';
+    const h = keyboardHeight.value;
+    console.log('Fake view height:', h);
+    return {
+      height: withTiming(h, { duration: 0 }),
+      backgroundColor: 'rgba(255, 0, 0, 0.3)', // Debug: red background
+    };
+  });
 
   return (
     <View style={styles.container}>
@@ -621,22 +657,25 @@ const ChatDetailScreen = ({ route, navigation }) => {
         />
       </View>
 
-        <View style={styles.inputContainer}>
-          <ChatInputBar
-            ref={inputRef}
-            value={messageText}
-            onChangeText={setMessageText}
-            onSend={handleSend}
-            onHeightChange={setInputBarHeight}
-            maxLength={1000}
-          />
-        </View>
-
-        <LoadingOverlay
-          visible={isRoleSwitching}
-          message={t('common.loading', { defaultValue: 'Loading...' })}
-          spinnerColor="#43B86C"
+      <View style={styles.inputContainer}>
+        <ChatInputBar
+          ref={inputRef}
+          value={messageText}
+          onChangeText={setMessageText}
+          onSend={handleSend}
+          onHeightChange={setInputBarHeight}
+          maxLength={1000}
         />
+      </View>
+
+      {/* Fake animated view at bottom to push content up when keyboard opens */}
+      <ReAnimated.View style={fakeViewAnimatedStyle} />
+
+      <LoadingOverlay
+        visible={isRoleSwitching}
+        message={t('common.loading', { defaultValue: 'Loading...' })}
+        spinnerColor="#43B86C"
+      />
     </View>
   );
 };
@@ -832,10 +871,6 @@ const styles = StyleSheet.create(
 
     // Input Styles
     inputContainer: {
-      position: 'absolute',
-      bottom: 0,
-      left: 0,
-      right: 0,
       backgroundColor: COLORS.surface,
       borderTopWidth: 1,
       borderTopColor: COLORS.border,

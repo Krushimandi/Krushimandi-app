@@ -18,6 +18,7 @@ import { handleNotificationNavigation } from './src/navigation/navigationService
 import { notificationTabEmitter } from './src/navigation/buyer/notificationTabEmitter';
 import { StatusBar, View, Text, TouchableOpacity } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 import RNBootSplash from 'react-native-bootsplash';
 import { AppNavigator } from './src/navigation';
 import { Colors } from './src/constants';
@@ -569,20 +570,22 @@ const App: React.FC = () => {
     // App is bootstrapped, show main navigation
     return (
         <ErrorBoundary>
-            <GestureHandlerRootView style={{
-                flex: 1,
-            }} onLayout={() => { }}>
-                <StatusBar
-                    barStyle={isDark ? 'light-content' : 'dark-content'}
-                    backgroundColor={isDark ? Colors.dark.background : Colors.light.background}
-                    translucent
-                />
-                <NetworkStatusIndicator />
-                <AuthStateProvider bootstrapState={bootstrapState}>
-                    <AppNavigator bootstrapState={bootstrapState} />
-                </AuthStateProvider>
-                <Toast />
-            </GestureHandlerRootView>
+            <KeyboardProvider>
+                <GestureHandlerRootView style={{
+                    flex: 1,
+                }} onLayout={() => { }}>
+                    <StatusBar
+                        barStyle={isDark ? 'light-content' : 'dark-content'}
+                        backgroundColor={isDark ? Colors.dark.background : Colors.light.background}
+                        translucent
+                    />
+                    <NetworkStatusIndicator />
+                    <AuthStateProvider bootstrapState={bootstrapState}>
+                        <AppNavigator bootstrapState={bootstrapState} />
+                    </AuthStateProvider>
+                    <Toast />
+                </GestureHandlerRootView>
+            </KeyboardProvider>
         </ErrorBoundary>
     );
 };
