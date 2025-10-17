@@ -44,23 +44,6 @@ import i18n, { initI18n, LANGUAGE_STORAGE_KEY } from './src/i18n';
 const App: React.FC = () => {
     LogBox.ignoreAllLogs(true); // Hide all warnings
 
-    // Initialize i18n once on app start
-    initI18n();
-
-    // Apply saved language preference globally on boot
-    useEffect(() => {
-        (async () => {
-            try {
-                const savedLang = await AsyncStorage.getItem(LANGUAGE_STORAGE_KEY);
-                if (savedLang && typeof savedLang === 'string') {
-                    await i18n.changeLanguage(savedLang);
-                }
-            } catch (e) {
-                console.warn?.('Failed to apply saved language at startup');
-            }
-        })();
-    }, []);
-
     // const isDark = Appearance.getColorScheme() === 'dark';
     const isDark = false; // Force light mode for now
     const [isBootstrapped, setIsBootstrapped] = useState(false);
@@ -73,20 +56,40 @@ const App: React.FC = () => {
     const cleanupFunctions = useRef<Array<() => void>>([]);
     const appStartTime = useRef(Date.now());
 
-    // Performance monitoring
+    // Initialize i18n and Remote Config asynchronously (non-blocking)
+    useEffect(() => {
+        const initializeNonCritical = async () => {
+            try {
+                // Initialize i18n
+                initI18n();
+
+                // Apply saved language preference
+                const savedLang = await AsyncStorage.getItem(LANGUAGE_STORAGE_KEY);
+                if (savedLang && typeof savedLang === 'string') {
+                    await i18n.changeLanguage(savedLang);
+                }
+
+                // Initialize Remote Config (after i18n)
+                await initRemoteConfig();
+            } catch (e) {
+                console.warn?.('Non-critical initialization failed:', e);
+            }
+        };
+
+        // Run in background, don't block bootstrap
+        initializeNonCritical();
+    }, []);
+
+    // Performance monitoring (deferred to not block render)
     useEffect(() => {
         if (isBootstrapped && !isInitializing) {
-            const initTime = Date.now() - appStartTime.current;
-            console.log(`🚀 App fully initialized in ${initTime}ms`);
-
-            // Report to analytics if available
-            // analytics.timing('app_initialization', initTime);
+            // Defer to next tick to not block UI
+            setTimeout(() => {
+                const initTime = Date.now() - appStartTime.current;
+                console.log(`🚀 App fully initialized in ${initTime}ms`);
+            }, 0);
         }
     }, [isBootstrapped, isInitializing]);
-
-    // Initialize Remote Config (non-blocking)
-    useEffect(() => { (async () => { try { await initRemoteConfig(); } catch { } })(); }, []);
-    const rc = useRemoteConfig();
 
     // Memoize theme colors to prevent unnecessary recalculations
     const themeColors = useMemo(() => ({
@@ -105,23 +108,14 @@ const App: React.FC = () => {
         requestPermission: requestPushPermission
     } = pushNotificationHook || {};
 
-    // Safe appearance setter with error handling
-    const setAppearanceMode = useCallback((mode: 'light' | 'dark') => {
+    // Set appearance mode once on mount
+    useEffect(() => {
         try {
-            Appearance.setColorScheme(mode);
+            Appearance.setColorScheme(isDark ? 'dark' : 'light');
         } catch (error) {
             console.warn('⚠️ Failed to set appearance mode:', error);
         }
-    }, []);
-
-    // Set appearance mode based on preference
-    useMemo(() => {
-        if (!isDark) {
-            setAppearanceMode('light');
-        } else {
-            setAppearanceMode('dark');
-        }
-    }, [isDark, setAppearanceMode]);
+    }, []); // Only run once on mount since isDark is constant
 
     // Cleanup function to safely remove all listeners
     const cleanup = useCallback(() => {
@@ -167,32 +161,28 @@ const App: React.FC = () => {
                 const initPromises = [];
 
                 // Network monitoring (non-blocking)
-                console.log('📶 Initializing network monitoring...');
                 initPromises.push(
                     new Promise<void>((resolve) => {
                         try {
                             initializeNetworkMonitoring();
-                            console.log('✅ Network monitoring initialized');
                             resolve();
                         } catch (networkError) {
-                            console.warn('⚠️ Network monitoring failed to initialize:', networkError);
+                            console.warn('⚠️ Network monitoring failed:', networkError);
                             resolve(); // Don't block other initializations
                         }
                     })
                 );
 
                 // Initialize persistent auth manager with shorter timeout
-                console.log('🔒 Initializing persistent authentication...');
                 const authPromise = Promise.race([
                     persistentAuthManager.initialize(),
                     new Promise((_, reject) =>
-                        setTimeout(() => reject(new Error('Auth initialization timeout')), 3000) // Reduced from 10s to 3s
+                        setTimeout(() => reject(new Error('Auth initialization timeout')), 3000)
                     )
                 ]);
                 initPromises.push(authPromise);
 
                 // Initialize notification system (non-blocking)
-                console.log('🔔 Initializing notification system...');
                 initPromises.push(
                     new Promise<void>((resolve) => {
                         try {
@@ -202,7 +192,7 @@ const App: React.FC = () => {
                             }
                             resolve();
                         } catch (notificationError) {
-                            console.warn('⚠️ Notification initialization failed:', notificationError);
+                            console.warn('⚠️ Notification init failed:', notificationError);
                             resolve(); // Don't block app startup
                         }
                     })
@@ -234,23 +224,12 @@ const App: React.FC = () => {
     // Safe splash screen hiding with error handling
     useEffect(() => {
         if (isBootstrapped && !isInitializing) {
-            const hideSplash = async () => {
-                try {
-                    await RNBootSplash.hide({ fade: true });
-                    console.log('✅ Splash screen hidden successfully');
-                } catch (error) {
-                    console.warn('⚠️ Failed to hide splash screen:', error);
-                    // Fallback: try hiding without fade
-                    try {
-                        await RNBootSplash.hide();
-                    } catch (fallbackError) {
-                        console.error('❌ Complete splash screen failure:', fallbackError);
-                    }
-                }
-            };
-
-            // No delay - hide immediately when ready
-            hideSplash();
+            // Hide splash immediately when ready
+            RNBootSplash.hide({ fade: true }).catch(error => {
+                console.warn('⚠️ Splash screen error:', error);
+                // Fallback: try hiding without fade
+                RNBootSplash.hide().catch(() => { });
+            });
         }
     }, [isBootstrapped, isInitializing]);
 
@@ -261,21 +240,18 @@ const App: React.FC = () => {
         const handleNotificationSafely = (remoteMessage: any, source: string) => {
             try {
                 if (!remoteMessage?.data) {
-                    console.warn('⚠️ Invalid notification data from', source);
+                    console.warn('⚠️ Invalid notification data');
                     return;
                 }
-
-                console.log('🔔 Handling notification from', source, remoteMessage.data);
                 handleNotificationNavigation(remoteMessage.data, notificationTabEmitter);
             } catch (error) {
-                console.error('❌ Notification handling failed from', source, error);
-                // Show user-friendly error
+                console.error('❌ Notification handling failed:', error);
                 Toast.show({
                     type: 'error',
                     text1: 'Notification Error',
                     text2: 'Unable to open notification content',
                     position: 'bottom',
-                    visibilityTime: 3000,
+                    visibilityTime: 1000,
                 });
             }
         };
@@ -309,24 +285,17 @@ const App: React.FC = () => {
     }, [addCleanupFunction]);
     // Safe FCM token handling with validation + backend registration
     const lastRegisteredTokenRef = useRef<string | null>(null);
+    const tokenRegistrationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
     useEffect(() => {
         const registerToken = async () => {
             // Ensure authentication/bootstrap is fully completed before attempting registration
             if (!isBootstrapped || !bootstrapState) return;
             if (!fcmToken || typeof fcmToken !== 'string' || fcmToken.length === 0) return;
 
-            console.log('🔔 FCM Token received:', fcmToken.substring(0, 20) + '...');
-
-            if (fcmToken.length < 50) {
-                console.warn('⚠️ FCM Token seems short, double-check device registration');
-            }
-
             const uid = bootstrapState?.user?.uid || bootstrapState?.user?.id;
             const rawRole = (bootstrapState?.user?.userRole || bootstrapState?.user?.role || '').toString().toLowerCase();
-            if (!uid || !rawRole) {
-                console.log('⏳ Skipping FCM token registration: user not ready');
-                return;
-            }
+            if (!uid || !rawRole) return;
 
             const sig = `${uid}:${fcmToken}`;
             if (lastRegisteredTokenRef.current === sig) return;
@@ -334,15 +303,12 @@ const App: React.FC = () => {
             const role = (rawRole.includes('farmer') || rawRole.includes('seller')) ? 'farmer' : 'buyer';
 
             // Build callable endpoints explicitly for region (asia-south1)
-            // Use modular functions instance (defaults to region defined in backend; we explicitly target a region when building URLs)
             const functionsInstance = getFunctions();
             const projectId = functionsInstance.app?.options?.projectId;
             const region = 'asia-south1';
             const makeCallable = (name: string) => {
                 if (projectId) {
                     const url = `https://${region}-${projectId}.cloudfunctions.net/${name}`;
-                    // Use modular API for callable functions
-                    // Prefer httpsCallableFromURL when available, else fallback to httpsCallable with name (should exist in all modern versions)
                     return httpsCallableFromUrl
                         ? httpsCallableFromUrl(functionsInstance, url)
                         : httpsCallable(functionsInstance, name);
@@ -351,44 +317,47 @@ const App: React.FC = () => {
             };
 
             try {
-                console.log('🌐 Checking existing tokens (region asia-south1)...');
                 const getRes: any = await makeCallable('getFcmTokens')({ uid, role });
                 const existing = Array.isArray(getRes?.data?.tokens) ? (getRes.data.tokens as string[]) : [];
-                console.log('📦 Existing tokens from backend:', existing);
+
                 if (existing.includes(fcmToken)) {
                     lastRegisteredTokenRef.current = sig;
-                    console.log('ℹ️ FCM token already registered (no action)');
                     return;
                 }
 
-                console.log('📝 Registering new FCM token to backend...');
                 await makeCallable('registerFcmToken')({ uid, role, token: fcmToken });
                 lastRegisteredTokenRef.current = sig;
-                console.log('✅ FCM token registered with backend (asia-south1)');
             } catch (e: any) {
-                const msg = e?.message || e?.toString?.() || 'unknown error';
-                console.error('❌ Failed (asia-south1) callable:', msg);
-
                 // Fallback: try default region us-central1 in case of region mismatch
                 try {
-                    console.log('🔁 Fallback attempt in default region (us-central1)...');
                     const defaultGet: any = await httpsCallable(functionsInstance, 'getFcmTokens')({ uid, role });
                     const existing2 = Array.isArray(defaultGet?.data?.tokens) ? defaultGet.data.tokens : [];
                     if (existing2.includes(fcmToken)) {
                         lastRegisteredTokenRef.current = sig;
-                        console.log('ℹ️ Token already registered in fallback region');
                         return;
                     }
                     await httpsCallable(functionsInstance, 'registerFcmToken')({ uid, role, token: fcmToken });
                     lastRegisteredTokenRef.current = sig;
-                    console.log('✅ Token registered via fallback region (us-central1)');
                 } catch (fallbackErr: any) {
-                    console.error('❌ Fallback registration failed:', fallbackErr?.message || fallbackErr);
+                    console.error('❌ Token registration failed:', fallbackErr?.message || fallbackErr);
                 }
             }
         };
 
-        registerToken();
+        // Debounce token registration to avoid rapid re-registrations
+        if (tokenRegistrationTimeoutRef.current) {
+            clearTimeout(tokenRegistrationTimeoutRef.current);
+        }
+
+        tokenRegistrationTimeoutRef.current = setTimeout(() => {
+            registerToken();
+        }, 500); // Debounce by 500ms
+
+        return () => {
+            if (tokenRegistrationTimeoutRef.current) {
+                clearTimeout(tokenRegistrationTimeoutRef.current);
+            }
+        };
     }, [isBootstrapped, fcmToken, bootstrapState?.user?.uid, bootstrapState?.user?.userRole]);
 
     // Enhanced push notification initialization - NON-BLOCKING
@@ -398,12 +367,8 @@ const App: React.FC = () => {
         const initializePushNotifications = async () => {
             try {
                 if (isPushInitialized && isEffectMounted) {
-                    console.log('🔔 Push notifications initialized successfully');
-                    console.log('🔔 Permission status:', permissionStatus);
-
                     // Delay permission request to not block splash screen
-                    if (permissionStatus === 'unknown' &&
-                        typeof requestPushPermission === 'function') {
+                    if (permissionStatus === 'unknown' && typeof requestPushPermission === 'function') {
 
                         // Request permission after app is fully loaded
                         setTimeout(async () => {
@@ -411,33 +376,20 @@ const App: React.FC = () => {
 
                             try {
                                 const granted = await requestPushPermission();
-                                if (isEffectMounted) {
-                                    console.log('🔔 Push permission requested:', granted ? 'granted' : 'denied');
-
-                                    if (!granted) {
-                                        // Show user-friendly message about notification benefits
-                                        Toast.show({
-                                            type: 'info',
-                                            text1: 'Notifications Disabled',
-                                            text2: 'You may miss important updates about your orders',
-                                            position: 'bottom',
-                                            visibilityTime: 4000,
-                                        });
-                                    }
+                                if (isEffectMounted && !granted) {
+                                    // Show user-friendly message about notification benefits
+                                    Toast.show({
+                                        type: 'info',
+                                        text1: 'Notifications Disabled',
+                                        text2: 'You may miss important updates about your orders',
+                                        position: 'bottom',
+                                        visibilityTime: 1000,
+                                    });
                                 }
                             } catch (permissionError) {
                                 console.error('❌ Permission request failed:', permissionError);
-                                if (isEffectMounted) {
-                                    Toast.show({
-                                        type: 'error',
-                                        text1: 'Notification Setup Failed',
-                                        text2: 'You can enable notifications later in settings',
-                                        position: 'bottom',
-                                        visibilityTime: 3000,
-                                    });
-                                }
                             }
-                        }, 1000); // Delay by 1 second after app loads
+                        }, 500); // Reduced from 1000ms to 500ms
                     }
                 }
             } catch (error) {
@@ -459,16 +411,10 @@ const App: React.FC = () => {
 
             // Validate bootstrap state
             if (!state || typeof state !== 'object') {
-                console.error('❌ Invalid bootstrap state received:', state);
+                console.error('❌ Invalid bootstrap state');
                 setInitializationError('Invalid authentication state');
                 return;
             }
-
-            console.log('🚀 Bootstrap completed:', {
-                hasUser: !!state.user,
-                userRole: state.user?.userRole || 'unknown',
-                timestamp: new Date().toISOString()
-            });
 
             setBootstrapState(state);
             setIsBootstrapped(true);
@@ -560,7 +506,7 @@ const App: React.FC = () => {
                     />
                     <AppBootstrapScreen
                         onBootstrapComplete={handleBootstrapComplete}
-                        minimumSplashTime={300} // Reduced from 800ms to 300ms
+                        minimumSplashTime={0}
                     />
                 </GestureHandlerRootView>
             </ErrorBoundary>

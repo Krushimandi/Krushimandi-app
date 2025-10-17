@@ -23,7 +23,6 @@ import ReAnimated, { useAnimatedStyle, withTiming, useSharedValue } from 'react-
 import { useKeyboardHandler } from 'react-native-keyboard-controller';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
-import { Colors } from '../../constants';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTabBarControl } from '../../utils/navigationControls';
