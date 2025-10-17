@@ -89,8 +89,8 @@ const ChatListScreen = ({ navigation }) => {
 
   // Calculate dynamic header heights based on content
   const baseHeaderHeight = statusBarHeight + 8 + 50; // Status bar + padding + title area
-  const searchHeight = 72;
-  const spacing = 24;
+  const searchHeight = 52;
+  const spacing = 30;
   const fullHeaderHeight = baseHeaderHeight + searchHeight + spacing;
   const collapsedHeaderHeight = baseHeaderHeight + 6;
 
@@ -493,16 +493,17 @@ const styles = StyleSheet.create({
   },
 
   searchFiltersRow: {
-    marginTop: 12,
+    marginTop: 10,
     marginBottom: 10
-  }, // Increased spacing for larger search
+  },
+  // Increased spacing for larger search
   searchWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F1F5F9',
     borderRadius: 20, // Increased border radius for larger search
     paddingHorizontal: 16, // Slightly more padding
-    paddingVertical: 8,
+    paddingVertical: 4,
     borderWidth: 1.5,
     borderColor: '#E2E8F0',
     minHeight: 52, // Ensure minimum height for larger search
