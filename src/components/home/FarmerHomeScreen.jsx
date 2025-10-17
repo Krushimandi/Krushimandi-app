@@ -1020,7 +1020,7 @@ const FarmerHomeScreen = () => {
                       style={styles.refreshButton}
                       onPress={handleRefresh}
                     >
-                      <Icon name="refresh-outline" size={20} color='#505050' />
+                      <Icon name="refresh-outline" size={20} color='#111111' />
                       <Text style={styles.refreshButtonText}>{t('farmerHome.refresh')}</Text>
                     </TouchableOpacity>
                   </View>
@@ -1041,7 +1041,7 @@ const FarmerHomeScreen = () => {
                           setSortBy('newest');
                         }}
                       >
-                        <Icon name="refresh-outline" size={20} color='#505050' />
+                        <Icon name="refresh-outline" size={20} color='#111111' />
                         <Text style={styles.refreshButtonText}>{t('farmerHome.clearFilters')}</Text>
                       </TouchableOpacity>
                     )}
@@ -1136,7 +1136,7 @@ const FarmerHomeScreen = () => {
                       style={styles.refreshButton}
                       onPress={handleRefresh}
                     >
-                      <Icon name="refresh-outline" size={20} color='#505050' />
+                      <Icon name="refresh-outline" size={20} color='#111111' />
                       <Text style={styles.refreshButtonText}>{t('farmerHome.refresh')}</Text>
                     </TouchableOpacity>
                   </View>
@@ -1157,7 +1157,7 @@ const FarmerHomeScreen = () => {
                           setSortBy('newest');
                         }}
                       >
-                        <Icon name="refresh-outline" size={20} color='#505050' />
+                        <Icon name="refresh-outline" size={20} color='#111111' />
                         <Text style={styles.refreshButtonText}>{t('farmerHome.clearFilters')}</Text>
                       </TouchableOpacity>
                     )}
@@ -1771,7 +1771,7 @@ const styles = StyleSheet.create({
   emptyStateText: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#757575',
+    color: '#111111',
     marginTop: 16,
     textAlign: 'center',
   },
@@ -2006,7 +2006,7 @@ const styles = StyleSheet.create({
   },
   refreshButtonText: {
     fontSize: 14,
-    color: '#505050',
+    color: '#111111',
     fontWeight: '600',
     marginLeft: 8,
   },

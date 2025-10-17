@@ -380,7 +380,7 @@ const ProfileScreen: React.FC = () => {
                         await loadUserProfile();
 
                         setIsRoleSwitching(false);
-                        Toast.show({ type: 'success', text1: t('toasts.roleSwitched', { role: roleLabel }), position: 'bottom' });
+                        // Toast.show({ type: 'success', text1: t('toasts.roleSwitched', { role: roleLabel }), position: 'bottom' });
                         if (navigation.canGoBack()) {
                           navigation.goBack();
                         }

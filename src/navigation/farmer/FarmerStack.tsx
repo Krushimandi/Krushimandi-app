@@ -210,7 +210,7 @@ const FarmerTabNavigator = () => {
         tabBarActiveTintColor: Colors.light.primaryDark,
         tabBarInactiveTintColor: "#9DB2CE",
         tabBarLabelStyle: {
-          fontSize: 12,
+          fontSize: 14,
           fontWeight: '600',
           marginTop: 4,
           color: "#9DB2CE",
@@ -340,7 +340,7 @@ const farmerStyles = StyleSheet.create({
   activeTabBackground: {
     position: 'absolute',
     width: 48,
-    height: 36,
+    height: 32,
     borderRadius: 30,
     backgroundColor: Colors.light.primaryDark + '15',
     justifyContent: 'center',
@@ -359,12 +359,11 @@ const farmerStyles = StyleSheet.create({
   fabButton: {
     width: 56,
     height: 56,
-    borderRadius: 28,
+    borderRadius: 30,
     backgroundColor: Colors.light.primaryDark,
     justifyContent: 'center',
     alignItems: 'center',
-    bottom: -2,
-
+    bottom: -8,
     // iOS shadow
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
@@ -372,7 +371,7 @@ const farmerStyles = StyleSheet.create({
     shadowRadius: 6, // smoother shadow
 
     // Android shadow
-    elevation: 20,
+    elevation: 24,
     // borderWidth: 3,
     // borderColor: '#DFF1E6',
   },

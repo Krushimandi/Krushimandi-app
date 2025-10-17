@@ -526,7 +526,7 @@ const BuyerHomeScreen = () => {
     } else {
       name = 'bhau';
     }
-    
+
     // Allow names up to 11 characters, truncate with "..." if longer
     // When truncating, show only 11 characters + "..."
     // Font size will be reduced for longer names (handled in getDynamicFontSize)
@@ -539,12 +539,12 @@ const BuyerHomeScreen = () => {
   // Calculate dynamic font size based on name length
   const getDynamicFontSize = useMemo(() => {
     const nameLength = getDisplayName.length;
-    
+
     // Base font size is 22, minimum is 18
     // More granular font size reduction based on character count
     const baseFontSize = 22;
     const minFontSize = 18;
-    
+
     if (nameLength <= 6) {
       // Very short names: use full font size
       return baseFontSize;
@@ -899,6 +899,8 @@ const BuyerHomeScreen = () => {
           bounces={true}
           overScrollMode="auto"
           refreshing={refreshing}
+          progressViewOffset={120}
+          progressViewTop={120}
           onRefresh={onRefresh}
           onScroll={Animated.event(
             [{ nativeEvent: { contentOffset: { y: scrollY } } }],
@@ -970,7 +972,7 @@ const BuyerHomeScreen = () => {
                         activeOpacity={0.8}
                         hitSlop={{ top: 10, bottom: 10, left: 0, right: 10 }}
                       >
-                        <Text 
+                        <Text
                           style={[styles.welcome, { fontSize: getDynamicFontSize }]}
                           numberOfLines={1}
                           ellipsizeMode="tail"

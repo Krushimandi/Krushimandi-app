@@ -207,9 +207,9 @@ const BuyerTabNavigator = () => {
         tabBarActiveTintColor: Colors.light.primaryDark,
         tabBarInactiveTintColor: Colors.light.gray,
         tabBarLabelStyle: {
-          fontSize: 12,
+          fontSize: 14,
           fontWeight: '600',
-          marginTop: 8,
+          marginTop: 4,
           marginBottom: Platform.OS === 'ios' ? 2 : 4,
         },
         tabBarStyle: {
@@ -314,7 +314,7 @@ const styles = StyleSheet.create({
   activeTabBackground: {
     position: 'absolute',
     width: 48,
-    height: 38,
+    height: 32,
     borderRadius: 30,
     backgroundColor: Colors.light.primaryDark + '15', // 15% opacity
     justifyContent: 'center',
