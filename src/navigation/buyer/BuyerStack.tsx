@@ -213,7 +213,7 @@ const BuyerTabNavigator = () => {
           marginBottom: Platform.OS === 'ios' ? 2 : 4,
         },
         tabBarStyle: {
-          height: Platform.OS === 'ios' ? (isSmallScreen ? 100 : 115) : 90,
+          height: Platform.OS === 'ios' ? (isSmallScreen ? 100 : 115) : 82,
           position: 'absolute',
           left: 15,
           right: 15,
@@ -233,8 +233,7 @@ const BuyerTabNavigator = () => {
           }],
           display: tabBarVisible ? 'flex' : 'none',
           paddingHorizontal: 10,
-          paddingBottom: Platform.OS === 'ios' ? 8 : 12,
-          paddingTop: 8,
+          paddingTop: 4,
         },
         tabBarItemStyle: {
           flex: 1,

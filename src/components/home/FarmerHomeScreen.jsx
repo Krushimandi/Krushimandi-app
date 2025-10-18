@@ -2097,7 +2097,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FAFAFA',
   },
   modalResetButton: {
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#E0E0E0',
     paddingVertical: 12,
     paddingHorizontal: 24,
     borderRadius: 8,

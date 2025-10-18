@@ -255,7 +255,6 @@ const styles = StyleSheet.create({
   },
   headerContainer: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
   },
   titleRow: {
     flexDirection: 'row',
@@ -285,16 +284,8 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     marginRight: 8,
   },
-  greeting: {
-    fontSize: 16,
-    color: '#777',
-  },
-  greetingName: {
-    fontWeight: 'bold',
-    color: '#000',
-  },
   titleText: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#000',
     flex: 1,
@@ -377,7 +368,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   continueContainer: {
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingTop: 12,
     backgroundColor: '#FFF',
     borderTopWidth: 1,
     borderTopColor: '#E0E0E0',

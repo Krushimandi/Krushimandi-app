@@ -66,7 +66,7 @@ class RequestService {
             if (!existingRequestsQuery.empty) {
                 const existingRequest = existingRequestsQuery.docs[0].data();
 
-                throw new Error('You have already sent a request for this product. Please wait for the farmer to respond.');
+                throw new Error('You have already sent a request for this product.');
             }
 
             

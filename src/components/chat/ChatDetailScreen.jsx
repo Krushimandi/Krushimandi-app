@@ -555,7 +555,6 @@ const ChatDetailScreen = ({ route, navigation }) => {
     console.log('Fake view height:', h);
     return {
       height: withTiming(h, { duration: 0 }),
-      backgroundColor: 'rgba(255, 0, 0, 0.3)', // Debug: red background
     };
   });
 

@@ -280,7 +280,7 @@
     "emptyTitleNoPreferred": "No Preferred Fruits Available",
     "emptyTitleNoFruits": "No Fruits Available",
     "emptySubNoMatch": "Try adjusting your search or category filter",
-    "emptySubNoPreferred": "No fruits matching your preferences are currently available. Try updating your preferences.",
+    "emptySubNoPreferred": "No fruits matching your preferences are currently available.",
     "emptySubNoFruits": "Fresh fruits will be listed here when farmers post them",
     "filtersTitle": "Filters",
     "refreshTitle": "Loading fresh fruits...",
@@ -646,7 +646,7 @@
         "invalidRequestTitle": "Invalid Request",
         "invalidRequestMessage": "You cannot send a request for your own product.",
         "alreadySentTitle": "Request Already Sent",
-        "alreadySentMessage": "You have already sent a request for this product. Please wait for the farmer to respond or check your requests in the Orders section.",
+        "alreadySentMessage": "You have already sent a request for this product.",
         "checkErrorMessage": "Unable to check existing requests. Please try again."
       },
       "toast": {

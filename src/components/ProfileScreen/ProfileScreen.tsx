@@ -20,9 +20,7 @@ import {
   Switch,
   Image,
   Linking,
-  Dimensions,
   Modal,
-  Platform,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
@@ -40,9 +38,6 @@ import { pushNotificationService } from '../../services/pushNotificationService'
 import { functions, httpsCallable } from '../../config/firebaseModular';
 import { setUserOnlineStatus } from '../../services/chatService';
 import useOfflineCapability from 'hooks/useOfflineCapability';
-// import { useIsConnected } from 'hooks/useNetworkStatus';
-
-const { width } = Dimensions.get('window');
 
 interface SettingItem {
   id: string;

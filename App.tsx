@@ -36,7 +36,6 @@ import NetworkStatusIndicator from './src/components/common/NetworkStatusIndicat
 import { persistentAuthManager } from './src/utils/persistentAuthManager';
 import ErrorBoundary from './src/components/common/ErrorBoundary';
 import { initRemoteConfig } from './src/services/remoteConfigService';
-import { useRemoteConfig } from './src/hooks/useRemoteConfig';
 import { LogBox, Appearance } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import i18n, { initI18n, LANGUAGE_STORAGE_KEY } from './src/i18n';

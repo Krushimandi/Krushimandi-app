@@ -217,7 +217,7 @@ const FarmerTabNavigator = () => {
           marginBottom: Platform.OS === 'ios' ? 2 : 4,
         },
         tabBarStyle: {
-          height: Platform.OS === 'ios' ? (isSmallScreen ? 100 : 115) : 90,
+          height: Platform.OS === 'ios' ? (isSmallScreen ? 100 : 115) : 82,
           position: 'absolute',
           left: 10,
           right: 10,
@@ -237,7 +237,7 @@ const FarmerTabNavigator = () => {
           }],
           display: tabBarVisible ? 'flex' : 'none',
           paddingHorizontal: 5,
-          paddingTop: 8,
+          paddingTop: 4,
         },
         tabBarItemStyle: {
           flex: 1,

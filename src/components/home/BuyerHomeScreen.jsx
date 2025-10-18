@@ -16,6 +16,7 @@ import {
   Modal,
   SafeAreaView,
   Pressable,
+  PanResponder,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -29,7 +30,6 @@ import { Colors } from '../../constants';
 import { getHeaderConstants } from '../../constants/Layout';
 import FilterScreen from './FilterScreen';
 import Toast from 'react-native-toast-message';
-import { NotificationBadge } from 'components/common';
 import ErrorBoundary from '../common/ErrorBoundary';
 import { FruitCard } from '../../ui';
 import {
@@ -69,8 +69,6 @@ const BuyerHomeScreen = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [isFixedHeaderVisible, setIsFixedHeaderVisible] = useState(false);
-  const [sortBy, setSortBy] = useState('newest');
-  const [showSortModal, setShowSortModal] = useState(false);
   const [appliedFilters, setAppliedFilters] = useState({
     selectedFeatures: [],
     priceRange: null,
@@ -93,6 +91,8 @@ const BuyerHomeScreen = () => {
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   // Location tap animation
   const locationTapAnim = useRef(new Animated.Value(0)).current;
+  // Filter modal drag animation
+  const filterModalTranslateY = useRef(new Animated.Value(0)).current;
 
   const onLocationPress = useCallback(() => {
     locationTapAnim.setValue(0);
@@ -110,6 +110,51 @@ const BuyerHomeScreen = () => {
     }],
     opacity: locationTapAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 0.9] })
   }), [locationTapAnim]);
+
+  // PanResponder for Filter Modal drag-to-dismiss
+  const filterModalPanResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        // Only activate pan responder if dragging down
+        return Math.abs(gestureState.dy) > 5 && gestureState.dy > 0;
+      },
+      onPanResponderGrant: () => {
+        filterModalTranslateY.setOffset(filterModalTranslateY._value);
+        filterModalTranslateY.setValue(0);
+      },
+      onPanResponderMove: (_, gestureState) => {
+        // Only allow dragging down, not up
+        if (gestureState.dy > 0) {
+          filterModalTranslateY.setValue(gestureState.dy);
+        }
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        filterModalTranslateY.flattenOffset();
+        
+        // If dragged down more than 150px or with high velocity, dismiss
+        if (gestureState.dy > 150 || gestureState.vy > 0.5) {
+          Animated.timing(filterModalTranslateY, {
+            toValue: 600,
+            duration: 250,
+            useNativeDriver: true,
+          }).start(() => {
+            setIsFilterModalVisible(false);
+            filterModalTranslateY.setValue(0);
+            slideAnim.setValue(0);
+          });
+        } else {
+          // Spring back to original position
+          Animated.spring(filterModalTranslateY, {
+            toValue: 0,
+            useNativeDriver: true,
+            tension: 50,
+            friction: 8,
+          }).start();
+        }
+      },
+    })
+  ).current;
 
   // Memoized formatter functions to prevent recreation
   const memoizedFormatPrice = useCallback(formatPrice, []);
@@ -140,12 +185,6 @@ const BuyerHomeScreen = () => {
   const headerHeight = scrollY.interpolate({
     inputRange: [0, headerConstants.HEADER_SCROLL_DISTANCE],
     outputRange: [headerConstants.HEADER_MAX_HEIGHT, headerConstants.HEADER_MIN_HEIGHT],
-    extrapolate: 'clamp',
-  });
-
-  const headerOpacity = scrollY.interpolate({
-    inputRange: [0, headerConstants.HEADER_SCROLL_DISTANCE * 0.3, headerConstants.HEADER_SCROLL_DISTANCE * 0.8],
-    outputRange: [1, 0.8, 0],
     extrapolate: 'clamp',
   });
 
@@ -249,22 +288,31 @@ const BuyerHomeScreen = () => {
   const openFilterModal = useCallback(() => {
     setIsFilterModalVisible(true);
     slideAnim.setValue(0);
+    filterModalTranslateY.setValue(0);
     Animated.timing(slideAnim, {
       toValue: 1,
       duration: 200,
       useNativeDriver: true,
     }).start();
-  }, [slideAnim]);
+  }, [slideAnim, filterModalTranslateY]);
 
   const closeFilterModal = useCallback(() => {
-    Animated.timing(slideAnim, {
-      toValue: 0,
-      duration: 150,
-      useNativeDriver: true,
-    }).start(() => {
+    Animated.parallel([
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+      Animated.timing(filterModalTranslateY, {
+        toValue: 0,
+        duration: 150,
+        useNativeDriver: true,
+      })
+    ]).start(() => {
       setIsFilterModalVisible(false);
+      filterModalTranslateY.setValue(0);
     });
-  }, [slideAnim]);
+  }, [slideAnim, filterModalTranslateY]);
 
   // Optimized handleApplyFilters with memoization
   const handleApplyFilters = useCallback((filters) => {
@@ -518,50 +566,14 @@ const BuyerHomeScreen = () => {
 
   // Get display name for greeting - memoized to prevent recalculations
   const getDisplayName = useMemo(() => {
-    let name;
     if (userProfile?.firstName) {
-      name = userProfile.firstName;
-    } else if (userProfile?.displayName) {
-      name = userProfile.displayName.split(' ')[0];
-    } else {
-      name = 'bhau';
+      return userProfile.firstName;
     }
-
-    // Allow names up to 11 characters, truncate with "..." if longer
-    // When truncating, show only 11 characters + "..."
-    // Font size will be reduced for longer names (handled in getDynamicFontSize)
-    if (name.length > 11) {
-      return name.substring(0, 11) + '...';
+    if (userProfile?.displayName) {
+      return userProfile.displayName.split(' ')[0];
     }
-    return name;
+    return 'bhau';
   }, [userProfile?.firstName, userProfile?.displayName]);
-
-  // Calculate dynamic font size based on name length
-  const getDynamicFontSize = useMemo(() => {
-    const nameLength = getDisplayName.length;
-
-    // Base font size is 22, minimum is 18
-    // More granular font size reduction based on character count
-    const baseFontSize = 22;
-    const minFontSize = 18;
-
-    if (nameLength <= 6) {
-      // Very short names: use full font size
-      return baseFontSize;
-    } else if (nameLength <= 8) {
-      // Short names: slight reduction
-      return 21;
-    } else if (nameLength <= 10) {
-      // Medium names: more reduction
-      return 20;
-    } else if (nameLength <= 11) {
-      // Long names: further reduction
-      return 19;
-    } else {
-      // Very long names (truncated): use minimum
-      return minFontSize;
-    }
-  }, [getDisplayName]);
 
   // Memoized renderStars to prevent recalculations
   const renderStars = useCallback((rating) => {
@@ -680,17 +692,6 @@ const BuyerHomeScreen = () => {
       loadMarketplaceFruits();
     }, 300);
   }, [loadMarketplaceFruits]);
-
-  // Clear search
-  const clearSearch = useCallback(() => {
-    setSearchQuery('');
-  }, []);
-
-  // Handle sort selection with validation
-  const handleSortSelection = useCallback((sortKey) => {
-    setSortBy(sortKey);
-    setShowSortModal(false);
-  }, []);
 
   // Handle refresh - optimized with useCallback
   const handleRefresh = useCallback(() => {
@@ -899,8 +900,6 @@ const BuyerHomeScreen = () => {
           bounces={true}
           overScrollMode="auto"
           refreshing={refreshing}
-          progressViewOffset={120}
-          progressViewTop={120}
           onRefresh={onRefresh}
           onScroll={Animated.event(
             [{ nativeEvent: { contentOffset: { y: scrollY } } }],
@@ -926,8 +925,7 @@ const BuyerHomeScreen = () => {
                 <Animated.View style={[
                   styles.headerContent,
                   {
-                    opacity: headerOpacity,
-                    backgroundColor: 'transparent', // Prevent double background
+                    backgroundColor: 'transparent',
                   }
                 ]}>
                   <View style={styles.headerRow}>
@@ -965,19 +963,16 @@ const BuyerHomeScreen = () => {
                           </View>
                         </TouchableOpacity>
                       )}
-
                       <TouchableOpacity
                         style={styles.userInfo}
-                        onPress={() => safeNavigate('ProfileScreen')}
+                        onPress={() => {
+                          safeNavigate('ProfileScreen');
+                        }}
                         activeOpacity={0.8}
                         hitSlop={{ top: 10, bottom: 10, left: 0, right: 10 }}
                       >
-                        <Text
-                          style={[styles.welcome, { fontSize: getDynamicFontSize }]}
-                          numberOfLines={1}
-                          ellipsizeMode="tail"
-                        >
-                          {t('buyerHome.greeting', { name: getDisplayName })}
+                        <Text style={styles.welcome}>
+                          {t('buyerHome.greeting', { name: getDisplayName, defaultValue: `Namaste, ${getDisplayName}!` })}
                         </Text>
                         <TouchableOpacity activeOpacity={0.9} onPress={onLocationPress}>
                           <Animated.View style={[styles.locationContainer, styles.locationInteractive, locationAnimatedStyle]}>
@@ -986,9 +981,11 @@ const BuyerHomeScreen = () => {
                               numberOfLines={1}
                               ellipsizeMode="tail"
                             >
-                              {userProfile?.location ?
-                                `${userProfile.location.city || ''}, ${userProfile.location.state || ''}`.replace(/, $/, '')
-                                : t('buyerHome.setYourLocation')}
+                              {userProfile?.location
+                                ? [userProfile.location.city, userProfile.location.district]
+                                  .filter(part => !!part && part.trim().length > 0)
+                                  .join(', ') || t('buyerHome.setYourLocation', 'Set your Location')
+                                : t('buyerHome.setYourLocation', 'Set your Location')}
                             </Text>
                             <Icon name="chevron-down" size={12} color="#505050" />
                           </Animated.View>
@@ -996,60 +993,58 @@ const BuyerHomeScreen = () => {
                       </TouchableOpacity>
                     </View>
                     <TouchableOpacity
-                      onPress={() => safeNavigate('Notification')}
+                      onPress={() => {
+                        safeNavigate('Notification');
+                      }}
                       style={styles.notificationIconButton}
                       hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     >
                       <Icon name="notifications-outline" size={24} color="#000" />
-                      <NotificationBadge style={{ margin: 8 }} size="small" />
                     </TouchableOpacity>
                   </View>
 
-                  {/* Search */}
-                  <View style={styles.searchRow}>
+                  {/* Search Row with Animation */}
+                  <Animated.View style={[
+                    styles.searchRow,
+                    {
+                      transform: [{ translateY: searchRowTranslateY }]
+                    }
+                  ]}>
                     <View style={styles.searchBox}>
-                      <Icon name="search" size={20} color="#939393" style={{ marginLeft: 12 }} />
-                      <TextInput
-                        placeholder={t('buyerHome.searchPlaceholder')}
-                        placeholderTextColor="#939393"
-                        style={styles.searchInput}
-                        value={searchQuery}
-                        onChangeText={handleSearchChange}
-                        returnKeyType="search"
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                        accessible={true}
-                        accessibilityLabel="Search input"
-                        accessibilityHint="Enter keywords to search for fruits"
-                      />
-                      {searchQuery.length > 0 && (
-                        <TouchableOpacity
-                          onPress={clearSearch}
-                          style={styles.clearSearchButton}
-                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                        >
-                          <Icon name="close-circle" size={18} color="#939393" />
-                        </TouchableOpacity>
-                      )}
+                      {/* Fade only the content, not the elevated surface */}
+                      <Animated.View style={{ opacity: searchRowOpacity, flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                        <Icon name="search" size={20} color="#939393" style={{ marginLeft: 12 }} />
+                        <TextInput
+                          placeholder="Search fruits..."
+                          placeholderTextColor="#939393"
+                          style={styles.searchInput}
+                          value={searchQuery}
+                          onChangeText={handleSearchChange}
+                          accessible={true}
+                          accessibilityLabel="Search input"
+                          accessibilityHint="Enter keywords to search for fruits"
+                        />
+                        {searchQuery.length > 0 && (
+                          <TouchableOpacity
+                            onPress={() => handleSearchChange('')}
+                            style={{ paddingRight: 12 }}
+                          >
+                            <Icon name="close-circle" size={20} color="#939393" />
+                          </TouchableOpacity>
+                        )}
+                      </Animated.View>
                     </View>
 
-                    <TouchableOpacity
-                      style={[
-                        styles.sortBtn,
-                        // sortBy !== 'newest' && styles.sortBtnActive
-                      ]}
-                      onPress={() => setShowSortModal(true)}
-                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                      accessible={true}
-                      accessibilityLabel="Sort listings"
-                      accessibilityHint="Tap to open sort options"
-                    >
-                      <Icon name="swap-vertical-outline" size={20} color={Colors.light.primaryDark} />
-                      {sortBy !== 'newest' && (
-                        <View style={styles.sortActiveDot} />
-                      )}
+                    {/* Filter Model */}
+                    <TouchableOpacity style={styles.filterBtn} onPress={() => {
+                      openFilterModal();
+                    }}>
+                      {/* Fade only the icon */}
+                      <Animated.View style={{ opacity: searchRowOpacity }}>
+                        <Icon name="options-outline" size={20} color={Colors.light.primaryDark} />
+                      </Animated.View>
                     </TouchableOpacity>
-                  </View>
+                  </Animated.View>
                 </Animated.View>
               </Animated.View>
 
@@ -1136,7 +1131,7 @@ const BuyerHomeScreen = () => {
                       {searchQuery || selectedCategory !== 'all'
                         ? t('buyerHome.emptySubNoMatch', 'Try adjusting your search or category filter')
                         : userProfile?.PreferedFruits && userProfile.PreferedFruits.length > 0 ?
-                          t('buyerHome.emptySubNoPreferred', 'No fruits matching your preferences are currently available. Try updating your preferences.') :
+                          t('buyerHome.emptySubNoPreferred', 'No fruits matching your preferences are currently available.') :
                           t('buyerHome.emptySubNoFruits', 'Fresh fruits will be listed here when farmers post them')}
                     </Text>
                     <TouchableOpacity
@@ -1176,26 +1171,26 @@ const BuyerHomeScreen = () => {
                 {
                   transform: [
                     {
-                      translateY: slideAnim.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [300, 0],
-                        extrapolate: 'clamp',
-                      }),
+                      translateY: Animated.add(
+                        slideAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [600, 0],
+                          extrapolate: 'clamp',
+                        }),
+                        filterModalTranslateY
+                      ),
                     },
                   ],
                 },
               ]}
             >
-              <View style={styles.modalHeader}>
+              <View 
+                style={styles.modalHeader}
+                {...filterModalPanResponder.panHandlers}
+              >
                 <View style={styles.modalHandle} />
                 <View style={styles.modalHeaderContent}>
-                  <TouchableOpacity
-                    style={styles.modalBackButton}
-                    onPress={closeFilterModal}
-                    activeOpacity={0.7}
-                  >
-                    <Icon name="close" size={20} color="#6B7280" />
-                  </TouchableOpacity>
+                  <View style={styles.modalBackButton} />
                   <Text style={styles.modalTitle}>{t('filterModal.title')}</Text>
                   <TouchableOpacity
                     style={styles.modalClearButton}
@@ -1467,39 +1462,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
-
-  clearSearchButton: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    marginRight: 8,
-  },
-  sortBtn: {
-    backgroundColor: '#E8F5E8',
-    height: 48,
-    width: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: Colors.light.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
-    borderWidth: 1,
-    borderColor: 'rgba(76, 175, 80, 0.2)',
-    position: 'relative',
-  },
-  sortActiveDot: {
-    position: 'absolute',
-    top: 6,
-    right: 6,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#FF4444',
-    borderWidth: 1.5,
-    borderColor: '#FFFFFF',
-  },
   filterBtn: {
     backgroundColor: '#E8F5E8',
     height: 52,
@@ -1598,12 +1560,11 @@ const styles = StyleSheet.create({
   emptyStateContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 40,
+    paddingVertical: 36,
     paddingHorizontal: 24,
     marginHorizontal: 20,
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
-    marginVertical: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
@@ -1700,17 +1661,14 @@ const styles = StyleSheet.create({
   modalBackButton: {
     width: 36,
     height: 36,
-    borderRadius: 18,
-    backgroundColor: '#F3F4F6',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
+    opacity: 0, // Invisible spacer for symmetry
   },
   modalTitle: {
     fontSize: 22,
     fontWeight: 'bold',
     color: 'black',
+    textAlign: 'center',
+    flex: 1,
     fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
   modalClearButton: {

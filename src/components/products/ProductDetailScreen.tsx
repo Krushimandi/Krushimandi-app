@@ -953,7 +953,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
       if (hasExisting) {
         Alert.alert(
           t('product.detail.alerts.alreadySentTitle', 'Request Already Sent'),
-          t('product.detail.alerts.alreadySentMessage', 'You have already sent a request for this product. Please wait for the farmer to respond or check your requests in the Orders section.'),
+          t('product.detail.alerts.alreadySentMessage', 'You have already sent a request for this product.'),
           [{ text: t('common.ok', 'OK') }]
         );
         return;
@@ -1758,7 +1758,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
               hasExistingRequestForProduct && { color: '#4CAF50' }
             ]}>
               {hasExistingRequestForProduct
-                ? t('product.detail.alerts.alreadySentMessage', 'You have already sent a request for this product. Please wait for the farmer to respond or check your requests in the Orders section.')
+                ? t('product.detail.alerts.alreadySentMessage', 'You have already sent a request for this product. Check your requests in the Orders section.')
                 : t('requests.slideToSend', 'Slide right to send a purchase request.')
               }
             </Text>

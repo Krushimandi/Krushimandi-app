@@ -101,18 +101,82 @@ const ChatListScreen = ({ navigation }) => {
   const formatTime = useCallback((ts) => {
     try {
       if (!ts) return '';
+
       const date = new Date(ts);
       const now = new Date();
+
+      // Validate date
+      if (isNaN(date.getTime())) return '';
+
       const diff = now.getTime() - date.getTime();
       const oneDay = 24 * 60 * 60 * 1000;
+      const oneWeek = 7 * oneDay;
+      const oneMonth = 30 * oneDay;
+      const oneYear = 365 * oneDay;
+
+      // Less than 1 minute
+      if (diff < 60 * 1000) {
+        return 'Just now';
+      }
+
+      // Less than 1 hour
+      if (diff < 60 * 60 * 1000) {
+        const minutes = Math.floor(diff / (60 * 1000));
+        return `${minutes}m ago`;
+      }
+
+      // Less than 1 day - show time
       if (diff < oneDay) {
-        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        return date.toLocaleTimeString('en-US', {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true
+        });
       }
-      if (diff < oneDay * 7) {
-        return date.toLocaleDateString([], { weekday: 'short' });
+
+      // Yesterday
+      if (diff < 2 * oneDay) {
+        return 'Yesterday ' + date.toLocaleTimeString('en-US', {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true
+        });
       }
-      return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
-    } catch (_) { return ''; }
+
+      // Less than 1 week - show full day name with time
+      if (diff < oneWeek) {
+        return date.toLocaleDateString('en-US', { weekday: 'short' }) + ' ' +
+          date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+      }
+
+      // Less than 1 month - show "X days ago"
+      if (diff < oneMonth) {
+        const days = Math.floor(diff / oneDay);
+        return `${days}d ago`;
+      }
+
+      // Less than 1 year - show short month, day and time
+      if (diff < oneYear) {
+        return date.toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+      }
+
+      // Older than 1 year - show full date with year
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+
+    } catch (_) {
+      return '';
+    }
   }, []);
 
   useEffect(() => {

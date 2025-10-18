@@ -494,7 +494,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#111827',
     fontWeight: '600',
-    marginBottom: 8,
+    marginBottom: 2,
   },
   requestNote: {
     fontSize: 12,

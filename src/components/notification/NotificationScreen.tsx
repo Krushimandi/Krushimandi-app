@@ -6,13 +6,11 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import {
     View,
     Text,
-    FlatList,
     StyleSheet,
     TouchableOpacity,
     Modal,
     Platform,
     StatusBar,
-    Image,
     Animated,
     Easing,
     Pressable,
@@ -20,17 +18,12 @@ import {
     RefreshControl,
     SectionList,
     ScrollView,
-    Alert,
-    ViewStyle,
-    TextStyle,
+    PanResponder,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
-import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { NavigationProp, ParamListBase } from '@react-navigation/native';
-import { Swipeable } from 'react-native-gesture-handler';
 import { Colors, Typography, Layout } from '../../constants';
 import { useTabBarControl } from '../../utils/navigationControls';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNotifications } from '../../hooks/useNotifications';
 import { useFocusEffect } from '@react-navigation/native';
 import auth from '@react-native-firebase/auth';
@@ -46,80 +39,6 @@ import {
 // Import notification type from service to avoid conflicts
 import { Notification } from '../../services/notificationService';
 import { HapticFeedback } from 'utils/haptics';
-
-// Remove the local mapNotification function since the service handles this
-// Format date function to handle Firebase timestamp (utility function)
-function formatDate(date: any): string {
-    if (!date) return new Date().toISOString().split('T')[0];
-
-    try {
-        if (typeof date === 'string') {
-            // Handle "2025-08-04T20:24:42.563Z" format
-            if (date.includes('T')) {
-                return date.split('T')[0];
-            }
-            // Handle "5 August 2025 at 01:54:42 UTC+5:30" format
-            if (date.includes(' at ')) {
-                const dateStr = date.split(' at ')[0];
-                const parsedDate = new Date(dateStr);
-                return parsedDate.toISOString().split('T')[0];
-            }
-            return date.split(' ')[0];
-        }
-
-        if (typeof date === 'number') {
-            return new Date(date).toISOString().split('T')[0];
-        }
-
-        // Handle Firebase Timestamp
-        if (date.seconds) {
-            return new Date(date.seconds * 1000).toISOString().split('T')[0];
-        }
-
-        return new Date(date).toISOString().split('T')[0];
-    } catch (error) {
-        return new Date().toISOString().split('T')[0];
-    }
-}
-
-// Format time function to handle Firebase timestamp
-function formatTime(date: any): string {
-    if (!date) return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-    try {
-        if (typeof date === 'string') {
-            // Handle "2025-08-04T20:24:42.563Z" format
-            if (date.includes('T')) {
-                return new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            }
-            // Handle "5 August 2025 at 01:54:42 UTC+5:30" format
-            if (date.includes(' at ')) {
-                const timeStr = date.split(' at ')[1].split(' ')[0];
-                return timeStr.substring(0, 5); // Extract HH:MM
-            }
-            return new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        }
-
-        if (typeof date === 'number') {
-            return new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        }
-
-        // Handle Firebase Timestamp
-        if (date.seconds) {
-            return new Date(date.seconds * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        }
-
-        return new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    } catch (error) {
-        return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    }
-}
-
-// Define section data structure
-interface NotificationSection {
-    title: string;
-    data: Notification[];
-}
 
 interface NotificationScreenProps {
     navigation: NavigationProp<ParamListBase>;
@@ -206,7 +125,7 @@ const SimpleSwitch: React.FC<{
 
         // Trigger haptic feedback
         HapticFeedback.toggleSwitch();
-        
+
         // Trigger change after animation starts for better feel
         onValueChange(!value);
     };
@@ -482,6 +401,10 @@ const NotificationScreen: React.FC<NotificationScreenProps> = ({ navigation }) =
     const translateY = useRef(new Animated.Value(50)).current;
     const opacity = useRef(new Animated.Value(0)).current;
 
+    // Modal animation values
+    const modalTranslateY = useRef(new Animated.Value(0)).current;
+    const modalOpacity = useRef(new Animated.Value(1)).current;
+
     // Filter options
     const filters = useMemo(() => ([
         { id: 'all', label: t('notifications.filters.all'), icon: 'notifications-outline' },
@@ -492,6 +415,68 @@ const NotificationScreen: React.FC<NotificationScreenProps> = ({ navigation }) =
         { id: 'message', label: t('notifications.filters.message'), icon: 'chatbubble-ellipses-outline' },
         { id: 'alert', label: t('notifications.filters.alert'), icon: 'alert-circle-outline' },
     ]), [t]);
+
+    // Pan responder for modal swipe-down gesture
+    const panResponder = useRef(
+        PanResponder.create({
+            onStartShouldSetPanResponder: () => true,
+            onMoveShouldSetPanResponder: (_, gestureState) => {
+                // Only respond to vertical gestures
+                return Math.abs(gestureState.dy) > 5 && Math.abs(gestureState.dy) > Math.abs(gestureState.dx);
+            },
+            onPanResponderGrant: () => {
+                modalTranslateY.setOffset(0);
+            },
+            onPanResponderMove: (_, gestureState) => {
+                // Only allow downward drag
+                if (gestureState.dy > 0) {
+                    modalTranslateY.setValue(gestureState.dy);
+                    // Fade out as user drags down
+                    const opacity = 1 - gestureState.dy / 300;
+                    modalOpacity.setValue(Math.max(0.3, opacity));
+                }
+            },
+            onPanResponderRelease: (_, gestureState) => {
+                // If dragged down more than 150px, close the modal
+                if (gestureState.dy > 150) {
+                    Animated.parallel([
+                        Animated.timing(modalTranslateY, {
+                            toValue: 600,
+                            duration: 250,
+                            useNativeDriver: true,
+                            easing: Easing.out(Easing.cubic),
+                        }),
+                        Animated.timing(modalOpacity, {
+                            toValue: 0,
+                            duration: 250,
+                            useNativeDriver: true,
+                        })
+                    ]).start(() => {
+                        setShowSettings(false);
+                        // Reset animations
+                        modalTranslateY.setValue(0);
+                        modalOpacity.setValue(1);
+                    });
+                } else {
+                    // Spring back to original position
+                    Animated.parallel([
+                        Animated.spring(modalTranslateY, {
+                            toValue: 0,
+                            friction: 8,
+                            tension: 80,
+                            useNativeDriver: true,
+                        }),
+                        Animated.timing(modalOpacity, {
+                            toValue: 1,
+                            duration: 200,
+                            useNativeDriver: true,
+                        })
+                    ]).start();
+                }
+            },
+        })
+    ).current;
+
     // Animate in when notifications change and user is ready
     useEffect(() => {
         if (authError || notifications.length === 0) return;
@@ -783,7 +768,7 @@ const NotificationScreen: React.FC<NotificationScreenProps> = ({ navigation }) =
                             ) : (
                                 <View style={styles.emptyContainer}>
                                     <View style={styles.emptyIconContainer}>
-                                        <Icon name="notifications-off-outline" size={70} color={Colors.light.primary + '70'} />
+                                        <Icon name="notifications-off-outline" size={56} color={Colors.light.primary + '70'} />
                                     </View>
                                     <Text style={styles.emptyTitle}>
                                         {selectedFilter === 'all' ? t('notifications.emptyTitleAll') : t('notifications.emptyTitleFilter', { filter: t(`notifications.filters.${selectedFilter}`) })}
@@ -834,8 +819,18 @@ const NotificationScreen: React.FC<NotificationScreenProps> = ({ navigation }) =
                                 style={styles.modalOverlay}
                                 onPress={() => setShowSettings(false)}
                             >
-                                <Pressable style={styles.modalContent} onPress={e => e.stopPropagation()}>
-                                    <View style={styles.modalHandle} />
+                                <Animated.View
+                                    style={[
+                                        styles.modalContent,
+                                        {
+                                            transform: [{ translateY: modalTranslateY }],
+                                            opacity: modalOpacity,
+                                        }
+                                    ]}
+                                >
+                                    <View {...panResponder.panHandlers} style={styles.modalHandleArea}>
+                                        <View style={styles.modalHandle} />
+                                    </View>
 
                                     <Text style={styles.modalTitle}>{t('notifications.settings.title')}</Text>
 
@@ -915,7 +910,7 @@ const NotificationScreen: React.FC<NotificationScreenProps> = ({ navigation }) =
                                     >
                                         <Text style={styles.closeButtonText}>{t('notifications.buttons.saveChanges')}</Text>
                                     </TouchableOpacity>
-                                </Pressable>
+                                </Animated.View>
                             </Pressable>
                         </Modal>
                     </>
@@ -1158,8 +1153,8 @@ const styles = StyleSheet.create({
         paddingBottom: Layout.spacing['3xl'],
     },
     emptyIconContainer: {
-        width: 130,
-        height: 130,
+        width: 110,
+        height: 110,
         borderRadius: 65,
         backgroundColor: Colors.light.primaryLight + '20',
         justifyContent: 'center',
@@ -1202,7 +1197,8 @@ const styles = StyleSheet.create({
         color: Colors.light.background,
         fontWeight: '600',
         fontSize: Typography.fontSize.base,
-    }, modalOverlay: {
+    },
+    modalOverlay: {
         flex: 1,
         backgroundColor: 'rgba(0, 0, 0, 0.5)',
         justifyContent: 'flex-end',
@@ -1219,13 +1215,17 @@ const styles = StyleSheet.create({
         shadowRadius: 5,
         elevation: 24,
     },
+    modalHandleArea: {
+        paddingVertical: Layout.spacing.sm,
+        paddingTop: Layout.spacing.md,
+        marginBottom: Layout.spacing.xs,
+        alignItems: 'center',
+    },
     modalHandle: {
         width: 40,
         height: 5,
         backgroundColor: Colors.light.border,
         borderRadius: 3,
-        alignSelf: 'center',
-        marginBottom: Layout.spacing.md,
     },
     modalTitle: {
         fontSize: Typography.fontSize.lg,
