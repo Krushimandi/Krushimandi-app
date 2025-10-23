@@ -21,8 +21,6 @@ import { Colors } from '../../constants';
 import { CreateRequestInput } from '../../types/Request';
 import { useTranslation } from 'react-i18next';
 
-
-
 const { width } = Dimensions.get('window');
 
 interface SendRequestModalProps {
@@ -72,9 +70,9 @@ const SendRequestModal: React.FC<SendRequestModalProps> = ({
 
     for (const pattern of phonePatterns) {
       if (pattern.test(text)) {
-        return { 
-          isValid: false, 
-          error: t('requests.errors.phoneNotAllowed', 'Phone numbers are not allowed in messages') 
+        return {
+          isValid: false,
+          error: t('requests.errors.phoneNotAllowed', 'Phone numbers are not allowed in messages')
         };
       }
     }
@@ -82,9 +80,9 @@ const SendRequestModal: React.FC<SendRequestModalProps> = ({
     // Pattern 2: Check for email addresses
     const emailPattern = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/;
     if (emailPattern.test(text)) {
-      return { 
-        isValid: false, 
-        error: t('requests.errors.emailNotAllowed', 'Email addresses are not allowed in messages') 
+      return {
+        isValid: false,
+        error: t('requests.errors.emailNotAllowed', 'Email addresses are not allowed in messages')
       };
     }
 
@@ -99,24 +97,24 @@ const SendRequestModal: React.FC<SendRequestModalProps> = ({
 
     for (const pattern of urlPatterns) {
       if (pattern.test(text)) {
-        return { 
-          isValid: false, 
-          error: t('requests.errors.linksNotAllowed', 'Links and websites are not allowed in messages') 
+        return {
+          isValid: false,
+          error: t('requests.errors.linksNotAllowed', 'Links and websites are not allowed in messages')
         };
       }
     }
 
     // Pattern 4: Check for @ mentions or social media handles
     if (/@\w+/.test(text)) {
-      return { 
-        isValid: false, 
-        error: t('requests.errors.socialMediaNotAllowed', 'Social media handles are not allowed') 
+      return {
+        isValid: false,
+        error: t('requests.errors.socialMediaNotAllowed', 'Social media handles are not allowed')
       };
     }
 
     // Pattern 5: Check for contact-related keywords
     const contactKeywords = [
-      'whatsapp', 'wa', 'telegram', 'call me', 'call', 'contact me', 
+      'whatsapp', 'wa', 'telegram', 'call me', 'call', 'contact me',
       'my number', 'my phone', 'reach me', 'dm me', 'direct message',
       'facebook', 'instagram', 'twitter', 'snapchat', 'messenger',
       'gmail', 'yahoo', 'hotmail', 'outlook', 'email me',
@@ -127,9 +125,9 @@ const SendRequestModal: React.FC<SendRequestModalProps> = ({
 
     for (const keyword of contactKeywords) {
       if (trimmedText.includes(keyword)) {
-        return { 
-          isValid: false, 
-          error: t('requests.errors.contactInfoNotAllowed', 'Sharing contact information is not allowed') 
+        return {
+          isValid: false,
+          error: t('requests.errors.contactInfoNotAllowed', 'Sharing contact information is not allowed')
         };
       }
     }
@@ -137,9 +135,9 @@ const SendRequestModal: React.FC<SendRequestModalProps> = ({
     // Pattern 6: Check for excessive numbers (even if not a complete phone number)
     const numberCount = (text.match(/\d/g) || []).length;
     if (numberCount > 6) {
-      return { 
-        isValid: false, 
-        error: t('requests.errors.tooManyNumbers', 'Too many numbers detected in message') 
+      return {
+        isValid: false,
+        error: t('requests.errors.tooManyNumbers', 'Too many numbers detected in message')
       };
     }
 
@@ -152,28 +150,15 @@ const SendRequestModal: React.FC<SendRequestModalProps> = ({
 
     for (const keyword of identityKeywords) {
       if (trimmedText.includes(keyword)) {
-        return { 
-          isValid: false, 
-          error: t('requests.errors.identityDisclosureNotAllowed', 'Identity disclosure is not allowed') 
+        return {
+          isValid: false,
+          error: t('requests.errors.identityDisclosureNotAllowed', 'Identity disclosure is not allowed')
         };
       }
     }
 
     return { isValid: true, error: '' };
   };
-
-
-
-
-
-  // const [selectedQuantity, setSelectedQuantity] = useState(product.quantity[0]);
-
-  //   // useEffect(() => {
-  //   //   setSelectedQuantity(product.quantity[0]);
-  //   // }, [product]);
-
-
-
 
   // Format quantity range display
   const formatQuantityRange = (quantity: [number, number]) => {
@@ -236,26 +221,6 @@ const SendRequestModal: React.FC<SendRequestModalProps> = ({
     }
   };
 
-
-
-
-
-  // const incrementQuantity = () => {
-  //   if (selectedQuantity < product.quantity[1]) {
-  //     setSelectedQuantity(selectedQuantity + 1);
-  //   }
-  // };
-  // const decrementQuantity = () => {
-  //   if (selectedQuantity > product.quantity[0]) {
-  //     setSelectedQuantity(selectedQuantity - 1);
-  //   }
-  // };
-
-
-
-
-
-
   return (
     <Modal visible={visible} animationType="slide" transparent>
       <View style={styles.overlay}>
@@ -303,11 +268,8 @@ const SendRequestModal: React.FC<SendRequestModalProps> = ({
               </View>
             </View>
 
-
             {/* 
-
-
-<View style={styles.section}>
+            <View style={styles.section}>
               <Text style={styles.sectionTitle}>Request Details</Text>
               <View style={styles.requestInfo}>
                 <Text style={styles.requestLabel}>Quantity to Request:</Text>
@@ -341,10 +303,6 @@ const SendRequestModal: React.FC<SendRequestModalProps> = ({
             </View> 
 
  */}
-
-
-
-
             {/* Message */}
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>{t('requests.messageOptional', 'Message (Optional)')}</Text>

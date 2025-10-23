@@ -1151,7 +1151,9 @@
     "otp": {
       "title": "We just sent an SMS",
       "subtitle": "Enter the 6-digit code we sent to",
-      "consent": "By continuing, you agree to our Terms & Conditions and Privacy Policy.",
+      "consent": "By continuing, you agree to our ",
+      "consentLink": "Terms & Conditions and Privacy Policy",
+      "consentEnd": ".",
       "consentA11y": "View Terms & Conditions and Privacy Policy",
       "resendPrompt": "Didn't receive the code?",
       "resendNow": "Resend code",

@@ -78,8 +78,9 @@ const OTPVerificationScreen = ({ navigation, route }) => {
       case 'auth/quota-exceeded':
         return 'OTP quota exceeded. Try again later.';
       case 'auth/operation-not-allowed':
+        return 'Operation not allowed. Please contact support';
       case 'auth/app-not-authorized':
-        return 'Phone authentication is not enabled. Please contact support';
+        return 'Phone authentication is not enabled. Please contact support.';
       default: {
         const msg = String(err?.message || '').toLowerCase();
         if (msg.includes('confirmation') || msg.includes('session')) {
@@ -559,6 +560,10 @@ const OTPVerificationScreen = ({ navigation, route }) => {
                 >
                   <Text style={styles.instructionText}>
                     {t('auth.otp.consent')}
+                    <Text style={styles.instructionTextUnderline}>
+                      {t('auth.otp.consentLink')}
+                    </Text>
+                    {t('auth.otp.consentEnd')}
                   </Text>
                 </TouchableOpacity>
 
@@ -604,7 +609,9 @@ const OTPVerificationScreen = ({ navigation, route }) => {
                         spellCheck={false}
                         autoCapitalize="none"
                         autoCorrect={false}
-                      />{/* Visual OTP Display */}
+                      />
+
+                      {/* Visual OTP Display */}
                       <TouchableOpacity
                         style={styles.otpDisplayContainer}
                         onPress={handleContainerPress}
@@ -635,7 +642,8 @@ const OTPVerificationScreen = ({ navigation, route }) => {
                       )}
                     </View>
                   </TouchableWithoutFeedback>
-                </Animated.View>              {/* Error message */}
+                </Animated.View>
+                {/* Error message */}
                 {error ? (
                   <Animated.View style={[
                     styles.errorContainer,
@@ -885,6 +893,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 20,
     fontStyle: 'italic',
+  },
+  instructionTextUnderline: {
+    textDecorationLine: 'underline',
+    color: '#007E2F',
+    fontWeight: '500',
   },
   pasteHint: {
     fontSize: 12,

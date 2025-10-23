@@ -131,7 +131,7 @@ const BuyerHomeScreen = () => {
       },
       onPanResponderRelease: (_, gestureState) => {
         filterModalTranslateY.flattenOffset();
-        
+
         // If dragged down more than 150px or with high velocity, dismiss
         if (gestureState.dy > 150 || gestureState.vy > 0.5) {
           Animated.timing(filterModalTranslateY, {
@@ -313,6 +313,52 @@ const BuyerHomeScreen = () => {
       filterModalTranslateY.setValue(0);
     });
   }, [slideAnim, filterModalTranslateY]);
+
+  // Get display name for greeting - memoized to prevent recalculations
+  const getDisplayName = useMemo(() => {
+    let name;
+    if (userProfile?.firstName) {
+      name = userProfile.firstName;
+    } else if (userProfile?.displayName) {
+      name = userProfile.displayName.split(' ')[0];
+    } else {
+      name = 'there';
+    }
+
+    // Allow names up to 11 characters, truncate with "..." if longer
+    // When truncating, show only 11 characters + "..."
+    // Font size will be reduced for longer names (handled in getDynamicFontSize)
+    if (name.length > 11) {
+      return name.substring(0, 11) + '...';
+    }
+    return name;
+  }, [userProfile?.firstName, userProfile?.displayName]);
+
+  const getDynamicFontSize = useMemo(() => {
+    const nameLength = getDisplayName.length;
+
+    // Base font size is 22, minimum is 18
+    // More granular font size reduction based on character count
+    const baseFontSize = 22;
+    const minFontSize = 18;
+
+    if (nameLength <= 6) {
+      // Very short names: use full font size
+      return baseFontSize;
+    } else if (nameLength <= 8) {
+      // Short names: slight reduction
+      return 21;
+    } else if (nameLength <= 10) {
+      // Medium names: more reduction
+      return 20;
+    } else if (nameLength <= 11) {
+      // Long names: further reduction
+      return 19;
+    } else {
+      // Very long names (truncated): use minimum
+      return minFontSize;
+    }
+  }, [getDisplayName]);
 
   // Optimized handleApplyFilters with memoization
   const handleApplyFilters = useCallback((filters) => {
@@ -563,17 +609,6 @@ const BuyerHomeScreen = () => {
     // user deleted from DB or logged out
 
   };
-
-  // Get display name for greeting - memoized to prevent recalculations
-  const getDisplayName = useMemo(() => {
-    if (userProfile?.firstName) {
-      return userProfile.firstName;
-    }
-    if (userProfile?.displayName) {
-      return userProfile.displayName.split(' ')[0];
-    }
-    return 'bhau';
-  }, [userProfile?.firstName, userProfile?.displayName]);
 
   // Memoized renderStars to prevent recalculations
   const renderStars = useCallback((rating) => {
@@ -971,7 +1006,7 @@ const BuyerHomeScreen = () => {
                         activeOpacity={0.8}
                         hitSlop={{ top: 10, bottom: 10, left: 0, right: 10 }}
                       >
-                        <Text style={styles.welcome}>
+                        <Text style={[styles.welcome, { fontSize: getDynamicFontSize }]}>
                           {t('buyerHome.greeting', { name: getDisplayName, defaultValue: `Namaste, ${getDisplayName}!` })}
                         </Text>
                         <TouchableOpacity activeOpacity={0.9} onPress={onLocationPress}>
@@ -1184,7 +1219,7 @@ const BuyerHomeScreen = () => {
                 },
               ]}
             >
-              <View 
+              <View
                 style={styles.modalHeader}
                 {...filterModalPanResponder.panHandlers}
               >

@@ -17,13 +17,21 @@ android {
     compileSdk rootProject.ext.compileSdkVersion
 
     namespace "com.krushimandi.app"
+
     defaultConfig {
         applicationId "com.krushimandi.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
         versionName "1.0"
+
+        externalNativeBuild {
+            cmake {
+                arguments "-DCMAKE_BUILD_TYPE=Release"
+            }
+        }
     }
+
     signingConfigs {
         debug {
             storeFile file('debug.keystore')
@@ -39,15 +47,33 @@ android {
             keyPassword project.property("RELEASE_KEY_PASSWORD")
         }
     }
+
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
+            ndk {
+                debugSymbolLevel 'none'
+            }
         }
+
         release {
             signingConfig signingConfigs.release
             minifyEnabled enableProguardInReleaseBuilds
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+
+            ndk {
+                debugSymbolLevel 'none'
+            }
+        }
+    }
+
+    packagingOptions {
+        
+        jniLibs.useLegacyPackaging = true
+
+        resources {
+            excludes += ["META-INF/**"]
         }
     }
 }
