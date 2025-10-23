@@ -388,7 +388,7 @@ const App: React.FC = () => {
                             } catch (permissionError) {
                                 console.error('❌ Permission request failed:', permissionError);
                             }
-                        }, 500); // Reduced from 1000ms to 500ms
+                        }, 500);
                     }
                 }
             } catch (error) {

@@ -3,6 +3,7 @@ import { View, Text, ScrollView, StyleSheet, TouchableOpacity, SafeAreaView, Sta
 import { useNavigation } from '@react-navigation/native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useTranslation } from 'react-i18next';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface NavigationType {
   goBack: () => void;
@@ -11,6 +12,7 @@ interface NavigationType {
 const PrivacyOnlyScreen: React.FC = () => {
   const navigation = useNavigation<NavigationType>();
   const { t, i18n } = useTranslation();
+  const insets = useSafeAreaInsets();
 
   const formatDate = (d: Date) => {
     try {
@@ -44,7 +46,7 @@ const PrivacyOnlyScreen: React.FC = () => {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#F5F5F5" />
 
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top }]}>
         <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
           <Ionicons name="chevron-back" size={24} color="#000" />
         </TouchableOpacity>
@@ -114,25 +116,78 @@ const PrivacyOnlyScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F5F5' },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 10, paddingTop: (StatusBar.currentHeight ?? 0) + 16, paddingVertical: 12,
+  container: {
+    flex: 1,
     backgroundColor: '#F5F5F5'
   },
-  backButton: { padding: 8 },
-  headerTitle: { fontSize: 18, fontWeight: '600', color: '#000' },
-  headerRight: { width: 40 },
-  scrollView: { flex: 1 },
-  scrollContent: { paddingBottom: 32 },
-  content: { paddingHorizontal: 20, paddingTop: 8 },
-  title: { fontSize: 20, fontWeight: '700', color: '#000', marginBottom: 6 },
-  metaText: { fontSize: 12, color: '#666', marginBottom: 12 },
-  sectionTitle: { fontSize: 16, fontWeight: '600', color: '#000', marginTop: 16, marginBottom: 8 },
-  sectionText: { fontSize: 14, color: '#666', lineHeight: 20, marginBottom: 8 },
-  bold: { fontWeight: '600', color: '#000' },
-  bulletRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
-  bullet: { fontSize: 14, color: '#666', lineHeight: 20, marginTop: 2 },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 10,
+    paddingVertical: 12,
+    backgroundColor: '#F5F5F5'
+  },
+  backButton: {
+    padding: 8
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#000'
+  },
+  headerRight: {
+    width: 40
+  },
+  scrollView: {
+    flex: 1
+  },
+  scrollContent: {
+    paddingBottom: 32
+  },
+  content: {
+    paddingHorizontal: 20,
+    paddingTop: 8
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#000',
+    marginBottom: 6
+  },
+  metaText: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 12
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#000',
+    marginTop: 16,
+    marginBottom: 8
+  },
+  sectionText: {
+    fontSize: 14,
+    color: '#666',
+    lineHeight: 20,
+    marginBottom: 8
+  },
+  bold: {
+    fontWeight: '600',
+    color: '#000'
+  },
+  bulletRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8
+  },
+  bullet: {
+    fontSize: 14,
+    color: '#666',
+    lineHeight: 20,
+    marginTop: 2
+  },
 });
 
 export default PrivacyOnlyScreen;

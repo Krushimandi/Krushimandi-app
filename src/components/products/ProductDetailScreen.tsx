@@ -37,6 +37,7 @@ import { CreateRequestInput } from '../../types/Request';
 import ErrorBoundary from '../common/ErrorBoundary';
 import { useTranslation } from 'react-i18next';
 import { HapticFeedback } from 'utils/haptics';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width, height } = Dimensions.get('window');
 // Note: Avoid wrapping FastImage with Reanimated.createAnimatedComponent to prevent
@@ -85,6 +86,8 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
 
   // Validate route params first
   const routeValidation = useMemo(() => validateRouteParams(route?.params), [route?.params]);
+
+  const insets = useSafeAreaInsets();
 
   // Early return with error handling for invalid params
   if (!routeValidation.isValid) {
@@ -447,26 +450,6 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
 
   // Animation values for the swipe-to-request button
   const pan = useRef(new Animated.Value(0)).current;
-
-  console.log('✅ Final product object:', {
-    id: product.id,
-    name: product.name,
-    imageCount: product.image_urls?.length || 0,
-    farmer_id: product.farmer_id,
-    farmer_name: product.farmer_name,
-    hasAllData: !!(product.id && product.name && product.farmer_id)
-  });
-
-  // Debug: Log farmer information
-  console.log('🔍 Farmer info debugging:', {
-    'rawProduct.farmer_id': rawProduct.farmer_id,
-    'rawProduct.farmer_name': rawProduct.farmer_name,
-    'product.farmer_id': product.farmer_id,
-    'product.farmer_name': product.farmer_name,
-    'farmer_id_type': typeof product.farmer_id,
-    'farmer_id_length': product.farmer_id?.length
-  });
-
   // Initialize fresh data from Firestore on each screen load
   useEffect(() => {
     // Always fetch fresh data from Firestore on screen load
@@ -1088,7 +1071,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
         </View>
       </SafeAreaView>
     }>
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={[styles.container, { paddingTop: insets.top }]}>
         <StatusBar
           backgroundColor="#FFFFFF"
           barStyle="dark-content"
@@ -2598,7 +2581,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   header: {
     flexDirection: 'row',

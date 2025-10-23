@@ -33,6 +33,7 @@ import { updateFruit } from '../../services/fruitService';
 import { firestore } from '../../config/firebaseModular';
 import { useTranslation } from 'react-i18next';
 import { categories } from 'utils/fruitCategories';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get('window');
 
@@ -61,6 +62,7 @@ const ProductDetailsFarmer = ({ route, navigation }) => {
   // Use image URLs from the new schema
   const productImages = productState?.image_urls || [product?.image].filter(Boolean);
 
+  const insets = useSafeAreaInsets();
 
   const QUANTITY_OPTIONS = useMemo(() => {
     const ton = t('units.ton_other');
@@ -75,7 +77,6 @@ const ProductDetailsFarmer = ({ route, navigation }) => {
     ];
   }, [t, i18n.language]);
 
-
   const [showQuantityOptions, setShowQuantityOptions] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   // Mounted flag to avoid setState after unmount
@@ -84,8 +85,6 @@ const ProductDetailsFarmer = ({ route, navigation }) => {
     isMountedRef.current = true;
     return () => { isMountedRef.current = false; };
   }, []);
-
-
 
   // useEffect(() => {
   //   if (productState) {
@@ -98,11 +97,6 @@ const ProductDetailsFarmer = ({ route, navigation }) => {
   //     });
   //   }
   // }, [productState]);
-
-
-
-
-
 
   // const getQuantityOptionFromRange = (quantity) => {
   //   if (!Array.isArray(quantity) || quantity.length !== 2) return '';
@@ -141,8 +135,6 @@ const ProductDetailsFarmer = ({ route, navigation }) => {
     return `20+ ${ton}`;
   };
 
-
-
   useEffect(() => {
     if (productState) {
       setEditFields({
@@ -155,11 +147,6 @@ const ProductDetailsFarmer = ({ route, navigation }) => {
     }
   }, [productState]);
 
-
-
-
-
-
   const [editFields, setEditFields] = useState({
     name: '',
     availability_date: '',
@@ -168,9 +155,7 @@ const ProductDetailsFarmer = ({ route, navigation }) => {
     price: '',
   });
 
-
   const [editModalVisible, setEditModalVisible] = useState(false);
-
 
   // Load request counts when component mounts
   useEffect(() => {
@@ -256,7 +241,7 @@ const ProductDetailsFarmer = ({ route, navigation }) => {
 
   if (!product) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.errorContainer}>
           <Ionicons name="alert-circle-outline" size={48} color="#E0E0E0" />
           <Text style={styles.errorText}>{t('product.farmerDetail.errors.notFound')}</Text>
@@ -1318,7 +1303,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.light.background,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   errorContainer: {
     flex: 1,

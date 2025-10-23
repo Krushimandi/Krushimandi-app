@@ -12,6 +12,7 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTranslation } from 'react-i18next';
 import i18n from '../../i18n';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface NavigationProp {
   goBack: () => void;
@@ -45,6 +46,7 @@ const LanguagesScreen: React.FC<LanguagesScreenProps> = ({ navigation }) => {
   const { t, i18n: i18nInstance } = useTranslation();
   const [selectedLanguage, setSelectedLanguage] = useState('en');
   const [refreshKey, setRefreshKey] = useState(0);
+  const insets = useSafeAreaInsets();
 
   // Load saved language on mount
   useEffect(() => {
@@ -86,9 +88,9 @@ const LanguagesScreen: React.FC<LanguagesScreenProps> = ({ navigation }) => {
     const handleLanguageChanged = () => {
       setRefreshKey(prev => prev + 1);
     };
-    
+
     i18nInstance.on('languageChanged', handleLanguageChanged);
-    
+
     return () => {
       i18nInstance.off('languageChanged', handleLanguageChanged);
     };
@@ -115,7 +117,7 @@ const LanguagesScreen: React.FC<LanguagesScreenProps> = ({ navigation }) => {
         onPress={async () => {
           if (!item.enabled) return;
           setSelectedLanguage(item.code);
-          try { 
+          try {
             await i18n.changeLanguage(item.code);
             // Force component re-render to pick up new translations
             setRefreshKey(prev => prev + 1);
@@ -150,7 +152,7 @@ const LanguagesScreen: React.FC<LanguagesScreenProps> = ({ navigation }) => {
       <StatusBar barStyle="dark-content" backgroundColor="#F2F2F7" />
 
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top }]}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={handleBackPress}
@@ -189,7 +191,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 10,
-    paddingTop: (StatusBar.currentHeight ?? 0) + 16,
     paddingVertical: 12,
     backgroundColor: '#F5F5F5',
   },

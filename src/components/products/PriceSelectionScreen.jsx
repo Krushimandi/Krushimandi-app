@@ -21,6 +21,7 @@ import { Colors } from '../../constants';
 import { createFruit } from '../../services/fruitService';
 import { useTabBarControl } from '../../utils/navigationControls';
 import { useFocusEffect } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Simple smart pricing - keep complex logic hidden
 const getSmartPrice = (fruitCategory, variety) => {
@@ -75,7 +76,8 @@ export default function PriceSelectionScreen({ navigation, route }) {
   const timeoutRef = useRef(null);
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
-
+  const insets = useSafeAreaInsets();
+  
   // Get product data from previous screen
   const { productData } = route.params || {};
 
@@ -221,8 +223,8 @@ export default function PriceSelectionScreen({ navigation, route }) {
         quantity: productData?.quantity || [0, 0],
         price_per_kg: finalPrice,
 
-  // Availability and images - preserve previously selected availability_date
-  availability_date: productData?.availability_date || new Date().toISOString(),
+        // Availability and images - preserve previously selected availability_date
+        availability_date: productData?.availability_date || new Date().toISOString(),
         image_urls: productData?.image_urls || [], // Already Firebase URLs from PhotoUploadScreen
 
         // Location info
@@ -304,7 +306,7 @@ export default function PriceSelectionScreen({ navigation, route }) {
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top }]}>
         <TouchableOpacity style={styles.backButton} onPress={handleBack}>
           <Ionicons name="arrow-back" size={24} color="#333" />
         </TouchableOpacity>
@@ -442,7 +444,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 8 : 8,
     paddingBottom: 10,
     backgroundColor: '#F8F9FA',
     borderBottomWidth: 1,

@@ -8,10 +8,12 @@ import {
   SafeAreaView,
   StatusBar,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 
 const AppPlatform = ({ route, navigation }) => {
 
+  const insets = useSafeAreaInsets();
   // Function to get appropriate icon based on category
   const getIconForCategory = (category) => {
     switch (category) {
@@ -61,7 +63,6 @@ const AppPlatform = ({ route, navigation }) => {
     },
   ];
 
-
   const faqList = platformFaq;
   const faqTitle = "App & Platform Use FAQ";
 
@@ -86,7 +87,7 @@ const AppPlatform = ({ route, navigation }) => {
         translucent />
 
       {/* Header with same styling as HelpScreen */}
-      <View style={styles.headerContainer}>
+      <View style={[styles.headerContainer, { paddingTop: insets.top }]}>
         <View style={styles.headerBackground}>
           <View style={styles.headerPattern} />
           <View style={styles.headerOverlay} />
@@ -161,7 +162,6 @@ const styles = StyleSheet.create({
   },
   headerContainer: {
     position: 'relative',
-    paddingTop: StatusBar.currentHeight || 44,
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
     overflow: 'hidden',
@@ -202,7 +202,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 20,
+    paddingVertical: 16,
     position: 'relative',
     zIndex: 1,
   },
@@ -220,7 +220,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    top: 20,
     justifyContent: 'center',
     alignItems: 'center',
   },

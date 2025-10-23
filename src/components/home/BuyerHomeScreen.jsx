@@ -702,12 +702,6 @@ const BuyerHomeScreen = () => {
     };
   }, [userProfile?.PreferedFruits, selectedCategory, searchQuery]);
 
-  // Filter fruits based on category and search query - optimized to reduce re-renders
-  const filterFruits = useCallback(() => {
-    // delegate to DB-level fetch
-    loadMarketplaceFruits();
-  }, [loadMarketplaceFruits]);
-
   // Handle category change - optimized with useCallback
   const handleCategoryChange = useCallback((categoryType) => {
     setSelectedCategory(categoryType);
@@ -738,10 +732,10 @@ const BuyerHomeScreen = () => {
   // Handle pull to refresh with cleanup
   const onRefresh = useCallback(async () => {
     let isMounted = true;
-
     try {
       if (isMounted) setRefreshing(true);
       await Promise.allSettled([
+        handleRefresh(),
         loadUserProfile(true),
         loadMarketplaceFruits()
       ]);

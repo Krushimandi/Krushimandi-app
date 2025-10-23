@@ -26,9 +26,10 @@ import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTabBarControl } from '../../utils/navigationControls';
-import { getCurrentLocation, reverseGeocode, getFastLocation, checkAndPromptGPSSettings, testReverseGeocode, getLocationWithCache } from '../../utils/permissions';
+import { checkAndPromptGPSSettings, getLocationWithCache } from '../../utils/permissions';
 import { initializeLocationCache } from '../../utils/locationCache';
 import { useTranslation } from 'react-i18next';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Debounce utility function with cancel method
 const debounce = (func, wait) => {
@@ -84,6 +85,9 @@ const AddFruitScreen = ({ navigation }) => {
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [currentLocation, setCurrentLocation] = useState(null);
   const [locationError, setLocationError] = useState('');
+
+
+  const insets = useSafeAreaInsets();
 
   // Refs
   const scrollViewRef = useRef(null);
@@ -643,7 +647,7 @@ const AddFruitScreen = ({ navigation }) => {
       />
       <View style={styles.container}>
         {/* Modern Header */}
-        <View style={styles.header}>
+        <View style={[styles.header, { paddingTop: insets.top }]}>
           <TouchableOpacity style={styles.backButton} onPress={handleBack}>
             <Ionicons name="arrow-back" size={24} color="#2C3E50" />
           </TouchableOpacity>
@@ -686,56 +690,56 @@ const AddFruitScreen = ({ navigation }) => {
             bounces={true}
           >
             <View style={styles.content}>
-                {/* Fruit Name Input */}
-                <View style={styles.modernInputContainer}>
-                  <Text style={styles.modernLabel}>
-                    <Ionicons name="leaf-outline" size={16} color="#00C851" /> {t('product.add.labels.fruitName')} *
-                  </Text>
-                  <TextInput
-                    ref={(ref) => inputRefs.current.fruitName = ref}
-                    style={[
-                      styles.modernInput,
-                      focusedInput === 'fruitName' && styles.modernInputFocused,
-                      (showValidationErrors || touchedFields.fruitName) && validationErrors.fruitName && styles.modernInputError
-                    ]}
-                    value={fruitName}
-                    onChangeText={(value) => handleInputChange('fruitName', value)}
-                    onFocus={() => handleInputFocus('fruitName')}
-                    onBlur={() => setFocusedInput('')}
-                    placeholder={t('product.add.placeholders.fruitName')}
-                    placeholderTextColor="#94A3B8"
-                    autoCapitalize="words"
-                    returnKeyType="next"
-                    onSubmitEditing={() => inputRefs.current.city?.focus()}
-                  />
-                  {(showValidationErrors || touchedFields.fruitName) && validationErrors.fruitName && (
-                    <Text style={styles.errorText}>{validationErrors.fruitName}</Text>
-                  )}
-                </View>
+              {/* Fruit Name Input */}
+              <View style={styles.modernInputContainer}>
+                <Text style={styles.modernLabel}>
+                  <Ionicons name="leaf-outline" size={16} color="#00C851" /> {t('product.add.labels.fruitName')} *
+                </Text>
+                <TextInput
+                  ref={(ref) => inputRefs.current.fruitName = ref}
+                  style={[
+                    styles.modernInput,
+                    focusedInput === 'fruitName' && styles.modernInputFocused,
+                    (showValidationErrors || touchedFields.fruitName) && validationErrors.fruitName && styles.modernInputError
+                  ]}
+                  value={fruitName}
+                  onChangeText={(value) => handleInputChange('fruitName', value)}
+                  onFocus={() => handleInputFocus('fruitName')}
+                  onBlur={() => setFocusedInput('')}
+                  placeholder={t('product.add.placeholders.fruitName')}
+                  placeholderTextColor="#94A3B8"
+                  autoCapitalize="words"
+                  returnKeyType="next"
+                  onSubmitEditing={() => inputRefs.current.city?.focus()}
+                />
+                {(showValidationErrors || touchedFields.fruitName) && validationErrors.fruitName && (
+                  <Text style={styles.errorText}>{validationErrors.fruitName}</Text>
+                )}
+              </View>
 
-                {/* Category Selection */}
-                <View style={styles.modernInputContainer}>
-                  <Text style={styles.modernLabel}>
-                    <Ionicons name="apps-outline" size={16} color="#00C851" /> {t('product.add.labels.category')} *
-                  </Text>
-                  <TouchableOpacity
-                    style={styles.modernDropdown}
-                    onPress={() => setShowCategoryModal(true)}
-                    accessible={true}
-                    accessibilityLabel={t('product.add.a11y.selectFruitCategory')}
-                    accessibilityHint={t('product.add.a11y.opensCategoryModal')}
-                  >
-                    <View style={styles.dropdownContent}>
-                      <Text style={styles.modernDropdownText}>
-                        {categories.find(cat => cat.id === category)?.name || category}
-                      </Text>
-                    </View>
-                    <Ionicons name="chevron-down" size={20} color="#64748B" />
-                  </TouchableOpacity>
-                </View>
+              {/* Category Selection */}
+              <View style={styles.modernInputContainer}>
+                <Text style={styles.modernLabel}>
+                  <Ionicons name="apps-outline" size={16} color="#00C851" /> {t('product.add.labels.category')} *
+                </Text>
+                <TouchableOpacity
+                  style={styles.modernDropdown}
+                  onPress={() => setShowCategoryModal(true)}
+                  accessible={true}
+                  accessibilityLabel={t('product.add.a11y.selectFruitCategory')}
+                  accessibilityHint={t('product.add.a11y.opensCategoryModal')}
+                >
+                  <View style={styles.dropdownContent}>
+                    <Text style={styles.modernDropdownText}>
+                      {categories.find(cat => cat.id === category)?.name || category}
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-down" size={20} color="#64748B" />
+                </TouchableOpacity>
+              </View>
 
-                {/* Grade Selection */}
-                {/* <View style={styles.modernInputContainer}>
+              {/* Grade Selection */}
+              {/* <View style={styles.modernInputContainer}>
                 <Text style={styles.modernLabel}>
                   <Ionicons name="star-outline" size={16} color="#00C851" /> Quality Grade *
                 </Text>
@@ -759,245 +763,245 @@ const AddFruitScreen = ({ navigation }) => {
                 </TouchableOpacity>
               </View> */}
 
-                {/* Quantity Selection */}
-                <View style={styles.modernInputContainer}>
-                  <Text style={styles.modernLabel}>
-                    <Ionicons name="scale-outline" size={16} color="#00C851" /> {t('product.add.labels.availableQuantity')} *
-                  </Text>
-                  <TouchableOpacity
-                    style={styles.modernDropdown}
-                    onPress={() => setShowQuantityModal(true)}
-                    accessible={true}
-                    accessibilityLabel={t('product.add.a11y.selectAvailableQuantity')}
-                    accessibilityHint={t('product.add.a11y.opensQuantityModal')}
-                  >
-                    <View style={styles.dropdownContent}>
-                      <Text style={styles.quantityIcon}>⚖️</Text>
-                      <Text style={styles.modernDropdownText}>
-                        {quantities.find(q => q.id === quantity)?.name || `${quantity} ${t('units.ton_other')}`}
-                      </Text>
-                    </View>
-                    <Ionicons name="chevron-down" size={20} color="#64748B" />
-                  </TouchableOpacity>
-                </View>
+              {/* Quantity Selection */}
+              <View style={styles.modernInputContainer}>
+                <Text style={styles.modernLabel}>
+                  <Ionicons name="scale-outline" size={16} color="#00C851" /> {t('product.add.labels.availableQuantity')} *
+                </Text>
+                <TouchableOpacity
+                  style={styles.modernDropdown}
+                  onPress={() => setShowQuantityModal(true)}
+                  accessible={true}
+                  accessibilityLabel={t('product.add.a11y.selectAvailableQuantity')}
+                  accessibilityHint={t('product.add.a11y.opensQuantityModal')}
+                >
+                  <View style={styles.dropdownContent}>
+                    <Text style={styles.quantityIcon}>⚖️</Text>
+                    <Text style={styles.modernDropdownText}>
+                      {quantities.find(q => q.id === quantity)?.name || `${quantity} ${t('units.ton_other')}`}
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-down" size={20} color="#64748B" />
+                </TouchableOpacity>
+              </View>
 
-                {/* Availability Date Picker (below Quantity) */}
-                <View style={styles.modernInputContainer}>
-                  <Text style={styles.modernLabel}>
-                    <Ionicons name="calendar-outline" size={16} color="#00C851" /> {t('product.add.labels.availabilityDate')} *
+              {/* Availability Date Picker (below Quantity) */}
+              <View style={styles.modernInputContainer}>
+                <Text style={styles.modernLabel}>
+                  <Ionicons name="calendar-outline" size={16} color="#00C851" /> {t('product.add.labels.availabilityDate')} *
+                </Text>
+                <TouchableOpacity
+                  style={[
+                    styles.modernInput,
+                    { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+                    (showValidationErrors || touchedFields.availabilityDate) && !availabilityDate && styles.modernInputError
+                  ]}
+                  onPress={() => {
+                    setTouchedFields(prev => ({ ...prev, availabilityDate: true }));
+                    setShowDatePicker(true);
+                  }}
+                  accessible={true}
+                  accessibilityLabel={t('product.add.a11y.selectAvailabilityDate')}
+                  accessibilityHint={t('product.add.a11y.opensDatePicker')}
+                >
+                  <Text style={{ color: availabilityDate ? '#111827' : '#94A3B8', fontSize: 16 }}>
+                    {availabilityDate ? new Date(availabilityDate).toLocaleDateString() : t('product.add.placeholders.availabilityDate')}
                   </Text>
-                  <TouchableOpacity
-                    style={[
-                      styles.modernInput,
-                      { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-                      (showValidationErrors || touchedFields.availabilityDate) && !availabilityDate && styles.modernInputError
-                    ]}
-                    onPress={() => {
-                      setTouchedFields(prev => ({ ...prev, availabilityDate: true }));
-                      setShowDatePicker(true);
+                  <Ionicons name="calendar" size={20} color="#64748B" />
+                </TouchableOpacity>
+                {(showValidationErrors || touchedFields.availabilityDate) && !availabilityDate && (
+                  <Text style={styles.errorText}>{t('product.add.validation.availabilityDateRequired')}</Text>
+                )}
+                {showDatePicker && (
+                  <DateTimePicker
+                    value={availabilityDate ? new Date(availabilityDate) : new Date()}
+                    mode="date"
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    onChange={(event, selectedDate) => {
+                      setShowDatePicker(Platform.OS === 'ios');
+                      if (selectedDate) {
+                        setAvailabilityDate(selectedDate.toISOString());
+                        setTouchedFields(prev => ({ ...prev, availabilityDate: true }));
+                      }
                     }}
-                    accessible={true}
-                    accessibilityLabel={t('product.add.a11y.selectAvailabilityDate')}
-                    accessibilityHint={t('product.add.a11y.opensDatePicker')}
-                  >
-                    <Text style={{ color: availabilityDate ? '#111827' : '#94A3B8', fontSize: 16 }}>
-                      {availabilityDate ? new Date(availabilityDate).toLocaleDateString() : t('product.add.placeholders.availabilityDate')}
-                    </Text>
-                    <Ionicons name="calendar" size={20} color="#64748B" />
-                  </TouchableOpacity>
-                  {(showValidationErrors || touchedFields.availabilityDate) && !availabilityDate && (
-                    <Text style={styles.errorText}>{t('product.add.validation.availabilityDateRequired')}</Text>
-                  )}
-                  {showDatePicker && (
-                    <DateTimePicker
-                      value={availabilityDate ? new Date(availabilityDate) : new Date()}
-                      mode="date"
-                      display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                      onChange={(event, selectedDate) => {
-                        setShowDatePicker(Platform.OS === 'ios');
-                        if (selectedDate) {
-                          setAvailabilityDate(selectedDate.toISOString());
-                          setTouchedFields(prev => ({ ...prev, availabilityDate: true }));
-                        }
-                      }}
-                    />
-                  )}
-                </View>
-
-                {/* Location Section */}
-                <View style={styles.modernSectionContainer}>
-                  <View style={styles.sectionHeader}>
-                    <Text style={styles.modernSectionTitle}>
-                      <Ionicons name="location-outline" size={18} color="#00C851" /> {t('product.add.labels.farmLocation')} *
-                    </Text>
-                    <TouchableOpacity
-                      style={[
-                        styles.singleLocationButton,
-                        isGettingLocation && styles.locationButtonDisabled
-                      ]}
-                      onPress={handleGetLocation}
-                      disabled={isGettingLocation}
-                      accessible={true}
-                      accessibilityLabel={t('product.add.a11y.getCurrentLocation')}
-                      accessibilityHint={t('product.add.a11y.getLocationHint')}
-                    >
-                      {isGettingLocation ? (
-                        <ActivityIndicator size="small" color="#FFFFFF" />
-                      ) : (
-                        <MaterialIcons name="my-location" size={18} color="#FFFFFF" />
-                      )}
-                      <Text style={styles.locationButtonText}>
-                        {isGettingLocation ? t('product.add.actions.getting') : t('product.add.actions.getLocation')}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-
-                  {locationError ? (
-                    <Text style={styles.locationErrorText}>
-                      ⚠️ {locationError}
-                    </Text>
-                  ) : null}
-
-                  <View style={styles.locationGrid}>
-                    <View style={[styles.modernInputContainer, styles.halfWidth]}>
-                      <Text style={styles.modernLabel}>{t('product.add.labels.cityVillage')} *</Text>
-                      <TextInput
-                        ref={(ref) => inputRefs.current.city = ref}
-                        style={[
-                          styles.modernInput,
-                          focusedInput === 'city' && styles.modernInputFocused,
-                          (showValidationErrors || touchedFields.city) && validationErrors.city && styles.modernInputError
-                        ]}
-                        value={city}
-                        onChangeText={(value) => handleInputChange('city', value)}
-                        onFocus={() => handleInputFocus('city')}
-                        onBlur={() => setFocusedInput('')}
-                        placeholder={t('product.add.placeholders.city')}
-                        placeholderTextColor="#94A3B8"
-                        autoCapitalize="words"
-                        returnKeyType="next"
-                        onSubmitEditing={() => inputRefs.current.district?.focus()}
-                      />
-                      {(showValidationErrors || touchedFields.city) && validationErrors.city && (
-                        <Text style={styles.errorText}>{validationErrors.city}</Text>
-                      )}
-                    </View>
-
-                    <View style={[styles.modernInputContainer, styles.halfWidth]}>
-                      <Text style={styles.modernLabel}>{t('product.add.labels.district')} *</Text>
-                      <TextInput
-                        ref={(ref) => inputRefs.current.district = ref}
-                        style={[
-                          styles.modernInput,
-                          focusedInput === 'district' && styles.modernInputFocused,
-                          (showValidationErrors || touchedFields.district) && validationErrors.district && styles.modernInputError
-                        ]}
-                        value={district}
-                        onChangeText={(value) => handleInputChange('district', value)}
-                        onFocus={() => handleInputFocus('district')}
-                        onBlur={() => setFocusedInput('')}
-                        placeholder={t('product.add.placeholders.district')}
-                        placeholderTextColor="#94A3B8"
-                        autoCapitalize="words"
-                        returnKeyType="next"
-                        onSubmitEditing={() => inputRefs.current.state?.focus()}
-                      />
-                      {(showValidationErrors || touchedFields.district) && validationErrors.district && (
-                        <Text style={styles.errorText}>{validationErrors.district}</Text>
-                      )}
-                    </View>
-                  </View>
-
-                  <View style={styles.locationGrid}>
-                    <View style={[styles.modernInputContainer, styles.halfWidth]}>
-                      <Text style={styles.modernLabel}>{t('product.add.labels.state')} *</Text>
-                      <TextInput
-                        ref={(ref) => inputRefs.current.state = ref}
-                        style={[
-                          styles.modernInput,
-                          focusedInput === 'state' && styles.modernInputFocused,
-                          (showValidationErrors || touchedFields.state) && validationErrors.state && styles.modernInputError
-                        ]}
-                        value={state}
-                        onChangeText={(value) => handleInputChange('state', value)}
-                        onFocus={() => handleInputFocus('state')}
-                        onBlur={() => setFocusedInput('')}
-                        placeholder={t('product.add.placeholders.state')}
-                        placeholderTextColor="#94A3B8"
-                        autoCapitalize="words"
-                        returnKeyType="next"
-                        onSubmitEditing={() => inputRefs.current.pincode?.focus()}
-                      />
-                      {(showValidationErrors || touchedFields.state) && validationErrors.state && (
-                        <Text style={styles.errorText}>{validationErrors.state}</Text>
-                      )}
-                    </View>
-
-                    <View style={[styles.modernInputContainer, styles.halfWidth]}>
-                      <Text style={styles.modernLabel}>{t('product.add.labels.pincode')} *</Text>
-                      <TextInput
-                        ref={(ref) => inputRefs.current.pincode = ref}
-                        style={[
-                          styles.modernInput,
-                          focusedInput === 'pincode' && styles.modernInputFocused,
-                          (showValidationErrors || touchedFields.pincode) && validationErrors.pincode && styles.modernInputError
-                        ]}
-                        value={pincode}
-                        onChangeText={(value) => handleInputChange('pincode', value)}
-                        onFocus={() => handleInputFocus('pincode')}
-                        onBlur={() => setFocusedInput('')}
-                        placeholder={t('product.add.placeholders.pincode')}
-                        placeholderTextColor="#94A3B8"
-                        keyboardType="numeric"
-                        maxLength={6}
-                        returnKeyType="done"
-                      />
-                      {(showValidationErrors || touchedFields.pincode) && validationErrors.pincode && (
-                        <Text style={styles.errorText}>{validationErrors.pincode}</Text>
-                      )}
-                    </View>
-                  </View>
-                </View>
-
-                {/* Description */}
-                <View style={styles.modernInputContainer}>
-                  <Text style={styles.modernLabel}>
-                    <Ionicons name="document-text-outline" size={16} color="#00C851" /> {t('product.add.labels.description')} *
-                    <Text style={styles.characterCount}>
-                      {t('product.add.characters.minCharsLabel', { count: description.replace(/\n/g, "").trim().length })}
-                    </Text>
-                  </Text>
-                  <TextInput
-                    ref={(ref) => inputRefs.current.description = ref}
-                    style={[
-                      styles.modernInput,
-                      styles.modernTextArea,
-                      focusedInput === 'description' && styles.modernInputFocused,
-                      (showValidationErrors || touchedFields.description) && validationErrors.description && styles.modernInputError
-                    ]}
-                    value={description}
-                    onChangeText={(value) => handleInputChange('description', value)}
-                    onFocus={() => handleInputFocus('description')}
-                    onBlur={() => setFocusedInput('')}
-                    placeholder={t('product.add.placeholders.description')}
-                    placeholderTextColor="#94A3B8"
-                    multiline={true}
-                    numberOfLines={4}
-                    textAlignVertical="top"
-                    maxLength={500}
-                    returnKeyType="default"
                   />
-                  <View style={styles.characterCounter}>
-                    <Text style={styles.characterCounterText}>
-                      {t('product.add.characters.remaining', { remaining: 500 - description.length })}
+                )}
+              </View>
+
+              {/* Location Section */}
+              <View style={styles.modernSectionContainer}>
+                <View style={styles.sectionHeader}>
+                  <Text style={styles.modernSectionTitle}>
+                    <Ionicons name="location-outline" size={18} color="#00C851" /> {t('product.add.labels.farmLocation')} *
+                  </Text>
+                  <TouchableOpacity
+                    style={[
+                      styles.singleLocationButton,
+                      isGettingLocation && styles.locationButtonDisabled
+                    ]}
+                    onPress={handleGetLocation}
+                    disabled={isGettingLocation}
+                    accessible={true}
+                    accessibilityLabel={t('product.add.a11y.getCurrentLocation')}
+                    accessibilityHint={t('product.add.a11y.getLocationHint')}
+                  >
+                    {isGettingLocation ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <MaterialIcons name="my-location" size={18} color="#FFFFFF" />
+                    )}
+                    <Text style={styles.locationButtonText}>
+                      {isGettingLocation ? t('product.add.actions.getting') : t('product.add.actions.getLocation')}
                     </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {locationError ? (
+                  <Text style={styles.locationErrorText}>
+                    ⚠️ {locationError}
+                  </Text>
+                ) : null}
+
+                <View style={styles.locationGrid}>
+                  <View style={[styles.modernInputContainer, styles.halfWidth]}>
+                    <Text style={styles.modernLabel}>{t('product.add.labels.cityVillage')} *</Text>
+                    <TextInput
+                      ref={(ref) => inputRefs.current.city = ref}
+                      style={[
+                        styles.modernInput,
+                        focusedInput === 'city' && styles.modernInputFocused,
+                        (showValidationErrors || touchedFields.city) && validationErrors.city && styles.modernInputError
+                      ]}
+                      value={city}
+                      onChangeText={(value) => handleInputChange('city', value)}
+                      onFocus={() => handleInputFocus('city')}
+                      onBlur={() => setFocusedInput('')}
+                      placeholder={t('product.add.placeholders.city')}
+                      placeholderTextColor="#94A3B8"
+                      autoCapitalize="words"
+                      returnKeyType="next"
+                      onSubmitEditing={() => inputRefs.current.district?.focus()}
+                    />
+                    {(showValidationErrors || touchedFields.city) && validationErrors.city && (
+                      <Text style={styles.errorText}>{validationErrors.city}</Text>
+                    )}
                   </View>
-                  {(showValidationErrors || touchedFields.description) && validationErrors.description && (
-                    <Text style={styles.errorText}>{validationErrors.description}</Text>
-                  )}
+
+                  <View style={[styles.modernInputContainer, styles.halfWidth]}>
+                    <Text style={styles.modernLabel}>{t('product.add.labels.district')} *</Text>
+                    <TextInput
+                      ref={(ref) => inputRefs.current.district = ref}
+                      style={[
+                        styles.modernInput,
+                        focusedInput === 'district' && styles.modernInputFocused,
+                        (showValidationErrors || touchedFields.district) && validationErrors.district && styles.modernInputError
+                      ]}
+                      value={district}
+                      onChangeText={(value) => handleInputChange('district', value)}
+                      onFocus={() => handleInputFocus('district')}
+                      onBlur={() => setFocusedInput('')}
+                      placeholder={t('product.add.placeholders.district')}
+                      placeholderTextColor="#94A3B8"
+                      autoCapitalize="words"
+                      returnKeyType="next"
+                      onSubmitEditing={() => inputRefs.current.state?.focus()}
+                    />
+                    {(showValidationErrors || touchedFields.district) && validationErrors.district && (
+                      <Text style={styles.errorText}>{validationErrors.district}</Text>
+                    )}
+                  </View>
+                </View>
+
+                <View style={styles.locationGrid}>
+                  <View style={[styles.modernInputContainer, styles.halfWidth]}>
+                    <Text style={styles.modernLabel}>{t('product.add.labels.state')} *</Text>
+                    <TextInput
+                      ref={(ref) => inputRefs.current.state = ref}
+                      style={[
+                        styles.modernInput,
+                        focusedInput === 'state' && styles.modernInputFocused,
+                        (showValidationErrors || touchedFields.state) && validationErrors.state && styles.modernInputError
+                      ]}
+                      value={state}
+                      onChangeText={(value) => handleInputChange('state', value)}
+                      onFocus={() => handleInputFocus('state')}
+                      onBlur={() => setFocusedInput('')}
+                      placeholder={t('product.add.placeholders.state')}
+                      placeholderTextColor="#94A3B8"
+                      autoCapitalize="words"
+                      returnKeyType="next"
+                      onSubmitEditing={() => inputRefs.current.pincode?.focus()}
+                    />
+                    {(showValidationErrors || touchedFields.state) && validationErrors.state && (
+                      <Text style={styles.errorText}>{validationErrors.state}</Text>
+                    )}
+                  </View>
+
+                  <View style={[styles.modernInputContainer, styles.halfWidth]}>
+                    <Text style={styles.modernLabel}>{t('product.add.labels.pincode')} *</Text>
+                    <TextInput
+                      ref={(ref) => inputRefs.current.pincode = ref}
+                      style={[
+                        styles.modernInput,
+                        focusedInput === 'pincode' && styles.modernInputFocused,
+                        (showValidationErrors || touchedFields.pincode) && validationErrors.pincode && styles.modernInputError
+                      ]}
+                      value={pincode}
+                      onChangeText={(value) => handleInputChange('pincode', value)}
+                      onFocus={() => handleInputFocus('pincode')}
+                      onBlur={() => setFocusedInput('')}
+                      placeholder={t('product.add.placeholders.pincode')}
+                      placeholderTextColor="#94A3B8"
+                      keyboardType="numeric"
+                      maxLength={6}
+                      returnKeyType="done"
+                    />
+                    {(showValidationErrors || touchedFields.pincode) && validationErrors.pincode && (
+                      <Text style={styles.errorText}>{validationErrors.pincode}</Text>
+                    )}
+                  </View>
                 </View>
               </View>
-            </ScrollView>
+
+              {/* Description */}
+              <View style={styles.modernInputContainer}>
+                <Text style={styles.modernLabel}>
+                  <Ionicons name="document-text-outline" size={16} color="#00C851" /> {t('product.add.labels.description')} *
+                  <Text style={styles.characterCount}>
+                    {t('product.add.characters.minCharsLabel', { count: description.replace(/\n/g, "").trim().length })}
+                  </Text>
+                </Text>
+                <TextInput
+                  ref={(ref) => inputRefs.current.description = ref}
+                  style={[
+                    styles.modernInput,
+                    styles.modernTextArea,
+                    focusedInput === 'description' && styles.modernInputFocused,
+                    (showValidationErrors || touchedFields.description) && validationErrors.description && styles.modernInputError
+                  ]}
+                  value={description}
+                  onChangeText={(value) => handleInputChange('description', value)}
+                  onFocus={() => handleInputFocus('description')}
+                  onBlur={() => setFocusedInput('')}
+                  placeholder={t('product.add.placeholders.description')}
+                  placeholderTextColor="#94A3B8"
+                  multiline={true}
+                  numberOfLines={4}
+                  textAlignVertical="top"
+                  maxLength={500}
+                  returnKeyType="default"
+                />
+                <View style={styles.characterCounter}>
+                  <Text style={styles.characterCounterText}>
+                    {t('product.add.characters.remaining', { remaining: 500 - description.length })}
+                  </Text>
+                </View>
+                {(showValidationErrors || touchedFields.description) && validationErrors.description && (
+                  <Text style={styles.errorText}>{validationErrors.description}</Text>
+                )}
+              </View>
+            </View>
+          </ScrollView>
         </Animated.View>
 
         {/* Modern Continue Button */}
@@ -1167,7 +1171,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 8 : 8,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#E2E8F0',

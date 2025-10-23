@@ -25,7 +25,6 @@ import Toast from 'react-native-toast-message';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import auth from '@react-native-firebase/auth';
-import { launchImageLibrary, launchCamera, MediaType } from 'react-native-image-picker';
 import { requestImagePickerPermissions } from '../../utils/permissions';
 import { authFlowManager } from '../../services/authFlowManager';
 import { syncUserProfile } from '../../services/firebaseService';
@@ -33,6 +32,7 @@ import { saveUserRole } from '../../utils/userRoleStorage';
 import { useAuthStore } from '../../store';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
+import { pickImageFromGallery, takePhotoWithCamera } from 'utils/ImagePickerHelper';
 
 // Business type options for buyer role
 const BUSINESS_TYPE_OPTIONS = [
@@ -331,42 +331,23 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
       return;
     }
 
-    const options = {
-      mediaType: 'photo',
-      includeBase64: false,
-      maxHeight: 400,
-      maxWidth: 400,
-      quality: 0.7,
-    };
-
     if (option === 'camera') {
-      launchCamera(options, handleImageResponse);
+      try {
+        const image = takePhotoWithCamera({
+          cropping: true,
+          compressImageQuality: 0.8,
+        });
+
+        setProfileImage(image.path);
+      } catch (err) {
+        console.log('Camera cancelled or failed:', err);
+      }
     } else if (option === 'gallery') {
-      launchImageLibrary(options, handleImageResponse);
-    }
-  };
-
-  const handleImageResponse = (response) => {
-    console.log('Image picker response:', response);
-
-    if (response.didCancel) {
-      console.log('User cancelled image picker');
-      return;
-    }
-
-    if (response.errorMessage) {
-      console.log('Image picker error:', response.errorMessage);
-      Alert.alert('Error', 'Failed to select image. Please try again.');
-      return;
-    }
-
-    if (response.assets && response.assets[0]) {
-      const imageUri = response.assets[0].uri;
-      console.log('Selected image URI:', imageUri);
-      setProfileImage(imageUri);
-    } else {
-      console.log('No image selected');
-      Alert.alert('Error', 'No image was selected. Please try again.');
+      const image = pickImageFromGallery({
+        cropping: true,
+        compressImageQuality: 0.8,
+      });
+      setProfileImage(image.path);
     }
   };
 

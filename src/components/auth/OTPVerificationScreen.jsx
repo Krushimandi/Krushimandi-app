@@ -889,15 +889,15 @@ const styles = StyleSheet.create({
   },
   instructionText: {
     fontSize: 14,
-    color: '#999',
+    color: '#999999',
     textAlign: 'center',
     marginBottom: 20,
     fontStyle: 'italic',
   },
   instructionTextUnderline: {
     textDecorationLine: 'underline',
-    color: '#007E2F',
-    fontWeight: '500',
+    color: '#888888',
+    fontWeight: '600',
   },
   pasteHint: {
     fontSize: 12,

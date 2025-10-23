@@ -11,6 +11,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useTranslation } from 'react-i18next';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface NavigationType {
   goBack: () => void;
@@ -21,6 +22,8 @@ const TermsConditionScreen: React.FC = () => {
   const { t, i18n } = useTranslation();
   const [expandedSections, setExpandedSections] = useState<{ [key: number]: boolean }>({});
 
+
+  const insets = useSafeAreaInsets();
   // Build Terms & Conditions sections from i18n translations
   const sectionKeys = useMemo(
     () => [
@@ -136,7 +139,7 @@ const TermsConditionScreen: React.FC = () => {
       <StatusBar barStyle="dark-content" backgroundColor="#F5F5F5" />
 
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top }]}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={handleBackPress}
@@ -181,7 +184,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 10,
-    paddingTop: (StatusBar.currentHeight ?? 0) + 16,
     paddingVertical: 12,
     backgroundColor: '#F5F5F5',
   },

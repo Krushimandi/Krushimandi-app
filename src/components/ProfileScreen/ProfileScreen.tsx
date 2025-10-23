@@ -38,6 +38,7 @@ import { pushNotificationService } from '../../services/pushNotificationService'
 import { functions, httpsCallable } from '../../config/firebaseModular';
 import { setUserOnlineStatus } from '../../services/chatService';
 import useOfflineCapability from 'hooks/useOfflineCapability';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface SettingItem {
   id: string;
@@ -73,7 +74,7 @@ const ProfileScreen: React.FC = () => {
   const navigationState = useNavigationState(state => state);
   const isInsideTab = navigationState?.type === 'tab';
 
-  // const isOnline = useIsConnected();
+  const insets = useSafeAreaInsets();
 
   useFocusEffect(
     React.useCallback(() => {
@@ -610,7 +611,9 @@ const ProfileScreen: React.FC = () => {
       />
 
       {/* Updated Header with Emerald Theme */}
-      <View style={styles.headerContainer}>
+      <View style={[styles.headerContainer, {
+        paddingTop: insets.top,
+      }]}>
         <View style={styles.headerBackground}>
           <View style={styles.headerPattern} />
           <View style={styles.headerOverlay} />
@@ -884,7 +887,6 @@ const styles = StyleSheet.create({
   },
   headerContainer: {
     position: 'relative',
-    paddingTop: StatusBar.currentHeight || 44,
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
     overflow: 'hidden',
@@ -926,7 +928,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 20,
+    paddingVertical: 16,
     position: 'relative',
     zIndex: 1,
   },
@@ -944,7 +946,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    top: 20,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -968,7 +969,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingTop: 20,
+    paddingTop: 16,
     paddingBottom: 40,
   },
   userCard: {

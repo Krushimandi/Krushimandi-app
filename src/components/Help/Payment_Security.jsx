@@ -8,9 +8,13 @@ import {
   SafeAreaView,
   StatusBar,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 
 const PaymentSecurity = ({ navigation }) => {
+
+  const insets = useSafeAreaInsets();
+
   const getIconForCategory = (category) => {
     switch (category) {
       case 'Payment':
@@ -21,7 +25,6 @@ const PaymentSecurity = ({ navigation }) => {
         return 'help-circle-outline';
     }
   };
-
   const securityFaq = [
     {
       title: 'How does payment work?',
@@ -69,7 +72,7 @@ const PaymentSecurity = ({ navigation }) => {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#43B86C" translucent />
 
-      <View style={styles.headerContainer}>
+      <View style={[styles.headerContainer, { paddingTop: insets.top }]}>
         <View style={styles.headerBackground}>
           <View style={styles.headerPattern} />
           <View style={styles.headerOverlay} />
@@ -90,14 +93,14 @@ const PaymentSecurity = ({ navigation }) => {
         </View>
       </View>
 
-      <ScrollView 
+      <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
         <View style={styles.faqContainer}>
           <Text style={styles.sectionTitle}>Payment & Security FAQ</Text>
-          
+
           <View style={styles.faqItems}>
             {securityFaq.map((item, index) => (
               <TouchableOpacity
@@ -143,7 +146,6 @@ const styles = StyleSheet.create({
   },
   headerContainer: {
     position: 'relative',
-    paddingTop: StatusBar.currentHeight || 44,
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
     overflow: 'hidden',
@@ -184,7 +186,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 20,
+    paddingVertical: 16,
     position: 'relative',
     zIndex: 1,
   },
@@ -202,7 +204,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    top: 20,
     justifyContent: 'center',
     alignItems: 'center',
   },

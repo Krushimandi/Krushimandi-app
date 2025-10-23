@@ -20,6 +20,8 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import { Colors } from '../../constants';
 import { CreateRequestInput } from '../../types/Request';
 import { useTranslation } from 'react-i18next';
+import { useKeyboardHandler } from 'react-native-keyboard-controller';
+import ReAnimated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
 const { width } = Dimensions.get('window');
 
@@ -159,6 +161,33 @@ const SendRequestModal: React.FC<SendRequestModalProps> = ({
 
     return { isValid: true, error: '' };
   };
+
+  // Keyboard height as shared value for reanimated
+  const keyboardHeightAnimated = useSharedValue(0);
+
+  // Keyboard handler
+  useKeyboardHandler({
+    onStart: (e) => {
+      'worklet';
+      keyboardHeightAnimated.value = e.height;
+    },
+    onMove: (e) => {
+      'worklet';
+      keyboardHeightAnimated.value = e.height;
+    },
+    onEnd: (e) => {
+      'worklet';
+      keyboardHeightAnimated.value = e.height;
+    },
+  });
+
+  // Animated style for the fake view at bottom
+  const fakeViewAnimatedStyle = useAnimatedStyle(() => {
+    'worklet';
+    return {
+      height: withTiming(keyboardHeightAnimated.value, { duration: 10 }),
+    };
+  });
 
   // Format quantity range display
   const formatQuantityRange = (quantity: [number, number]) => {
@@ -336,23 +365,26 @@ const SendRequestModal: React.FC<SendRequestModalProps> = ({
                 <Text style={styles.charCounterText}>{message.length}/60</Text>
               </View>
             </View>
-
-            {/* Send Button */}
-            <TouchableOpacity
-              style={[styles.sendButton, loading && styles.sendButtonDisabled]}
-              onPress={handleSend}
-              disabled={loading}
-            >
-              {loading ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <>
-                  <Icon name="paper-plane" size={20} color="#FFFFFF" />
-                  <Text style={styles.sendButtonText}>{t('requests.sendRequestButton', 'Send Request')}</Text>
-                </>
-              )}
-            </TouchableOpacity>
           </ScrollView>
+          
+          {/* Send Button */}
+          <TouchableOpacity
+            style={[styles.sendButton, loading && styles.sendButtonDisabled]}
+            onPress={handleSend}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <>
+                <Icon name="paper-plane" size={20} color="#FFFFFF" />
+                <Text style={styles.sendButtonText}>{t('requests.sendRequestButton', 'Send Request')}</Text>
+              </>
+            )}
+          </TouchableOpacity>
+
+          {/* Fake animated view at bottom to push content up when keyboard opens */}
+          <ReAnimated.View style={fakeViewAnimatedStyle} />
         </View>
       </View>
     </Modal>
@@ -370,7 +402,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     maxHeight: '90%',
-    paddingBottom: 20,
+    paddingBottom: 10,
   },
   header: {
     flexDirection: 'row',
@@ -486,7 +518,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: Colors.light.primary,
     marginHorizontal: 20,
-    marginTop: 30,
+    marginTop: 16,
     paddingVertical: 16,
     borderRadius: 12,
     gap: 8,

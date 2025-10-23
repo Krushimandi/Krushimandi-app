@@ -25,6 +25,7 @@ import { useTabBarControl } from '../../utils/navigationControls';
 import { auth } from '../../config/firebaseModular';
 import { subscribeUserChats, fetchUserProfile, buildChatId, markChatRead, setUserOnlineStatus } from '../../services/chatService';
 import { useTranslation } from 'react-i18next';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Simple debounce helper (short + inline to avoid extra deps)
 const debounce = (fn, delay = 300) => {
@@ -329,10 +330,7 @@ const ChatListScreen = ({ navigation }) => {
     extrapolate: 'clamp'
   });
 
-  const onScroll = Animated.event(
-    [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-    { useNativeDriver: false }
-  );
+  const insets = useSafeAreaInsets();
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -341,7 +339,7 @@ const ChatListScreen = ({ navigation }) => {
         backgroundColor="#FFFFFF" />
 
       {/* Fixed Header */}
-      <Animated.View style={[styles.headerWrapper, { height: headerHeight }]}>
+      <Animated.View style={[styles.headerWrapper, { paddingTop: insets.top, height: headerHeight }]}>
         <View style={styles.headerTopRow}>
           <View style={styles.headerTitleContainer}>
             <Animated.Text style={[styles.screenTitle, { fontSize: titleSize }]}>
@@ -516,7 +514,6 @@ const styles = StyleSheet.create({
   headerWrapper: {
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 8 : 8,
     paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',

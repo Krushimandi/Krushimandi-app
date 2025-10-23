@@ -3,23 +3,17 @@ import {
   View,
   Text,
   StyleSheet,
-  TextInput,
   TouchableOpacity,
   ScrollView,
   Dimensions,
-  ImageBackground,
   SafeAreaView,
   StatusBar,
   Linking,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
-import MaterialIcon from 'react-native-vector-icons/MaterialCommunityIcons';
 import Toast from 'react-native-toast-message';
-import auth from '@react-native-firebase/auth';
 import React, { useState, useEffect } from 'react';
-import firestore from '@react-native-firebase/firestore';
-
-
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - 48) / 2;
@@ -54,6 +48,8 @@ const quickActions = [
 const HelpScreen = ({ navigation }) => {
   const [userRole, setUserRole] = useState('farmer');
 
+
+  const insets = useSafeAreaInsets();
   const filteredAssistanceList = [
     // Show farmer or buyer guide based on role
     userRole === 'farmer' ? {
@@ -114,16 +110,13 @@ const HelpScreen = ({ navigation }) => {
   //   fetchUserRole();
   // }, []);
 
-
-
-
   return (
     <>
       <SafeAreaView style={styles.container}>
         <StatusBar barStyle="light-content" backgroundColor="#43B86C" translucent />
 
         {/* Header with same styling as SettingsScreen */}
-        <View style={styles.headerContainer}>
+        <View style={[styles.headerContainer, { paddingTop: insets.top, }]}>
           <View style={styles.headerBackground}>
             <View style={styles.headerPattern} />
             <View style={styles.headerOverlay} />
@@ -205,7 +198,6 @@ const styles = StyleSheet.create({
   },
   headerContainer: {
     position: 'relative',
-    paddingTop: StatusBar.currentHeight || 44,
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
     overflow: 'hidden',
@@ -246,7 +238,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 20,
+    paddingVertical: 16,
     position: 'relative',
     zIndex: 1,
   },
@@ -264,7 +256,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    top: 20, // match your paddingVertical
     justifyContent: 'center',
     alignItems: 'center',
   },

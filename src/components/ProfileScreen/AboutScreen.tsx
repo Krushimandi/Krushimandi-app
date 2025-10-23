@@ -13,6 +13,7 @@ import { Colors } from '../../constants';
 import { useRemoteConfig } from '../../hooks/useRemoteConfig';
 
 import { useTranslation } from 'react-i18next';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface NavigationProp {
   goBack: () => void;
@@ -22,20 +23,12 @@ interface AboutPageProps {
   navigation?: NavigationProp;
 }
 
-interface MenuItem {
-  title: string;
-  onPress: () => void;
-}
-
-interface MenuItemProps {
-  title: string;
-  onPress: () => void;
-}
-
 const AboutPage: React.FC<AboutPageProps> = ({ navigation }) => {
   const { t } = useTranslation();
   const rc = useRemoteConfig();
   const currentYear = new Date().getFullYear();
+
+  const insets = useSafeAreaInsets();
 
   const AppLogo: React.FC = () => (
     <View style={styles.logoContainer}>
@@ -43,13 +36,6 @@ const AboutPage: React.FC<AboutPageProps> = ({ navigation }) => {
         source={require('../../assets/images/logo1.png')}
         style={styles.logo} />
     </View>
-  );
-
-  const MenuItem: React.FC<MenuItemProps> = ({ title, onPress }) => (
-    <TouchableOpacity style={styles.menuItem} onPress={onPress}>
-      <Text style={styles.menuItemText}>{title}</Text>
-      <Icon name="chevron-forward" size={20} color="#C7C7CC" />
-    </TouchableOpacity>
   );
 
   const handleBackPress = (): void => {
@@ -60,17 +46,18 @@ const AboutPage: React.FC<AboutPageProps> = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F2F2F7" />
-
+      <StatusBar
+        barStyle="dark-content"
+        backgroundColor="#F2F2F7" />
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top }]}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={handleBackPress}
         >
           <Icon name="chevron-back" size={24} color="#000" />
         </TouchableOpacity>
-  <Text style={styles.headerTitle}>{t('support.aboutTitle')}</Text>
+        <Text style={styles.headerTitle}>{t('support.aboutTitle')}</Text>
         <View style={styles.headerRight} />
       </View>
 
@@ -105,7 +92,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 10,
-    paddingTop: (StatusBar.currentHeight ?? 0) + 16,
     paddingVertical: 12,
     backgroundColor: '#F5F5F5',
   },
@@ -178,19 +164,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginTop: 20,
     overflow: 'hidden',
-  },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    borderBottomWidth: 0.5,
-    borderBottomColor: '#E5E5EA',
-  },
-  menuItemText: {
-    fontSize: 16,
-    color: '#000',
   },
   bottomIndicator: {
     width: 134,

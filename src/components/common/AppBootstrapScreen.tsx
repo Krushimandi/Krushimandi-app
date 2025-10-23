@@ -24,7 +24,7 @@ interface AppBootstrapScreenProps {
 
 export const AppBootstrapScreen: React.FC<AppBootstrapScreenProps> = ({
   onBootstrapComplete,
-  minimumSplashTime = 500, // Default 0.5 second minimum splash
+  minimumSplashTime = 100, // Default 0.1 second minimum splash
 }) => {
   const [loadingText, setLoadingText] = useState('Initializing...');
   const [progress, setProgress] = useState(0);

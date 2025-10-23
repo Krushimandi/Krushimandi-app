@@ -18,12 +18,13 @@ import {
   Modal
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import { launchImageLibrary } from 'react-native-image-picker';
+import ImagePicker from 'react-native-image-crop-picker';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { updateUserInFirestore, getUserFromFirestore } from '../../services/firebaseService';
 import Toast from 'react-native-toast-message';
 import { useTranslation } from 'react-i18next';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const EditProfileScreen = () => {
   const navigation = useNavigation();
@@ -40,6 +41,8 @@ const EditProfileScreen = () => {
   const [phoneError, setPhoneError] = useState('');
   const [firstNameError, setFirstNameError] = useState('');
   const [lastNameError, setLastNameError] = useState('');
+
+  const insets = useSafeAreaInsets();
 
   const validatePhone = (phone: string) => {
     const phoneRegex = /^[0-9]{10}$/;
@@ -118,21 +121,34 @@ const EditProfileScreen = () => {
   );
 
   // Pick and compress image
-  const pickImage = () => {
-    launchImageLibrary(
-      {
-        mediaType: 'photo',
-        quality: 0.8, // Compress to 80% quality
-        maxWidth: 500,
-        maxHeight: 500,
-      },
-      (response: any) => {
-        if (!response.didCancel && response.assets?.[0]?.uri) {
-          setProfileImage(response.assets[0].uri);
-        }
-      }
-    );
+  const pickImage = async () => {
+
+    // For Camera
+    // try {
+    //   const image = await ImagePicker.openCamera({
+    //     width: 400,
+    //     height: 400,
+    //     cropping: true,
+    //     compressImageQuality: 0.8,
+    //   });
+    //   setProfileImage(image.path);
+    // } catch (err) {
+    //   console.log('Camera cancelled or failed:', err);
+    // }
+
+    try {
+      const image = await ImagePicker.openPicker({
+        width: 400,
+        height: 400,
+        cropping: true,
+        compressImageQuality: 0.8,
+      });
+      setProfileImage(image.path);
+    } catch (err) {
+      console.log('Gallery pick cancelled or failed:', err);
+    }
   };
+
 
   // Upload and sync profile image (move picked file to cache, delete old after upload)
   const uploadProfileImage = async (pickedFilePath: string, userId: string) => {
@@ -283,7 +299,7 @@ const EditProfileScreen = () => {
 
       />
       {/* Header */}
-      <View style={styles.headerContainer}>
+      <View style={[styles.headerContainer, { paddingTop: insets.top }]}>
         <View style={styles.headerBackground}>
           <View style={styles.headerPattern} />
           <View style={styles.headerOverlay} />
@@ -446,13 +462,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 20,
+    paddingVertical: 16,
     position: 'relative',
     zIndex: 1,
   },
   headerContainer: {
     position: 'relative',
-    paddingTop: StatusBar.currentHeight || 44,
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
     overflow: 'hidden',
@@ -502,7 +517,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    top: 20,
     justifyContent: 'center',
     alignItems: 'center',
   },

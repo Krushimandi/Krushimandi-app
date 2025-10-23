@@ -17,11 +17,12 @@ import {
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
 import storage from '@react-native-firebase/storage';
 import { requestImagePickerPermissions } from '../../utils/permissions';
 import { useTabBarControl } from '../../utils/navigationControls';
 import ImageResizer from '@bam.tech/react-native-image-resizer';
+import { pickImageFromGallery, takePhotoWithCamera } from 'utils/ImagePickerHelper';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const PhotoUploadScreen = ({ navigation, route }) => {
     // Get fruit data from previous screen
@@ -44,6 +45,7 @@ const PhotoUploadScreen = ({ navigation, route }) => {
     const queueRef = useRef([]);
     const isProcessingQueueRef = useRef(false);
 
+    const insets = useSafeAreaInsets();
     // Helper to sync queue ref and state
     const setQueue = (updater) => {
         setUploadQueue(prev => {
@@ -80,7 +82,7 @@ const PhotoUploadScreen = ({ navigation, route }) => {
             const compressedImage = await ImageResizer.createResizedImage(
                 imageUri,
                 600, // maxWidth
-                600, // maxHeight
+                480, // maxHeight
                 'JPEG', // format
                 80, // quality (0-100)
                 0, // rotation
@@ -100,8 +102,6 @@ const PhotoUploadScreen = ({ navigation, route }) => {
 
     // Upload image to Firebase Storage
     const uploadImageToFirebase = async (imageUri, photoIndex) => {
-        // Starting upload
-
         // Double-check that we should proceed with this upload
         if (pendingUploads.has(photoIndex)) {
             return;
@@ -241,27 +241,6 @@ const PhotoUploadScreen = ({ navigation, route }) => {
         }
     };
 
-    // const handlePhotoUpload = (index) => {
-    //     console.log(`📸 handlePhotoUpload called with index: ${index}`);
-
-    //     // Find the first empty slot that should be filled
-    //     const nextSlotToFill = getNextAvailableSlot();
-
-    //     // Only allow clicking on the next slot to fill
-    //     if (index !== nextSlotToFill) {
-    //         console.log(`❌ Can only fill slot ${nextSlotToFill} next, clicked: ${index}`);
-    //         return; // Do nothing if wrong slot clicked
-    //     }
-
-    //     // Proceed with photo upload for the correct slot
-    //     setCurrentPhotoIndex(nextSlotToFill);
-    //     console.log(`📍 Set currentPhotoIndex to: ${nextSlotToFill}`);
-
-    //     // Directly open camera instead of showing modal
-    //     handleImagePickerOption('camera');
-    // };
-
-
     // Find the first empty slot to enforce sequential fill order
     const getNextAvailableSlot = () => {
         for (let i = 0; i < maxPhotos; i++) {
@@ -271,8 +250,6 @@ const PhotoUploadScreen = ({ navigation, route }) => {
     };
 
     const handlePhotoUpload = (index) => {
-
-
         // Find the first empty slot that should be filled
         const nextSlotToFill = getNextAvailableSlot();
 
@@ -293,92 +270,75 @@ const PhotoUploadScreen = ({ navigation, route }) => {
 
     const handleImagePickerOption = async (option, targetIndexOverride) => {
         setImagePickerModalVisible(false);
-
         // Request permissions first
         const hasPermissions = await requestImagePickerPermissions();
         if (!hasPermissions) {
             return;
         }
 
-        const options = {
-            mediaType: 'photo',
-            includeBase64: false,
-            maxHeight: 800,
-            maxWidth: 800,
-            quality: 0.8,
-        };
-
         const targetIndexCaptured = (typeof targetIndexOverride === 'number') ? targetIndexOverride : currentPhotoIndex;
-        const handleImageResponse = async (response) => {
-            if (response.didCancel) {
+
+        try {
+            let pickedImages;
+            if (option === 'camera') {
+                // Take single photo
+                pickedImages = await takePhotoWithCamera({
+                    width: 600,
+                    height: 480,
+                    cropping: false,
+                    compressImageQuality: 0.8,
+                });
+                pickedImages = [pickedImages]; // normalize to array
+            } else if (option === 'gallery') {
+                // Pick multiple images from gallery
+                pickedImages = await pickImageFromGallery({
+                    width: 600,
+                    height: 480,
+                    cropping: false,
+                    multiple: true,
+                    compressImageQuality: 0.8,
+                });
+                if (!Array.isArray(pickedImages)) {
+                    pickedImages = [pickedImages]; // normalize single selection
+                }
+            } else {
                 return;
             }
 
-            if (response.errorMessage) {
-                Alert.alert('Error', 'Failed to select image. Please try again.');
-                return;
-            }
-
-            if (response.assets && response.assets[0]) {
-                const imageUri = response.assets[0].uri;
-                const targetIndex = targetIndexCaptured;
-
-
-                // Double-check that the slot is still empty before proceeding
-                if (uploadedPhotos[targetIndex]) {
-                    Alert.alert(
-                        'Slot Already Filled',
-                        'This slot already has a photo. Please delete it first if you want to replace it.',
-                        [{ text: 'OK' }]
-                    );
-                    return;
+            // Loop over picked images and assign to sequential empty slots
+            let currentIndex = targetIndexCaptured;
+            for (const image of pickedImages) {
+                if (currentIndex >= maxPhotos) break; // avoid overflow
+                if (uploadedPhotos[currentIndex]) {
+                    currentIndex++; // skip filled slot
+                    continue;
                 }
 
-                // Create photo object immediately
                 const photoObj = {
-                    uri: imageUri,
+                    uri: image.path,
                     firebaseUrl: null,
                     uploading: true,
-                    uploadFailed: false
+                    uploadFailed: false,
                 };
 
-                // Update photos array - place photo object at target index
                 setUploadedPhotos(prev => {
-                    // If the slot got filled in the meantime, abort (no replacement)
-                    if (prev[targetIndex]) {
-                        return prev;
-                    }
                     const newPhotos = [...prev];
-
-                    // Ensure array is large enough for target index
-                    while (newPhotos.length <= targetIndex) {
+                    while (newPhotos.length <= currentIndex) {
                         newPhotos.push(null);
                     }
-
-                    // Place the photo object at the target index
-                    newPhotos[targetIndex] = photoObj;
-
+                    newPhotos[currentIndex] = photoObj;
                     return newPhotos;
                 });
 
-                // Enqueue upload; processor handles sequential execution
-                enqueueUpload(imageUri, targetIndex);
-
-            } else {
-                Alert.alert('Error', 'No image was selected. Please try again.');
+                enqueueUpload(image.path, currentIndex);
+                currentIndex++;
             }
-        };
-
-        if (option === 'camera') {
-            launchCamera(options, handleImageResponse);
-        } else if (option === 'gallery') {
-            launchImageLibrary(options, handleImageResponse);
+        } catch (err) {
+            console.log('Image picker cancelled or failed', err);
         }
     };
 
     const removePhoto = (index) => {
-
-
         // Cancel upload if it's still uploading
         if (pendingUploads.has(index)) {
             const uploadTask = uploadTasks[index];
@@ -641,7 +601,7 @@ const PhotoUploadScreen = ({ navigation, route }) => {
             <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
             {/* Header */}
-            <View style={styles.header}>
+            <View style={[styles.header, { paddingTop: insets.top }]}>
                 <TouchableOpacity style={styles.backButton} onPress={handleBack}>
                     <Ionicons name="arrow-back" size={24} color="#333" />
                 </TouchableOpacity>
@@ -888,7 +848,6 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'space-between',
         paddingHorizontal: 16,
-        paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 8 : 8,
         paddingBottom: 10,
         backgroundColor: '#F8F9FA',
         borderBottomWidth: 1,

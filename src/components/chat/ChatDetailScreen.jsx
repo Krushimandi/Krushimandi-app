@@ -468,7 +468,7 @@ const ChatDetailScreen = ({ route, navigation }) => {
     if (!messages.length || initialScrollDone.current || !inputBarHeight) return;
     requestAnimationFrame(() => {
       setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: false });
+        flatListRef.current?.scrollToEnd({ animated: true });
         initialScrollDone.current = true;
         if (Platform.OS === 'android') setClippingEnabled(true);
       }, 0);
@@ -535,7 +535,7 @@ const ChatDetailScreen = ({ route, navigation }) => {
       {
         paddingTop: HEADER_HEIGHT + insets.top + 20,
         // Ensure last messages sit above input while keeping a small gutter
-        paddingBottom: inputBarHeight + Math.max(insets.bottom, 8) + BOTTOM_GUTTER,
+        // paddingBottom: inputBarHeight + Math.max(insets.bottom, 8) + BOTTOM_GUTTER,
       }
     ];
   }, [insets.top, insets.bottom, inputBarHeight]);

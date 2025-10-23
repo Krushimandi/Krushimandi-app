@@ -39,6 +39,7 @@ import {
 // Import notification type from service to avoid conflicts
 import { Notification } from '../../services/notificationService';
 import { HapticFeedback } from 'utils/haptics';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface NotificationScreenProps {
     navigation: NavigationProp<ParamListBase>;
@@ -244,6 +245,9 @@ const NotificationScreen: React.FC<NotificationScreenProps> = ({ navigation }) =
 
     // Debounce timer for saving preferences
     const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+
+    const insets = useSafeAreaInsets();
 
     // Validate user authentication
     useEffect(() => {
@@ -687,7 +691,9 @@ const NotificationScreen: React.FC<NotificationScreenProps> = ({ navigation }) =
                         />
 
                         {/* Header - Matching MyOrdersScreen/RequestsScreen design */}
-                        <View style={styles.header}>
+                        <View style={[styles.header, {
+                            paddingTop: Platform.OS === 'android' ? insets.top : 16,
+                        }]}>
                             <View style={styles.headerTop}>
                                 <View>
                                     <Text style={styles.headerTitle}>{t('notifications.title')}</Text>
@@ -928,7 +934,6 @@ const styles = StyleSheet.create({
     header: {
         backgroundColor: '#FFFFFF',
         paddingHorizontal: 24,
-        paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight! + 10 : 16,
         paddingBottom: 20,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 3 },

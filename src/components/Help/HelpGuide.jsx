@@ -188,6 +188,7 @@ const HelpGuideScreen = ({ route, navigation }) => {
 
   ];
 
+  const insets = useSafeAreaInsets();
   const faqList = getFaqList();
   const faqTitle = userType === 'farmer' ? "Farmer's FAQ" : "Buyer's FAQ";
 
@@ -206,10 +207,13 @@ const HelpGuideScreen = ({ route, navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#43B86C" translucent />
+      <StatusBar
+        barStyle="light-content"
+        backgroundColor="#43B86C"
+      />
 
       {/* Header with same styling as HelpScreen */}
-      <View style={styles.headerContainer}>
+      <View style={[styles.headerContainer, { paddingTop: insets.top, }]}>
         <View style={styles.headerBackground}>
           <View style={styles.headerPattern} />
           <View style={styles.headerOverlay} />
@@ -284,7 +288,6 @@ const styles = StyleSheet.create({
   },
   headerContainer: {
     position: 'relative',
-    paddingTop: StatusBar.currentHeight || 44,
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
     overflow: 'hidden',
@@ -325,7 +328,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 20,
+    paddingVertical: 16,
     position: 'relative',
     zIndex: 1,
   },
@@ -343,7 +346,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    top: 20,
     justifyContent: 'center',
     alignItems: 'center',
   },

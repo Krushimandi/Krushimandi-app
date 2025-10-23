@@ -10,23 +10,25 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { Colors } from '../../constants';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const BestPractices = ({ navigation }) => {
   const [expandedSection, setExpandedSection] = useState(null);
+  const insets = useSafeAreaInsets();
 
   const getIconForCategory = (category) => {
     switch (category) {
-    case 'Buying':
-      return 'cart-outline';
-    case 'Safety':
-      return 'shield-checkmark-outline';
-    case 'Communication':
-      return 'chatbubbles-outline';
-    case 'Account':  
-      return 'lock-closed-outline';
-    default:
-      return 'information-circle-outline';
-  }
+      case 'Buying':
+        return 'cart-outline';
+      case 'Safety':
+        return 'shield-checkmark-outline';
+      case 'Communication':
+        return 'chatbubbles-outline';
+      case 'Account':
+        return 'lock-closed-outline';
+      default:
+        return 'information-circle-outline';
+    }
   };
 
   const bestPractices = [
@@ -96,7 +98,7 @@ const BestPractices = ({ navigation }) => {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#43B86C" translucent />
 
-      <View style={styles.headerContainer}>
+      <View style={[styles.headerContainer, { paddingTop: insets.top }]}>
         <View style={styles.headerBackground}>
           <View style={styles.headerPattern} />
           <View style={styles.headerOverlay} />
@@ -117,16 +119,16 @@ const BestPractices = ({ navigation }) => {
         </View>
       </View>
 
-      <ScrollView 
+      <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
         <View style={styles.practicesContainer}>
           <Text style={styles.sectionTitle}>Guidelines & Tips</Text>
-          
+
           {bestPractices.map((section, sectionIndex) => (
-            <View 
+            <View
               key={section.id}
               style={[
                 styles.sectionContainer,
@@ -151,8 +153,8 @@ const BestPractices = ({ navigation }) => {
                     <Text style={styles.categoryText}>{section.category}</Text>
                   </View>
                 </View>
-                
-                <Icon 
+
+                <Icon
                   name={expandedSection === section.id ? 'chevron-up' : 'chevron-down'}
                   size={20}
                   color="#9CA3AF"
@@ -184,7 +186,6 @@ const styles = StyleSheet.create({
   },
   headerContainer: {
     position: 'relative',
-    paddingTop: StatusBar.currentHeight || 44,
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
     overflow: 'hidden',
@@ -225,7 +226,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 20,
+    paddingVertical: 16,
     position: 'relative',
     zIndex: 1,
   },
@@ -243,7 +244,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    top: 20,
     justifyContent: 'center',
     alignItems: 'center',
   },
