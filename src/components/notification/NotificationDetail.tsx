@@ -305,7 +305,7 @@ const NotificationDetail: React.FC<NotificationDetailProps> = ({ navigation, rou
                         type: 'error',
                         text1: t('notificationsDetail.toast.couldNotOpenLink'),
                         position: 'bottom',
-                        visibilityTime: 2000,
+                        visibilityTime: 1000,
                       });
                     });
                   }

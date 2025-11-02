@@ -14,12 +14,13 @@ import {
   ActivityIndicator,
   StatusBar,
   SafeAreaView,
-  KeyboardAvoidingView,
   Platform,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import auth from '@react-native-firebase/auth';
 import { useAuth } from '../../contexts/AuthContext';
+import ReAnimated, { useAnimatedStyle, withTiming, useSharedValue } from 'react-native-reanimated';
+import { useKeyboardHandler } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 
@@ -38,6 +39,7 @@ const MobileScreen = ({ navigation }) => {
   const inputRef = useRef(null);
   const scrollViewRef = useRef(null);
   const isMountedRef = useRef(true);
+
   useEffect(() => {
     // Entrance animation
     Animated.parallel([
@@ -88,6 +90,33 @@ const MobileScreen = ({ navigation }) => {
     const phoneRegex = /^[6-9]\d{9}$/;
     return phoneRegex.test(number);
   };
+
+  // Keyboard height as shared value for reanimated
+  const keyboardHeightAnimated = useSharedValue(0);
+
+  // Keyboard handler
+  useKeyboardHandler({
+    onStart: (e) => {
+      'worklet';
+      keyboardHeightAnimated.value = e.height;
+    },
+    onMove: (e) => {
+      'worklet';
+      keyboardHeightAnimated.value = e.height;
+    },
+    onEnd: (e) => {
+      'worklet';
+      keyboardHeightAnimated.value = e.height;
+    },
+  });
+
+  // Animated style for the fake view at bottom
+  const fakeViewAnimatedStyle = useAnimatedStyle(() => {
+    'worklet';
+    return {
+      height: withTiming(keyboardHeightAnimated.value, { duration: 10 }),
+    };
+  });
 
   const handleMobileChange = useCallback((text) => {
     // Remove any non-digit characters
@@ -224,142 +253,142 @@ const MobileScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-      <KeyboardAvoidingView
-        style={styles.keyboardAvoidingView}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : -20 - insets.bottom}
-      >
-        <View style={styles.innerContainer}>
-          {/* Header */}
-          <TouchableWithoutFeedback onPress={handleOutsidePress}>
-            <View style={styles.header}>
-              <TouchableOpacity onPress={handleBackPress} style={styles.backButton}>
-                <Ionicons name="arrow-back" size={24} color="#333" />
-              </TouchableOpacity>
+      <StatusBar
+        barStyle="dark-content"
+        backgroundColor="#FFFFFF" />
+      <View style={styles.innerContainer}>
+        {/* Header */}
+        <TouchableWithoutFeedback onPress={handleOutsidePress}>
+          <View style={styles.header}>
+            <TouchableOpacity onPress={handleBackPress} style={styles.backButton}>
+              <Ionicons name="arrow-back" size={24} color="#333" />
+            </TouchableOpacity>
 
-              <TouchableOpacity onPress={showHelp} style={styles.helpButton}>
-                <Ionicons name="help-circle-outline" size={24} color="#007E2F" />
-              </TouchableOpacity>
-            </View>
-          </TouchableWithoutFeedback>
+            <TouchableOpacity onPress={showHelp} style={styles.helpButton}>
+              <Ionicons name="help-circle-outline" size={24} color="#007E2F" />
+            </TouchableOpacity>
+          </View>
+        </TouchableWithoutFeedback>
 
-          <ScrollView
-            ref={scrollViewRef}
-            contentContainerStyle={styles.scrollContent}
-            keyboardShouldPersistTaps="always"
-            showsVerticalScrollIndicator={false}
-            scrollEnabled={true}
+        <ScrollView
+          ref={scrollViewRef}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="always"
+          showsVerticalScrollIndicator={false}
+          scrollEnabled={true}
+        >
+          {/* Logo with animation */}
+          <Animated.View
+            style={[
+              styles.logoContainer,
+              {
+                opacity: fadeAnim,
+                transform: [{ translateY: slideAnim }]
+              }
+            ]}
           >
-            {/* Logo with animation */}
-            <Animated.View
-              style={[
-                styles.logoContainer,
-                {
-                  opacity: fadeAnim,
-                  transform: [{ translateY: slideAnim }]
-                }
-              ]}
-            >
-              <Image
-                source={require('../../assets/images/logo1.png')}
-                style={styles.logo}
-                resizeMode="contain"
-              />
-            </Animated.View>
+            <Image
+              source={require('../../assets/images/logo1.png')}
+              style={styles.logo}
+              resizeMode="contain"
+            />
+          </Animated.View>
 
-            {/* Content with animation */}
-            <Animated.View
-              style={[
-                styles.contentContainer,
-                {
-                  opacity: fadeAnim,
-                  transform: [{ translateY: slideAnim }]
-                }
-              ]}
-            >
-              <Text style={styles.heading}>{t('auth.mobile.title')}</Text>
-              <Text style={styles.subtext}>{t('auth.mobile.subtitle')}</Text>
+          {/* Content with animation */}
+          <Animated.View
+            style={[
+              styles.contentContainer,
+              {
+                opacity: fadeAnim,
+                transform: [{ translateY: slideAnim }]
+              }
+            ]}
+          >
+            <Text style={styles.heading}>{t('auth.mobile.title')}</Text>
+            <Text style={styles.subtext}>{t('auth.mobile.subtitle')}</Text>
 
-              {/* Enhanced Input Section */}
-              <View style={styles.inputSection}>
-                <Text style={styles.inputLabel}>{t('auth.mobile.label')}</Text>
-                <View style={inputWrapperStyle}>
-                  <View style={styles.phoneInputRow}>
-                    <View style={styles.countryCodeContainer}>
-                      <Image
-                        source={require('../../assets/icons/in.png')}
-                        style={styles.flagIcon}
-                      />
-                      <Text style={styles.countryCode}>+91</Text>
-                    </View>
-                    <View style={styles.separator} />
-
-                    <Pressable
-                      style={{ flex: 1 }}
-                      onPress={() => inputRef.current?.focus()}>
-                      <TextInput
-                        ref={inputRef}
-                        placeholder={t('auth.mobile.placeholder')}
-                        keyboardType="phone-pad"
-                        maxLength={10}
-                        style={styles.input}
-                        placeholderTextColor="#999"
-                        value={mobile}
-                        onChangeText={handleMobileChange}
-                        onFocus={handleInputFocus}
-                        onBlur={handleInputBlur}
-                        autoFocus={false}
-                        returnKeyType="done"
-                        onSubmitEditing={handleNext}
-                        editable={!isLoading}
-                      />
-                    </Pressable>
-
-                    {mobile.length >= 10 && (
-                      <Ionicons name="checkmark-circle" size={20} color="#00C851" />
-                    )}
+            {/* Enhanced Input Section */}
+            <View style={styles.inputSection}>
+              <Text style={styles.inputLabel}>{t('auth.mobile.label')}</Text>
+              <View style={inputWrapperStyle}>
+                <View style={styles.phoneInputRow}>
+                  <View style={styles.countryCodeContainer}>
+                    <Image
+                      source={require('../../assets/icons/in.png')}
+                      style={styles.flagIcon}
+                    />
+                    <Text style={styles.countryCode}>+91</Text>
                   </View>
+                  <View style={styles.separator} />
+
+                  <Pressable
+                    style={{ flex: 1 }}
+                    onPress={() => inputRef.current?.focus()}>
+                    <TextInput
+                      ref={inputRef}
+                      placeholder={t('auth.mobile.placeholder')}
+                      keyboardType="phone-pad"
+                      maxLength={10}
+                      style={styles.input}
+                      placeholderTextColor="#999"
+                      value={mobile}
+                      onChangeText={handleMobileChange}
+                      onFocus={handleInputFocus}
+                      onBlur={handleInputBlur}
+                      autoFocus={false}
+                      returnKeyType="done"
+                      onSubmitEditing={handleNext}
+                      editable={!isLoading}
+                    />
+                  </Pressable>
+
+                  {mobile.length >= 10 && (
+                    <Ionicons name="checkmark-circle" size={20} color="#00C851" />
+                  )}
                 </View>
-
-                {/* Error message */}
-                {error ? (
-                  <Animated.View style={styles.errorContainer}>
-                    <Ionicons name="alert-circle" size={16} color="#FF3547" />
-                    <Text style={styles.errorText}>{error}</Text>
-                  </Animated.View>
-                ) : null}
-
-                {/* Character count */}
-                <Text style={styles.characterCount}>
-                  {mobile.length}/10 {t('auth.mobile.digits')}
-                </Text>
               </View>
-            </Animated.View>
-          </ScrollView>
 
-          {/* Enhanced Next Button */}
-          <View style={[styles.buttonContainer, { paddingBottom: insets.bottom + 42 }]}>
-            <TouchableOpacity
-              style={[
-                styles.nextButton,
-                isButtonDisabled && styles.nextButtonDisabled
-              ]}
-              onPress={handleNext}
-              disabled={isButtonDisabled}
-              activeOpacity={0.8}
-            >
-              {isLoading ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              ) : (
-                <View style={{ flexDirection: "row", alignItems: "center" }}>
-                  <Text style={styles.nextText}>{t('auth.mobile.continue')}</Text>
-                  <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
-                </View>
-              )}
-            </TouchableOpacity>          </View>
+              {/* Error message */}
+              {error ? (
+                <Animated.View style={styles.errorContainer}>
+                  <Ionicons name="alert-circle" size={16} color="#FF3547" />
+                  <Text style={styles.errorText}>{error}</Text>
+                </Animated.View>
+              ) : null}
+
+              {/* Character count */}
+              <Text style={styles.characterCount}>
+                {mobile.length}/10 {t('auth.mobile.digits')}
+              </Text>
+            </View>
+          </Animated.View>
+        </ScrollView>
+
+        {/* Enhanced Next Button */}
+        <View style={[styles.buttonContainer, { paddingBottom: insets.bottom + 16 }]}>
+          <TouchableOpacity
+            style={[
+              styles.nextButton,
+              isButtonDisabled && styles.nextButtonDisabled
+            ]}
+            onPress={handleNext}
+            disabled={isButtonDisabled}
+            activeOpacity={0.8}
+          >
+            {isLoading ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <Text style={styles.nextText}>{t('auth.mobile.continue')}</Text>
+                <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
+              </View>
+            )}
+          </TouchableOpacity>
         </View>
-      </KeyboardAvoidingView>
+      </View>
+
+      {/* Fake animated view at bottom to push content up when keyboard opens */}
+      <ReAnimated.View style={fakeViewAnimatedStyle} />
 
       {/* Help Modal */}
       {showHelpModal && (
@@ -432,9 +461,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFFFFF',
     paddingTop: 28,
-  },
-  keyboardAvoidingView: {
-    flex: 1,
   },
   innerContainer: {
     flex: 1,

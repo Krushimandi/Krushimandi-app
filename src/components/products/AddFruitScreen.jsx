@@ -126,12 +126,12 @@ const AddFruitScreen = ({ navigation }) => {
 
   const categories = [
     { id: 'banana', name: t('fruits.banana') },
-    { id: 'orange', name: t('fruits.orange') },
-    { id: 'grape', name: t('fruits.grape') },
-    { id: 'pomegranate', name: t('fruits.pomegranate') },
     { id: 'sweet lemon', name: t('fruits.sweetLemon') },
-    { id: 'apple', name: t('fruits.apple') },
-    { id: 'mango', name: t('fruits.mango') }
+    // { id: 'orange', name: t('fruits.orange') },
+    // { id: 'grape', name: t('fruits.grape') },
+    // { id: 'pomegranate', name: t('fruits.pomegranate') },
+    // { id: 'apple', name: t('fruits.apple') },
+    // { id: 'mango', name: t('fruits.mango') }
   ];
 
   const quantities = [
@@ -816,6 +816,7 @@ const AddFruitScreen = ({ navigation }) => {
                   <DateTimePicker
                     value={availabilityDate ? new Date(availabilityDate) : new Date()}
                     mode="date"
+                    minimumDate={new Date()}
                     display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                     onChange={(event, selectedDate) => {
                       setShowDatePicker(Platform.OS === 'ios');
@@ -1459,7 +1460,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 13,
     color: '#6B7280',
-    marginTop: 8,
+    marginTop: 6,
+    marginBottom: 4,
     fontWeight: '500',
     lineHeight: 18,
   },

@@ -5,8 +5,9 @@ import { navigationRef, isNavigationReady, pendingNotificationData, handleNotifi
 import { notificationTabEmitter } from './buyer/notificationTabEmitter';
 import { authFlowManager } from '../services/authFlowManager';
 // Modular Firebase instances (replaces deprecated auth() / firestore())
-import { auth, firestore, doc, onSnapshot } from '../config/firebaseModular';
+import { auth, firestore, doc, onSnapshot, httpsCallable, functions } from '../config/firebaseModular';
 import { useAuthStore } from '../store/authStore';
+import auth1 from '@react-native-firebase/auth';
 
 // Screen components
 import LoadingScreen from '../components/common/LoadingScreen';
@@ -34,6 +35,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ProfileScreen from 'components/ProfileScreen/ProfileScreen';
 import UnderMaintenanceScreen from '../components/common/UnderMaintenanceScreen';
 import { useRemoteConfig } from '../hooks/useRemoteConfig';
+import pushNotificationService from 'services/pushNotificationService';
+import useOfflineCapability from 'hooks/useOfflineCapability';
+import { setUserOnlineStatus } from 'services/chatService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { clearUserRole } from 'utils/userRoleStorage';
+import { Alert } from 'react-native';
+import Toast from 'react-native-toast-message';
 
 const RootStack = createStackNavigator<RootStackParamList>();
 
@@ -51,6 +59,8 @@ const AppNavigator: React.FC<AppNavigatorProps> = () => {
   const [mainStackKey, setMainStackKey] = useState(0); // force remount of role stack when role changes
   const insets = useSafeAreaInsets();
   const rc = useRemoteConfig();
+
+  const { isOnline } = useOfflineCapability();
 
   // Primary auth listener
   useEffect(() => {
@@ -104,23 +114,108 @@ const AppNavigator: React.FC<AppNavigatorProps> = () => {
     };
   }, []);
 
-  // Live Firestore listener for remote role edits
+  const handleLogout = async () => {
+    try {
+      const currentUser = auth1().currentUser;
+      const uid = currentUser?.uid;
+      // Get current FCM token before clearing
+      const fcmToken = pushNotificationService.getFCMTokenSync();
+      // Set user offline before logout
+      if (uid) {
+        try {
+          if (isOnline) {
+            await setUserOnlineStatus(uid, false);
+          } else {
+            // Skip setting offline status manually
+            // Server automatically sets user to offline after 10 minutes of inactivity
+          }
+          console.log('✅ User status set to offline');
+        } catch (error) {
+          console.error('⚠️ Failed to set offline status:', error);
+        }
+      }
+
+      // Remove FCM token from backend
+      if (uid && fcmToken) {
+        try {
+          console.log('🗑️ Removing FCM token from backend...');
+          const removeFcmToken = httpsCallable(functions, 'removeFcmToken');
+          await removeFcmToken({ uid, token: fcmToken });
+          console.log('✅ FCM token removed successfully');
+        } catch (error) {
+          console.error('⚠️ Failed to remove FCM token:', error);
+          // Continue with logout even if token removal fails
+        }
+      }
+
+      // Clear local storage
+      await AsyncStorage.multiRemove([
+        'userData',
+        'user_role',
+        'auth_state',
+        'notifications_enabled',
+        'dark_mode_enabled',
+        'location_enabled',
+        'biometric_enabled',
+        'authStep'
+      ]);
+
+      await clearUserRole();
+      await auth1().signOut();
+
+      // User logged out successfully
+      import('../utils/navigationUtils').then(
+        ({ navigateToAuth }) => navigateToAuth()
+      );
+    } catch (error) {
+      console.error('❌ Error during logout:', error);
+    }
+
+  };
+
+  // Live Firestore listener for profile updates (role + status)
   useEffect(() => {
     if (!uid) return;
+
     const docRef = firestore.collection('profiles').doc(uid);
-    const unsubscribe = docRef.onSnapshot((snap) => {
-      if (!snap.exists) return;
-      const data: any = snap.data();
-      const nextRole = data?.userRole;
-      if (nextRole === 'buyer' || nextRole === 'farmer') {
-        setRole((prev) => {
-          if (prev !== nextRole) {
-            setMainStackKey(Date.now());
-          }
-          return nextRole;
-        });
-      }
-    }, (err) => console.error('Firestore profile listener error:', err));
+    const unsubscribe = docRef.onSnapshot(
+      async (snap) => {
+        if (!snap.exists) return;
+        const data: any = snap.data();
+        const nextRole = data?.userRole;
+        const status = data?.status || 'active';
+
+        // 🧩 If user is inactive, force logout and redirect
+        if (status === 'inactive') {
+          Alert.alert(
+            "Account Inactive",
+            "Your account has been deactivated by the admin.",
+            [
+              {
+                text: "Login Again",
+                onPress: async () => {
+                  handleLogout();
+                },
+              },
+            ],
+            { cancelable: false }
+          );
+          return;
+        }
+
+        // 🧩 If active, sync the user role (buyer/farmer)
+        if (nextRole === 'buyer' || nextRole === 'farmer') {
+          setRole((prev) => {
+            if (prev !== nextRole) {
+              setMainStackKey(Date.now());
+            }
+            return nextRole;
+          });
+        }
+      },
+      (err) => console.error('Firestore profile listener error:', err)
+    );
+
     return unsubscribe;
   }, [uid]);
 

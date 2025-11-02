@@ -181,7 +181,7 @@ export const createFruit = async (fruitData, imageUris = []) => {
         lng: 0
       },
       farmer_id: fruitData.farmer_id || '',
-      status: fruitData.status || 'active',
+      status: fruitData.status || 'pending',
       views: 0,
       likes: 0,
       created_at: now,

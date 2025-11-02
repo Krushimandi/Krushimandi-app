@@ -827,7 +827,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
         text1: t('alerts.errorTitle', 'Error'),
         text2: t('product.detail.toast.wishlistUpdateFailed', 'Unable to update wishlist. Please try again.'),
         position: 'bottom',
-        visibilityTime: 3000,
+        visibilityTime: 1000,
       });
     } finally {
       setIsWishlistLoading(false);
@@ -973,7 +973,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ navigation, r
           text1: t('product.detail.toast.requestSentTitle', 'Request Sent!'),
           position: 'bottom',
           text2: t('product.detail.toast.requestSentMessage', { name: product.farmer_name || t('roles.farmer', 'the farmer') }),
-          visibilityTime: 3000,
+          visibilityTime: 1000,
         });
 
         // After sending the request, automatically open a chat with an intro message.

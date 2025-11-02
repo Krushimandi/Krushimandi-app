@@ -93,10 +93,10 @@ const styles = StyleSheet.create({
         elevation: 4,
     },
     badgeSmall: {
-        minWidth: 18,
-        height: 18,
+        minWidth: 19,
+        height: 19,
         borderRadius: 9,
-        paddingHorizontal: 2,
+        // paddingHorizontal: 2,
     },
     badgeMedium: {
         minWidth: 22,

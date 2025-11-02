@@ -22,7 +22,6 @@ import { KeyboardProvider } from 'react-native-keyboard-controller';
 import RNBootSplash from 'react-native-bootsplash';
 import { AppNavigator } from './src/navigation';
 import { Colors } from './src/constants';
-import './global.css';
 import './src/config/appCheckSetup';
 import './src/config/firebase';
 import Toast from 'react-native-toast-message';

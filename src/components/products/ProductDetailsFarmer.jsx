@@ -891,7 +891,7 @@ ${t('product.farmerDetail.share.contact')}
 
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container,{ paddingTop: insets.top }]}>
       <StatusBar
         backgroundColor="#FFFFFF"
         barStyle="dark-content"
@@ -1334,7 +1334,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    paddingTop: Platform.OS === 'ios' ? 12 : 16,
     backgroundColor: Colors.light.background,
     borderBottomWidth: 1,
     borderBottomColor: Colors.light.borderLight,

@@ -23,24 +23,61 @@ import { useTabBarControl } from '../../utils/navigationControls';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-// Simple smart pricing - keep complex logic hidden
-const getSmartPrice = (fruitCategory, variety) => {
+// Smarter pricing logic 
+export const getSmartPrice = async (fruitCategory, variety, state = 'Maharashtra') => {
   const basePrices = {
-    mango: { alphonso: 45, kesar: 38, totapuri: 25, langra: 22 },
-    apple: { kashmiri: 120, shimla: 85, kinnaur: 95 }
+    banana: { robusta: 45, cavendish: 50, red: 60, nendran: 55 },
+    'sweet lemon': { musambi: 40, kaghzi: 35, local: 30 }
   };
 
-  const category = basePrices[fruitCategory] || basePrices.mango;
-  const basePrice = category[variety] || Object.values(category)[0] || 30;
+  const categoryPrices = basePrices[fruitCategory.toLowerCase()] || {};
+  const basePrice = categoryPrices[variety.toLowerCase()] || Object.values(categoryPrices)[0] || 30;
 
-  // Apply market factors quietly in background (farmers don't need to see this complexity)
-  const marketPrice = Math.round(basePrice * 0.92 * 100) / 100; // Simplified calculation
+  // Fetch real-time mandi price (via Krushimandi Cloud Function API)
+  const marketPrice = await fetchMarketPrice(fruitCategory, variety, state);
+
+  // Smart adjustment logic
+  let recommended = marketPrice || basePrice;
+
+  // Adjust based on variety premium
+  const varietyPremium = {
+    banana: { robusta: 1.05, cavendish: 1.08, red: 1.15, nendran: 1.1 },
+    'sweet lemon': { musambi: 1.1, kaghzi: 1.05, local: 1 }
+  };
+
+  const premium = (varietyPremium[fruitCategory.toLowerCase()]?.[variety.toLowerCase()] || 1);
+  recommended = Math.round(recommended * premium);
 
   return {
-    recommended: marketPrice,
-    min: Math.round(marketPrice * 0.85),
-    max: Math.round(marketPrice * 1.25)
+    recommended,
+    min: Math.round(recommended * 0.9),  // allow 10% lower
+    max: Math.round(recommended * 1.2)   // allow 20% higher
   };
+};
+
+
+// 🔹 Fetch Real-Time Market Price from Firebase Cloud Function
+const fetchMarketPrice = async (fruitCategory, variety, state = 'Maharashtra') => {
+  try {
+    // ✅ Use your deployed Cloud Function API
+    const url = 'https://asia-south1-krushimandi-fruit.cloudfunctions.net/getMousambiPrice';
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data?.success && data?.prices?.avg) {
+      const avg = parseFloat(data.prices.avg);
+      if (!isNaN(avg)) {
+        console.log('✅ Using Firebase Cloud Function price:', avg);
+        return avg;
+      }
+    }
+
+    console.warn('⚠️ Fallback: Cloud Function returned invalid data');
+    return null;
+  } catch (error) {
+    console.error('❌ Error fetching Firebase price:', error);
+    return null;
+  }
 };
 
 // Price validation function
@@ -53,13 +90,13 @@ const validatePrice = (price) => {
   }
 
   // Check minimum price
-  if (numPrice < 10) {
-    return { isValid: false, message: 'Minimum price is ₹10/kg.' };
+  if (numPrice < 1) {
+    return { isValid: false, message: 'Minimum price is ₹1/kg.' };
   }
 
   // Check maximum price
-  if (numPrice > 200) {
-    return { isValid: false, message: 'Maximum price is ₹200/kg.' };
+  if (numPrice > 250) {
+    return { isValid: false, message: 'Maximum price is ₹250/kg.' };
   }
 
   return { isValid: true, message: '' };
@@ -77,7 +114,7 @@ export default function PriceSelectionScreen({ navigation, route }) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   const insets = useSafeAreaInsets();
-  
+
   // Get product data from previous screen
   const { productData } = route.params || {};
 
@@ -89,7 +126,18 @@ export default function PriceSelectionScreen({ navigation, route }) {
   const fruitVariety = fruitName.toLowerCase().includes('alphonso') ? 'alphonso' :
     fruitName.toLowerCase().includes('kesar') ? 'kesar' : 'totapuri';
 
-  const smartPricing = getSmartPrice(fruitCategory, fruitVariety);
+  const [smartPricing, setSmartPricing] = useState({ recommended: 0, min: 0, max: 0 });
+
+  useEffect(() => {
+    const fetchPrice = async () => {
+      const pricing = await getSmartPrice(fruitCategory, fruitVariety);
+      setSmartPricing(pricing);
+      setSelectedPrice(pricing.recommended);
+      setCustomPrice(pricing.recommended.toString());
+    };
+    fetchPrice();
+  }, [fruitCategory, fruitVariety]);
+
 
   const handlePress = () => {
     if (timeoutRef.current) return; // Prevent rapid re-clicks
@@ -241,7 +289,7 @@ export default function PriceSelectionScreen({ navigation, route }) {
         farmer_id: user.uid || 'anonymous',
 
         // Status and metadata
-        status: 'active',
+        status: 'pending',
         views: 0,
         likes: 0
       };
@@ -255,12 +303,11 @@ export default function PriceSelectionScreen({ navigation, route }) {
 
       // Success message
       Alert.alert(
-        '🎉 Success!',
-        `Your ${productData?.name} has been listed at ₹${finalPrice}/kg!`,
+        '✅ Submitted for Review',
+        `Your ${productData?.name} is submitted for verification.\nOnce approved, it will go live at ₹${finalPrice}/kg 🚀`,
         [{
-          text: 'Great!',
+          text: 'OK',
           onPress: () => {
-            // Navigate back to farmer home and refresh
             navigation.reset({
               index: 0,
               routes: [{ name: 'Home' }],
@@ -268,6 +315,7 @@ export default function PriceSelectionScreen({ navigation, route }) {
           }
         }]
       );
+
     } catch (error) {
       console.error('❌ Error creating fruit listing:', error);
       Alert.alert(

@@ -46,12 +46,12 @@ import { HapticFeedback } from 'utils/haptics';
 const fruitCategories = [
   { name: 'All Fruits', type: 'all', icon: null, labelKey: 'fruits.all' },
   { name: 'Banana', type: 'banana', icon: require('../../assets/fruits/banana.png'), labelKey: 'fruits.banana' },
-  { name: 'Orange', type: 'orange', icon: require('../../assets/fruits/orange.png'), labelKey: 'fruits.orange' },
-  { name: 'Grape', type: 'grape', icon: require('../../assets/fruits/grapes.png'), labelKey: 'fruits.grape' },
-  { name: 'Pomegranate', type: 'pomegranate', icon: require('../../assets/fruits/pomegranate.png'), labelKey: 'fruits.pomegranate' },
   { name: 'Sweet Lemon', type: 'sweet lemon', icon: require('../../assets/fruits/sweetlemon.png'), labelKey: 'fruits.sweetLemon' },
-  { name: 'Apple', type: 'apple', icon: require('../../assets/fruits/Apple.png'), labelKey: 'fruits.apple' },
-  { name: 'Mango', type: 'mango', icon: require('../../assets/fruits/mango.png'), labelKey: 'fruits.mango' },
+  // { name: 'Orange', type: 'orange', icon: require('../../assets/fruits/orange.png'), labelKey: 'fruits.orange' },
+  // { name: 'Grape', type: 'grape', icon: require('../../assets/fruits/grapes.png'), labelKey: 'fruits.grape' },
+  // { name: 'Pomegranate', type: 'pomegranate', icon: require('../../assets/fruits/pomegranate.png'), labelKey: 'fruits.pomegranate' },
+  // { name: 'Apple', type: 'apple', icon: require('../../assets/fruits/Apple.png'), labelKey: 'fruits.apple' },
+  // { name: 'Mango', type: 'mango', icon: require('../../assets/fruits/mango.png'), labelKey: 'fruits.mango' },
 ];
 
 // Sort options with security validation
@@ -376,7 +376,7 @@ const FarmerHomeScreen = () => {
     } else {
       name = 'there';
     }
-    
+
     // Allow names up to 11 characters, truncate with "..." if longer
     // When truncating, show only 11 characters + "..."
     // Font size will be reduced for longer names (handled in getDynamicFontSize)
@@ -389,28 +389,16 @@ const FarmerHomeScreen = () => {
   // Calculate dynamic font size based on name length
   const getDynamicFontSize = useMemo(() => {
     const nameLength = getDisplayName.length;
-    
-    // Base font size is 22, minimum is 18
-    // More granular font size reduction based on character count
     const baseFontSize = 22;
     const minFontSize = 18;
-    
-    if (nameLength <= 6) {
-      // Very short names: use full font size
-      return baseFontSize;
-    } else if (nameLength <= 8) {
-      // Short names: slight reduction
-      return 21;
-    } else if (nameLength <= 10) {
-      // Medium names: more reduction
-      return 20;
-    } else if (nameLength <= 11) {
-      // Long names: further reduction
-      return 19;
-    } else {
-      // Very long names (truncated): use minimum
-      return minFontSize;
-    }
+
+    // If name <= 6 keep max size
+    if (nameLength <= 6) return baseFontSize;
+
+    // Reduce 0.5px per extra character after 6 chars
+    const calculatedSize = baseFontSize - (nameLength - 6) * 0.5;
+
+    return Math.max(calculatedSize, minFontSize);
   }, [getDisplayName]);
 
   // Toggle product in watchlist
@@ -514,6 +502,7 @@ const FarmerHomeScreen = () => {
           text1: t('farmerHome.refreshFailedTitle'),
           text2: t('farmerHome.refreshFailedSubtitle'),
           position: 'bottom',
+          visibilityTime: 1000,
         });
       }
     }
@@ -1089,6 +1078,17 @@ const FarmerHomeScreen = () => {
                           <Text style={styles.fruitName} numberOfLines={1}>
                             {item.name || t('farmerHome.unnamedFruit')}
                           </Text>
+                          {/* Pending badge */}
+                          {item.status === 'pending' && (
+                            <View style={{
+                              backgroundColor: '#FFC107',
+                              paddingHorizontal: 8,
+                              paddingVertical: 4,
+                              borderRadius: 6
+                            }}>
+                              <Text style={{ fontSize: 12, fontWeight: '600', color: '#000' }}>⏳ Pending</Text>
+                            </View>
+                          )}
                           <Text style={styles.dateText}>
                             {getRelativeTime(item.created_at || new Date().toISOString())}
                           </Text>

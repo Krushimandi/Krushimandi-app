@@ -1,15 +1,17 @@
 import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  Image, 
-  ScrollView, 
-  TouchableOpacity, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  Image,
+  ScrollView,
+  TouchableOpacity,
   Dimensions,
   SafeAreaView,
   StatusBar,
-  Animated
+  Animated,
+  Alert,
+  Linking
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -29,18 +31,12 @@ const FaqDetail = ({ route, navigation }) => {
 
   // State to store image dimensions
   const [imgSize, setImgSize] = useState({ width: windowWidth - 64, height: 200 });
-  const [fadeAnim] = useState(new Animated.Value(0));
   const [slideAnim] = useState(new Animated.Value(50));
 
   // Get actual image size and set wrapper size accordingly
   React.useEffect(() => {
     // Start entrance animation
     Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 800,
-        useNativeDriver: true,
-      }),
       Animated.timing(slideAnim, {
         toValue: 0,
         duration: 600,
@@ -66,16 +62,28 @@ const FaqDetail = ({ route, navigation }) => {
         }
       );
     }
-  }, [image, fadeAnim, slideAnim]);
+  }, [image, slideAnim]);
 
   const handleCategoryPress = () => {
     navigation.goBack();
   };
 
+  const handleCallSupport = async () => {
+    const phone = '+918605755478';
+    const url = Platform.OS === 'ios' ? `telprompt:${phone}` : `tel:${phone}`;
+    const supported = await Linking.canOpenURL(url);
+    if (supported) {
+      await Linking.openURL(url);
+    } else {
+      Alert.alert('Error', 'Calling not supported on this device');
+    }
+  };
+
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={PRIMARY} translucent />
-      
+
       {/* Modern Header */}
       <View style={[styles.headerContainer, { paddingTop: insets.top + 16 }]}>
         <View style={styles.headerContent}>
@@ -86,11 +94,11 @@ const FaqDetail = ({ route, navigation }) => {
           >
             <Icon name="arrow-back" size={22} color="#FFFFFF" />
           </TouchableOpacity>
-          
+
           <View style={styles.headerTextContainer}>
             <Text style={styles.headerTitle}>Help Center</Text>
           </View>
-          
+
           <View style={styles.headerRight}>
             {/* {category && (
               <View style={styles.categoryChip}>
@@ -101,17 +109,16 @@ const FaqDetail = ({ route, navigation }) => {
         </View>
       </View>
 
-      <ScrollView 
+      <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
         bounces={true}
       >
-        <Animated.View 
+        <Animated.View
           style={[
             styles.contentContainer,
             {
-              opacity: fadeAnim,
               transform: [{ translateY: slideAnim }]
             }
           ]}
@@ -137,7 +144,7 @@ const FaqDetail = ({ route, navigation }) => {
               </View>
             </View>
           )}
-          
+
           {/* Answer Content Card */}
           <View style={styles.answerCard}>
             <View style={styles.answerHeader}>
@@ -149,7 +156,7 @@ const FaqDetail = ({ route, navigation }) => {
 
           {/* Additional Info Cards */}
           <View style={styles.infoCardsContainer}>
-            <View style={styles.infoCard}>
+            {/* <View style={styles.infoCard}>
               <Icon name="information-circle-outline" size={20} color="#6366F1" />
               <Text style={styles.infoCardText}>Was this helpful?</Text>
               <View style={styles.feedbackButtons}>
@@ -160,12 +167,12 @@ const FaqDetail = ({ route, navigation }) => {
                   <Icon name="thumbs-down" size={16} color="#FFFFFF" />
                 </TouchableOpacity>
               </View>
-            </View>
-            
-            <TouchableOpacity 
-              style={styles.contactCard} 
+            </View> */}
+
+            <TouchableOpacity
+              style={styles.contactCard}
               activeOpacity={0.9}
-              onPress={() => navigation.goBack()}
+              onPress={() => handleCallSupport()}
             >
               <Icon name="chatbubble-ellipses" size={20} color={PRIMARY} />
               <Text style={styles.contactCardText}>Still need help? Contact support</Text>
@@ -183,7 +190,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: BG_LIGHT,
   },
-  
+
   // Modern Header Styles
   headerContainer: {
     backgroundColor: PRIMARY,

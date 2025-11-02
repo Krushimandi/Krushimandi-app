@@ -128,6 +128,7 @@ const RequestsScreen = () => {
         text1: 'Error',
         text2: 'Failed to load requests. Please try again.',
         position: 'bottom',
+        visibilityTime: 1000,
       });
     }
   }, [user?.uid, user?.role, loadBuyerRequests]);
@@ -360,6 +361,7 @@ const RequestsScreen = () => {
                 text1: t('requests.toast.deleted'),
                 text2: t('requests.toast.deletedMessage'),
                 position: 'bottom',
+                visibilityTime: 1000,
               });
             } catch (error) {
               Toast.show({
@@ -367,6 +369,7 @@ const RequestsScreen = () => {
                 text1: t('common.error'),
                 text2: t('requests.toast.deleteFailed'),
                 position: 'bottom',
+                visibilityTime: 1000,
               });
             }
           }
@@ -384,6 +387,7 @@ const RequestsScreen = () => {
         text1: t('requests.toast.resent'),
         text2: t('requests.toast.resentMessage'),
         position: 'bottom',
+        visibilityTime: 1000,
       });
     } catch (error) {
       Toast.show({
@@ -391,6 +395,7 @@ const RequestsScreen = () => {
         text1: t('common.error'),
         text2: t('requests.toast.resendFailed'),
         position: 'bottom',
+        visibilityTime: 1000,
       });
     }
   };

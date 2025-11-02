@@ -5,7 +5,7 @@ import { RC_KEYS, RemoteConfigSnapshot } from '../constants/remoteConfigKeys';
 const DEFAULTS: Record<string, string | number | boolean> = {
   [RC_KEYS.app_version]: '1.0.0',
   [RC_KEYS.buildNumber]: '5.18.77.2045178916/2025',
-  [RC_KEYS.calling_version]: '2025.1.10.1',
+  [RC_KEYS.calling_version]: '2025.1.11.1',
   [RC_KEYS.maintenanceMode]: false,
   [RC_KEYS.maintenanceMessage]: 'We\'re under maintenance. Please try again shortly.',
   [RC_KEYS.RoleSwitchEnabled]: false,

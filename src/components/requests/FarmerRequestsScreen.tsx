@@ -216,7 +216,8 @@ const FarmerRequestsScreen = ({ route }: { route?: any }) => {
                 type: 'error',
                 position: 'bottom',
                 text1: t('requests.farmer.errorLoadingTitle'),
-                text2: t('requests.farmer.errorLoadingMessage')
+                text2: t('requests.farmer.errorLoadingMessage'),
+                visibilityTime: 1000,
             });
         }
     }, [loadFarmerRequests]);
@@ -273,7 +274,8 @@ const FarmerRequestsScreen = ({ route }: { route?: any }) => {
                 type: 'error',
                 position: 'bottom',
                 text1: t('requests.farmer.errorTitle'),
-                text2: t('requests.farmer.errorBulkAccept')
+                text2: t('requests.farmer.errorBulkAccept'),
+                visibilityTime: 1000,
             });
         }
     };
@@ -301,7 +303,8 @@ const FarmerRequestsScreen = ({ route }: { route?: any }) => {
                 type: 'error',
                 position: 'bottom',
                 text1: t('requests.farmer.errorTitle'),
-                text2: t('requests.farmer.errorBulkReject')
+                text2: t('requests.farmer.errorBulkReject'),
+                visibilityTime: 1000,
             });
         }
     };
@@ -319,7 +322,8 @@ const FarmerRequestsScreen = ({ route }: { route?: any }) => {
                     type: 'error',
                     position: 'bottom',
                     text1: t('requests.farmer.errorTitle'),
-                    text2: t('requests.farmer.errorAccept')
+                    text2: t('requests.farmer.errorAccept'),
+                    visibilityTime: 1000,
                 });
             }
         } catch (error) {
