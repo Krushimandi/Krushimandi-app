@@ -8,9 +8,7 @@ import {
     StatusBar,
     Image,
     Alert,
-    Platform,
     ScrollView,
-    Dimensions,
     Modal,
     ActivityIndicator,
 } from 'react-native';
@@ -27,7 +25,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 const PhotoUploadScreen = ({ navigation, route }) => {
     // Get fruit data from previous screen
     const { fruitData } = route.params || {};
-
     const { showTabBar, hideTabBar } = useTabBarControl();
     const [uploadedPhotos, setUploadedPhotos] = useState([]); // Array of {uri, firebaseUrl, uploading}
     const [uploadProgress, setUploadProgress] = useState({}); // Track upload progress per photo
@@ -270,69 +267,65 @@ const PhotoUploadScreen = ({ navigation, route }) => {
 
     const handleImagePickerOption = async (option, targetIndexOverride) => {
         setImagePickerModalVisible(false);
-        // Request permissions first
-        const hasPermissions = await requestImagePickerPermissions();
-        if (!hasPermissions) {
-            return;
-        }
 
-        const targetIndexCaptured = (typeof targetIndexOverride === 'number') ? targetIndexOverride : currentPhotoIndex;
+        const hasPermissions = await requestImagePickerPermissions();
+        if (!hasPermissions) return;
+
+        const targetIndexCaptured =
+            typeof targetIndexOverride === 'number' ? targetIndexOverride : currentPhotoIndex;
 
         try {
-            let pickedImages;
+            let pickedImages = [];
+
             if (option === 'camera') {
-                // Take single photo
-                pickedImages = await takePhotoWithCamera({
+                const img = await takePhotoWithCamera({
                     width: 600,
                     height: 480,
                     cropping: false,
                     compressImageQuality: 0.8,
                 });
-                pickedImages = [pickedImages]; // normalize to array
+                if (img) pickedImages = [img];
             } else if (option === 'gallery') {
-                // Pick multiple images from gallery
-                pickedImages = await pickImageFromGallery({
+                const imgs = await pickImageFromGallery({
                     width: 600,
                     height: 480,
                     cropping: false,
                     multiple: true,
                     compressImageQuality: 0.8,
                 });
-                if (!Array.isArray(pickedImages)) {
-                    pickedImages = [pickedImages]; // normalize single selection
-                }
-            } else {
-                return;
+                pickedImages = Array.isArray(imgs) ? imgs : [imgs];
             }
 
-            // Loop over picked images and assign to sequential empty slots
-            let currentIndex = targetIndexCaptured;
-            for (const image of pickedImages) {
-                if (currentIndex >= maxPhotos) break; // avoid overflow
-                if (uploadedPhotos[currentIndex]) {
-                    currentIndex++; // skip filled slot
-                    continue;
-                }
+            if (!pickedImages.length) return;
 
-                const photoObj = {
-                    uri: image.path,
-                    firebaseUrl: null,
-                    uploading: true,
-                    uploadFailed: false,
-                };
+            setUploadedPhotos(prev => {
+                const newPhotos = [...prev];
+                let currentIndex = targetIndexCaptured;
 
-                setUploadedPhotos(prev => {
-                    const newPhotos = [...prev];
-                    while (newPhotos.length <= currentIndex) {
-                        newPhotos.push(null);
+                for (const image of pickedImages) {
+                    // find next empty slot in the latest newPhotos
+                    while (currentIndex < maxPhotos && newPhotos[currentIndex]) {
+                        currentIndex++;
                     }
-                    newPhotos[currentIndex] = photoObj;
-                    return newPhotos;
-                });
+                    if (currentIndex >= maxPhotos) break;
 
-                enqueueUpload(image.path, currentIndex);
-                currentIndex++;
-            }
+                    const photoObj = {
+                        uri: image.path,
+                        firebaseUrl: null,
+                        uploading: true,
+                        uploadFailed: false,
+                    };
+
+                    newPhotos[currentIndex] = photoObj;
+
+                    // queue upload outside loop after this setState completes
+                    setTimeout(() => enqueueUpload(image.path, currentIndex), 0);
+
+                    currentIndex++;
+                }
+
+                return newPhotos;
+            });
         } catch (err) {
             console.log('Image picker cancelled or failed', err);
         }
@@ -810,8 +803,6 @@ const PhotoUploadScreen = ({ navigation, route }) => {
                     </View>
                 </View>
             </Modal>
-
-            {/* Removed continue button - using Next button in header instead */}
         </SafeAreaView>
     );
 };
@@ -1209,10 +1200,6 @@ const styles = StyleSheet.create({
         elevation: 4,
     },
 });
-
-
-
-
 
 const additionalStyles = {
     modalOptionsContainer: {

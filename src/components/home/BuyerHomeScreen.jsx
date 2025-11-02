@@ -47,12 +47,12 @@ import { useTranslation } from 'react-i18next';
 const categories = [
   { type: 'all', icon: null, labelKey: 'labels.all' },
   { type: 'banana', icon: require('../../assets/fruits/banana.png'), labelKey: 'fruits.banana' },
-  { type: 'orange', icon: require('../../assets/fruits/orange.png'), labelKey: 'fruits.orange' },
-  { type: 'grape', icon: require('../../assets/fruits/grapes.png'), labelKey: 'fruits.grape' },
-  { type: 'pomegranate', icon: require('../../assets/fruits/pomegranate.png'), labelKey: 'fruits.pomegranate' },
   { type: 'sweet lemon', icon: require('../../assets/fruits/sweetlemon.png'), labelKey: 'fruits.sweetLemon' },
-  { type: 'apple', icon: require('../../assets/fruits/Apple.png'), labelKey: 'fruits.apple' },
-  { type: 'mango', icon: require('../../assets/fruits/mango.png'), labelKey: 'fruits.mango' },
+  // { type: 'orange', icon: require('../../assets/fruits/orange.png'), labelKey: 'fruits.orange' },
+  // { type: 'grape', icon: require('../../assets/fruits/grapes.png'), labelKey: 'fruits.grape' },
+  // { type: 'pomegranate', icon: require('../../assets/fruits/pomegranate.png'), labelKey: 'fruits.pomegranate' },
+  // { type: 'apple', icon: require('../../assets/fruits/Apple.png'), labelKey: 'fruits.apple' },
+  // { type: 'mango', icon: require('../../assets/fruits/mango.png'), labelKey: 'fruits.mango' },
 ];
 
 const BuyerHomeScreen = () => {
@@ -336,29 +336,18 @@ const BuyerHomeScreen = () => {
 
   const getDynamicFontSize = useMemo(() => {
     const nameLength = getDisplayName.length;
-
-    // Base font size is 22, minimum is 18
-    // More granular font size reduction based on character count
     const baseFontSize = 22;
     const minFontSize = 18;
 
-    if (nameLength <= 6) {
-      // Very short names: use full font size
-      return baseFontSize;
-    } else if (nameLength <= 8) {
-      // Short names: slight reduction
-      return 21;
-    } else if (nameLength <= 10) {
-      // Medium names: more reduction
-      return 20;
-    } else if (nameLength <= 11) {
-      // Long names: further reduction
-      return 19;
-    } else {
-      // Very long names (truncated): use minimum
-      return minFontSize;
-    }
+    // If name <= 6 keep max size
+    if (nameLength <= 6) return baseFontSize;
+
+    // Reduce 0.5px per extra character after 6 chars
+    const calculatedSize = baseFontSize - (nameLength - 6) * 0.5;
+
+    return Math.max(calculatedSize, minFontSize);
   }, [getDisplayName]);
+
 
   // Optimized handleApplyFilters with memoization
   const handleApplyFilters = useCallback((filters) => {
@@ -747,6 +736,7 @@ const BuyerHomeScreen = () => {
           text1: 'Refresh Failed',
           text2: 'Please try again later',
           position: 'bottom',
+          visibilityTime: 1000,
         });
       }
     } finally {

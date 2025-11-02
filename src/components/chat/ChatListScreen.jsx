@@ -412,6 +412,7 @@ const ChatListScreen = ({ navigation }) => {
                   Toast.show({
                     type: 'info',
                     position: 'bottom',
+                    visibilityTime: 1000,
                     text1: t('chat.list.toast.startWithRequestTitle', { defaultValue: 'Start with a Request' }),
                     text2: t('chat.list.toast.startWithRequestMessage', { defaultValue: 'First send a request to the farmer, then chat.' }),
                   });
@@ -453,7 +454,13 @@ const ChatListScreen = ({ navigation }) => {
             {user?.role === 'buyer' && (
               <TouchableOpacity style={styles.menuItem} onPress={() => {
                 setMenuVisible(false);
-                Toast.show({ type: 'info', position: 'bottom', text1: t('chat.list.toast.startWithRequestTitle', { defaultValue: 'Start with a Request' }), text2: t('chat.list.toast.startWithRequestMessage', { defaultValue: 'First send a request to the farmer, then chat.' }) });
+                Toast.show({
+                  type: 'info',
+                  position: 'bottom',
+                  text1: t('chat.list.toast.startWithRequestTitle', { defaultValue: 'Start with a Request' }),
+                  text2: t('chat.list.toast.startWithRequestMessage', { defaultValue: 'First send a request to the farmer, then chat.' }),
+                  visibilityTime: 1000,
+                });
                 try {
                   navigation.navigate('Main', { screen: 'BuyerTabs', params: { screen: 'Home' } });
                 } catch (_) { try { navigation.navigate('Home'); } catch (_) { } }
@@ -484,9 +491,9 @@ const ChatListScreen = ({ navigation }) => {
                 if (!uid) { setMenuVisible(false); return; }
                 const toMark = chats.filter(c => (c.unread || 0) > 0);
                 await Promise.allSettled(toMark.map(c => markChatRead(uid, c.chatId)));
-                Toast.show({ type: 'success', position: 'bottom', text1: t('chat.list.toast.allMarkedRead', { defaultValue: 'All chats marked as read' }) });
+                Toast.show({ type: 'success', position: 'bottom', visibilityTime: 1000, text1: t('chat.list.toast.allMarkedRead', { defaultValue: 'All chats marked as read' }) });
               } catch (e) {
-                Toast.show({ type: 'error', position: 'bottom', text1: t('chat.list.toast.markAllReadFailed', { defaultValue: 'Failed to mark all as read' }) });
+                Toast.show({ type: 'error', position: 'bottom', visibilityTime: 1000, text1: t('chat.list.toast.markAllReadFailed', { defaultValue: 'Failed to mark all as read' }) });
               } finally {
                 setMenuVisible(false);
               }

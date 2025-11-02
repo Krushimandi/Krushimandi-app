@@ -1,14 +1,14 @@
 /**
  * Admin Auth Service
  * - Manage dashboard roles via custom claims
- * - Sync roles from Firestore users/{uid}
+ * - Sync roles from Firestore admins/{uid}
 exports.whoAmI = onCall(
   { region: 'asia-south1' },
   async (request) => {
     const context = request;
     return { uid: context?.auth?.uid || null, claims: context?.auth?.token || null };
   }
-);from Firestore users/{uid}
+);from Firestore admins/{uid}
  * - Provide helper to inspect caller claims
  */
 
@@ -23,7 +23,6 @@ const db = admin.firestore();
 const ROLE_CLAIMS = {
   admin: { role: 'admin', isAdmin: true, canNotify: true, canManage: true },
   maintainer: { role: 'maintainer', isAdmin: false, canNotify: true, canManage: true },
-  krushmitra: { role: 'krushmitra', isAdmin: false, canNotify: false, canManage: false },
   supervisor: { role: 'supervisor', isAdmin: false, canNotify: true, canManage: true },
 };
 
@@ -57,7 +56,7 @@ exports.setDashboardUserRole = onCall(
 
     await admin.auth().setCustomUserClaims(uid, claims);
     await db
-      .collection('users')
+      .collection('admins')
       .doc(uid)
       .set(
         { role, active: Boolean(active), updatedAt: admin.firestore.FieldValue.serverTimestamp(), ...profile },
@@ -68,10 +67,10 @@ exports.setDashboardUserRole = onCall(
   }
 );
 
-// Firestore trigger: keep claims in sync with users/{uid}
+// Firestore trigger: keep claims in sync with admins/{uid}
 exports.syncClaimsFromUsers = onDocumentWritten(
   {
-    document: 'users/{uid}',
+    document: 'admins/{uid}',
     region: 'asia-south1',
   },
   async (event) => {

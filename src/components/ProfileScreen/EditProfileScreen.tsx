@@ -142,6 +142,7 @@ const EditProfileScreen = () => {
         height: 400,
         cropping: true,
         compressImageQuality: 0.8,
+        cropperActiveWidgetColor : '#43B86C',
       });
       setProfileImage(image.path);
     } catch (err) {

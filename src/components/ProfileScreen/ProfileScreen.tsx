@@ -276,7 +276,7 @@ const ProfileScreen: React.FC = () => {
           type: 'navigation' as const,
           action: async () => {
             if (!rc.RoleSwitchEnabled) {
-              Toast.show({ type: 'info', text1: t('toasts.featureDisabled'), position: 'bottom', visibilityTime: 1600 });
+              Toast.show({ type: 'info', text1: t('toasts.featureDisabled'), position: 'bottom', visibilityTime: 1000 });
               return;
             }
             if (!userProfile?.uid && !userProfile?.id) {
@@ -334,6 +334,7 @@ const ProfileScreen: React.FC = () => {
                                 text1: t('toasts.switchRoleBlocked') || 'Cannot switch role',
                                 text2: t('toasts.activeListingsBlock') || 'Active farmer listings found. Mark them as sold or inactive first.',
                                 position: 'bottom',
+                                visibilityTime: 1000,
                               });
                               return;
                             }

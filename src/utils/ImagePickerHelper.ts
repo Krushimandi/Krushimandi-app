@@ -6,6 +6,8 @@ export type PickImageOptions = {
   cropping?: boolean;
   compressImageQuality?: number; // 0 to 1
   multiple?: boolean;
+  maxFiles?: number;
+  cropperActiveWidgetColor?: string;
 };
 
 export const pickImageFromGallery = async (
@@ -18,6 +20,8 @@ export const pickImageFromGallery = async (
       cropping: options.cropping ?? false,
       compressImageQuality: options.compressImageQuality ?? 0.8,
       multiple: options.multiple ?? false,
+      maxFiles: options.maxFiles || 1,
+      cropperActiveWidgetColor: options.cropperActiveWidgetColor || '#43B86C',
     });
     return image;
   } catch (error) {
@@ -35,6 +39,7 @@ export const takePhotoWithCamera = async (
       height: options.height || 500,
       cropping: options.cropping ?? false,
       compressImageQuality: options.compressImageQuality ?? 0.8,
+      cropperActiveWidgetColor: options.cropperActiveWidgetColor || '#43B86C',
     });
     return image;
   } catch (error) {

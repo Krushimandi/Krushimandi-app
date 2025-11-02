@@ -25,6 +25,8 @@ const {
 const notificationFunctions = require('./src/notificationService');
 const adminAuth = require('./src/adminAuthService');
 const chatNotificationService = require('./src/chatNotificationService');
+// Import mandi price functions
+const mandiPriceService = require('./src/mandiPriceService');
 
 // Export all functions
 exports.expireOldRequests = expireOldRequests;
@@ -36,9 +38,13 @@ exports.registerFcmToken = registerFcmToken;
 exports.removeFcmToken = removeFcmToken;
 exports.getFcmTokens = getFcmTokens;
 
+// Export mandi price function
+exports.mandiPriceService = mandiPriceService;
+
 // Export notification functions
 Object.assign(exports, notificationFunctions);
 Object.assign(exports, adminAuth);
+Object.assign(exports, mandiPriceService);
 Object.assign(exports, chatNotificationService);
 
 // Health check function
@@ -62,7 +68,8 @@ exports.healthCheck = onRequest((req, res) => {
       'setDashboardUserRole',
       'syncClaimsFromUsers',
       'whoAmI',
-      'healthCheck'
+      'healthCheck',
+      'getMousambiPrice'
     ]
   });
 });

@@ -39,7 +39,7 @@ const quickActions = [
         type: 'info',
         text1: 'Feature Coming Soon',
         position: 'bottom',
-        visibilityTime: 2000,
+        visibilityTime: 1000,
       });
     },
   },

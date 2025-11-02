@@ -11,7 +11,6 @@ import {
   Platform,
   StatusBar,
   SafeAreaView,
-  KeyboardAvoidingView,
   ActivityIndicator,
   Animated,
   Vibration,
@@ -25,6 +24,9 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { HapticFeedback } from 'utils/haptics';
+
+import ReAnimated, { useAnimatedStyle, withTiming, useSharedValue } from 'react-native-reanimated';
+import { useKeyboardHandler } from 'react-native-keyboard-controller';
 
 const OTPVerificationScreen = ({ navigation, route }) => {
   const { phoneNumber, confirmation, setConfirmation, clearConfirmation } = useAuth();
@@ -162,6 +164,33 @@ const OTPVerificationScreen = ({ navigation, route }) => {
       setCanResend(true);
     }
   }, [timer]);
+
+  // Keyboard height as shared value for reanimated
+  const keyboardHeightAnimated = useSharedValue(0);
+
+  // Keyboard handler
+  useKeyboardHandler({
+    onStart: (e) => {
+      'worklet';
+      keyboardHeightAnimated.value = e.height;
+    },
+    onMove: (e) => {
+      'worklet';
+      keyboardHeightAnimated.value = e.height;
+    },
+    onEnd: (e) => {
+      'worklet';
+      keyboardHeightAnimated.value = e.height;
+    },
+  });
+
+  // Animated style for the fake view at bottom
+  const fakeViewAnimatedStyle = useAnimatedStyle(() => {
+    'worklet';
+    return {
+      height: withTiming(keyboardHeightAnimated.value, { duration: 10 }),
+    };
+  });
 
   // Entrance animation
   useEffect(() => {
@@ -317,7 +346,7 @@ const OTPVerificationScreen = ({ navigation, route }) => {
             type: 'success',
             text1: t('auth.otp.toast.welcomeBack'),
             position: 'bottom',
-            visibilityTime: 1200
+            visibilityTime: 1000,
           });
           navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
         } else {
@@ -326,7 +355,7 @@ const OTPVerificationScreen = ({ navigation, route }) => {
             text1: t('auth.otp.toast.signedIn'),
             text2: t('auth.otp.toast.continueSetup'),
             position: 'bottom',
-            visibilityTime: 1200
+            visibilityTime: 1000,
           });
 
           if (route.params) {
@@ -350,7 +379,7 @@ const OTPVerificationScreen = ({ navigation, route }) => {
           if (currentUser?.uid && currentPhone && currentPhone === targetPhone) {
             const route = await authFlowManager.resumeAuthFlow();
             if (route.screen === 'Main') {
-              Toast.show({ type: 'success', text1: t('auth.otp.toast.welcomeBack'), position: 'bottom', visibilityTime: 1200 });
+              Toast.show({ type: 'success', text1: t('auth.otp.toast.welcomeBack'), position: 'bottom', visibilityTime: 1000 });
               navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
             } else {
               navigation.replace(route.screen, route.params || {});
@@ -503,160 +532,154 @@ const OTPVerificationScreen = ({ navigation, route }) => {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-
-      <KeyboardAvoidingView
-        style={styles.keyboardAvoidingView}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : -20 - insets.bottom}
-      >
-        <View style={styles.innerContainer}>
-          {/* Header */}
-          <View style={styles.header}>
-            <TouchableOpacity onPress={handleBackPress} style={styles.backButton}>
-              <Ionicons name="arrow-back" size={24} color="#333" />
-            </TouchableOpacity>            <TouchableOpacity
-              onPress={handleHelp}
-              style={styles.helpButton}
-              accessible={true}
-              accessibilityLabel="Get help with OTP verification"
-              accessibilityHint="Shows information about common OTP issues and solutions"
-            >
-              <Ionicons name="help-circle-outline" size={24} color="#007E2F" />
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView
-            ref={scrollViewRef}
-            style={styles.scrollView}
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="always"
-            scrollEnabled={true}
+      <View style={styles.innerContainer}>
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity onPress={handleBackPress} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color="#333" />
+          </TouchableOpacity>            <TouchableOpacity
+            onPress={handleHelp}
+            style={styles.helpButton}
+            accessible={true}
+            accessibilityLabel="Get help with OTP verification"
+            accessibilityHint="Shows information about common OTP issues and solutions"
           >
-            <TouchableWithoutFeedback onPress={handleOutsidePress}>
+            <Ionicons name="help-circle-outline" size={24} color="#007E2F" />
+          </TouchableOpacity>
+        </View>
+
+        <ScrollView
+          ref={scrollViewRef}
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="always"
+          scrollEnabled={true}
+        >
+          <TouchableWithoutFeedback onPress={handleOutsidePress}>
+            <Animated.View
+              style={[
+                styles.content,
+                { opacity: fadeAnimation }
+              ]}
+            >
+              {/* Title */}
+              <Text style={styles.title}>{t('auth.otp.title')}</Text>              {/* Subtitle with phone number */}
+              <Text style={styles.subtitle}>{t('auth.otp.subtitle')}</Text>
+
+              <View style={styles.phoneContainer}>
+                <Text style={styles.phoneNumber}>{displayPhoneNumber}</Text>
+                <TouchableOpacity onPress={handleEditPhone} style={styles.editButton}>
+                  <Ionicons name="pencil" size={18} color="#007E2F" />
+                </TouchableOpacity>
+              </View>
+
+              {/* Consent Text - tap to open Privacy Policy screen */}
+              <TouchableOpacity
+                onPress={() => navigation.navigate('PrivacyOnly')}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel={t('auth.otp.consentA11y')}
+              >
+                <Text style={styles.instructionText}>
+                  {t('auth.otp.consent')}
+                  <Text style={styles.instructionTextUnderline}>
+                    {t('auth.otp.consentLink')}
+                  </Text>
+                  {t('auth.otp.consentEnd')}
+                </Text>
+              </TouchableOpacity>
+
+              {/* OTP Input Field */}
               <Animated.View
                 style={[
-                  styles.content,
-                  { opacity: fadeAnimation }
+                  styles.otpContainer,
+                  {
+                    transform: [
+                      { translateX: shakeAnimation },
+                      { scale: autoSubmitAnimation }
+                    ]
+                  }
                 ]}
               >
-                {/* Title */}
-                <Text style={styles.title}>{t('auth.otp.title')}</Text>              {/* Subtitle with phone number */}
-                <Text style={styles.subtitle}>{t('auth.otp.subtitle')}</Text>
+                <TouchableWithoutFeedback onPress={handleContainerPress}>
+                  <View style={otpContainerStyle}>
+                    {/* TextInput - Made more accessible and robust with paste support */}
+                    <TextInput
+                      ref={inputRef}
+                      style={styles.hiddenInput}
+                      value={otp}
+                      onChangeText={handleOtpChange}
+                      onFocus={handleInputFocus}
+                      onBlur={handleInputBlur}
+                      keyboardType="number-pad"
+                      maxLength={6}
+                      autoComplete="sms-otp"
+                      textContentType="oneTimeCode"
+                      autoFocus={false}
+                      blurOnSubmit={false}
+                      caretHidden={false}
+                      selectTextOnFocus={true}
+                      contextMenuHidden={false}
+                      importantForAccessibility="yes"
+                      accessible={true}
+                      accessibilityLabel="OTP Input Field"
+                      editable={true}
+                      showSoftInputOnFocus={true}
+                      multiline={false}
+                      numberOfLines={1}
+                      allowFontScaling={false}
+                      spellCheck={false}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                    />
 
-                <View style={styles.phoneContainer}>
-                  <Text style={styles.phoneNumber}>{displayPhoneNumber}</Text>
-                  <TouchableOpacity onPress={handleEditPhone} style={styles.editButton}>
-                    <Ionicons name="pencil" size={18} color="#007E2F" />
-                  </TouchableOpacity>
-                </View>
-
-                {/* Consent Text - tap to open Privacy Policy screen */}
-                <TouchableOpacity
-                  onPress={() => navigation.navigate('PrivacyOnly')}
-                  activeOpacity={0.7}
-                  accessibilityRole="button"
-                  accessibilityLabel={t('auth.otp.consentA11y')}
-                >
-                  <Text style={styles.instructionText}>
-                    {t('auth.otp.consent')}
-                    <Text style={styles.instructionTextUnderline}>
-                      {t('auth.otp.consentLink')}
-                    </Text>
-                    {t('auth.otp.consentEnd')}
-                  </Text>
-                </TouchableOpacity>
-
-                {/* OTP Input Field */}
-                <Animated.View
-                  style={[
-                    styles.otpContainer,
-                    {
-                      transform: [
-                        { translateX: shakeAnimation },
-                        { scale: autoSubmitAnimation }
-                      ]
-                    }
-                  ]}
-                >
-                  <TouchableWithoutFeedback onPress={handleContainerPress}>
-                    <View style={otpContainerStyle}>
-                      {/* TextInput - Made more accessible and robust with paste support */}
-                      <TextInput
-                        ref={inputRef}
-                        style={styles.hiddenInput}
-                        value={otp}
-                        onChangeText={handleOtpChange}
-                        onFocus={handleInputFocus}
-                        onBlur={handleInputBlur}
-                        keyboardType="number-pad"
-                        maxLength={6}
-                        autoComplete="sms-otp"
-                        textContentType="oneTimeCode"
-                        autoFocus={false}
-                        blurOnSubmit={false}
-                        caretHidden={false}
-                        selectTextOnFocus={true}
-                        contextMenuHidden={false}
-                        importantForAccessibility="yes"
-                        accessible={true}
-                        accessibilityLabel="OTP Input Field"
-                        editable={true}
-                        showSoftInputOnFocus={true}
-                        multiline={false}
-                        numberOfLines={1}
-                        allowFontScaling={false}
-                        spellCheck={false}
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                      />
-
-                      {/* Visual OTP Display */}
-                      <TouchableOpacity
-                        style={styles.otpDisplayContainer}
-                        onPress={handleContainerPress}
-                        activeOpacity={1}
-                      >
-                        {[...Array(6)].map((_, index) => (
-                          <View key={index} style={styles.otpDigitContainer}>
-                            <Text style={[
-                              styles.otpDigit,
-                              otp[index] && styles.otpDigitFilled
-                            ]}>
-                              {otp[index] || ''}
-                            </Text>
-                            {index < 5 && <View style={styles.separator} />}
-                          </View>
-                        ))}
-                      </TouchableOpacity>
-                      {/* Cursor */}
-                      {isFocused && otp.length < 6 && (
-                        <Animated.View
-                          style={[
-                            styles.cursor,
-                            {
-                              left: 32 + (otp.length * 38), top: 22,
-                              opacity: cursorAnimation,
-                            }
-                          ]} />
-                      )}
-                    </View>
-                  </TouchableWithoutFeedback>
-                </Animated.View>
-                {/* Error message */}
-                {error ? (
-                  <Animated.View style={[
-                    styles.errorContainer,
-                    { transform: [{ translateX: shakeAnimation }] }
-                  ]}>
-                    <Ionicons name="alert-circle" size={18} color="#FF3547" />
-                    <Text style={styles.errorText}>{error}</Text>                  <TouchableOpacity onPress={handleHelp} style={styles.helpIconSmall}>
-                      <Ionicons name="help-circle" size={16} color="#007E2F" />
+                    {/* Visual OTP Display */}
+                    <TouchableOpacity
+                      style={styles.otpDisplayContainer}
+                      onPress={handleContainerPress}
+                      activeOpacity={1}
+                    >
+                      {[...Array(6)].map((_, index) => (
+                        <View key={index} style={styles.otpDigitContainer}>
+                          <Text style={[
+                            styles.otpDigit,
+                            otp[index] && styles.otpDigitFilled
+                          ]}>
+                            {otp[index] || ''}
+                          </Text>
+                          {index < 5 && <View style={styles.separator} />}
+                        </View>
+                      ))}
                     </TouchableOpacity>
-                  </Animated.View>
-                ) : null}
+                    {/* Cursor */}
+                    {isFocused && otp.length < 6 && (
+                      <Animated.View
+                        style={[
+                          styles.cursor,
+                          {
+                            left: 32 + (otp.length * 38), top: 22,
+                            opacity: cursorAnimation,
+                          }
+                        ]} />
+                    )}
+                  </View>
+                </TouchableWithoutFeedback>
+              </Animated.View>
+              {/* Error message */}
+              {error ? (
+                <Animated.View style={[
+                  styles.errorContainer,
+                  { transform: [{ translateX: shakeAnimation }] }
+                ]}>
+                  <Ionicons name="alert-circle" size={18} color="#FF3547" />
+                  <Text style={styles.errorText}>{error}</Text>                  <TouchableOpacity onPress={handleHelp} style={styles.helpIconSmall}>
+                    <Ionicons name="help-circle" size={16} color="#007E2F" />
+                  </TouchableOpacity>
+                </Animated.View>
+              ) : null}
 
-                {/* Security note
+              {/* Security note
               <View style={styles.securityNote}>
                 <Ionicons name="shield-checkmark" size={16} color="#007E2F" />
                 <Text style={styles.securityText}>
@@ -664,47 +687,49 @@ const OTPVerificationScreen = ({ navigation, route }) => {
                 </Text>
               </View> */}
 
-                {/* Resend Section */}
-                <View style={styles.resendContainer}>
-                  <Text style={styles.resendText}>{t('auth.otp.resendPrompt')}</Text>
-                  <TouchableOpacity onPress={handleResend} disabled={!canResend}>
-                    <Text style={[
-                      styles.resendLink,
-                      !canResend && styles.resendLinkDisabled
-                    ]}>{canResend ? t('auth.otp.resendNow') : t('auth.otp.resendIn', { time: formatTime(timer) })}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-
-              </Animated.View>
-
-            </TouchableWithoutFeedback>
-          </ScrollView>
-
-          {/* Verify Button */}
-          <View style={[styles.buttonContainer, { paddingBottom: insets.bottom + 32 }]}>
-            <TouchableOpacity
-              style={[
-                styles.verifyButton,
-                !isOtpComplete && styles.verifyButtonDisabled
-              ]}
-              onPress={handleVerify}
-              disabled={!isOtpComplete}
-              activeOpacity={0.8}
-            >
-              {isLoading ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              ) : (
-                <>
-                  <Text style={styles.verifyButtonText}>
-                    {isAutoSubmitting ? t('auth.otp.autoVerifying') : t('auth.otp.verifyButton')}
+              {/* Resend Section */}
+              <View style={styles.resendContainer}>
+                <Text style={styles.resendText}>{t('auth.otp.resendPrompt')}</Text>
+                <TouchableOpacity onPress={handleResend} disabled={!canResend}>
+                  <Text style={[
+                    styles.resendLink,
+                    !canResend && styles.resendLinkDisabled
+                  ]}>{canResend ? t('auth.otp.resendNow') : t('auth.otp.resendIn', { time: formatTime(timer) })}
                   </Text>
-                  <Ionicons name="checkmark" size={16} color="#FFFFFF" />
-                </>
-              )}            </TouchableOpacity>
-          </View>
+                </TouchableOpacity>
+              </View>
+
+            </Animated.View>
+
+          </TouchableWithoutFeedback>
+        </ScrollView>
+
+        {/* Verify Button */}
+        <View style={[styles.buttonContainer, { paddingBottom: insets.bottom + 16 }]}>
+          <TouchableOpacity
+            style={[
+              styles.verifyButton,
+              !isOtpComplete && styles.verifyButtonDisabled
+            ]}
+            onPress={handleVerify}
+            disabled={!isOtpComplete}
+            activeOpacity={0.8}
+          >
+            {isLoading ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <>
+                <Text style={styles.verifyButtonText}>
+                  {isAutoSubmitting ? t('auth.otp.autoVerifying') : t('auth.otp.verifyButton')}
+                </Text>
+                <Ionicons name="checkmark" size={16} color="#FFFFFF" />
+              </>
+            )}            </TouchableOpacity>
         </View>
-      </KeyboardAvoidingView>
+      </View>
+
+      {/* Fake animated view at bottom to push content up when keyboard opens */}
+      <ReAnimated.View style={fakeViewAnimatedStyle} />
 
       {/* Beautiful Help Modal */}
       {showHelpModal && (

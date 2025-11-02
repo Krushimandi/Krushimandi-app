@@ -26,12 +26,12 @@ const FruitsScreen: React.FC<FruitsScreenProps> = ({ navigation, route }) => {
 
   const categories = [
     { type: 'Banana', labelKey: 'fruits.banana' },
-    { type: 'Orange', labelKey: 'fruits.orange' },
-    { type: 'Grape', labelKey: 'fruits.grape' },
-    { type: 'Pomegranate', labelKey: 'fruits.pomegranate' },
     { type: 'Sweet Lemon', labelKey: 'fruits.sweetLemon' },
-    { type: 'Apple', labelKey: 'fruits.apple' },
-    { type: 'Mango', labelKey: 'fruits.mango' },
+    // { type: 'Orange', labelKey: 'fruits.orange' },
+    // { type: 'Grape', labelKey: 'fruits.grape' },
+    // { type: 'Pomegranate', labelKey: 'fruits.pomegranate' },
+    // { type: 'Apple', labelKey: 'fruits.apple' },
+    // { type: 'Mango', labelKey: 'fruits.mango' },
   ];
 
   const [searchQuery, setSearchQuery] = useState('');

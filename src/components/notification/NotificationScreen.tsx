@@ -377,7 +377,7 @@ const NotificationScreen: React.FC<NotificationScreenProps> = ({ navigation }) =
                     type: 'success',
                     text1: t('notifications.toast.preferencesSaved'),
                     position: 'bottom',
-                    visibilityTime: 1500,
+                    visibilityTime: 1000,
                 });
             } catch (error) {
                 console.error('❌ Error saving preferences:', error);
@@ -385,7 +385,7 @@ const NotificationScreen: React.FC<NotificationScreenProps> = ({ navigation }) =
                     type: 'error',
                     text1: t('notifications.toast.preferencesError'),
                     position: 'bottom',
-                    visibilityTime: 2000,
+                    visibilityTime: 1000,
                 });
             }
         }, 1000); // Wait 1 second after last change
