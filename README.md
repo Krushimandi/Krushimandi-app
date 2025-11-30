@@ -38,25 +38,38 @@ Experience seamless agricultural trading directly from your Android device. Down
 
 ### Experience the App in Action
 
+<style>
+  .screenshot-table img {
+    width: 250px;
+    height: 500px;
+    object-fit: cover;
+    border-radius: 8px;
+  }
+</style>
+
+<div class="screenshot-table">
+
 #### 🏠 Home & Navigation
 | Language Selection | Location Detection | Browse Products |
 |-------------------|-------------------|-----------------|
-| ![Language Selection](./docs/screenshots/language_selection.jpg) | ![Location Modal](./docs/screenshots/HomeScreen_location_modal.jpg) | ![Browse Products](./docs/screenshots/browse-products.jpg) |
+| <img src="./docs/screenshots/language_selection.jpg" width="250" height="500" style="object-fit: cover; border-radius: 8px;" /> | <img src="./docs/screenshots/HomeScreen_location_modal.jpg" width="250" height="500" style="object-fit: cover; border-radius: 8px;" /> | <img src="./docs/screenshots/browse-products.jpg" width="250" height="500" style="object-fit: cover; border-radius: 8px;" /> |
 
 #### 🌾 Farmer Features
 | Add Product | Product Details | Farmer Requests |
 |------------|----------------|----------------|
-| ![Add Product](./docs/screenshots/add-product.jpg) | ![Product Details](./docs/screenshots/farmer_productDetails.jpg) | ![Farmer Requests](./docs/screenshots/farmers_requests.jpg) |
+| <img src="./docs/screenshots/add-product.jpg" width="250" height="500" style="object-fit: cover; border-radius: 8px;" /> | <img src="./docs/screenshots/farmer_productDetails.jpg" width="250" height="500" style="object-fit: cover; border-radius: 8px;" /> | <img src="./docs/screenshots/farmers_requests.jpg" width="250" height="500" style="object-fit: cover; border-radius: 8px;" /> |
 
 #### 🛒 Buyer Features
 | Product Details | Review System | Buyer Profile |
 |----------------|--------------|--------------|
-| ![Product Details](./docs/screenshots/product-details.jpg) | ![Review System](./docs/screenshots/buyer_review_system.jpg) | ![Buyer Profile](./docs/screenshots/buyer_profile.png) |
+| <img src="./docs/screenshots/product-details.jpg" width="250" height="500" style="object-fit: cover; border-radius: 8px;" /> | <img src="./docs/screenshots/buyer_review_system.jpg" width="250" height="500" style="object-fit: cover; border-radius: 8px;" /> | <img src="./docs/screenshots/buyer_profile.jpg" width="250" height="500" style="object-fit: cover; border-radius: 8px;" /> |
 
 #### 💬 Communication & Smart Features
 | Real-time Chat | AI Fruit Suggestions | User Feedback |
 |---------------|---------------------|---------------|
-| ![Chat](./docs/screenshots/chat.jpg) | ![Fruit Suggestions](./docs/screenshots/fruit_suggestion.jpg) | ![Feedback](./docs/screenshots/feedback.jpg) |
+| <img src="./docs/screenshots/chat.jpg" width="250" height="500" style="object-fit: cover; border-radius: 8px;" /> | <img src="./docs/screenshots/fruit_suggestion.jpg" width="250" height="500" style="object-fit: cover; border-radius: 8px;" /> | <img src="./docs/screenshots/feedback.jpg" width="250" height="500" style="object-fit: cover; border-radius: 8px;" /> |
+
+</div>
 
 </div>
 
