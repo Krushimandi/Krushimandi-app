@@ -304,7 +304,7 @@ export default function PriceSelectionScreen({ navigation, route }) {
       // Success message
       Alert.alert(
         '✅ Submitted for Review',
-        `Your ${productData?.name} is submitted for verification.\nOnce approved, it will go live at ₹${finalPrice}/kg 🚀`,
+        `Your ${productData?.type} is submitted for verification.\nOnce approved, it will go live.`,
         [{
           text: 'OK',
           onPress: () => {

@@ -307,7 +307,7 @@
     "version": "आवृत्ती {{version}}",
     "build": "बिल्ड {{build}}",
     "callingVersion": "कॉलिंग आवृत्ती {{version}}",
-    "companyName": "Krushimandi Innovations PVT. LTD.",
+    "companyName": "Krushimandi Innovations",
     "rights": "© {{year}} Krushimandi. सर्व हक्क राखीव."
   },
   "fruits": {
@@ -357,6 +357,7 @@
     "emptyActiveTitle": "सक्रिय सूची नाहीत",
     "emptyActiveSub1": "आपण अजून कोणतीही फळे सूचीबद्ध केली नाहीत.",
     "emptyActiveSub2": "आपली पहिली फळ सूची जोडून सुरू करा.",
+    "addFruit": "फळ जोडा",
     "refresh": "रिफ्रेश",
     "noResultsTitle": "निकाल आढळला नाही",
     "noFruitsMatch": "कोणतीही फळे \"{{query}}\" शी जुळत नाहीत",
@@ -1326,6 +1327,27 @@
     "toast": {
       "navigatingToRequest": "विनंती तपशील उघडत आहे...",
       "couldNotOpenLink": "लिंक उघडू शकलो नाही"
+    },
+    "updates": {
+      "updateAvailableTitle": "अपडेट उपलब्ध आहे",
+      "mandatoryTitle": "आवश्यक अपडेट",
+      "defaultMessage": "नवीन अपडेट तयार आहे!",
+      "mandatoryMessage": "हे अपडेट आवश्यक आहे आणि अॅप आपोआप रीस्टार्ट होईल.",
+      "mandatoryDismissTitle": "अपडेट आवश्यक",
+      "mandatoryDismissMessage": "हे अपडेट अनिवार्य आहे आणि ते वगळले जाऊ शकत नाही.",
+      "mandatoryWarning": "अॅप वापरणे सुरू ठेवण्यासाठी हे अपडेट आवश्यक आहे.",
+      "restartNow": "आत्ता रीस्टार्ट करा",
+      "later": "नंतर",
+      "version": "आवृत्ती",
+      "size": "आकार",
+      "author": "द्वारा",
+      "restartErrorTitle": "अपडेट त्रुटी",
+      "restartErrorMessage": "अपडेट लागू करण्यात अयशस्वी. कृपया पुन्हा प्रयत्न करा.",
+      "checkForUpdates": "अपडेट तपासा",
+      "mandatoryUpdateAvailable": "आवश्यक अपडेट उपलब्ध",
+      "updateAvailableShort": "अपडेट उपलब्ध",
+      "upToDate": "अॅप अपडेट आहे",
+      "required": "आवश्यक"
     }
   }
 }

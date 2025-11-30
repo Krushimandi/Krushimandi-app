@@ -39,6 +39,7 @@ import { functions, httpsCallable } from '../../config/firebaseModular';
 import { setUserOnlineStatus } from '../../services/chatService';
 import useOfflineCapability from 'hooks/useOfflineCapability';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useStallionUpdateController } from '../../hooks/useStallionUpdateController';
 
 interface SettingItem {
   id: string;
@@ -67,6 +68,9 @@ const ProfileScreen: React.FC = () => {
   const [isRoleSwitching, setIsRoleSwitching] = useState(false);
   const rc = useRemoteConfig();
   const currentYear = new Date().getFullYear();
+
+  // Stallion update controller
+  const { checkForUpdates, isUpdateAvailable, isMandatoryUpdate } = useStallionUpdateController();
 
   // Modal state for profile image
   const [modalVisible, setModalVisible] = useState(false);
@@ -289,7 +293,7 @@ const ProfileScreen: React.FC = () => {
               const uid = userProfile.uid || userProfile.id;
               const roleLabel = nextRole === 'farmer' ? t('roles.farmer') : t('roles.buyer');
 
-              // Business rule: You cannot switch TO Buyer if there are any ACTIVE farmer listings
+              // Business rule: You cannot switch TO Buyer if there are any ACTIVE or PENDING farmer listings
               if (nextRole === 'buyer') {
                 try {
                   const { getFruitsByFarmerOptimized } = await import('../../services/fruitService');
@@ -456,6 +460,18 @@ const ProfileScreen: React.FC = () => {
           type: 'navigation' as const,
           action: () => navigation.navigate('TermsCondition'),
           color: '#43B86C',
+        },
+        {
+          id: 'updates',
+          title: t('updates.checkForUpdates', 'Check for Updates'),
+          subtitle: isUpdateAvailable 
+            ? (isMandatoryUpdate ? t('updates.mandatoryUpdateAvailable', 'Mandatory update available') : t('updates.updateAvailableShort', 'Update available'))
+            : t('updates.upToDate', 'App is up to date'),
+          icon: 'cloud-download-outline',
+          type: 'action' as const,
+          action: checkForUpdates,
+          color: isUpdateAvailable ? '#F59E0B' : '#43B86C',
+          badge: isUpdateAvailable ? (isMandatoryUpdate ? t('updates.required', 'Required') : t('labels.new', 'New')) : undefined,
         },
         {
           id: 'about',

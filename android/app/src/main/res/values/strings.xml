@@ -1,3 +1,11 @@
 <resources>
-    <string name="app_name">Krushimandi</string>
+	<string name="app_name">
+		Krushimandi
+	</string>
+	<string name="StallionProjectId">
+		6907a2eca3eb34c631e55481
+	</string>
+	<string name="StallionAppToken">
+		spb_mxjQ1yca6LZKx_5KbKwXe_GtAphaKHcxuBB4iKTfkU
+	</string>
 </resources>

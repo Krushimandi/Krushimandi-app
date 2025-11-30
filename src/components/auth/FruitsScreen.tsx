@@ -263,8 +263,6 @@ const styles = StyleSheet.create({
   },
   backButton: {
     paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#F0F0F0',
     marginRight: 12,
   },
   topBar: {
@@ -351,6 +349,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F9F9F9',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
+    height: '100%',
   },
   selectedCard: {
     borderWidth: 2,

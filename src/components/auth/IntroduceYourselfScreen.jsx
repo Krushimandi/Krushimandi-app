@@ -6,8 +6,6 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
   Modal,
   Pressable,
   ScrollView,
@@ -15,13 +13,12 @@ import {
   StatusBar,
   SafeAreaView,
   ActivityIndicator,
-  Animated,
   Image,
   Alert,
   FlatList,
   Dimensions,
+  Animated,
 } from 'react-native';
-import Toast from 'react-native-toast-message';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import auth from '@react-native-firebase/auth';
@@ -33,6 +30,8 @@ import { useAuthStore } from '../../store';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { pickImageFromGallery, takePhotoWithCamera } from 'utils/ImagePickerHelper';
+import { useKeyboardHandler } from 'react-native-keyboard-controller';
+import ReAnimated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
 // Business type options for buyer role
 const BUSINESS_TYPE_OPTIONS = [
@@ -58,8 +57,8 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
   const [businessType, setBusinessType] = useState(null);
   const [businessTypeModalVisible, setBusinessTypeModalVisible] = useState(false);
   const [imagePickerModalVisible, setImagePickerModalVisible] = useState(false);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [screenHeight, setScreenHeight] = useState(Dimensions.get('window').height);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   const lastNameRef = useRef(null);
   const scrollViewRef = useRef(null);
@@ -69,6 +68,7 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
   const insets = useSafeAreaInsets();
+
   useEffect(() => {
     // Entrance animation
     Animated.parallel([
@@ -88,37 +88,10 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
     const checkFirebaseUser = async () => {
       const user = auth().currentUser;
       if (!user) {
-        Toast.show({
-          type: 'error',
-          text1: t('auth.intro.authErrorTitle'),
-          text2: t('auth.intro.authErrorSubtitle'),
-          position: 'bottom',
-          visibilityTime: 1000,
-        });
         import('../../utils/navigationUtils').then(({ navigateToAuth }) => navigateToAuth());
       }
     };
     checkFirebaseUser();
-
-    // Keyboard listeners for dynamic visibility and measurements
-    const showSub = Keyboard.addListener('keyboardDidShow', (e) => {
-      const kbHeight = e?.endCoordinates?.height || 0;
-      setKeyboardHeight(kbHeight);
-    });
-    const hideSub = Keyboard.addListener('keyboardDidHide', () => {
-      setKeyboardHeight(0);
-    });
-
-    // Screen dimension listener
-    const subscription = Dimensions.addEventListener('change', ({ window }) => {
-      setScreenHeight(window.height);
-    });
-
-    return () => {
-      showSub?.remove();
-      hideSub?.remove();
-      subscription?.remove();
-    };
   }, [fadeAnim, slideAnim, navigation]);
 
   const handleNext = async () => {
@@ -383,9 +356,36 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
         const targetY = Math.max(0, y - availableHeight * 0.3); // Keep field in top 30% of visible area
         scrollViewRef.current?.scrollTo({ y: targetY, animated: true });
       },
-      () => { } // Error callback
+      () => { }
     );
   };
+
+  // Keyboard height as shared value for reanimated
+  const keyboardHeightAnimated = useSharedValue(0);
+
+  // Keyboard handler
+  useKeyboardHandler({
+    onStart: (e) => {
+      'worklet';
+      keyboardHeightAnimated.value = e.height;
+    },
+    onMove: (e) => {
+      'worklet';
+      keyboardHeightAnimated.value = e.height;
+    },
+    onEnd: (e) => {
+      'worklet';
+      keyboardHeightAnimated.value = e.height;
+    },
+  });
+
+  // Animated style for the fake view at bottom
+  const fakeViewAnimatedStyle = useAnimatedStyle(() => {
+    'worklet';
+    return {
+      height: withTiming(keyboardHeightAnimated.value, { duration: 10 }),
+    };
+  });
 
   const onFocusFirstName = () => {
     setTimeout(() => scrollToField(firstNameBlockRef), 100);
@@ -426,190 +426,191 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
   const isFormValid = firstName.trim() && lastName.trim() &&
     (userRole !== 'buyer' || (userRole === 'buyer' && businessType));
   return (
-    <SafeAreaView style={[styles.container, { paddingBottom: insets.bottom }]}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-      <KeyboardAvoidingView
-        style={styles.keyboardAvoidingView}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
-        enabled
-      >
-        <View style={styles.innerContainer}>
-          {/* Header */}
-          <View style={styles.header}>
-            <TouchableOpacity onPress={handleBackPress} style={styles.backButton}>
-              <Ionicons name="arrow-back" size={24} color="#333" />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={showHelp} style={styles.helpButton}>
-              <Ionicons name="help-circle-outline" size={24} color="#007E2F" />
-            </TouchableOpacity>
-          </View>
-          <ScrollView
-            ref={scrollViewRef}
-            style={styles.scrollView}
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            scrollEnabled
-            nestedScrollEnabled
-            keyboardDismissMode="interactive"
-            automaticallyAdjustKeyboardInsets={false}
-          >
-            <Animated.View
-              style={[styles.content, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}
-            >
-              <Text style={styles.heading}>
-                {userRole && typeof userRole === 'string' ? t('auth.intro.titleWithRole', { role: t(`roles.${userRole}`) }) : t('auth.intro.title')}
-              </Text>
-              <Text style={styles.subtext}>
-                {t('auth.intro.subtitle')}
-              </Text>
-              {/* Profile Avatar Section */}
-              <TouchableOpacity style={styles.avatarContainer} onPress={handleImagePicker} activeOpacity={0.7}>
-                {profileImage ? (
-                  <Image
-                    source={{ uri: profileImage }}
-                    style={[
-                      styles.avatarImage,
-                      {
-                        width: dynamicStyles.avatarSize,
-                        height: dynamicStyles.avatarSize,
-                        borderRadius: dynamicStyles.avatarSize / 2
-                      }
-                    ]}
-                  />
-                ) : (
-                  <View
-                    style={[
-                      styles.avatarCircle,
-                      {
-                        width: dynamicStyles.avatarSize,
-                        height: dynamicStyles.avatarSize,
-                        borderRadius: dynamicStyles.avatarSize / 2
-                      }
-                    ]}
-                  >
-                    <Ionicons name="camera" size={dynamicStyles.avatarSize * 0.32} color="#007E2F" />
-                  </View>
-                )}
-                <Text style={styles.avatarText}>
-                  {profileImage ? t('auth.intro.changePhoto') : t('auth.intro.addPhoto')}
-                </Text>
-              </TouchableOpacity>
-              {/* Input Fields */}
-              <View style={styles.inputSection}>
-                <Text style={styles.inputLabel}>{t('auth.intro.personalInfo')}</Text>
-                {/* First Name Input */}
-                <View
-                  ref={firstNameBlockRef}
-                  style={[styles.inputWrapper, errors.firstName && styles.inputWrapperError]}
-                >
-                  <View style={[styles.inputContainer, { minHeight: dynamicStyles.inputHeight }]}>
-                    <Text style={[styles.floatingLabel, firstName && styles.floatingLabelActive]}>{t('auth.intro.firstName')}</Text>
-                    <TextInput
-                      style={[
-                        styles.input,
-                        firstName && styles.inputWithLabel,
-                        { minHeight: dynamicStyles.inputHeight }
-                      ]}
-                      value={firstName}
-                      onChangeText={handleFirstNameChange}
-                      onFocus={onFocusFirstName}
-                      onSubmitEditing={handleFirstNameSubmit}
-                      returnKeyType="next"
-                      placeholder=""
-                      placeholderTextColor="#999"
-                      autoCapitalize="words"
-                      autoCorrect={false}
-                      blurOnSubmit={false}
-                      enablesReturnKeyAutomatically
-                      accessibilityLabel={t('auth.intro.firstName')}
-                    />
-                  </View>
-                </View>
-                {/* Last Name Input */}
-                <View
-                  ref={lastNameBlockRef}
-                  style={[styles.inputWrapper, errors.lastName && styles.inputWrapperError]}
-                >
-                  <View style={[styles.inputContainer, { minHeight: dynamicStyles.inputHeight }]}>
-                    <Text style={[styles.floatingLabel, lastName && styles.floatingLabelActive]}>{t('auth.intro.lastName')}</Text>
-                    <TextInput
-                      ref={lastNameRef}
-                      style={[
-                        styles.input,
-                        lastName && styles.inputWithLabel,
-                        { minHeight: dynamicStyles.inputHeight }
-                      ]}
-                      value={lastName}
-                      onChangeText={handleLastNameChange}
-                      onFocus={onFocusLastName}
-                      onSubmitEditing={handleLastNameSubmit}
-                      returnKeyType="done"
-                      placeholder=""
-                      placeholderTextColor="#999"
-                      autoCapitalize="words"
-                      autoCorrect={false}
-                      enablesReturnKeyAutomatically
-                      accessibilityLabel={t('auth.intro.lastName')}
-                    />
-                  </View>
-                </View>
-                {/* Business Type Dropdown - Only show for buyers */}
-                {userRole === 'buyer' && (
-                  <View
-                    ref={businessTypeBlockRef}
-                    style={[styles.inputWrapper, errors.businessType && styles.inputWrapperError]}
-                  >
-                    <TouchableOpacity
-                      style={styles.dropdownContainer}
-                      onPress={onPressBusinessType}
-                      activeOpacity={0.7}
-                      accessibilityLabel="Business Type"
-                    >
-                      <View style={[styles.inputContainer, { minHeight: dynamicStyles.inputHeight }]}>
-                        <Text style={[styles.floatingLabel, businessType && styles.floatingLabelActive]}>{t('auth.intro.businessType')}</Text>
-                        <View style={[
-                          styles.dropdownDisplay,
-                          businessType && styles.inputWithLabel,
-                          { minHeight: dynamicStyles.inputHeight }
-                        ]}>
-                          <Text style={styles.dropdownText}>
-                            {businessType ? t(`auth.intro.businessTypes.${BUSINESS_TYPE_OPTIONS.find(option => option.value === businessType)?.labelKey}`) : ''}
-                          </Text>
-                          <Ionicons name="chevron-down" size={16} color="#666" />
-                        </View>
-                      </View>
-                    </TouchableOpacity>
-                  </View>
-                )}
-              </View>
-            </Animated.View>
-          </ScrollView>
-          {/* Next Button */}
-          <View style={styles.buttonContainer}>
-            <TouchableOpacity
-              style={[styles.nextButton, !isFormValid && styles.nextButtonDisabled]}
-              onPress={handleNext}
-              disabled={!isFormValid || isLoading}
-              activeOpacity={0.8}
-              accessibilityLabel="Continue"
-            >
-              {isLoading ? (
-                <View style={styles.loadingContainer}>
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                  <Text style={styles.loadingText}>{uploadStatus || t('common.loading')}</Text>
-                </View>
-              ) : (
-                <>
-                  <Text style={styles.nextText}>{t('common.next')}</Text>
-                  <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
-                </>
-              )}
-            </TouchableOpacity>
-          </View>
+    <SafeAreaView
+      style={[styles.container, { paddingBottom: insets.bottom }]}>
+      <StatusBar
+        barStyle="dark-content"
+        backgroundColor="#FFFFFF" />
+
+      <View style={styles.innerContainer}>
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity onPress={handleBackPress} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color="#333" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={showHelp} style={styles.helpButton}>
+            <Ionicons name="help-circle-outline" size={24} color="#007E2F" />
+          </TouchableOpacity>
         </View>
-      </KeyboardAvoidingView>
+        <ScrollView
+          ref={scrollViewRef}
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          scrollEnabled
+          nestedScrollEnabled
+          keyboardDismissMode="interactive"
+          automaticallyAdjustKeyboardInsets={false}
+        >
+          <Animated.View
+            style={[styles.content, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}
+          >
+            <Text style={styles.heading}>
+              {userRole && typeof userRole === 'string' ? t('auth.intro.titleWithRole', { role: t(`roles.${userRole}`) }) : t('auth.intro.title')}
+            </Text>
+            <Text style={styles.subtext}>
+              {t('auth.intro.subtitle')}
+            </Text>
+            {/* Profile Avatar Section */}
+            <TouchableOpacity style={styles.avatarContainer} onPress={handleImagePicker} activeOpacity={0.7}>
+              {profileImage ? (
+                <Image
+                  source={{ uri: profileImage }}
+                  style={[
+                    styles.avatarImage,
+                    {
+                      width: dynamicStyles.avatarSize,
+                      height: dynamicStyles.avatarSize,
+                      borderRadius: dynamicStyles.avatarSize / 2
+                    }
+                  ]}
+                />
+              ) : (
+                <View
+                  style={[
+                    styles.avatarCircle,
+                    {
+                      width: dynamicStyles.avatarSize,
+                      height: dynamicStyles.avatarSize,
+                      borderRadius: dynamicStyles.avatarSize / 2
+                    }
+                  ]}
+                >
+                  <Ionicons name="camera" size={dynamicStyles.avatarSize * 0.32} color="#007E2F" />
+                </View>
+              )}
+              <Text style={styles.avatarText}>
+                {profileImage ? t('auth.intro.changePhoto') : t('auth.intro.addPhoto')}
+              </Text>
+            </TouchableOpacity>
+            {/* Input Fields */}
+            <View style={styles.inputSection}>
+              <Text style={styles.inputLabel}>{t('auth.intro.personalInfo')}</Text>
+              {/* First Name Input */}
+              <View
+                ref={firstNameBlockRef}
+                style={[styles.inputWrapper, errors.firstName && styles.inputWrapperError]}
+              >
+                <View style={[styles.inputContainer, { minHeight: dynamicStyles.inputHeight }]}>
+                  <Text style={[styles.floatingLabel, firstName && styles.floatingLabelActive]}>{t('auth.intro.firstName')}</Text>
+                  <TextInput
+                    style={[
+                      styles.input,
+                      firstName && styles.inputWithLabel,
+                      { minHeight: dynamicStyles.inputHeight }
+                    ]}
+                    value={firstName}
+                    onChangeText={handleFirstNameChange}
+                    onFocus={onFocusFirstName}
+                    onSubmitEditing={handleFirstNameSubmit}
+                    returnKeyType="next"
+                    placeholder=""
+                    placeholderTextColor="#999"
+                    autoCapitalize="words"
+                    autoCorrect={false}
+                    blurOnSubmit={false}
+                    enablesReturnKeyAutomatically
+                    accessibilityLabel={t('auth.intro.firstName')}
+                  />
+                </View>
+              </View>
+              {/* Last Name Input */}
+              <View
+                ref={lastNameBlockRef}
+                style={[styles.inputWrapper, errors.lastName && styles.inputWrapperError]}
+              >
+                <View style={[styles.inputContainer, { minHeight: dynamicStyles.inputHeight }]}>
+                  <Text style={[styles.floatingLabel, lastName && styles.floatingLabelActive]}>{t('auth.intro.lastName')}</Text>
+                  <TextInput
+                    ref={lastNameRef}
+                    style={[
+                      styles.input,
+                      lastName && styles.inputWithLabel,
+                      { minHeight: dynamicStyles.inputHeight }
+                    ]}
+                    value={lastName}
+                    onChangeText={handleLastNameChange}
+                    onFocus={onFocusLastName}
+                    onSubmitEditing={handleLastNameSubmit}
+                    returnKeyType="done"
+                    placeholder=""
+                    placeholderTextColor="#999"
+                    autoCapitalize="words"
+                    autoCorrect={false}
+                    enablesReturnKeyAutomatically
+                    accessibilityLabel={t('auth.intro.lastName')}
+                  />
+                </View>
+              </View>
+              {/* Business Type Dropdown - Only show for buyers */}
+              {userRole === 'buyer' && (
+                <View
+                  ref={businessTypeBlockRef}
+                  style={[styles.inputWrapper, errors.businessType && styles.inputWrapperError]}
+                >
+                  <TouchableOpacity
+                    style={styles.dropdownContainer}
+                    onPress={onPressBusinessType}
+                    activeOpacity={0.7}
+                    accessibilityLabel="Business Type"
+                  >
+                    <View style={[styles.inputContainer, { minHeight: dynamicStyles.inputHeight }]}>
+                      <Text style={[styles.floatingLabel, businessType && styles.floatingLabelActive]}>{t('auth.intro.businessType')}</Text>
+                      <View style={[
+                        styles.dropdownDisplay,
+                        businessType && styles.inputWithLabel,
+                        { minHeight: dynamicStyles.inputHeight }
+                      ]}>
+                        <Text style={styles.dropdownText}>
+                          {businessType ? t(`auth.intro.businessTypes.${BUSINESS_TYPE_OPTIONS.find(option => option.value === businessType)?.labelKey}`) : ''}
+                        </Text>
+                        <Ionicons name="chevron-down" size={16} color="#666" />
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          </Animated.View>
+        </ScrollView>
+        {/* Next Button */}
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity
+            style={[styles.nextButton, !isFormValid && styles.nextButtonDisabled]}
+            onPress={handleNext}
+            disabled={!isFormValid || isLoading}
+            activeOpacity={0.8}
+            accessibilityLabel="Continue"
+          >
+            {isLoading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="small" color="#FFFFFF" />
+                <Text style={styles.loadingText}>{uploadStatus || t('common.loading')}</Text>
+              </View>
+            ) : (
+              <>
+                <Text style={styles.nextText}>{t('common.next')}</Text>
+                <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Fake animated view at bottom to push content up when keyboard opens */}
+      <ReAnimated.View style={fakeViewAnimatedStyle} />
+
       <Modal
         transparent={true}
         animationType="fade"
@@ -751,9 +752,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFFFFF',
     paddingTop: Dimensions.get('window').height * 0.03,
-  },
-  keyboardAvoidingView: {
-    flex: 1,
   },
   innerContainer: {
     flex: 1,

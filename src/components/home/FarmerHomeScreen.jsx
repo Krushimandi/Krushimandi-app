@@ -42,6 +42,7 @@ import { initializeLocationCache } from '../../utils/locationCache';
 import { useTranslation } from 'react-i18next';
 import { NotificationBadge } from 'components/common';
 import { HapticFeedback } from 'utils/haptics';
+import { navigate } from 'navigation';
 
 const fruitCategories = [
   { name: 'All Fruits', type: 'all', icon: null, labelKey: 'fruits.all' },
@@ -149,8 +150,10 @@ const FarmerHomeScreen = () => {
   const [watchlist, setWatchlist] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
   const [activeFruits, setActiveFruits] = useState([]);
+  const [pendingFruits, setPendingFruits] = useState([]);
   const [fruitHistory, setFruitHistory] = useState([]);
   const [loadingFruits, setLoadingFruits] = useState(false);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [isFixedHeaderVisible, setIsFixedHeaderVisible] = useState(false);
   const [sortBy, setSortBy] = useState('newest');
@@ -445,16 +448,19 @@ const FarmerHomeScreen = () => {
 
       if (isMounted) setLoadingFruits(true);
 
-      // Load active fruits using optimized method
-      const activeData = await getFruitsByFarmerOptimized(userProfile.uid, 'active');
-      if (isMounted) {
-        setActiveFruits(activeData || []);
-      }
-
-      // Load fruit history (sold/inactive fruits) using optimized method
+      // Load all fruits data
       const allFruitsData = await getFruitsByFarmerOptimized(userProfile.uid);
-      const history = (allFruitsData || []).filter(fruit => fruit.status !== 'active');
-      if (isMounted) {
+
+      if (isMounted && allFruitsData) {
+        // Separate fruits into different categories
+        const active = allFruitsData.filter(fruit => fruit.status === 'active');
+        const pending = allFruitsData.filter(fruit => fruit.status === 'pending');
+        const history = allFruitsData.filter(fruit =>
+          fruit.status === 'sold' || fruit.status === 'rejected' || fruit.status === 'expired'
+        );
+
+        setActiveFruits(active);
+        setPendingFruits(pending);
         setFruitHistory(history);
       }
     } catch (error) {
@@ -471,6 +477,7 @@ const FarmerHomeScreen = () => {
         );
         // Set empty arrays instead of sample data
         setActiveFruits([]);
+        setPendingFruits([]);
         setFruitHistory([]);
       }
     } finally {
@@ -541,18 +548,36 @@ const FarmerHomeScreen = () => {
 
     try {
 
-      // Optimistic update
-      if (newStatus === 'sold' || newStatus === 'inactive') {
+      // Optimistic update - remove from current category and add to appropriate new category
+      if (newStatus === 'sold' || newStatus === 'rejected' || newStatus === 'expired') {
+        // Remove from active or pending
         setActiveFruits(prev => prev.filter(fruit => fruit.id !== fruitId));
-        const movedFruit = activeFruits.find(fruit => fruit.id === fruitId);
+        setPendingFruits(prev => prev.filter(fruit => fruit.id !== fruitId));
+
+        // Find the moved fruit from either active or pending
+        const movedFruit = [...activeFruits, ...pendingFruits].find(fruit => fruit.id === fruitId);
         if (movedFruit && isMounted) {
           setFruitHistory(prev => [{ ...movedFruit, status: newStatus }, ...prev]);
         }
       } else if (newStatus === 'active') {
+        // Remove from history and pending
         setFruitHistory(prev => prev.filter(fruit => fruit.id !== fruitId));
-        const movedFruit = fruitHistory.find(fruit => fruit.id === fruitId);
+        setPendingFruits(prev => prev.filter(fruit => fruit.id !== fruitId));
+
+        // Find the moved fruit from either history or pending
+        const movedFruit = [...fruitHistory, ...pendingFruits].find(fruit => fruit.id === fruitId);
         if (movedFruit && isMounted) {
           setActiveFruits(prev => [{ ...movedFruit, status: newStatus }, ...prev]);
+        }
+      } else if (newStatus === 'pending') {
+        // Remove from active and history
+        setActiveFruits(prev => prev.filter(fruit => fruit.id !== fruitId));
+        setFruitHistory(prev => prev.filter(fruit => fruit.id !== fruitId));
+
+        // Find the moved fruit from either active or history
+        const movedFruit = [...activeFruits, ...fruitHistory].find(fruit => fruit.id === fruitId);
+        if (movedFruit && isMounted) {
+          setPendingFruits(prev => [{ ...movedFruit, status: newStatus }, ...prev]);
         }
       }
 
@@ -594,7 +619,7 @@ const FarmerHomeScreen = () => {
     return () => {
       isMounted = false;
     };
-  }, [activeFruits, fruitHistory, loadFarmerFruits]);
+  }, [activeFruits, pendingFruits, fruitHistory, loadFarmerFruits]);
 
   // Handle marking a fruit as sold
   const markFruitAsSold = (fruit) => {
@@ -621,7 +646,7 @@ const FarmerHomeScreen = () => {
         { text: t('farmerHome.cancel'), style: 'cancel' },
         {
           text: t('farmerHome.reactivateConfirm'),
-          onPress: () => handleFruitStatusUpdate(fruit.id, 'active')
+          onPress: () => handleFruitStatusUpdate(fruit.id, 'pending')
         }
       ]
     );
@@ -707,11 +732,14 @@ const FarmerHomeScreen = () => {
 
   // Memoized filtered and sorted results to prevent unnecessary recalculations
   const filteredActiveFruits = useMemo(() => {
-    const filtered = getFilteredFruits(activeFruits);
+    // Combine active and pending fruits for the Active tab
+    const combinedActiveFruits = [...activeFruits, ...pendingFruits];
+    const filtered = getFilteredFruits(combinedActiveFruits);
     return getSortedFruits(filtered);
-  }, [activeFruits, getFilteredFruits, getSortedFruits]);
+  }, [activeFruits, pendingFruits, getFilteredFruits, getSortedFruits]);
 
   const filteredFruitHistory = useMemo(() => {
+    // Show all history fruits together (sold, rejected, expired)
     const filtered = getFilteredFruits(fruitHistory);
     return getSortedFruits(filtered);
   }, [fruitHistory, getFilteredFruits, getSortedFruits]);
@@ -978,7 +1006,7 @@ const FarmerHomeScreen = () => {
                   onPress={() => setShowHistory(false)}
                 >
                   <Text style={[styles.tabText, !showHistory && styles.activeTabText]}>
-                    {t('farmerHome.tabActive')} ({filteredActiveFruits.length})
+                    {t('farmerHome.tabActive')} ({activeFruits.length + pendingFruits.length})
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -986,31 +1014,31 @@ const FarmerHomeScreen = () => {
                   onPress={() => setShowHistory(true)}
                 >
                   <Text style={[styles.tabText, showHistory && styles.activeTabText]}>
-                    {t('farmerHome.tabHistory')} ({filteredFruitHistory.length})
+                    {t('farmerHome.tabHistory')} ({fruitHistory.length})
                   </Text>
                 </TouchableOpacity>
               </View>
             </View>
 
             {!showHistory ? (
-              // Active Listings
+              // Active Listings (includes both Active and Pending)
               <View>
                 {loadingFruits ? (
                   <LoadingFruits />
-                ) : activeFruits.length === 0 ? (
+                ) : (activeFruits.length === 0 && pendingFruits.length === 0) ? (
                   <View style={styles.emptyState}>
                     <Icon name="leaf-outline" size={64} color="#E0E0E0" />
-                    <Text style={styles.emptyStateText}>{t('farmerHome.emptyActiveTitle')}</Text>
+                    <Text style={styles.emptyStateText}>No Active or Pending Fruits</Text>
                     <Text style={styles.emptyStateSubtext}>
-                      {t('farmerHome.emptyActiveSub1')}{"\n"}
-                      {t('farmerHome.emptyActiveSub2')}
+                      You don't have any fruit listings.{"\n"}
+                      Add your first fruit to start selling!
                     </Text>
                     <TouchableOpacity
                       style={styles.refreshButton}
-                      onPress={handleRefresh}
+                      onPress={() => navigate('AddFruit')}
                     >
-                      <Icon name="refresh-outline" size={20} color='#111111' />
-                      <Text style={styles.refreshButtonText}>{t('farmerHome.refresh')}</Text>
+                      <Icon name="add-outline" size={20} color='#111111' />
+                      <Text style={styles.refreshButtonText}>{t('farmerHome.addFruit')}</Text>
                     </TouchableOpacity>
                   </View>
                 ) : filteredActiveFruits.length === 0 ? (
@@ -1069,8 +1097,16 @@ const FarmerHomeScreen = () => {
                             }}
                           />
                           <View style={styles.statusBadge}>
-                            <View style={[styles.statusDot, { backgroundColor: '#4CAF50' }]} />
-                            <Text style={styles.statusText}>{t('farmerHome.statusLive')}</Text>
+                            <View style={[
+                              styles.statusDot,
+                              { backgroundColor: item.status === 'pending' ? '#FFC107' : '#4CAF50' }
+                            ]} />
+                            <Text style={[
+                              styles.statusText,
+                              { color: item.status === 'pending' ? '#FFC107' : '#4CAF50' }
+                            ]}>
+                              {item.status === 'pending' ? 'Pending' : t('farmerHome.statusLive')}
+                            </Text>
                           </View>
                         </View>
 
@@ -1078,17 +1114,6 @@ const FarmerHomeScreen = () => {
                           <Text style={styles.fruitName} numberOfLines={1}>
                             {item.name || t('farmerHome.unnamedFruit')}
                           </Text>
-                          {/* Pending badge */}
-                          {item.status === 'pending' && (
-                            <View style={{
-                              backgroundColor: '#FFC107',
-                              paddingHorizontal: 8,
-                              paddingVertical: 4,
-                              borderRadius: 6
-                            }}>
-                              <Text style={{ fontSize: 12, fontWeight: '600', color: '#000' }}>⏳ Pending</Text>
-                            </View>
-                          )}
                           <Text style={styles.dateText}>
                             {getRelativeTime(item.created_at || new Date().toISOString())}
                           </Text>
@@ -1120,7 +1145,7 @@ const FarmerHomeScreen = () => {
                 )}
               </View>
             ) : (
-              // History Listings
+              // History Listings (includes Sold, Rejected, and Expired)
               <View>
                 {loadingFruits ? (
                   <LoadingFruits />
@@ -1195,10 +1220,13 @@ const FarmerHomeScreen = () => {
                               {item.name || t('farmerHome.unnamedFruit')}
                             </Text>
                             <View style={[styles.historyStatusBadge,
-                            item.status === 'sold' ? styles.soldOutBadge : styles.expiredBadge]}>
+                            item.status === 'sold' ? styles.soldOutBadge :
+                              item.status === 'rejected' ? styles.rejectedBadge : styles.expiredBadge]}>
                               <Text style={[styles.historyStatusText,
-                              item.status === 'sold' ? styles.soldOutText : styles.expiredText]}>
-                                {item.status === 'sold' ? t('farmerHome.soldOut') : t('farmerHome.expired')}
+                              item.status === 'sold' ? styles.soldOutText :
+                                item.status === 'rejected' ? styles.rejectedText : styles.expiredText]}>
+                                {item.status === 'sold' ? t('farmerHome.soldOut') :
+                                  item.status === 'rejected' ? 'Rejected' : t('farmerHome.expired')}
                               </Text>
                             </View>
                           </View>
@@ -1210,19 +1238,15 @@ const FarmerHomeScreen = () => {
                           </Text>
 
                           <View style={styles.historyStats}>
-                            <View style={styles.historyStat}>
+                            <View style={[styles.historyStat, { flex: 1, marginRight: 8 }]}>
                               <Icon name="location-outline" size={12} color="#757575" />
-                              <Text style={styles.historyStatText}>
-                                {formatLocation(item.location || {})}
+                              <Text style={styles.historyStatText} numberOfLines={1} ellipsizeMode="tail">
+                                {formatLocation(item.location) || t('farmerHome.noLocation', 'Unknown')}
                               </Text>
                             </View>
                             <View style={styles.historyStat}>
                               <Icon name="eye-outline" size={12} color="#757575" />
                               <Text style={styles.historyStatText}>{item.views || 0} {t('farmerHome.viewsSuffix')}</Text>
-                            </View>
-                            <View style={styles.historyStat}>
-                              <Icon name="heart-outline" size={12} color="#757575" />
-                              <Text style={styles.historyStatText}>{item.likes || 0} {t('farmerHome.likesSuffix')}</Text>
                             </View>
                           </View>
                         </View>
@@ -1754,6 +1778,7 @@ const styles = StyleSheet.create({
     color: '#000000',
     fontWeight: '600',
   },
+
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -1801,7 +1826,7 @@ const styles = StyleSheet.create({
   fruitImageContainer: {
     position: 'relative',
     width: '100%',
-    height: 120,
+    height: 110,
   },
   fruitImage: {
     width: '100%',
@@ -1928,6 +1953,9 @@ const styles = StyleSheet.create({
   soldOutBadge: {
     backgroundColor: '#E8F5E8',
   },
+  rejectedBadge: {
+    backgroundColor: '#FFEBEE',
+  },
   expiredBadge: {
     backgroundColor: '#FFF3E0',
   },
@@ -1937,6 +1965,9 @@ const styles = StyleSheet.create({
   },
   soldOutText: {
     color: '#4CAF50',
+  },
+  rejectedText: {
+    color: '#F44336',
   },
   expiredText: {
     color: '#FF9800',
@@ -1956,15 +1987,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    flex: 1,
   },
   historyStat: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexShrink: 0, // Prevent shrinking of views/likes stats
   },
   historyStatText: {
     fontSize: 10,
     color: '#757575',
     marginLeft: 2,
+    flexShrink: 1,
   },
   relistButton: {
     padding: 8,

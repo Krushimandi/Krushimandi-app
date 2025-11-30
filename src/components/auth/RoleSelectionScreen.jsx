@@ -248,7 +248,7 @@ const RoleSelectionScreen = ({ navigation }) => {
         </ScrollView>
 
         {/* Get Started Button */}
-        <View style={[styles.buttonContainer, { paddingBottom: insets.bottom + 10 }]}>
+        <View style={[styles.buttonContainer, { paddingBottom: insets.bottom + 20 }]}>
           <TouchableOpacity
             style={[
               styles.getStartedButton,

@@ -12,6 +12,8 @@ import {
     onNotificationOpenedApp,
     getInitialNotification,
 } from '@react-native-firebase/messaging';
+
+import { withStallion } from 'react-native-stallion';
 // Modular Cloud Functions import
 import { getFunctions, httpsCallable, httpsCallableFromUrl } from '@react-native-firebase/functions';
 import { handleNotificationNavigation } from './src/navigation/navigationService';
@@ -27,6 +29,7 @@ import './src/config/firebase';
 import Toast from 'react-native-toast-message';
 import { AppBootstrapScreen } from './src/components/common/AppBootstrapScreen';
 import { AuthStateProvider } from './src/components/providers/AuthStateProvider';
+import StallionUpdatePrompt from './src/components/common/StallionUpdatePrompt';
 import { AuthBootstrapState } from './src/utils/authBootstrap';
 import { usePushNotifications } from './src/hooks/usePushNotifications';
 import { initializeNetworkMonitoring } from './src/services/firebaseService';
@@ -527,6 +530,9 @@ const App: React.FC = () => {
                     <AuthStateProvider bootstrapState={bootstrapState}>
                         <AppNavigator bootstrapState={bootstrapState} />
                     </AuthStateProvider>
+                    <StallionUpdatePrompt 
+                        silentUpdate={true}
+                    />
                     <Toast />
                 </GestureHandlerRootView>
             </KeyboardProvider>
@@ -534,4 +540,4 @@ const App: React.FC = () => {
     );
 };
 
-export default App;
+export default withStallion(App);

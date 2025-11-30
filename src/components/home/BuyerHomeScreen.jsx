@@ -354,172 +354,12 @@ const BuyerHomeScreen = () => {
     // Store applied filters for state management
     setAppliedFilters(filters);
 
-    let filtered = [...allFruits];
-
-    // Filter by user's preferred fruits first if available
-    if (userProfile?.PreferedFruits && Array.isArray(userProfile.PreferedFruits) && userProfile.PreferedFruits.length > 0) {
-      filtered = filtered.filter(fruit => {
-        const fruitType = fruit.type?.toLowerCase();
-        return userProfile.PreferedFruits.some(preferredFruit =>
-          preferredFruit.toLowerCase() === fruitType
-        );
-      });
-    }
-
-    // Apply price range filter
-    if (filters.minPrice > 0 || filters.maxPrice < 500) {
-      filtered = filtered.filter(fruit => {
-        const price = parseFloat(fruit.price_per_kg || 0);
-        return price >= filters.minPrice && price <= filters.maxPrice;
-      });
-    }
-
-    // Apply Fresh Produce by availability_date presets
-    if (filters.freshProduceWindow) {
-      const now = new Date();
-      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const withinDays = (d1, days) => (startOfToday - d1) <= days * 24 * 60 * 60 * 1000 && d1 <= startOfToday;
-
-      filtered = filtered.filter(fruit => {
-        if (!fruit.availability_date) return false; // must have availability_date
-        const d = new Date(fruit.availability_date);
-        if (Number.isNaN(d.getTime())) return false;
-        switch (filters.freshProduceWindow) {
-          case 'today':
-            return d.toDateString() === startOfToday.toDateString();
-          case '2days':
-            return withinDays(d, 2);
-          case 'week':
-            return withinDays(d, 7);
-          case 'month':
-            return withinDays(d, 30);
-          default:
-            return true;
-        }
-      });
-    }
-
-    // Apply features filter
-    if (filters.selectedFeatures && filters.selectedFeatures.length > 0) {
-      filters.selectedFeatures.forEach(feature => {
-        switch (feature) {
-          // Disabled for now: keep for future re-enable
-          // case 'Top Rated':
-          //   filtered = filtered.filter(fruit => {
-          //     const rating = parseFloat(fruit.avg_rating || fruit.rating || 0);
-          //     return rating >= 4;
-          //   });
-          //   break;
-          case 'Fresh Stock': {
-            // Use created_at if available; fallback to dateCreated
-            filtered = filtered.filter(fruit => {
-              const createdTs = fruit.created_at || fruit.dateCreated;
-              if (!createdTs) return true; // keep if unknown
-              const daysAgo = getDaysSince(createdTs);
-              return daysAgo <= 3;
-            });
-            break;
-          }
-          // Disabled for now: keep for future re-enable
-          // case 'In Season':
-          //   filtered = filtered.filter(fruit => {
-          //     const currentMonth = new Date().getMonth() + 1;
-          //     const fruitType = fruit.type?.toLowerCase();
-          //     if (fruitType === 'mango') return currentMonth >= 3 && currentMonth <= 6;
-          //     if (fruitType === 'apple') return currentMonth >= 9 && currentMonth <= 2;
-          //     if (fruitType === 'orange') return currentMonth >= 11 || currentMonth <= 3;
-          //     return true;
-          //   });
-          //   break;
-          // case 'Off Season':
-          //   filtered = filtered.filter(fruit => {
-          //     const currentMonth = new Date().getMonth() + 1;
-          //     const fruitType = fruit.type?.toLowerCase();
-          //     if (fruitType === 'mango') return !(currentMonth >= 3 && currentMonth <= 6);
-          //     if (fruitType === 'apple') return !(currentMonth >= 9 && currentMonth <= 2);
-          //     if (fruitType === 'orange') return !(currentMonth >= 11 || currentMonth <= 3);
-          //     return true;
-          //   });
-          //   break;
-          // New simple, safe features we can support now:
-          case 'With Images': {
-            filtered = filtered.filter(fruit => Array.isArray(fruit.image_urls) && fruit.image_urls.length > 0);
-            break;
-          }
-          case 'Available Now': {
-            filtered = filtered.filter(fruit => {
-              const isActive = (fruit.status || 'active').toLowerCase() === 'active';
-              if (!isActive) return false;
-              if (!fruit.availability_date) return true;
-              const availableFrom = new Date(fruit.availability_date).getTime();
-              return !Number.isNaN(availableFrom) ? availableFrom <= Date.now() : true;
-            });
-            break;
-          }
-          default:
-            break;
-        }
-      });
-    }
-
-    // Rating filter disabled for now. To re-enable, filter by
-    // parseFloat(fruit.avg_rating || fruit.rating || 0) >= filters.minRating
-
-    // Apply location filter relative to current buyer location
-    if (filters.locationLevel && userProfile?.location) {
-      const buyerLoc = userProfile.location || {};
-      const norm = (v) => (v || '').toString().trim().toLowerCase();
-      const buyerCity = norm(buyerLoc.city || buyerLoc.village);
-      const buyerDistrict = norm(buyerLoc.district);
-      const buyerState = norm(buyerLoc.state);
-
-      filtered = filtered.filter(fruit => {
-        const loc = fruit.location || {};
-        const fruitCity = norm(loc.city || loc.village);
-        const fruitDistrict = norm(loc.district);
-        const fruitState = norm(loc.state);
-        switch (filters.locationLevel) {
-          case 'city':
-            return buyerCity && fruitCity ? fruitCity === buyerCity : true;
-          case 'district':
-            return buyerDistrict && fruitDistrict ? fruitDistrict === buyerDistrict : true;
-          case 'state':
-            return buyerState && fruitState ? fruitState === buyerState : true;
-          default:
-            return true;
-        }
-      });
-    }
-
-    // Apply category filter if not 'all'
-    if (selectedCategory !== 'all') {
-      filtered = filtered.filter(fruit =>
-        fruit.type?.toLowerCase() === selectedCategory.toLowerCase()
-      );
-    }
-
-    // Apply search query
-    if (searchQuery.trim()) {
-      const searchLower = searchQuery.toLowerCase();
-      filtered = filtered.filter(fruit =>
-        fruit.name?.toLowerCase().includes(searchLower) ||
-        fruit.type?.toLowerCase().includes(searchLower) ||
-        fruit.description?.toLowerCase().includes(searchLower)
-      );
-    }
-
-    // Sort - Newest First by updated_at (fallback created_at)
-    if (filters.sortNewestFirst) {
-      filtered = filtered.sort((a, b) => {
-        const ad = new Date(a.updated_at || a.created_at || 0).getTime();
-        const bd = new Date(b.updated_at || b.created_at || 0).getTime();
-        return bd - ad;
-      });
-    }
+    // Since allFruits are already preference-filtered from DB, use non-preference filters only
+    const filtered = applyNonPreferenceFilters(allFruits, filters, userProfile, searchQuery);
 
     setFruits(filtered);
     closeFilterModal();
-  }, [allFruits, selectedCategory, searchQuery, closeFilterModal, userProfile?.PreferedFruits]);
+  }, [allFruits, searchQuery, closeFilterModal, userProfile, applyNonPreferenceFilters]);
   // Safe navigation function to prevent "route not defined" errors
   const safeNavigate = (routeName, params = {}) => {
     try {
@@ -623,33 +463,172 @@ const BuyerHomeScreen = () => {
     );
   }, []);
 
+  // Helper function to apply all filters consistently (including preferences)
+  const applyAllFilters = useCallback((fruitsData, filters, profile, category, search) => {
+    let filtered = [...fruitsData];
+
+    // Filter by user's preferred fruits first if available
+    if (profile?.PreferedFruits && Array.isArray(profile.PreferedFruits) && profile.PreferedFruits.length > 0) {
+      filtered = filtered.filter(fruit => {
+        const fruitType = fruit.type?.toLowerCase();
+        return profile.PreferedFruits.some(preferredFruit =>
+          preferredFruit.toLowerCase() === fruitType
+        );
+      });
+    }
+
+    return applyNonPreferenceFilters(filtered, filters, profile, search, category);
+  }, []);
+
+  // Helper function to apply filters excluding user preferences (used when preferences are already applied at DB level)
+  const applyNonPreferenceFilters = useCallback((fruitsData, filters, profile, search, category = null) => {
+    let filtered = [...fruitsData];
+
+    // Apply price range filter
+    if (filters?.minPrice > 0 || filters?.maxPrice < 500) {
+      filtered = filtered.filter(fruit => {
+        const price = parseFloat(fruit.price_per_kg || 0);
+        return price >= (filters?.minPrice || 0) && price <= (filters?.maxPrice || 500);
+      });
+    }
+
+    // Apply Fresh Produce by availability_date presets
+    if (filters?.freshProduceWindow) {
+      const now = new Date();
+      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const withinDays = (d1, days) => (startOfToday - d1) <= days * 24 * 60 * 60 * 1000 && d1 <= startOfToday;
+
+      filtered = filtered.filter(fruit => {
+        if (!fruit.availability_date) return false; // must have availability_date
+        const d = new Date(fruit.availability_date);
+        if (Number.isNaN(d.getTime())) return false;
+        switch (filters.freshProduceWindow) {
+          case 'today':
+            return d.toDateString() === startOfToday.toDateString();
+          case '2days':
+            return withinDays(d, 2);
+          case 'week':
+            return withinDays(d, 7);
+          case 'month':
+            return withinDays(d, 30);
+          default:
+            return true;
+        }
+      });
+    }
+
+    // Apply features filter
+    if (filters?.selectedFeatures && filters.selectedFeatures.length > 0) {
+      filters.selectedFeatures.forEach(feature => {
+        switch (feature) {
+          case 'Fresh Stock': {
+            // Use created_at if available; fallback to dateCreated
+            filtered = filtered.filter(fruit => {
+              const createdTs = fruit.created_at || fruit.dateCreated;
+              if (!createdTs) return true; // keep if unknown
+              const daysAgo = getDaysSince(createdTs);
+              return daysAgo <= 3;
+            });
+            break;
+          }
+          case 'With Images': {
+            filtered = filtered.filter(fruit => Array.isArray(fruit.image_urls) && fruit.image_urls.length > 0);
+            break;
+          }
+          case 'Available Now': {
+            filtered = filtered.filter(fruit => {
+              const isActive = (fruit.status || 'active').toLowerCase() === 'active';
+              if (!isActive) return false;
+              if (!fruit.availability_date) return true;
+              const availableFrom = new Date(fruit.availability_date).getTime();
+              return !Number.isNaN(availableFrom) ? availableFrom <= Date.now() : true;
+            });
+            break;
+          }
+          default:
+            break;
+        }
+      });
+    }
+
+    // Apply location filter relative to current buyer location
+    if (filters?.locationLevel && profile?.location) {
+      const buyerLoc = profile.location || {};
+      const norm = (v) => (v || '').toString().trim().toLowerCase();
+      const buyerCity = norm(buyerLoc.city || buyerLoc.village);
+      const buyerDistrict = norm(buyerLoc.district);
+      const buyerState = norm(buyerLoc.state);
+
+      filtered = filtered.filter(fruit => {
+        const loc = fruit.location || {};
+        const fruitCity = norm(loc.city || loc.village);
+        const fruitDistrict = norm(loc.district);
+        const fruitState = norm(loc.state);
+        switch (filters.locationLevel) {
+          case 'city':
+            return buyerCity && fruitCity ? fruitCity === buyerCity : true;
+          case 'district':
+            return buyerDistrict && fruitDistrict ? fruitDistrict === buyerDistrict : true;
+          case 'state':
+            return buyerState && fruitState ? fruitState === buyerState : true;
+          default:
+            return true;
+        }
+      });
+    }
+
+    // Note: Category filtering is NOT applied here because it's handled at DB level in loadMarketplaceFruits
+
+    // Note: Search filtering is NOT applied here because it's handled in loadMarketplaceFruits
+
+    // Sort - Newest First by updated_at (fallback created_at)
+    if (filters?.sortNewestFirst) {
+      filtered = filtered.sort((a, b) => {
+        const ad = new Date(a.updated_at || a.created_at || 0).getTime();
+        const bd = new Date(b.updated_at || b.created_at || 0).getTime();
+        return bd - ad;
+      });
+    }
+
+    return filtered;
+  }, []);
+
   // Load marketplace fruits from Firebase with cleanup
   const loadMarketplaceFruits = useCallback(async () => {
     let isMounted = true;
 
+    // Prevent loading fruits before user profile is available to avoid showing all fruits initially
+    if (!userProfile) {
+      console.log('⏳ Skipping fruit load - user profile not ready');
+      return;
+    }
+
     try {
       if (isMounted) setLoadingFruits(true);
 
-      // Build DB-side filters
+      // Build DB-side filters with proper preference handling
       const norm = (v) => (v || '').toString().trim().toLowerCase();
       const prefs = Array.isArray(userProfile?.PreferedFruits) ? userProfile.PreferedFruits.map(norm).filter(Boolean) : [];
 
-      // If a category is selected, prefer that; otherwise, use preferences (if any)
-      const dbFilters = selectedCategory && selectedCategory !== 'all'
-        ? { type: norm(selectedCategory), limit: 100 }
-        : (prefs.length > 0 ? { types: prefs, limit: 100 } : { limit: 100 });
+      let dbFilters = { limit: 100 };
 
+      // Priority 1: If a specific category is selected (not 'all'), filter by that category
+      if (selectedCategory && selectedCategory !== 'all') {
+        dbFilters.type = norm(selectedCategory);
+      }
+      // Priority 2: If no specific category but user has preferences, filter by preferences at DB level
+      else if (prefs.length > 0) {
+        dbFilters.types = prefs;
+      }
+      // Priority 3: No category selected and no preferences - load all fruits (this will be rare)
+
+      console.log('🔍 Loading fruits with DB filters:', dbFilters);
       const marketplaceFruits = await getFilteredMarketplaceFruits(dbFilters);
 
       if (isMounted) {
         let filtered = marketplaceFruits || [];
 
-        // Safety: if preferences exist but we didn't send them (edge), enforce on client
-        if (!dbFilters.type && !dbFilters.types && prefs.length > 0) {
-          filtered = filtered.filter((f) => prefs.includes(norm(f.type)));
-        }
-
-        // Apply client search only (DB text search not implemented)
+        // Apply client-side search (DB text search not implemented)
         if (searchQuery && searchQuery.trim()) {
           const s = searchQuery.toLowerCase().trim();
           filtered = filtered.filter((fruit) => {
@@ -663,7 +642,14 @@ const BuyerHomeScreen = () => {
           });
         }
 
-        // Store in allFruits as current working set (already filtered from DB)
+        // Apply other filters (price, features, etc.) but NOT user preferences since they're already applied at DB level
+        if (appliedFilters) {
+          filtered = applyNonPreferenceFilters(filtered, appliedFilters, userProfile, searchQuery);
+        }
+
+        console.log(`✅ Loaded ${filtered.length} fruits from DB (already preference-filtered)`);
+
+        // Store in allFruits as current working set (already filtered from DB by preferences)
         setAllFruits(filtered);
         setFruits(filtered);
       }
@@ -689,7 +675,7 @@ const BuyerHomeScreen = () => {
     return () => {
       isMounted = false;
     };
-  }, [userProfile?.PreferedFruits, selectedCategory, searchQuery]);
+  }, [userProfile?.PreferedFruits, selectedCategory, searchQuery, appliedFilters, applyNonPreferenceFilters]);
 
   // Handle category change - optimized with useCallback
   const handleCategoryChange = useCallback((categoryType) => {
@@ -705,11 +691,13 @@ const BuyerHomeScreen = () => {
       clearTimeout(searchTimeoutRef.current);
     }
 
-    // Debounce the filtering to improve performance
+    // Debounce the filtering to improve performance (only if profile is ready)
     searchTimeoutRef.current = setTimeout(() => {
-      loadMarketplaceFruits();
+      if (userProfile) {
+        loadMarketplaceFruits();
+      }
     }, 300);
-  }, [loadMarketplaceFruits]);
+  }, [loadMarketplaceFruits, userProfile]);
 
   // Handle refresh - optimized with useCallback
   const handleRefresh = useCallback(() => {
@@ -774,9 +762,12 @@ const BuyerHomeScreen = () => {
     console.log('✅ All filters cleared');
   }, [loadMarketplaceFruits]);
 
-  // Load fruits when component mounts - only once
+  // Load fruits when user profile is available - prevents loading all fruits initially
   useEffect(() => {
-    loadMarketplaceFruits();
+    if (userProfile) {
+      console.log('🍎 Loading fruits after user profile loaded');
+      loadMarketplaceFruits();
+    }
 
     // Cleanup search timeout on unmount
     return () => {
@@ -784,14 +775,14 @@ const BuyerHomeScreen = () => {
         clearTimeout(searchTimeoutRef.current);
       }
     };
-  }, [loadMarketplaceFruits]);
+  }, [userProfile, loadMarketplaceFruits]);
 
-  // Reload fruits when user profile changes (especially preferred fruits)
-  useEffect(() => {
-    if (userProfile) {
-      loadMarketplaceFruits();
-    }
-  }, [userProfile?.PreferedFruits]);
+  // Reload fruits when preferences change (already handled by above effect)
+  // useEffect(() => {
+  //   if (userProfile) {
+  //     loadMarketplaceFruits();
+  //   }
+  // }, [userProfile?.PreferedFruits]);
 
   // Remove duplicate focus effect for fruits loading
   // Fruits will be loaded once on mount and refreshed via pull-to-refresh
@@ -842,8 +833,10 @@ const BuyerHomeScreen = () => {
   ), [handleProductPress, memoizedFormatPrice, memoizedFormatFruitQuantity, memoizedFormatLocation]);
   const keyExtractor = useCallback((item) => item.id, []);
 
-  // Debounce category change to reduce reloads
+  // Debounce category change to reduce reloads (only if user profile is ready)
   useEffect(() => {
+    if (!userProfile) return; // Don't load if profile not ready
+    
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
     searchTimeoutRef.current = setTimeout(() => {
       loadMarketplaceFruits();
@@ -851,7 +844,7 @@ const BuyerHomeScreen = () => {
     return () => {
       if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
     };
-  }, [selectedCategory]);
+  }, [selectedCategory, userProfile]);
 
   return (
     <ErrorBoundary>
@@ -1126,14 +1119,19 @@ const BuyerHomeScreen = () => {
           ListEmptyComponent={(
             <View style={styles.section}>
               <View style={styles.fruitsContainer}>
-                {loadingFruits ? (
+                {(loadingFruits || !userProfile) ? (
                   <View style={styles.emptyStateContainer}>
                     <View style={styles.emptyStateIcon}>
                       <Icon name="refresh-outline" size={48} color="#CCCCCC" />
                     </View>
-                    <Text style={styles.emptyStateTitle}>{t('buyerHome.loadingTitle', 'Loading Fruits...')}</Text>
+                    <Text style={styles.emptyStateTitle}>
+                      {!userProfile ? t('buyerHome.loadingProfile', 'Loading Profile...') : t('buyerHome.loadingTitle', 'Loading Fruits...')}
+                    </Text>
                     <Text style={styles.emptyStateSubtitle}>
-                      {t('buyerHome.loadingSubtitle', 'Please wait while we fetch fresh fruits from farmers')}
+                      {!userProfile 
+                        ? t('buyerHome.loadingProfileSubtitle', 'Setting up your personalized experience')
+                        : t('buyerHome.loadingSubtitle', 'Please wait while we fetch fresh fruits from farmers')
+                      }
                     </Text>
                   </View>
                 ) : (

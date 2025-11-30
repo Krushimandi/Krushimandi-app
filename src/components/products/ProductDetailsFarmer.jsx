@@ -891,7 +891,7 @@ ${t('product.farmerDetail.share.contact')}
 
 
   return (
-    <SafeAreaView style={[styles.container,{ paddingTop: insets.top }]}>
+    <SafeAreaView style={[styles.container, { paddingTop: insets.top }]}>
       <StatusBar
         backgroundColor="#FFFFFF"
         barStyle="dark-content"
@@ -909,25 +909,27 @@ ${t('product.farmerDetail.share.contact')}
         <Text style={styles.headerTitle}>{t('product.farmerDetail.headerTitle')}</Text>
 
         <View style={styles.headerRight}>
-          <TouchableOpacity
-            style={styles.headerButton}
-            onPress={() => {
-              // Get the quantity option string from current product's quantity array
-              const quantityOption = getQuantityOptionFromRange(productState?.quantity);
+          {product.status === 'active' && (
+            <TouchableOpacity
+              style={styles.headerButton}
+              onPress={() => {
+                // Get the quantity option string from current product's quantity array
+                const quantityOption = getQuantityOptionFromRange(productState?.quantity);
 
-              // Initialize edit fields with current product data
-              setEditFields({
-                name: productState?.name || '',
-                availability_date: productState?.availability_date || '',
-                description: productState?.description || '',
-                quantity: quantityOption, // Use the matched quantity option string
-                price: productState?.price_per_kg ? productState.price_per_kg.toString() : '',
-              });
-              setEditModalVisible(true);
-            }}
-          >
-            <Ionicons name="create-outline" size={24} color={Colors.light.text} />
-          </TouchableOpacity>
+                // Initialize edit fields with current product data
+                setEditFields({
+                  name: productState?.name || '',
+                  availability_date: productState?.availability_date || '',
+                  description: productState?.description || '',
+                  quantity: quantityOption, // Use the matched quantity option string
+                  price: productState?.price_per_kg ? productState.price_per_kg.toString() : '',
+                });
+                setEditModalVisible(true);
+              }}
+            >
+              <Ionicons name="create-outline" size={24} color={Colors.light.text} />
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
@@ -1017,14 +1019,20 @@ ${t('product.farmerDetail.share.contact')}
                     {t(categories.find(c => c.type === product.type)?.labelKey)}
                   </Text>
                 </View>}
-                <View style={styles.categoryBadge}>
+                <View style={[styles.categoryBadge, {
+                  backgroundColor: product.status === 'active' ? '#4CAF50' :
+                    product.status === 'pending' ? '#FFC107' :
+                      product.status === 'sold' ? '#2196F3' :
+                        product.status === 'rejected' ? '#F44336' :
+                          product.status === 'expired' ? '#FF9800' : Colors.light.primary
+                }]}>
                   {/* Status Badge */}
                   <Text style={styles.statusText}>
-                    {product.status === 'active'
-                      ? t('farmerHome.statusLive')
-                      : product.status === 'sold'
-                        ? t('farmerHome.soldOut')
-                        : t('farmerHome.expired')}
+                    {product.status === 'active' ? 'Active' :
+                      product.status === 'pending' ? 'Pending' :
+                        product.status === 'sold' ? 'Sold' :
+                          product.status === 'rejected' ? 'Rejected' :
+                            product.status === 'expired' ? 'Expired' : 'Unknown'}
                   </Text>
                 </View>
               </View>
@@ -1184,22 +1192,24 @@ ${t('product.farmerDetail.share.contact')}
               <View style={styles.detailIcon}>
                 <Ionicons name="checkmark-circle" size={20} color={
                   product.status === 'active' ? '#4CAF50' :
-                    product.status === 'sold' ? '#2196F3' : '#FF9800'
+                    product.status === 'pending' ? '#FFC107' :
+                      product.status === 'sold' ? '#2196F3' :
+                        product.status === 'rejected' ? '#F44336' : '#FF9800'
                 } />
               </View>
               <View style={styles.detailContent}>
                 <Text style={styles.detailLabel}>{t('product.farmerDetail.labels.status')}</Text>
                 <Text style={[styles.detailValue, {
                   color: product.status === 'active' ? '#4CAF50' :
-                    product.status === 'sold' ? '#2196F3' : '#FF9800'
+                    product.status === 'pending' ? '#FFC107' :
+                      product.status === 'sold' ? '#2196F3' :
+                        product.status === 'rejected' ? '#F44336' : '#FF9800'
                 }]}>
-                  {product.status === 'active'
-                    ? t('farmerHome.statusLive')
-                    : product.status === 'sold'
-                      ? t('farmerHome.soldOut')
-                      : product.status === 'expired' || product.status === 'inactive'
-                        ? t('farmerHome.expired')
-                        : t('product.detail.placeholders.unknown')}
+                  {product.status === 'active' ? 'Active' :
+                    product.status === 'pending' ? 'Pending Approval' :
+                      product.status === 'sold' ? 'Sold' :
+                        product.status === 'rejected' ? 'Rejected' :
+                          product.status === 'expired' ? 'Expired' : 'Unknown'}
                 </Text>
               </View>
             </View>
@@ -1222,78 +1232,126 @@ ${t('product.farmerDetail.share.contact')}
       </ScrollView >
 
       {/* Modern Bottom Actions */}
-      < View style={styles.bottomActions} >
-        {
-          product.status === 'active' ? (
-            <View style={styles.actionsRow}>
-              {/* Main Inquiries Button (3x width) */}
-              <TouchableOpacity
-                style={styles.inquiriesButton}
-                onPress={handleViewRequests}
-                activeOpacity={0.8}
-              >
-
-                {/* Badge */}
-                {/* {
-                  requestCount > 0 && (
-                    <View style={styles.inquiriesBadge}>
-                      <Text style={styles.inquiriesBadgeText}>{requestCount}</Text>
-                    </View>
-                  )
-                } */}
-
-                <View style={styles.inquiriesButtonContent}>
-                  <View style={styles.inquiriesIcon}>
-                    <Ionicons name="mail-outline" size={20} color="#FFF" />
-                  </View>
-                  <View style={styles.inquiriesTextContainer}>
-                    <Text style={styles.inquiriesButtonTitle}>
-                      {isLoadingRequests
-                        ? t('common.loading')
-                        : t('product.farmerDetail.actions.viewRequests')
-                      }
-                    </Text>
-                    <Text style={styles.inquiriesButtonSubtitle}>
-                      {isLoadingRequests
-                        ? t('requests.checkingStatus')
-                        : `${requestCount} ${t('buyerProfile.stats.requests')}`
-                      }
-                    </Text>
-                  </View>
-                </View>
-              </TouchableOpacity>
-
-              {/* Secondary Actions (1x width each) */}
-              {/* <TouchableOpacity
-                style={styles.removeButton}
-                onPress={handleRemoveFromListing}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="eye-off-outline" size={20} color="#FFF" />
-                <Text style={styles.secondaryButtonText}>Hide</Text>
-              </TouchableOpacity> */}
-
-              <TouchableOpacity
-                style={styles.removeButton}
-                onPress={handleRemoveFromListing}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="checkmark-circle-outline" size={20} color="#FFF" />
-                <Text style={styles.secondaryButtonText}>{t('product.farmerDetail.actions.sold')}</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
+      <View style={styles.bottomActions}>
+        {product.status === 'active' ? (
+          <View style={styles.actionsRow}>
+            {/* Main Inquiries Button (3x width) */}
             <TouchableOpacity
-              style={styles.relistButton}
-              onPress={() => handleFruitStatusUpdate(product?.id, 'active')}
+              style={styles.inquiriesButton}
+              onPress={handleViewRequests}
               activeOpacity={0.8}
             >
-              <Ionicons name="refresh-outline" size={22} color="#FFF" style={styles.buttonIcon} />
-              <Text style={styles.relistButtonText}>{t('product.farmerDetail.actions.relist')}</Text>
+              <View style={styles.inquiriesButtonContent}>
+                <View style={styles.inquiriesIcon}>
+                  <Ionicons name="mail-outline" size={20} color="#FFF" />
+                </View>
+                <View style={styles.inquiriesTextContainer}>
+                  <Text style={styles.inquiriesButtonTitle}>
+                    {isLoadingRequests
+                      ? t('common.loading')
+                      : t('product.farmerDetail.actions.viewRequests')
+                    }
+                  </Text>
+                  <Text style={styles.inquiriesButtonSubtitle}>
+                    {isLoadingRequests
+                      ? t('requests.checkingStatus')
+                      : `${requestCount} ${t('buyerProfile.stats.requests')}`
+                    }
+                  </Text>
+                </View>
+              </View>
             </TouchableOpacity>
-          )
-        }
-      </View >
+
+            {/* Mark as Sold Button */}
+            <TouchableOpacity
+              style={styles.removeButton}
+              onPress={handleRemoveFromListing}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="checkmark-circle-outline" size={20} color="#FFF" />
+              <Text style={styles.secondaryButtonText}>{t('product.farmerDetail.actions.sold')}</Text>
+            </TouchableOpacity>
+          </View>
+        ) : product.status === 'pending' ? (
+          <View style={styles.actionsRow}>
+            <View style={styles.pendingStatusCard}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <Ionicons name="hourglass-outline" size={20} color="#FFC107" />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.statusMessageTitle}>Waiting for Approval</Text>
+                  <Text style={styles.statusMessageText}>
+                    Your listing is under review.
+                  </Text>
+                </View>
+              </View>
+            </View>
+            {/* Mark as Sold Button */}
+            <TouchableOpacity
+              style={styles.removeButton}
+              onPress={handleRemoveFromListing}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="checkmark-circle-outline" size={20} color="#FFF" />
+              <Text style={styles.secondaryButtonText}>{t('product.farmerDetail.actions.sold')}</Text>
+            </TouchableOpacity>
+          </View>
+        ) : product.status === 'rejected' ? (
+          <View style={styles.actionsRow}>
+            <View style={styles.rejectedStatusCard}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                <Ionicons name="close-circle-outline" size={24} color="#F44336" />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.statusMessageTitle}>Listing Not Approved</Text>
+                  <Text style={styles.statusMessageText}>
+                    Didn't pass our verification process
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        ) : product.status === 'expired' ? (
+          <View style={styles.actionsRow}>
+            <View style={styles.expiredStatusCard}>
+              <Ionicons name="time-outline" size={24} color="#FF9800" />
+              <Text style={styles.statusMessageTitle}>Listing Expired</Text>
+              <Text style={styles.statusMessageText}>
+                This listing has expired. Create a new listing to continue selling your products.
+              </Text>
+              <TouchableOpacity
+                style={styles.createNewListingButton}
+                onPress={() => navigation.navigate('AddFruit')}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="add-outline" size={20} color="#FFF" />
+                <Text style={styles.createNewListingButtonText}>Create New Listing</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : product.status === 'sold' ? (
+          <View style={styles.actionsRow}>
+            <View style={styles.soldStatusCard}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                <Ionicons name="checkmark-circle-outline" size={24} color="#4CAF50" />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.statusMessageTitle}>Product Sold</Text>
+                  <Text style={styles.statusMessageText}>
+                    This product has been sold successfully.
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={styles.relistButton}
+            onPress={() => handleFruitStatusUpdate(product?.id, 'active')}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="refresh-outline" size={22} color="#FFF" style={styles.buttonIcon} />
+            <Text style={styles.relistButtonText}>{t('product.farmerDetail.actions.relist')}</Text>
+          </TouchableOpacity>
+        )}
+      </View>
       {renderEditModal()}
     </SafeAreaView >
   );
@@ -1721,8 +1779,8 @@ const styles = StyleSheet.create({
   },
   bottomActions: {
     paddingHorizontal: 12,
-    paddingBottom: 20,
-    paddingTop: 16,
+    paddingBottom: 12,
+    paddingTop: 12,
     backgroundColor: Colors.light.background,
     borderTopWidth: 1,
     borderTopColor: Colors.light.borderLight,
@@ -1734,7 +1792,7 @@ const styles = StyleSheet.create({
   },
   actionsRow: {
     flexDirection: 'row',
-    gap: 16,
+    gap: 10,
     alignItems: 'stretch',
   },
   inquiriesButton: {
@@ -1854,6 +1912,80 @@ const styles = StyleSheet.create({
   },
   buttonIcon: {
     marginRight: 4,
+  },
+  statusMessageContainer: {
+    flex: 1,
+  },
+  pendingStatusCard: {
+    backgroundColor: '#FFF8E1',
+    borderRadius: 16,
+    padding: 12,
+    flex: 3,
+    flexDirection: 'row',
+    gap: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#FFC107',
+  },
+  rejectedStatusCard: {
+    backgroundColor: '#FFEBEE',
+    borderRadius: 16,
+    padding: 12,
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#F44336',
+  },
+  expiredStatusCard: {
+    backgroundColor: '#FFF3E0',
+    borderRadius: 16,
+    padding: 20,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#FF9800',
+  },
+  soldStatusCard: {
+    backgroundColor: '#E8F5E8',
+    borderRadius: 16,
+    padding: 12,
+    flex: 1,
+    flexDirection: 'row',
+    gap: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#4CAF50',
+  },
+  statusMessageTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: Colors.light.text,
+    marginBottom: 4,
+  },
+  statusMessageText: {
+    fontSize: 13,
+    color: Colors.light.textSecondary,
+    lineHeight: 18,
+  },
+  createNewListingButton: {
+    backgroundColor: Colors.light.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    shadowColor: Colors.light.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  createNewListingButtonText: {
+    color: Colors.light.background,
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
   },
   recommendationsContainer: {
     marginTop: 16,

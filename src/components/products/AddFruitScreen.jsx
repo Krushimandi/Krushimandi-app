@@ -1024,9 +1024,11 @@ const AddFruitScreen = ({ navigation }) => {
             {isSubmitting && <ActivityIndicator size="small" color="#FFFFFF" style={styles.buttonIcon} />}
           </TouchableOpacity>
 
-          <Text style={styles.buttonHelpText}>
-            {isFormValid && t('product.add.help.allGoodAddPhotos')}
-          </Text>
+          {
+            isFormValid && <Text style={styles.buttonHelpText}>
+              {t('product.add.help.allGoodAddPhotos')}
+            </Text>
+          }
         </View>
 
         {/* Fake animated view at bottom to push content up when keyboard opens */}
@@ -1149,7 +1151,6 @@ const AddFruitScreen = ({ navigation }) => {
             </View>
           </Pressable>
         </Modal>
-
       </View>
     </SafeAreaView>
   );
@@ -1420,7 +1421,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 24,
     paddingTop: 10,
-    paddingBottom: Platform.OS === 'ios' ? 10 : 0, // Safe area bottom padding
+    paddingBottom: Platform.OS === 'ios' ? 10 : 10, // Safe area bottom padding
     borderTopWidth: 1,
     borderTopColor: '#E5E7EB',
     shadowColor: '#000',
@@ -1458,10 +1459,10 @@ const styles = StyleSheet.create({
   },
   buttonHelpText: {
     textAlign: 'center',
-    fontSize: 13,
+    fontSize: 12,
     color: '#6B7280',
-    marginTop: 6,
-    marginBottom: 4,
+    marginTop: 4,
+    marginBottom: -6,
     fontWeight: '500',
     lineHeight: 18,
   },

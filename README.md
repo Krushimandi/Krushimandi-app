@@ -1,77 +1,242 @@
+<div align="center">
+
 # 🌾 Krushimandi - Agricultural Marketplace
 
-A modern React Native application connecting farmers directly with buyers, enabling fresh produce trading with real-time communication and smart logistics.
+### Connecting Farmers Directly with Buyers
 
-![React Native](https://img.shields.io/badge/React%20Native-0.72+-61DAFB?style=for-the-badge&logo=react&logoColor=white)
-![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)
-![Android](https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white)
-![iOS](https://img.shields.io/badge/iOS-000000?style=for-the-badge&logo=ios&logoColor=white)
-![Node.js](https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)
+A modern React Native application that eliminates middlemen by connecting farmers directly with buyers, enabling fresh produce trading with real-time communication and smart logistics.
+
+[![React Native](https://img.shields.io/badge/React%20Native-0.72+-61DAFB?style=for-the-badge&logo=react&logoColor=white)](https://reactnative.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Android](https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://play.google.com/store/apps/details?id=com.krushimandi.app)
+[![iOS](https://img.shields.io/badge/iOS-000000?style=for-the-badge&logo=ios&logoColor=white)](https://www.apple.com/ios)
+[![Firebase](https://img.shields.io/badge/Firebase-FFCA28?style=for-the-badge&logo=firebase&logoColor=black)](https://firebase.google.com/)
+
+### 📲 Download Now
+
+<a href="https://play.google.com/store/apps/details?id=com.krushimandi.app">
+  <img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" alt="Get it on Google Play" height="80"/>
+</a>
+
+[**🌐 Visit Play Store**](https://play.google.com/store/apps/details?id=com.krushimandi.app)
+
+---
+
+</div>
 
 ## 📱 About
 
 Krushimandi is an innovative agricultural marketplace that eliminates middlemen by connecting farmers directly with buyers. The platform enables fresh produce trading with features like real-time chat, order tracking, and intelligent market insights.
 
-### 🎯 Key Features
+### 🏆 Now Available on Google Play Store!
 
-#### 👨‍🌾 For Farmers
-- **Product Listing Management** - Upload multiple product images with detailed descriptions
-- **Real-time Order Management** - Track inquiries, sales, and delivery status
-- **Smart Analytics** - AI-powered insights on product performance and pricing
-- **Direct Communication** - Chat directly with potential buyers
-- **Sales Tracking** - Comprehensive sales history and revenue analytics
+Experience seamless agricultural trading directly from your Android device. Download now from the [**Google Play Store**](https://play.google.com/store/apps/details?id=com.krushimandi.app).
 
-#### 🛒 For Buyers
-- **Product Discovery** - Browse fresh produce with detailed farmer profiles
-- **Advanced Search & Filters** - Find products by location, price, variety, and quality
-- **Order Management** - Track orders from placement to delivery
-- **Review System** - Rate and review farmers and products
-- **Secure Payments** - Multiple payment options with transaction security
+## 📸 Screenshots
 
-#### 🚀 Smart Features
-- **Role-based Navigation** - Adaptive UI based on user type (Farmer/Buyer)
-- **Real-time Notifications** - Push notifications for orders, messages, and updates
-- **Location-based Services** - Find nearby farmers and calculate delivery costs
-- **Multi-language Support** - Accessible in local languages
-- **Offline Capability** - Core features work without internet connection
+<div align="center">
+
+### Experience the App in Action
+
+| 🌾 Farmer Dashboard | 📦 Add Products | 🛒 Browse Products | 💬 Real-time Chat |
+|---------------------|-----------------|-------------------|-------------------|
+| ![Farmer Home](./docs/screenshots/farmer-home.png) | ![Add Product](./docs/screenshots/add-product.png) | ![Browse Products](./docs/screenshots/browse-products.png) | ![Chat](./docs/screenshots/chat.png) |
+
+| 📊 Order Management | 📱 Product Details | 🔔 Notifications | ⭐ Profile & Reviews |
+|---------------------|-------------------|-----------------|----------------------|
+| ![Orders](./docs/screenshots/orders.png) | ![Product Details](./docs/screenshots/product-details.png) | ![Notifications](./docs/screenshots/notifications.png) | ![Profile](./docs/screenshots/profile.png) |
+
+</div>
+
+> **📌 Note:** These screenshots showcase the core features. Place your actual app screenshots in `docs/screenshots/` with the corresponding names.
+
+---
+
+## 🎯 Key Features
+
+<table>
+<tr>
+<td width="50%" valign="top">
+
+### 👨‍🌾 For Farmers
+
+- 📦 **Product Listing Management**
+  - Upload multiple product images
+  - Detailed descriptions with pricing
+  - Manage product status (Active, Pending, Sold, Expired)
+  
+- 📊 **Real-time Order Management**
+  - Track inquiries and sales
+  - Delivery status tracking
+  - Order history and analytics
+
+- 💬 **Direct Communication**
+  - Chat directly with buyers
+  - Real-time messaging
+  - Share product updates
+
+- 📈 **Sales Analytics**
+  - Revenue tracking
+  - Performance insights
+  - Sales history reports
+
+- 🔔 **Smart Notifications**
+  - New order alerts
+  - Message notifications
+  - Status updates
+
+</td>
+<td width="50%" valign="top">
+
+### 🛒 For Buyers
+
+- 🔍 **Product Discovery**
+  - Browse fresh produce
+  - Detailed farmer profiles
+  - Product quality ratings
+
+- 🎯 **Advanced Search & Filters**
+  - Filter by location
+  - Price range selection
+  - Quality and variety filters
+  - Sorting options
+
+- 📦 **Order Management**
+  - Easy checkout process
+  - Track orders in real-time
+  - Order history
+
+- ⭐ **Review System**
+  - Rate farmers and products
+  - Read buyer reviews
+  - Build trust through feedback
+
+- 💳 **Secure Payments**
+  - Multiple payment options
+  - Transaction security
+  - Payment history
+
+</td>
+</tr>
+</table>
+
+### 🚀 Smart Features
+
+- 🎨 **Role-based Navigation** - Adaptive UI based on user type (Farmer/Buyer)
+- 📍 **Location-based Services** - Auto-detect location with GPS for accurate address filling
+- 🔔 **Real-time Notifications** - Push notifications for orders, messages, and updates via FCM
+- 🌐 **Multi-language Support** - Accessible in Hindi and English
+- 📱 **Over-the-Air Updates** - Seamless app updates using Stallion OTA
+- 🌙 **Offline Capability** - Core features work without internet connection
+- 🔒 **Secure Authentication** - Firebase Authentication with phone number verification
+- 📸 **Image Management** - Multiple image upload with compression and optimization
 
 ## 🏗️ Tech Stack
 
-### Frontend
-- **React Native CLI** 0.72+ - Native mobile development
-- **TypeScript** - Type-safe development
-- **React Navigation 7** - Navigation and routing
-- **React Native Vector Icons** - Icon library
-- **@react-native-async-storage/async-storage** - Local data persistence
-- **React Native Image Picker** - Camera and gallery integration
-- **React Native Gesture Handler** - Touch and gesture system
+<div align="center">
 
-### State Management
-- **Zustand** - Global state management
-- **React Context API** - For theming and authentication
-- **Custom Hooks** - Reusable state logic
-- **AsyncStorage** - Local data caching
+### Built with Modern Technologies
 
-### Backend & Native Features
-- **Firebase** - Backend-as-a-Service (BaaS)
-  - **Firestore** - NoSQL database
-  - **Firebase Authentication** - User authentication
-  - **Firebase Storage** - File storage
-  - **Firebase Cloud Messaging (FCM)** - Push notifications
-- **@notifee/react-native** - Local and remote notifications
-- **React Native Permissions** - Handle device permissions
-- **React Native Device Info** - Device information
-- **React Native NetInfo** - Network connectivity
-- **GPS Location Services** - Automatic location detection and auto-fill
-- **Google Geocoding API** - Accurate address resolution for Indian locations
+</div>
 
-### UI/UX
-- **NativeWind** - Tailwind CSS for React Native
-- **TailwindCSS** - Utility-first CSS framework
-- **Custom Design System** - Consistent theming and components
-- **React Native Reanimated** - High-performance animations
-- **React Native Safe Area Context** - Safe area handling
-- **Responsive Design** - Optimized for different screen sizes
+<table>
+<tr>
+<td width="33%" valign="top">
+
+### 📱 Frontend
+
+- **React Native CLI** 0.72+
+  - Native mobile development
+  - Type-safe with TypeScript
+  
+- **React Navigation 7**
+  - Stack, Tab, Drawer navigation
+  - Deep linking support
+  
+- **NativeWind + TailwindCSS**
+  - Utility-first styling
+  - Responsive design
+  
+- **React Native Reanimated**
+  - High-performance animations
+  - Smooth transitions
+  
+- **React Native Vector Icons**
+  - Icon library
+  - Custom icon support
+  
+- **React Native Image Picker**
+  - Camera & gallery access
+  - Image compression
+
+</td>
+<td width="33%" valign="top">
+
+### 🔧 State & Storage
+
+- **Zustand**
+  - Lightweight state management
+  - Simple and scalable
+  
+- **AsyncStorage**
+  - Local data persistence
+  - Offline data caching
+  
+- **React Context API**
+  - Theme management
+  - Authentication context
+  
+- **Custom Hooks**
+  - Reusable logic
+  - Clean code structure
+
+### 🔔 Notifications
+
+- **@notifee/react-native**
+  - Local notifications
+  - Custom notification UI
+  
+- **Firebase Cloud Messaging**
+  - Push notifications
+  - Real-time messaging
+
+</td>
+<td width="33%" valign="top">
+
+### ☁️ Backend & Services
+
+- **Firebase Suite**
+  - 🔥 **Firestore** - NoSQL database
+  - 🔐 **Authentication** - Phone auth
+  - 📦 **Storage** - File storage
+  - 💬 **FCM** - Push notifications
+  - 📊 **Analytics** - User insights
+  
+- **Location Services**
+  - 📍 GPS auto-detection
+  - 🗺️ Google Geocoding API
+  - 📡 React Native Geolocation
+  
+- **Device Features**
+  - 📱 React Native Device Info
+  - 🌐 React Native NetInfo
+  - 🔒 React Native Permissions
+  
+- **OTA Updates**
+  - 🔄 Stallion React Native
+  - Silent auto-updates
+
+</td>
+</tr>
+</table>
+
+<div align="center">
+
+### 🎨 UI/UX Excellence
+
+**Responsive Design** • **Dark Mode Support** • **Haptic Feedback** • **Smooth Animations** • **Intuitive Navigation**
+
+</div>
 
 ## 📂 Project Structure
 
@@ -105,15 +270,60 @@ src/
 
 ## 🚀 Getting Started
 
-### Prerequisites
+### ⚡ Quick Start
 
-- **Node.js** (v18 or higher)
-- **npm** or **yarn**
-- **React Native CLI** (`npm install -g @react-native-community/cli`)
-- **Java Development Kit** (JDK 11 or newer)
-- **Android Studio** (for Android development)
-- **Xcode** (for iOS development - macOS only)
-- **Watchman** (recommended for macOS)
+```bash
+# Clone the repository
+git clone https://github.com/Krushimandi/Krushimandi-app.git
+cd Krushimandi-app
+
+# Install dependencies
+npm install
+
+# Install iOS dependencies (macOS only)
+cd ios && pod install && cd ..
+
+# Run on Android
+npm run android
+
+# Run on iOS (macOS only)
+npm run ios
+```
+
+### 📋 Prerequisites
+
+<table>
+<tr>
+<td width="50%">
+
+#### 🖥️ Development Environment
+
+- **Node.js** v18 or higher
+- **npm** or **yarn** package manager
+- **React Native CLI** 
+  ```bash
+  npm install -g @react-native-community/cli
+  ```
+- **Git** for version control
+
+</td>
+<td width="50%">
+
+#### 📱 Platform Requirements
+
+**For Android:**
+- Android Studio (latest version)
+- Java Development Kit (JDK 11+)
+- Android SDK (API level 31+)
+
+**For iOS (macOS only):**
+- Xcode 14 or higher
+- CocoaPods
+- Xcode Command Line Tools
+
+</td>
+</tr>
+</table>
 
 ### Development Environment Setup
 
@@ -450,75 +660,324 @@ We welcome contributions! Please follow these steps:
 - Update documentation for significant changes
 - Follow **conventional commit** messages
 
-## 📋 Roadmap
+## 🎯 Features Status
 
-### Phase 1 (Current) ✅
-- [x] User authentication and role management
-- [x] Basic farmer and buyer interfaces
-- [x] Product listing and browsing
-- [x] Order management system
-- [x] Role-based navigation
+<div align="center">
 
-### Phase 2 (In Progress) 🚧
-- [ ] Real-time chat functionality
-- [ ] Payment gateway integration
-- [ ] Push notification system
-- [ ] Advanced search and filtering
-- [ ] Delivery tracking with GPS
+### ✅ What's Available Now
 
-### Phase 3 (Planned) 📋
-- [ ] AI-powered price recommendations
-- [ ] Weather integration for farmers
-- [ ] Multi-language support
-- [ ] Bulk order management
-- [ ] Analytics dashboard
+</div>
 
-### Phase 4 (Future) 🔮
-- [ ] Web admin panel
-- [ ] API for third-party integrations
-- [ ] Machine learning for demand forecasting
-- [ ] Blockchain for supply chain transparency
-- [ ] IoT integration for smart farming
+<table>
+<tr>
+<td width="50%" valign="top">
+
+#### 🟢 Core Features (Live)
+
+- ✅ User authentication with phone number
+- ✅ Role-based navigation (Farmer/Buyer)
+- ✅ Product listing with multiple images
+- ✅ Advanced search and filtering
+- ✅ Real-time chat messaging
+- ✅ Order management system
+- ✅ Push notifications (FCM + Notifee)
+- ✅ Location-based services with GPS
+- ✅ Profile management
+- ✅ Wishlist functionality
+- ✅ Review and rating system
+- ✅ Multi-language support (Hindi/English)
+- ✅ Over-the-air (OTA) updates
+- ✅ Offline mode support
+- ✅ Image upload and compression
+- ✅ Badge notifications for unseen items
+
+</td>
+<td width="50%" valign="top">
+
+#### 🔄 Coming Soon
+
+- 🔜 Payment gateway integration
+- 🔜 Delivery tracking with live GPS
+- 🔜 AI-powered price recommendations
+- 🔜 Weather integration for farmers
+- 🔜 Bulk order management
+- 🔜 Advanced analytics dashboard
+- 🔜 Verified farmer badges
+- 🔜 Product quality certification
+- 🔜 Seasonal demand forecasting
+- 🔜 Contract farming support
+
+#### 🔮 Future Vision
+
+- 📱 Web admin panel
+- 🤖 Machine learning insights
+- 🔗 Blockchain for transparency
+- 🌐 API for third-party integrations
+- 📊 IoT integration for smart farming
+- 🚚 Logistics partner integration
+
+</td>
+</tr>
+</table>
+
+---
+
+## 📊 App Statistics
+
+<div align="center">
+
+| Metric | Value |
+|--------|-------|
+| 📱 **Platform** | Android (Google Play) |
+| 🚀 **Version** | 1.0.0+ |
+| 📦 **Package** | `com.krushimandi.app` |
+| 🌐 **Languages** | Hindi, English |
+| 📊 **Min SDK** | Android 6.0+ (API 23) |
+| 🎯 **Target SDK** | Android 13+ (API 33) |
+| 📦 **App Size** | ~50 MB |
+| ⚡ **Performance** | 60 FPS |
+
+</div>
 
 ## 📄 License
 
 This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
 
+## 💡 Use Cases
+
+<table>
+<tr>
+<td width="50%" valign="top">
+
+### 👨‍🌾 Farmer Journey
+
+1. **Sign Up** - Register with phone number
+2. **List Products** - Upload fruits with photos and details
+3. **Get Orders** - Receive buyer inquiries
+4. **Chat & Negotiate** - Discuss prices and delivery
+5. **Track Sales** - Monitor orders and revenue
+6. **Build Reputation** - Earn ratings and reviews
+
+</td>
+<td width="50%" valign="top">
+
+### 🛒 Buyer Journey
+
+1. **Browse** - Explore fresh produce
+2. **Filter** - Find products by location, price, quality
+3. **View Details** - Check farmer profile and ratings
+4. **Chat** - Ask questions and negotiate
+5. **Place Order** - Request products
+6. **Track** - Monitor order status
+
+</td>
+</tr>
+</table>
+
+---
+
+## 🤝 Contributing
+
+We welcome contributions from the community! Here's how you can help:
+
+<table>
+<tr>
+<td width="33%">
+
+### 🐛 Report Bugs
+Found a bug? [Open an issue](https://github.com/Krushimandi/Krushimandi-app/issues) with:
+- Clear description
+- Steps to reproduce
+- Screenshots if applicable
+
+</td>
+<td width="33%">
+
+### 💡 Suggest Features
+Have an idea? [Create a feature request](https://github.com/Krushimandi/Krushimandi-app/issues) with:
+- Use case description
+- Expected behavior
+- Benefits for users
+
+</td>
+<td width="33%">
+
+### 🔧 Submit PR
+Want to contribute code?
+1. Fork the repository
+2. Create feature branch
+3. Make changes
+4. Submit pull request
+
+</td>
+</tr>
+</table>
+
+### Development Guidelines
+
+```bash
+# Fork and clone
+git clone https://github.com/your-username/Krushimandi-app.git
+
+# Create feature branch
+git checkout -b feature/amazing-feature
+
+# Make changes and commit
+git commit -m 'Add some amazing feature'
+
+# Push and create PR
+git push origin feature/amazing-feature
+```
+
+**Code Standards:**
+- ✅ Follow TypeScript best practices
+- ✅ Use ESLint and Prettier
+- ✅ Write unit tests for new features
+- ✅ Test on both iOS and Android
+- ✅ Update documentation
+- ✅ Follow conventional commits
+
+---
+
+## 📞 Support & Contact
+
+<div align="center">
+
+### 🆘 Get Help
+
+<table>
+<tr>
+<td align="center">
+
+### 📧 Email
+[krushimandiofficial@gmail.com](mailto:krushimandiofficial@gmail.com)
+
+</td>
+<td align="center">
+
+### 🐛 Report Issues
+[GitHub Issues](https://github.com/Krushimandi/Krushimandi-app/issues)
+
+</td>
+<td align="center">
+
+### 📱 Play Store
+[Download App](https://play.google.com/store/apps/details?id=com.krushimandi.app)
+
+</td>
+</tr>
+</table>
+
+</div>
+
+### ❓ Frequently Asked Questions
+
+<details>
+<summary><b>Why React Native CLI instead of Expo?</b></summary>
+
+React Native CLI provides full control over native code, custom native modules, and better performance optimization for our agricultural marketplace features. We need direct access to native APIs for features like OTA updates, advanced notifications, and GPS services.
+
+</details>
+
+<details>
+<summary><b>Do I need both Android Studio and Xcode?</b></summary>
+
+You only need the development environment for the platform you're targeting. If you're only developing for Android, Android Studio is sufficient. For iOS development, Xcode (macOS only) is required. For full development, both are recommended.
+
+</details>
+
+<details>
+<summary><b>How do I run on a physical device?</b></summary>
+
+**Android:** Enable Developer Options and USB Debugging on your device, then connect via USB and run `npm run android`.
+
+**iOS:** Register your device with Apple Developer Program, add it in Xcode, and run `npm run ios --device "Your Device Name"`.
+
+</details>
+
+<details>
+<summary><b>The app crashes on startup, what should I do?</b></summary>
+
+1. Check Metro bundler logs for errors
+2. Ensure all dependencies are installed: `npm install`
+3. Clear build cache: `npm start -- --reset-cache`
+4. Clean and rebuild: `cd android && ./gradlew clean && cd ..`
+5. Check if you've added Firebase configuration files
+
+</details>
+
+<details>
+<summary><b>How do I update the app with new changes?</b></summary>
+
+The app uses Stallion OTA (Over-The-Air) updates for seamless updates. Users automatically receive updates when they launch the app, without needing to download from Play Store (for JavaScript changes). For native code changes, a new Play Store release is required.
+
+</details>
+
+<details>
+<summary><b>Is this app available on iOS?</b></summary>
+
+Currently, Krushimandi is available on Android via Google Play Store. iOS development is in our roadmap and will be available soon on the Apple App Store.
+
+</details>
+
+---
+
 ## 👥 Team
 
-- **Mobile Lead** - React Native & TypeScript
-- **Backend Lead** - Node.js & Database
-- **iOS Developer** - Native iOS features
-- **Android Developer** - Native Android features
-- **Product Manager** - Strategy & Roadmap
+<div align="center">
 
-## 📞 Support
+**Built with ❤️ by the Krushimandi Team**
 
-### Get Help
-- 📧 **Email**: krushimandiofficial@gmail.com
-- 📖 **Documentation**: [docs.krushimandi.com](https://docs.krushimandi.com)
-- 🐛 **Bug Reports**: [GitHub Issues](https://github.com/Krushimandi/Krushimandi-app/issues)
+Dedicated to empowering farmers and revolutionizing agricultural commerce in India.
 
-### FAQ
+</div>
 
-**Q: Why React Native CLI instead of Expo?**
-A: React Native CLI gives us full control over native code, custom native modules, and better performance for our agricultural marketplace features.
+---
 
-**Q: Do I need both Android Studio and Xcode?**
-A: You only need the development environment for the platform you're targeting. However, for full development, both are recommended.
+## 📄 License
 
-**Q: How do I run on a physical device?**
-A: Enable developer options and USB debugging on Android, or register your device with Apple Developer Program for iOS.
+This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
 
-**Q: The app crashes on startup, what should I do?**
-A: Check Metro bundler logs, ensure all dependencies are installed, and try cleaning the build cache.
+```
+MIT License
+
+Copyright (c) 2024 Krushimandi
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+```
 
 ---
 
 <div align="center">
 
-**Built with ❤️ for farmers and buyers using React Native CLI**
+## 🌟 Show Your Support
 
-[⭐ Star this repo](https://github.com/Krushimandi/Krushimandi-app) • [🍴 Fork it](https://github.com/Krushimandi/Krushimandi-app/fork) • [📄 Report Bug](https://github.com/Krushimandi/Krushimandi-app/issues)
+If you like this project, please consider giving it a ⭐ on GitHub!
+
+[![GitHub stars](https://img.shields.io/github/stars/Krushimandi/Krushimandi-app?style=social)](https://github.com/Krushimandi/Krushimandi-app)
+[![GitHub forks](https://img.shields.io/github/forks/Krushimandi/Krushimandi-app?style=social)](https://github.com/Krushimandi/Krushimandi-app/fork)
+[![GitHub watchers](https://img.shields.io/github/watchers/Krushimandi/Krushimandi-app?style=social)](https://github.com/Krushimandi/Krushimandi-app)
+
+### 📲 Download from Play Store
+
+<a href="https://play.google.com/store/apps/details?id=com.krushimandi.app">
+  <img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" alt="Get it on Google Play" height="80"/>
+</a>
+
+---
+
+**Connect Farmers • Empower Agriculture • Transform India**
+
+[⭐ Star](https://github.com/Krushimandi/Krushimandi-app) • [🍴 Fork](https://github.com/Krushimandi/Krushimandi-app/fork) • [🐛 Report Bug](https://github.com/Krushimandi/Krushimandi-app/issues) • [💡 Request Feature](https://github.com/Krushimandi/Krushimandi-app/issues)
+
+Made with 💚 for Indian Agriculture
 
 </div>
