@@ -38,17 +38,27 @@ Experience seamless agricultural trading directly from your Android device. Down
 
 ### Experience the App in Action
 
-| 🌾 Farmer Dashboard | 📦 Add Products | 🛒 Browse Products | 💬 Real-time Chat |
-|---------------------|-----------------|-------------------|-------------------|
-| ![Farmer Home](./docs/screenshots/farmer-home.png) | ![Add Product](./docs/screenshots/add-product.png) | ![Browse Products](./docs/screenshots/browse-products.png) | ![Chat](./docs/screenshots/chat.png) |
+#### 🏠 Home & Navigation
+| Language Selection | Location Detection | Browse Products |
+|-------------------|-------------------|-----------------|
+| ![Language Selection](./docs/screenshots/language_selection.jpg) | ![Location Modal](./docs/screenshots/HomeScreen_location_modal.jpg) | ![Browse Products](./docs/screenshots/browse-products.jpg) |
 
-| 📊 Order Management | 📱 Product Details | 🔔 Notifications | ⭐ Profile & Reviews |
-|---------------------|-------------------|-----------------|----------------------|
-| ![Orders](./docs/screenshots/orders.png) | ![Product Details](./docs/screenshots/product-details.png) | ![Notifications](./docs/screenshots/notifications.png) | ![Profile](./docs/screenshots/profile.png) |
+#### 🌾 Farmer Features
+| Add Product | Product Details | Farmer Requests |
+|------------|----------------|----------------|
+| ![Add Product](./docs/screenshots/add-product.jpg) | ![Product Details](./docs/screenshots/farmer_productDetails.jpg) | ![Farmer Requests](./docs/screenshots/farmers_requests.jpg) |
+
+#### 🛒 Buyer Features
+| Product Details | Review System | Buyer Profile |
+|----------------|--------------|--------------|
+| ![Product Details](./docs/screenshots/product-details.jpg) | ![Review System](./docs/screenshots/buyer_review_system.jpg) | ![Buyer Profile](./docs/screenshots/buyer_profile.png) |
+
+#### 💬 Communication & Smart Features
+| Real-time Chat | AI Fruit Suggestions | User Feedback |
+|---------------|---------------------|---------------|
+| ![Chat](./docs/screenshots/chat.jpg) | ![Fruit Suggestions](./docs/screenshots/fruit_suggestion.jpg) | ![Feedback](./docs/screenshots/feedback.jpg) |
 
 </div>
-
-> **📌 Note:** These screenshots showcase the core features. Place your actual app screenshots in `docs/screenshots/` with the corresponding names.
 
 ---
 
