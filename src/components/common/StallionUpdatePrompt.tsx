@@ -1,5 +1,6 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useStallionUpdate, restart } from 'react-native-stallion';
+import { AppState, AppStateStatus } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface StallionUpdatePromptProps {
@@ -47,17 +48,28 @@ const StallionUpdatePrompt: React.FC<StallionUpdatePromptProps> = ({
         }
     }, [silentUpdate, isRestartRequired, silentUpdateProcessed, newReleaseBundle]);
 
-    // Handle silent updates automatically
+    // Handle silent updates automatically — restart only when app is backgrounded
+    const pendingRestartRef = useRef(false);
+
     useEffect(() => {
         if (silentUpdate && isRestartRequired && !silentUpdateProcessed) {
-            // Small delay to ensure app is fully loaded before applying update
-            const timer = setTimeout(() => {
-                handleSilentUpdate();
-            }, 1000); // 1 second delay for smooth UX
-
-            return () => clearTimeout(timer);
+            pendingRestartRef.current = true;
         }
-    }, [silentUpdate, isRestartRequired, silentUpdateProcessed, handleSilentUpdate]);
+    }, [silentUpdate, isRestartRequired, silentUpdateProcessed]);
+
+    useEffect(() => {
+        const subscription = AppState.addEventListener('change', (nextState: AppStateStatus) => {
+            if (
+                (nextState === 'background' || nextState === 'inactive') &&
+                pendingRestartRef.current
+            ) {
+                // Restart while app is in background — no visible interruption for the user
+                handleSilentUpdate();
+            }
+        });
+
+        return () => subscription.remove();
+    }, [handleSilentUpdate]);
 
     // Log successful silent updates (for debugging)
     useEffect(() => {

@@ -84,3 +84,6 @@ yarn-error.log
 !.env.example
 **/.env.local
 **/.secrets
+src/config/secrets.ts
+android/app/google-services.json
+ios/GoogleService-Info.plist

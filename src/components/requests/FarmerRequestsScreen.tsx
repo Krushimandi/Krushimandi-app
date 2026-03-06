@@ -212,13 +212,6 @@ const FarmerRequestsScreen = ({ route }: { route?: any }) => {
         } catch (error) {
             console.error('❌ Error loading farmer requests:', error);
             // Show user-friendly error message
-            Toast.show({
-                type: 'error',
-                position: 'bottom',
-                text1: t('requests.farmer.errorLoadingTitle'),
-                text2: t('requests.farmer.errorLoadingMessage'),
-                visibilityTime: 1000,
-            });
         }
     }, [loadFarmerRequests]);
 
@@ -270,13 +263,6 @@ const FarmerRequestsScreen = ({ route }: { route?: any }) => {
 
         } catch (error) {
             console.error('❌ Error in bulk accept:', error);
-            Toast.show({
-                type: 'error',
-                position: 'bottom',
-                text1: t('requests.farmer.errorTitle'),
-                text2: t('requests.farmer.errorBulkAccept'),
-                visibilityTime: 1000,
-            });
         }
     };
 
@@ -299,13 +285,6 @@ const FarmerRequestsScreen = ({ route }: { route?: any }) => {
             setIsManageMode(false);
         } catch (error) {
             console.error('❌ Error in bulk reject:', error);
-            Toast.show({
-                type: 'error',
-                position: 'bottom',
-                text1: t('requests.farmer.errorTitle'),
-                text2: t('requests.farmer.errorBulkReject'),
-                visibilityTime: 1000,
-            });
         }
     };
 
@@ -318,21 +297,10 @@ const FarmerRequestsScreen = ({ route }: { route?: any }) => {
             });
 
             if (!success) {
-                Toast.show({
-                    type: 'error',
-                    position: 'bottom',
-                    text1: t('requests.farmer.errorTitle'),
-                    text2: t('requests.farmer.errorAccept'),
-                    visibilityTime: 1000,
-                });
+                console.log("Error in 307 Farmer RequestScreen");
             }
         } catch (error) {
             console.error('❌ Error accepting request:', error);
-            Toast.show({
-                type: 'error',
-                text1: t('requests.farmer.errorTitle'),
-                text2: t('requests.farmer.errorAccept')
-            });
         }
     };
 
@@ -358,11 +326,6 @@ const FarmerRequestsScreen = ({ route }: { route?: any }) => {
             }
         } catch (error) {
             console.error('❌ Error rejecting request:', error);
-            Toast.show({
-                type: 'error',
-                text1: t('requests.farmer.errorTitle'),
-                text2: t('requests.farmer.errorReject')
-            });
         }
     };
 

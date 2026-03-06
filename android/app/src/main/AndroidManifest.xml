@@ -12,12 +12,16 @@
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
 
     <!-- Scoped Storage & Media -->
-    <uses-permission 
-        android:name="android.permission.WRITE_EXTERNAL_STORAGE" 
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="29"
         tools:replace="android:maxSdkVersion"/>
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+
+    <!-- Explicitly block READ_MEDIA_IMAGES/VIDEO — Google Play policy requires using
+         the Android photo picker instead of persistent media access -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" tools:node="remove" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" tools:node="remove" />
 
     <!-- Notifications -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
@@ -35,6 +39,11 @@
         android:theme="@style/AppTheme"
         android:requestLegacyExternalStorage="true"
         android:supportsRtl="true">
+
+        <!-- Truecaller SDK Configuration -->
+        <meta-data 
+            android:name="com.truecaller.android.sdk.ClientId"
+            android:value="4ffalqpluvmzz883vho6qrqh7zfhvyhv8v4otgtvwxs"/>
 
         <activity
             android:name=".MainActivity"

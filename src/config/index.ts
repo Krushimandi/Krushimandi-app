@@ -3,6 +3,8 @@
  * Manages different environment settings (dev, staging, prod)
  */
 
+import { secrets } from './secrets';
+
 export interface Config {
   APP_NAME: string;
   APP_VERSION: string;
@@ -36,13 +38,13 @@ const development: Config = {
   ENABLE_LOGS: true,
 
   firebaseConfig: {
-    apiKey: 'AIzaSyBwRBl7lr5hhW2lIqkJsoxf1qLnkOIIvcM',
-    authDomain: 'https://krushimandi-fruit-default-rtdb.asia-southeast1.firebasedatabase.app',
-    projectId: 'krushimandi-fruit',
-    appId: '1:915325221809:android:9869d311ec5c802692db90',
+    apiKey: secrets.FIREBASE_API_KEY,
+    authDomain: secrets.FIREBASE_AUTH_DOMAIN,
+    projectId: secrets.FIREBASE_PROJECT_ID,
+    appId: secrets.FIREBASE_APP_ID,
   },
 
-  GOOGLE_MAPS_API_KEY: 'AIzaSyA7N1JXTOsM60RFRrCohYhm_2ZZp4Q0B3o',
+  GOOGLE_MAPS_API_KEY: secrets.GOOGLE_MAPS_API_KEY_DEV,
 
   FEATURES: {
     DARK_MODE: true,
@@ -60,13 +62,13 @@ const production: Config = {
   ENABLE_LOGS: false,
 
   firebaseConfig: {
-    apiKey: 'AIzaSyBwRBl7lr5hhW2lIqkJsoxf1qLnkOIIvcM',
-    authDomain: 'https://krushimandi-fruit-default-rtdb.asia-southeast1.firebasedatabase.app',
-    projectId: 'krushimandi-fruit',
-    appId: '1:915325221809:android:9869d311ec5c802692db90',
+    apiKey: secrets.FIREBASE_API_KEY,
+    authDomain: secrets.FIREBASE_AUTH_DOMAIN,
+    projectId: secrets.FIREBASE_PROJECT_ID,
+    appId: secrets.FIREBASE_APP_ID,
   },
 
-  GOOGLE_MAPS_API_KEY: 'AIzaSyA7N1JXTOsM60RFRrCohYhm_2ZZp4Q0B3o',
+  GOOGLE_MAPS_API_KEY: secrets.GOOGLE_MAPS_API_KEY_PROD,
 
   FEATURES: {
     DARK_MODE: false,

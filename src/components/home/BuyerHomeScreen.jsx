@@ -659,14 +659,6 @@ const BuyerHomeScreen = () => {
       if (isMounted) {
         setAllFruits([]);
         setFruits([]);
-
-        Toast.show({
-          type: 'error',
-          text1: 'Data Load Failed',
-          text2: 'Unable to load fruits. Check connection.',
-          position: 'bottom',
-          visibilityTime: 1000,
-        });
       }
     } finally {
       if (isMounted) setLoadingFruits(false);
@@ -718,15 +710,6 @@ const BuyerHomeScreen = () => {
       ]);
     } catch (error) {
       console.error('Refresh error:', error);
-      if (isMounted) {
-        Toast.show({
-          type: 'error',
-          text1: 'Refresh Failed',
-          text2: 'Please try again later',
-          position: 'bottom',
-          visibilityTime: 1000,
-        });
-      }
     } finally {
       if (isMounted) setRefreshing(false);
     }

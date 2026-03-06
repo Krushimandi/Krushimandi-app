@@ -25,6 +25,7 @@ const {
 const notificationFunctions = require('./src/notificationService');
 const adminAuth = require('./src/adminAuthService');
 const chatNotificationService = require('./src/chatNotificationService');
+const truecallerAuth = require('./src/truecallerAuthService');
 
 // Export all functions
 exports.expireOldRequests = expireOldRequests;
@@ -40,6 +41,7 @@ exports.getFcmTokens = getFcmTokens;
 Object.assign(exports, notificationFunctions);
 Object.assign(exports, adminAuth);
 Object.assign(exports, chatNotificationService);
+Object.assign(exports, truecallerAuth);
 
 // Health check function
 exports.healthCheck = onRequest((req, res) => {
@@ -62,6 +64,8 @@ exports.healthCheck = onRequest((req, res) => {
       'setDashboardUserRole',
       'syncClaimsFromUsers',
       'whoAmI',
+      'verifyTruecallerLogin',
+      'getUserByPhone',
       'healthCheck'
     ]
   });

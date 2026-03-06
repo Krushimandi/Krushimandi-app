@@ -10,6 +10,7 @@ import {
   Animated,
   Image,
   ScrollView,
+  Alert,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -18,11 +19,19 @@ import { saveUserRole } from '../../utils/userRoleStorage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import auth from '@react-native-firebase/auth';
 import { useTranslation } from 'react-i18next';
+import { syncUserProfile } from '../../services/firebaseService';
+import { useAuthStore } from '../../store/authStore';
+import { navigateToMain } from '../../utils/navigationUtils';
 
-const RoleSelectionScreen = ({ navigation }) => {
+const RoleSelectionScreen = ({ navigation, route }) => {
   const [selectedRole, setSelectedRole] = useState(null);
   const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState(''); // For user feedback
+  const authStore = useAuthStore();
+  
+  // Extract Truecaller data from navigation params
+  const { truecallerProfile, phoneNumber: truecallerPhone, fromTruecaller } = route?.params || {};
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
@@ -102,7 +111,7 @@ const RoleSelectionScreen = ({ navigation }) => {
             : { 
                 uid: user?.uid || '',
                 userRole: selectedRole, 
-                phoneNumber: user?.phoneNumber || '',
+                phoneNumber: user?.phoneNumber || truecallerPhone || '',
                 createdAt: new Date().toISOString() 
               };
           await AsyncStorage.setItem('userData', JSON.stringify(merged));
@@ -110,13 +119,85 @@ const RoleSelectionScreen = ({ navigation }) => {
           console.warn('⚠️ Failed merging userData while saving role:', mergeErr);
         }
 
-        // Update auth flow state
-        await authFlowManager.updateFlowState('profile_setup');
+        // TRUECALLER QUICK FLOW: For farmers, auto-create profile and go to Home
+        if (fromTruecaller && selectedRole === 'farmer' && truecallerProfile) {
+          console.log('🚀 Truecaller Quick Login: Auto-creating farmer profile...');
+          setLoadingMessage('Creating your profile...');
+          
+          const user = auth().currentUser;
+          if (!user) {
+            throw new Error('No authenticated user found');
+          }
 
+          const userData = {
+            uid: user.uid,
+            firstName: truecallerProfile.firstName?.trim() || '',
+            lastName: truecallerProfile.lastName?.trim() || '',
+            userRole: 'farmer',
+            phoneNumber: user.phoneNumber || truecallerPhone,
+            isProfileComplete: true,
+            email: truecallerProfile.email || null,
+          };
+
+          console.log('📝 Creating farmer profile with Truecaller data:', userData);
+          setLoadingMessage('Saving to cloud...');
+
+          // Sync profile to Firestore
+          await syncUserProfile(userData, (progress) => {
+            if (progress.step === 'saving_firestore') {
+              setLoadingMessage('Almost there...');
+            } else if (progress.step === 'complete') {
+              console.log('✅ Farmer profile created successfully');
+              setLoadingMessage('Welcome!');
+            }
+          });
+
+          // Update auth store
+          authStore.updateUser({
+            id: user.uid,
+            firstName: userData.firstName,
+            lastName: userData.lastName,
+            phone: userData.phoneNumber,
+            userType: 'farmer',
+            status: 'active',
+            isVerified: true,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          });
+
+          // Update auth flow state to complete
+          await authFlowManager.updateFlowState('complete');
+
+          console.log('✅ Truecaller Quick Login complete - navigating to Main');
+          // Navigate immediately - no need to reset loading state
+          navigateToMain();
+          return;
+        }
+
+        // TRUECALLER FLOW: For buyers, pass pre-filled data to IntroduceYourself
+        if (fromTruecaller && selectedRole === 'buyer' && truecallerProfile) {
+          console.log('🛒 Truecaller Buyer: Passing pre-filled data to profile setup...');
+          await authFlowManager.updateFlowState('profile_setup');
+          navigation.navigate('IntroduceYourself', { 
+            userRole: selectedRole,
+            truecallerProfile: truecallerProfile,
+            fromTruecaller: true,
+          });
+          setIsLoading(false);
+          return;
+        }
+
+        // REGULAR OTP FLOW: Continue as normal
+        await authFlowManager.updateFlowState('profile_setup');
         console.log('✅ Selected role saved:', selectedRole);
         navigation.navigate('IntroduceYourself', { userRole: selectedRole });
       } catch (err) {
         console.error('❌ Error saving role:', err);
+        Alert.alert(
+          t('alerts.errorTitle') || 'Error',
+          err.message || 'Failed to save role. Please try again.',
+          [{ text: t('common.ok') || 'OK' }]
+        );
       } finally {
         setIsLoading(false);
       }
@@ -259,7 +340,12 @@ const RoleSelectionScreen = ({ navigation }) => {
             activeOpacity={0.8}
           >
             {isLoading ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="small" color="#FFFFFF" />
+                {loadingMessage ? (
+                  <Text style={styles.loadingText}>{loadingMessage}</Text>
+                ) : null}
+              </View>
             ) : (
               <>
                 <Text style={styles.getStartedText}>{t('auth.role.getStarted')}</Text>
@@ -483,6 +569,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginRight: 8,
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '500',
+    marginLeft: 10,
   },
 });
 

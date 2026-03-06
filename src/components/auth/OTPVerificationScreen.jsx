@@ -19,7 +19,7 @@ import {
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import auth from '@react-native-firebase/auth';
 import { authFlowManager } from '../../services/authFlowManager';
-import Toast from 'react-native-toast-message';
+import { resetToMain } from '../../navigation/navigationService';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
@@ -342,22 +342,8 @@ const OTPVerificationScreen = ({ navigation, route }) => {
 
         // Navigate based on the determined route
         if (route.screen === 'Main') {
-          Toast.show({
-            type: 'success',
-            text1: t('auth.otp.toast.welcomeBack'),
-            position: 'bottom',
-            visibilityTime: 1000,
-          });
-          navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
+          resetToMain();
         } else {
-          Toast.show({
-            type: 'success',
-            text1: t('auth.otp.toast.signedIn'),
-            text2: t('auth.otp.toast.continueSetup'),
-            position: 'bottom',
-            visibilityTime: 1000,
-          });
-
           if (route.params) {
             navigation.replace(route.screen, route.params);
           } else {
@@ -379,8 +365,7 @@ const OTPVerificationScreen = ({ navigation, route }) => {
           if (currentUser?.uid && currentPhone && currentPhone === targetPhone) {
             const route = await authFlowManager.resumeAuthFlow();
             if (route.screen === 'Main') {
-              Toast.show({ type: 'success', text1: t('auth.otp.toast.welcomeBack'), position: 'bottom', visibilityTime: 1000 });
-              navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
+              resetToMain();
             } else {
               navigation.replace(route.screen, route.params || {});
             }
@@ -391,7 +376,6 @@ const OTPVerificationScreen = ({ navigation, route }) => {
         // If we reach here, OTP likely failed; clear input only for real OTP errors
         if (err?.code === 'firestore/permission-denied' || (err?.message || '').includes('permission-denied')) {
           // Don't send to RoleSelection on permission issues; let auth flow manager decide
-          Toast.show({ type: 'success', text1: t('auth.otp.toast.signedIn'), position: 'bottom', visibilityTime: 1000 });
           const route = await authFlowManager.resumeAuthFlow();
           navigation.replace(route.screen, route.params || {});
           return;
@@ -463,13 +447,6 @@ const OTPVerificationScreen = ({ navigation, route }) => {
         const normalizedPhone = String(targetPhone || '').replace(/\s+/g, '');
         const newConfirmation = await auth().signInWithPhoneNumber(normalizedPhone);
         setConfirmation(newConfirmation);
-        Toast.show({
-          type: 'success',
-          text1: t('auth.otp.toast.otpSentTitle'),
-          text2: t('auth.otp.toast.otpSentSub'),
-          position: 'bottom',
-          visibilityTime: 1000,
-        });
       } catch (err) {
         if (isMountedRef.current) setError(getFriendlyErrorMessage(err, 'resend'));
       }
@@ -537,7 +514,8 @@ const OTPVerificationScreen = ({ navigation, route }) => {
         <View style={styles.header}>
           <TouchableOpacity onPress={handleBackPress} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color="#333" />
-          </TouchableOpacity>            <TouchableOpacity
+          </TouchableOpacity>
+          <TouchableOpacity
             onPress={handleHelp}
             style={styles.helpButton}
             accessible={true}
@@ -564,7 +542,8 @@ const OTPVerificationScreen = ({ navigation, route }) => {
               ]}
             >
               {/* Title */}
-              <Text style={styles.title}>{t('auth.otp.title')}</Text>              {/* Subtitle with phone number */}
+              <Text style={styles.title}>{t('auth.otp.title')}</Text>
+              {/* Subtitle with phone number */}
               <Text style={styles.subtitle}>{t('auth.otp.subtitle')}</Text>
 
               <View style={styles.phoneContainer}>
@@ -673,7 +652,8 @@ const OTPVerificationScreen = ({ navigation, route }) => {
                   { transform: [{ translateX: shakeAnimation }] }
                 ]}>
                   <Ionicons name="alert-circle" size={18} color="#FF3547" />
-                  <Text style={styles.errorText}>{error}</Text>                  <TouchableOpacity onPress={handleHelp} style={styles.helpIconSmall}>
+                  <Text style={styles.errorText}>{error}</Text>
+                  <TouchableOpacity onPress={handleHelp} style={styles.helpIconSmall}>
                     <Ionicons name="help-circle" size={16} color="#007E2F" />
                   </TouchableOpacity>
                 </Animated.View>
@@ -724,7 +704,8 @@ const OTPVerificationScreen = ({ navigation, route }) => {
                 </Text>
                 <Ionicons name="checkmark" size={16} color="#FFFFFF" />
               </>
-            )}            </TouchableOpacity>
+            )}
+          </TouchableOpacity>
         </View>
       </View>
 

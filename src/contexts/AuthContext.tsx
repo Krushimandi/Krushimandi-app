@@ -2,7 +2,7 @@
  * Auth Context for managing authentication state and Firebase confirmation
  */
 
-import React, { createContext, useContext, useState, useRef, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 
 interface AuthContextType {
   phoneNumber: string;
@@ -28,20 +28,20 @@ interface AuthProviderProps {
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [phoneNumber, setPhoneNumber] = useState<string>('');
-  const confirmationRef = useRef<any>(null);
+  const [confirmation, setConfirmationState] = useState<any>(null);
 
-  const setConfirmation = (confirmation: any) => {
-    confirmationRef.current = confirmation;
-  };
+  const setConfirmation = useCallback((c: any) => {
+    setConfirmationState(c);
+  }, []);
 
-  const clearConfirmation = () => {
-    confirmationRef.current = null;
-  };
+  const clearConfirmation = useCallback(() => {
+    setConfirmationState(null);
+  }, []);
 
   const value = {
     phoneNumber,
     setPhoneNumber,
-    confirmation: confirmationRef.current,
+    confirmation,
     setConfirmation,
     clearConfirmation,
   };

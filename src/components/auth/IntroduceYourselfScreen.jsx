@@ -24,6 +24,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import auth from '@react-native-firebase/auth';
 import { requestImagePickerPermissions } from '../../utils/permissions';
 import { authFlowManager } from '../../services/authFlowManager';
+import { resetToMain } from '../../navigation/navigationService';
 import { syncUserProfile } from '../../services/firebaseService';
 import { saveUserRole } from '../../utils/userRoleStorage';
 import { useAuthStore } from '../../store';
@@ -43,11 +44,13 @@ const BUSINESS_TYPE_OPTIONS = [
 ];
 
 const IntroduceYourselfScreen = ({ navigation, route }) => {
-  const { userRole = null } = route?.params || {};
+  const { userRole = null, truecallerProfile = null, fromTruecaller = false } = route?.params || {};
   const { t } = useTranslation();
   const authStore = useAuthStore();
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
+  
+  // Pre-fill firstName and lastName from Truecaller profile if available
+  const [firstName, setFirstName] = useState(truecallerProfile?.firstName || '');
+  const [lastName, setLastName] = useState(truecallerProfile?.lastName || '');
   const [profileImage, setProfileImage] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -261,7 +264,7 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
             setUploadStatus('Complete!');
             setIsLoading(false);
             console.log('✅ Buyer profile complete - navigating to Main');
-            navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
+            resetToMain();
           }
         } else {
           // For farmers, complete auth flow
@@ -270,7 +273,7 @@ const IntroduceYourselfScreen = ({ navigation, route }) => {
           setIsLoading(false);
 
           console.log('✅ Farmer profile complete - navigating to Main');
-          navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
+          resetToMain();
         }
 
         // Don't navigate immediately - let the auth state listener in AppNavigator handle it

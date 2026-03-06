@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { getFocusedRouteNameFromRoute, NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { navigationRef, isNavigationReady, pendingNotificationData, handleNotificationNavigation } from './navigationService';
@@ -41,7 +41,6 @@ import { setUserOnlineStatus } from 'services/chatService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { clearUserRole } from 'utils/userRoleStorage';
 import { Alert } from 'react-native';
-import Toast from 'react-native-toast-message';
 
 const RootStack = createStackNavigator<RootStackParamList>();
 
@@ -54,7 +53,6 @@ interface AppNavigatorProps {
 const AppNavigator: React.FC<AppNavigatorProps> = () => {
   const [initializing, setInitializing] = useState(true);
   const [uid, setUid] = useState<string | null>(null);
-  const [role, setRole] = useState<'buyer' | 'farmer' | null>(null);
   const [navigationKey] = useState(0);
   const [mainStackKey, setMainStackKey] = useState(0); // force remount of role stack when role changes
   const insets = useSafeAreaInsets();
@@ -62,56 +60,45 @@ const AppNavigator: React.FC<AppNavigatorProps> = () => {
 
   const { isOnline } = useOfflineCapability();
 
-  // Primary auth listener
+  // Derive auth state directly from Zustand store (synchronous — no race with navigation).
+  // loadUserProfile() calls authStore.setUser() BEFORE navigation.reset(), so the store
+  // is always up-to-date by the time the 'Main' route renders.
+  const storeUser = useAuthStore((state) => state.user);
+  const storeUserType = storeUser?.userType;
+  const role: 'buyer' | 'farmer' | null =
+    storeUserType === 'buyer' || storeUserType === 'farmer' ? storeUserType : null;
+  const isAuthenticated = !!storeUser;
+  const hasRole = role === 'buyer' || role === 'farmer';
+
+  // Bump mainStackKey when role changes so the stack remounts
+  const prevRoleRef = useRef(role);
+  useEffect(() => {
+    if (prevRoleRef.current !== role && role) {
+      setMainStackKey(Date.now());
+    }
+    prevRoleRef.current = role;
+  }, [role]);
+
+  // Primary auth listener — loads profile (which updates authStore → role updates automatically)
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
       if (user?.uid) {
         setUid(user.uid);
         try {
-          const profile = await authFlowManager.loadUserProfile(user.uid);
-          if (profile?.userRole && (profile.userRole === 'buyer' || profile.userRole === 'farmer')) {
-            setRole((prev) => {
-              if (prev !== profile.userRole) {
-                // bump key to force stack remount
-                setMainStackKey(Date.now());
-              }
-              return profile.userRole;
-            });
-          } else {
-            setRole(null);
-          }
+          await authFlowManager.loadUserProfile(user.uid);
         } catch (error) {
           console.error('Error loading user profile:', error);
-          setRole(null);
         }
       } else {
         setUid(null);
-        setRole(null);
+        // NOTE: Do NOT clear the Zustand auth store here.
+        // During sign-in transitions, Firebase may briefly emit null before the
+        // new user is established. Clearing the store here causes the app to
+        // flash back to AuthStack. The store is cleared explicitly in handleLogout().
       }
       setInitializing(false);
     });
     return unsubscribe;
-  }, []);
-
-  // Subscribe to auth store userType changes (immediate UI switch after role change action)
-  useEffect(() => {
-    const unsub = useAuthStore.subscribe((state, prevState) => {
-      const newUserType = state.user?.userType;
-      const prevUserType = prevState?.user?.userType;
-      if (
-        newUserType &&
-        newUserType !== prevUserType &&
-        (newUserType === 'buyer' || newUserType === 'farmer')
-      ) {
-        setRole((prevRole) => {
-          if (prevRole !== newUserType) setMainStackKey(Date.now());
-          return newUserType as 'buyer' | 'farmer';
-        });
-      }
-    });
-    return () => {
-      try { unsub(); } catch { }
-    };
   }, []);
 
   const handleLogout = async () => {
@@ -161,6 +148,12 @@ const AppNavigator: React.FC<AppNavigatorProps> = () => {
       ]);
 
       await clearUserRole();
+
+      // Explicitly clear Zustand auth store before signing out.
+      // onAuthStateChanged no longer clears the store (to avoid sign-in transition race),
+      // so we must do it here during intentional logout.
+      useAuthStore.getState().setUser(null);
+
       await auth1().signOut();
 
       // User logged out successfully
@@ -203,14 +196,12 @@ const AppNavigator: React.FC<AppNavigatorProps> = () => {
           return;
         }
 
-        // 🧩 If active, sync the user role (buyer/farmer)
+        // 🧩 If active, sync the user role (buyer/farmer) into authStore
         if (nextRole === 'buyer' || nextRole === 'farmer') {
-          setRole((prev) => {
-            if (prev !== nextRole) {
-              setMainStackKey(Date.now());
-            }
-            return nextRole;
-          });
+          const store = useAuthStore.getState();
+          if (store.user && store.user.userType !== nextRole) {
+            store.updateUser({ userType: nextRole } as any);
+          }
         }
       },
       (err) => console.error('Firestore profile listener error:', err)
@@ -219,8 +210,6 @@ const AppNavigator: React.FC<AppNavigatorProps> = () => {
     return unsubscribe;
   }, [uid]);
 
-  const isAuthenticated = !!uid;
-  const hasRole = role === 'buyer' || role === 'farmer';
   const initialRouteName = isAuthenticated && hasRole ? 'Main' : 'Auth';
 
   const MainStackComponent = useMemo(() => {

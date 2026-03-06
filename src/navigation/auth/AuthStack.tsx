@@ -34,9 +34,9 @@ const AuthNavigator = () => {
       try {
         // Use auth flow manager to determine initial route
         const route = await authFlowManager.resumeAuthFlow();
-        
-        
-        
+
+
+
         if (mounted) {
           if (route.screen === 'Main') {
             // User is fully authenticated, redirect to main app
@@ -44,10 +44,10 @@ const AuthNavigator = () => {
             navigateToMain();
             return;
           }
-          
+
           // Map auth flow route to AuthStack screen
           let authScreen: keyof AuthStackParamList = 'Welcome';
-          
+
           switch (route.screen) {
             case 'Welcome':
               authScreen = 'Welcome';
@@ -70,7 +70,7 @@ const AuthNavigator = () => {
             default:
               authScreen = 'Welcome';
           }
-          
+
           setInitialRoute(authScreen);
           setReady(true);
         }
@@ -109,7 +109,7 @@ const AuthNavigator = () => {
 
 // Helper: Map currentStep to AuthStack screen
 export const getAuthScreen = (step: string) => {
-  
+
   switch (step) {
     case 'welcome':
       return 'Welcome';

@@ -23,6 +23,7 @@ import ReAnimated, { useAnimatedStyle, withTiming, useSharedValue } from 'react-
 import { useKeyboardHandler } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
+import { authFlowManager } from 'services/authFlowManager';
 
 const MobileScreen = ({ navigation }) => {
   const { setPhoneNumber, setConfirmation } = useAuth();
@@ -223,8 +224,9 @@ const MobileScreen = ({ navigation }) => {
   };
 
   const handleBackPress = () => {
-    navigation.goBack();
+    navigation.navigate('Welcome');
   };
+
   const showHelp = () => {
     setShowHelpModal(true);
     Animated.spring(modalAnimation, {

@@ -106,10 +106,12 @@ export const AuthStateProvider: React.FC<AuthStateProviderProps> = ({
       
       // If user is logged out in Firebase, ensure local state is also cleared
       if (!user) {
-        
+
         setUserRole(null);
-        // Clear auth store
-        authStore.setUser(null);
+        // NOTE: Do NOT clear the Zustand auth store here.
+        // During sign-in transitions, Firebase may briefly emit null before the
+        // new user is established. Clearing the store here causes the app to
+        // flash back to AuthStack. The store is cleared explicitly in handleLogout().
         previousUidRef.current = null;
       } else {
         // Firebase user available; preserve auth state
