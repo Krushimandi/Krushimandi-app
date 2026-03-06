@@ -43,7 +43,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import i18n, { initI18n, LANGUAGE_STORAGE_KEY } from './src/i18n';
 
 const App: React.FC = () => {
-    LogBox.ignoreAllLogs(true); // Hide all warnings
+    if (!__DEV__) LogBox.ignoreAllLogs(true);
 
     // const isDark = Appearance.getColorScheme() === 'dark';
     const isDark = false; // Force light mode for now

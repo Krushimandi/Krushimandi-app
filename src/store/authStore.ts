@@ -32,10 +32,12 @@ export const useAuthStore = create<AuthStore>()(
       error: null,
 
       updateUser: (userData: Partial<User>) => {
-        const currentUser = get().user as User | null;
-        if (currentUser) {
-          set({ user: { ...currentUser, ...userData } });
-        }
+        set((state) => {
+          if (state.user) {
+            return { user: { ...state.user, ...userData } };
+          }
+          return state;
+        });
       },
 
       setUser: (user: User | null) => {

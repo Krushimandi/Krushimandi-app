@@ -15,12 +15,6 @@ export interface Config {
   // Third-party service keys
   GOOGLE_MAPS_API_KEY: string;
 
-  firebaseConfig: {
-    apiKey: string;
-    authDomain: string;
-    projectId: string;
-    appId: string;
-  }
   // Feature flags
   FEATURES: {
     DARK_MODE: boolean;
@@ -37,14 +31,7 @@ const development: Config = {
   ENABLE_FLIPPER: __DEV__,
   ENABLE_LOGS: true,
 
-  firebaseConfig: {
-    apiKey: secrets.FIREBASE_API_KEY,
-    authDomain: secrets.FIREBASE_AUTH_DOMAIN,
-    projectId: secrets.FIREBASE_PROJECT_ID,
-    appId: secrets.FIREBASE_APP_ID,
-  },
-
-  GOOGLE_MAPS_API_KEY: secrets.GOOGLE_MAPS_API_KEY_DEV,
+  GOOGLE_MAPS_API_KEY: secrets.GOOGLE_MAPS_API_KEY,
 
   FEATURES: {
     DARK_MODE: true,
@@ -55,20 +42,13 @@ const development: Config = {
 };
 
 const production: Config = {
-  APP_NAME: 'Krushiandi',
+  APP_NAME: 'Krushimandi',
   APP_VERSION: '1.0.0',
   ENVIRONMENT: 'production',
   ENABLE_FLIPPER: false,
   ENABLE_LOGS: false,
 
-  firebaseConfig: {
-    apiKey: secrets.FIREBASE_API_KEY,
-    authDomain: secrets.FIREBASE_AUTH_DOMAIN,
-    projectId: secrets.FIREBASE_PROJECT_ID,
-    appId: secrets.FIREBASE_APP_ID,
-  },
-
-  GOOGLE_MAPS_API_KEY: secrets.GOOGLE_MAPS_API_KEY_PROD,
+  GOOGLE_MAPS_API_KEY: secrets.GOOGLE_MAPS_API_KEY,
 
   FEATURES: {
     DARK_MODE: false,

@@ -4,6 +4,9 @@ apply plugin: "com.facebook.react"
 apply plugin: "com.google.gms.google-services"
 apply from: "../../node_modules/react-native-vector-icons/fonts.gradle"
 
+// Load .env file via react-native-config
+apply from: project(':react-native-config').projectDir.getPath() + "/dotenv.gradle"
+
 react {
     autolinkLibrariesWithApp()
 }
@@ -34,17 +37,19 @@ android {
 
     signingConfigs {
         debug {
-            storeFile file('debug.keystore')
-            storePassword 'android'
-            keyAlias 'androiddebugkey'
-            keyPassword 'android'
+            // Priority: System env var > .env file
+            storeFile file(System.getenv("DEBUG_STORE_FILE") ?: project.env.get("DEBUG_STORE_FILE"))
+            storePassword System.getenv("DEBUG_STORE_PASSWORD") ?: project.env.get("DEBUG_STORE_PASSWORD")
+            keyAlias System.getenv("DEBUG_KEY_ALIAS") ?: project.env.get("DEBUG_KEY_ALIAS")
+            keyPassword System.getenv("DEBUG_KEY_PASSWORD") ?: project.env.get("DEBUG_KEY_PASSWORD")
         }
 
         release {
-            storeFile file(project.property("RELEASE_STORE_FILE"))
-            storePassword project.property("RELEASE_STORE_PASSWORD")
-            keyAlias project.property("RELEASE_KEY_ALIAS")
-            keyPassword project.property("RELEASE_KEY_PASSWORD")
+            // Priority: System env var > .env file
+            storeFile file(System.getenv("RELEASE_STORE_FILE") ?: project.env.get("RELEASE_STORE_FILE"))
+            storePassword System.getenv("RELEASE_STORE_PASSWORD") ?: project.env.get("RELEASE_STORE_PASSWORD")
+            keyAlias System.getenv("RELEASE_KEY_ALIAS") ?: project.env.get("RELEASE_KEY_ALIAS")
+            keyPassword System.getenv("RELEASE_KEY_PASSWORD") ?: project.env.get("RELEASE_KEY_PASSWORD")
         }
     }
 

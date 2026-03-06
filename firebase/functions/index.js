@@ -48,25 +48,5 @@ exports.healthCheck = onRequest((req, res) => {
   res.json({
     status: 'healthy',
     timestamp: new Date().toISOString(),
-    functions: [
-      'expireOldRequests',
-      'onRequestStatusChange',
-      'cleanupOldNotifications',
-      'registerFcmToken',
-      'removeFcmToken',
-      'getFcmTokens',
-      'onRequestCreated',
-      'sendPromotionalNotification',
-      'sendUpdateNotification',
-      'sendCustomNotification',
-      'onChatNotificationCreated',
-      'onUserOnlineStatusChange',
-      'setDashboardUserRole',
-      'syncClaimsFromUsers',
-      'whoAmI',
-      'verifyTruecallerLogin',
-      'getUserByPhone',
-      'healthCheck'
-    ]
   });
 });

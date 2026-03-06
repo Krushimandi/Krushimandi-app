@@ -29,8 +29,11 @@ const TRUECALLER_CONFIG = {
   tokenEndpoint: 'https://oauth-account-noneu.truecaller.com/v1/token',
   // User profile endpoint
   profileEndpoint: 'https://oauth-account-noneu.truecaller.com/v1/userinfo',
-  // Your Truecaller Client ID (from Truecaller Developer Portal)
-  clientId: process.env.TRUECALLER_CLIENT_ID || '4ffalqpluvmzz883vho6qrqh7zfhvyhv8v4otgtvwxs',
+  // Your Truecaller Client ID - must be set via Firebase Functions environment config
+  clientId: process.env.TRUECALLER_CLIENT_ID || (() => {
+    console.error('TRUECALLER_CLIENT_ID environment variable is not set');
+    return '';
+  })(),
 };
 
 /**
@@ -495,6 +498,11 @@ exports.verifyTruecallerLogin = onCall(
 exports.getUserByPhone = onCall(
   { region: 'asia-south1' },
   async (request) => {
+    // Require authentication to prevent user enumeration
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Authentication required');
+    }
+
     const { phoneNumber } = request.data || {};
 
     if (!phoneNumber) {

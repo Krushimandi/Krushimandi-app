@@ -47,6 +47,8 @@ const OTPVerificationScreen = ({ navigation, route }) => {
   const autoSubmitAnimation = useRef(new Animated.Value(1)).current;
   const lastTapTime = useRef(0);
   const isMountedRef = useRef(true);
+  const otpAttemptsRef = useRef(0);
+  const MAX_OTP_ATTEMPTS = 5;
 
   const scrollViewRef = useRef(null);
 
@@ -330,6 +332,16 @@ const OTPVerificationScreen = ({ navigation, route }) => {
     if (otpCode && otpCode.length === 6) {
       // prevent duplicate verification calls
       if (isLoading) return;
+
+      // Brute-force protection: limit OTP attempts
+      if (otpAttemptsRef.current >= MAX_OTP_ATTEMPTS) {
+        setError('Too many failed attempts. Please request a new OTP.');
+        setCanResend(true);
+        setTimer(0);
+        return;
+      }
+
+      otpAttemptsRef.current += 1;
       setIsLoading(true);
       setError('');
       try {
@@ -354,24 +366,27 @@ const OTPVerificationScreen = ({ navigation, route }) => {
       } catch (err) {
         if (__DEV__) console.error('OTP Verification Error:', err);
 
-        // Allow bypass ONLY if instant verification already signed the user in
-        // AND the signed-in user's phone matches the target phone being verified.
-        // This avoids navigating with an old session when OTP was incorrect for a new number.
-        try {
-          const currentUser = auth().currentUser;
-          const targetPhone = normalizePhone(displayPhoneNumber);
-          const currentPhone = normalizePhone(currentUser?.phoneNumber);
-          if (__DEV__) console.log('Current user after OTP error:', Boolean(currentUser?.uid));
-          if (currentUser?.uid && currentPhone && currentPhone === targetPhone) {
-            const route = await authFlowManager.resumeAuthFlow();
-            if (route.screen === 'Main') {
-              resetToMain();
-            } else {
-              navigation.replace(route.screen, route.params || {});
+        // Allow bypass ONLY when Firebase auto-verification already signed the user in
+        // (e.g., instant verification on Android). We check for specific error codes
+        // that indicate the session was consumed by auto-verification, NOT wrong OTP.
+        const errCode = err?.code || '';
+        const isAutoVerified = errCode === 'auth/session-expired' || errCode === 'auth/invalid-verification-id';
+        if (isAutoVerified) {
+          try {
+            const currentUser = auth().currentUser;
+            const targetPhone = normalizePhone(displayPhoneNumber);
+            const currentPhone = normalizePhone(currentUser?.phoneNumber);
+            if (currentUser?.uid && currentPhone && currentPhone === targetPhone) {
+              const route = await authFlowManager.resumeAuthFlow();
+              if (route.screen === 'Main') {
+                resetToMain();
+              } else {
+                navigation.replace(route.screen, route.params || {});
+              }
+              return;
             }
-            return;
-          }
-        } catch { }
+          } catch { }
+        }
 
         // If we reach here, OTP likely failed; clear input only for real OTP errors
         if (err?.code === 'firestore/permission-denied' || (err?.message || '').includes('permission-denied')) {
@@ -442,6 +457,7 @@ const OTPVerificationScreen = ({ navigation, route }) => {
       setCanResend(false);
       setOtp('');
       setError('');
+      otpAttemptsRef.current = 0; // Reset attempts on new OTP
       try {
         const targetPhone = displayPhoneNumber || phoneNumber;
         const normalizedPhone = String(targetPhone || '').replace(/\s+/g, '');

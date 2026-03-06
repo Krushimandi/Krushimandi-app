@@ -66,7 +66,7 @@ export const useRequests = () => {
     } finally {
       setLoading(false);
     }
-  }, [user?.name]);
+  }, [user?.name, user?.uid]);
 
   // Load buyer's requests
   const loadBuyerRequests = useCallback(async (filters?: RequestFilters): Promise<void> => {
@@ -176,7 +176,7 @@ export const useRequests = () => {
     } finally {
       setLoading(false);
     }
-  }, [user?.name]);
+  }, [user?.name, user?.uid]);
 
   // Cancel a request (buyer action)
   const cancelRequest = useCallback(async (requestId: string): Promise<boolean> => {
@@ -225,7 +225,7 @@ export const useRequests = () => {
     } finally {
       setLoading(false);
     }
-  }, [user?.name]);
+  }, [user?.name, user?.uid]);
 
   // Resend a request (buyer action)
   const resendRequest = useCallback(async (requestId: string): Promise<string | null> => {
@@ -273,7 +273,7 @@ export const useRequests = () => {
     } finally {
       setLoading(false);
     }
-  }, [user?.name]);
+  }, [user?.name, user?.uid]);
 
   // Get product request counts
   const getProductRequestCounts = useCallback(async (productIds: string[]): Promise<ProductRequestCount[]> => {

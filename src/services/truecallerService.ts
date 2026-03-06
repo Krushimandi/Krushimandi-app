@@ -8,6 +8,7 @@ import auth from '@react-native-firebase/auth';
 import firebase from '@react-native-firebase/app';
 import '@react-native-firebase/functions';
 import { authFlowManager } from './authFlowManager';
+import { secrets } from '../config/secrets';
 
 // Truecaller OAuth credentials interface (for secure server-side verification)
 export interface TruecallerOAuthCredentials {
@@ -246,9 +247,7 @@ export const handleTruecallerSuccess = async (
  * Truecaller configuration for the app
  */
 export const TRUECALLER_CONFIG = {
-  // Replace with your actual Truecaller Client ID from Truecaller Developer Portal
-  //   androidClientId: 'be8ztmxgodjueaz7e2iqkb8sbp2a4qzcoybdqvulfzy',
-  androidClientId: '4ffalqpluvmzz883vho6qrqh7zfhvyhv8v4otgtvwxs',
+  androidClientId: secrets.TRUECALLER_CLIENT_ID,
   
   // iOS configuration (if needed)
   iosAppKey: 'YOUR_IOS_APP_KEY',

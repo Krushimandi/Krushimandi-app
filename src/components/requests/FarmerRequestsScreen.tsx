@@ -247,22 +247,22 @@ const FarmerRequestsScreen = ({ route }: { route?: any }) => {
         if (selectedRequests.length === 0) return;
 
         try {
-            for (const requestId of selectedRequests) {
-                const success = await respondToRequest({
-                    requestId,
-                    status: 'accepted'
-                });
+            const results = await Promise.allSettled(
+                selectedRequests.map(requestId =>
+                    respondToRequest({ requestId, status: 'accepted' })
+                )
+            );
 
-                if (!success) {
-                    throw new Error(`Failed to accept request ${requestId}`);
-                }
+            const failed = results.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value));
+            if (failed.length > 0) {
+                console.warn(`Bulk accept: ${failed.length}/${results.length} failed`);
             }
 
             setSelectedRequests([]);
             setIsManageMode(false);
 
         } catch (error) {
-            console.error('❌ Error in bulk accept:', error);
+            console.error('Error in bulk accept:', error);
         }
     };
 
@@ -270,21 +270,21 @@ const FarmerRequestsScreen = ({ route }: { route?: any }) => {
         if (selectedRequests.length === 0) return;
 
         try {
-            for (const requestId of selectedRequests) {
-                const success = await respondToRequest({
-                    requestId,
-                    status: 'rejected'
-                });
+            const results = await Promise.allSettled(
+                selectedRequests.map(requestId =>
+                    respondToRequest({ requestId, status: 'rejected' })
+                )
+            );
 
-                if (!success) {
-                    throw new Error(`Failed to reject request ${requestId}`);
-                }
+            const failed = results.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value));
+            if (failed.length > 0) {
+                console.warn(`Bulk reject: ${failed.length}/${results.length} failed`);
             }
 
             setSelectedRequests([]);
             setIsManageMode(false);
         } catch (error) {
-            console.error('❌ Error in bulk reject:', error);
+            console.error('Error in bulk reject:', error);
         }
     };
 

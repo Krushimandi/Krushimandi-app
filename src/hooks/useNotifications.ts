@@ -197,12 +197,11 @@ export const useUnreadCount = () => {
         };
 
         updateCount();
-        
-        // You can add a listener here for real-time updates if needed
-        // For now, we'll update every 30 seconds
-        const interval = setInterval(updateCount, 30000);
-        
-        return () => clearInterval(interval);
+
+        // Use the notification listener for real-time updates instead of polling
+        const unsubscribe = addNotificationListener(updateCount);
+
+        return () => { if (unsubscribe) unsubscribe(); };
     }, []);
 
     return {

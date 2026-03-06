@@ -13,14 +13,13 @@ export const initializeAppCheck = async () => {
 
     if (__DEV__) {
       // Use DEBUG provider on both platforms in development
+      // Debug token is read from Firebase Console > App Check > Manage debug tokens
       provider.configure({
         android: {
           provider: 'debug',
-          debugToken: '35515E03-8C57-424C-8D9B-FBC0E1856296'
         },
         apple: {
           provider: 'debug',
-          debugToken: '35515E03-8C57-424C-8D9B-FBC0E1856296'
         },
       });
       
@@ -47,9 +46,9 @@ export const initializeAppCheck = async () => {
   // Use modular API to avoid deprecation warnings
   const tokenResult = await getAppCheckToken(appCheckInstance);
     if (tokenResult?.token) {
-      console.log(tokenResult?.token);
+      if (__DEV__) console.log('[AppCheck] Token acquired successfully');
     } else {
-      console.warn('⚠️ [AppCheck] Token unavailable after initialization');
+      console.warn('[AppCheck] Token unavailable after initialization');
     }
   } catch (error) {
     console.error('AppCheck initialization failed:', error);

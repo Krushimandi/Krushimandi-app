@@ -149,7 +149,7 @@ export const subscribeMessages = (
   onUpdate: (msgs: MessageDoc[]) => void,
   onError?: (e: any) => void
 ) => {
-  const ref = database().ref(`chats/${chatId}/messages`).orderByChild('createdAt');
+  const ref = database().ref(`chats/${chatId}/messages`).orderByChild('createdAt').limitToLast(100);
   const handler = (snap: FirebaseDatabaseTypes.DataSnapshot) => {
     const val = snap.val() || {};
     const msgs: MessageDoc[] = Object.keys(val)

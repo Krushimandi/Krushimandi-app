@@ -344,23 +344,37 @@ class RequestService {
         }
     }
 
-    // Get request counts for fruits
+    // Get request counts for fruits (batched to avoid N+1 queries)
     async getProductRequestCounts(productIds: string[]): Promise<ProductRequestCount[]> {
         try {
-            const counts: ProductRequestCount[] = [];
+            if (!productIds.length) return [];
 
-            for (const productId of productIds) {
+            const counts: ProductRequestCount[] = [];
+            // Firestore 'in' clause supports max 30 items per query
+            const chunkSize = 30;
+            for (let i = 0; i < productIds.length; i += chunkSize) {
+                const chunk = productIds.slice(i, i + chunkSize);
                 const querySnapshot = await this.db.collection('requests')
-                    .where('productId', '==', productId)
+                    .where('productId', 'in', chunk)
                     .where('status', '==', RequestStatus.PENDING)
                     .get();
 
-                if (querySnapshot.docs.length > 0) {
-                    const lastRequest = querySnapshot.docs[0].data();
+                // Group results by productId
+                const grouped: Record<string, { count: number; lastRequestAt: any }> = {};
+                for (const doc of querySnapshot.docs) {
+                    const data = doc.data();
+                    const pid = data.productId;
+                    if (!grouped[pid]) {
+                        grouped[pid] = { count: 0, lastRequestAt: data.createdAt };
+                    }
+                    grouped[pid].count += 1;
+                }
+
+                for (const [productId, info] of Object.entries(grouped)) {
                     counts.push({
                         productId,
-                        count: querySnapshot.docs.length,
-                        lastRequestAt: lastRequest.createdAt
+                        count: info.count,
+                        lastRequestAt: info.lastRequestAt,
                     });
                 }
             }

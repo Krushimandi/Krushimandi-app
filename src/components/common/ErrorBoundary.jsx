@@ -15,6 +15,19 @@ class ErrorBoundary extends React.Component {
 
   componentDidCatch(error, errorInfo) {
     console.error('Error caught by boundary:', error, errorInfo);
+    // TODO: Replace with Firebase Crashlytics when integrated:
+    // crashlytics().recordError(error);
+    // For now, log structured error that survives console stripping
+    try {
+      const errorLog = {
+        message: error?.message || 'Unknown error',
+        componentStack: errorInfo?.componentStack?.substring(0, 500),
+        timestamp: new Date().toISOString(),
+      };
+      if (__DEV__) {
+        console.error('[ErrorBoundary]', JSON.stringify(errorLog, null, 2));
+      }
+    } catch (_) { }
   }
 
   render() {

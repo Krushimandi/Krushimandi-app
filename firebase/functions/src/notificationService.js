@@ -213,6 +213,9 @@ exports.sendPromotionalNotification = onCall(async (request) => {
   if (!Array.isArray(toUserIds) || toUserIds.length === 0) {
   throw new HttpsError('invalid-argument', 'toUserIds must be a non-empty array');
   }
+  if (toUserIds.length > 500) {
+  throw new HttpsError('invalid-argument', 'toUserIds cannot exceed 500 recipients per request');
+  }
   const results = [];
   for (const to of toUserIds) {
     const id = await createNotificationAndPush({
@@ -237,6 +240,9 @@ exports.sendUpdateNotification = onCall(async (request) => {
   }
   if (!Array.isArray(toUserIds) || toUserIds.length === 0) {
   throw new HttpsError('invalid-argument', 'toUserIds must be a non-empty array');
+  }
+  if (toUserIds.length > 500) {
+  throw new HttpsError('invalid-argument', 'toUserIds cannot exceed 500 recipients per request');
   }
   const results = [];
   for (const to of toUserIds) {
